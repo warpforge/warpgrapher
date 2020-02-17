@@ -1,0 +1,29 @@
+# Valid config
+---
+version: 2
+model:
+  - name: Feature
+    props:
+      - name: name
+        type: String
+
+  - name: Bug
+    props:
+      - name: name
+        type: String
+
+  - name: KanbanBoard
+    props:
+      - name: name
+        type: String
+
+  - name: ScrumBoard
+    props:
+      - name: name
+        type: String
+
+  - name: Commit
+    props:
+      - name: hash
+        type: String
+      

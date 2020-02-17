@@ -1,0 +1,25 @@
+# Valid config
+---
+version: 2
+model:
+  - name: "Leaf"
+    props:
+      - name: "color"
+        required: true
+        type: "String"
+      - name: "size"
+        required: false
+        type: "String"
+      - name: "shape"
+        required: false
+        type: "String"
+        validator: "MyValidator"
+    rels:
+      - name: "stem"
+        list: false
+        nodes: 
+          - "Leaf"
+        props:
+          - name: "length"
+            type: String
+            required: false

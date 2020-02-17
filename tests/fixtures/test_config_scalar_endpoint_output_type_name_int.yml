@@ -1,0 +1,20 @@
+# Valid config
+---
+version: 2
+model:
+  - name: User
+    props:
+      - name: name
+        type: String
+endpoints:
+  - name: UserCount
+    class: Query
+    input:
+      list: false
+      type: String
+    output:
+      list: false
+      type: 
+        name: Int
+        props: []
+        rels: []

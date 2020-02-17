@@ -1,0 +1,9 @@
+# Valid config
+---
+version: 2
+model:
+  - name: User
+    props:
+      - name: name
+        required: true
+        type: "String"

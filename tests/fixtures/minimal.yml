@@ -1,0 +1,78 @@
+version: 1
+model:
+
+  # User
+  - name: User
+    props:
+      - name: name
+        type: String
+        required: true
+
+  # Project
+  - name: Project
+    props:
+      - name: name
+        type: String
+      - name: description
+        type: String
+      - name: status
+        type: String
+      - name: priority
+        type: Int
+      - name: estimate
+        type: Float
+      - name: active
+        type: Boolean
+    rels:
+      - name: owner
+        props:
+          - name: since
+            type: String
+        nodes: [User]
+      - name: board
+        nodes: [KanbanBoard, ScrumBoard]
+        props:
+          - name: public
+            type: Boolean
+      - name: activity
+        nodes: [Commit]
+        props:
+            - name: repo
+              type: String
+        list: true
+      - name: issues
+        props:
+          - name: since
+            type: String
+        nodes: [Feature, Bug]
+        list: true
+  
+  # Feature
+  - name: Feature
+    props:
+      - name: name
+        type: String
+  
+  # Bug
+  - name: Bug
+    props:
+      - name: name
+        type: String
+  
+  # KanbanBoard
+  - name: KanbanBoard
+    props:
+      - name: name
+        type: String
+  
+  # ScrumBoard
+  - name: ScrumBoard
+    props:
+      - name: name
+        type: String
+  
+  # Commit
+  - name: Commit
+    props:
+      - name: hash
+        type: String

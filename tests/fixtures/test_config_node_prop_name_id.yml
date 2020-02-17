@@ -1,0 +1,9 @@
+# Invalid config
+---
+version: 2
+model:
+  - name: User
+    props:
+      - name: ID 
+        required: true
+        type: "Int"

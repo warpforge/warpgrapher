@@ -1,0 +1,12 @@
+# Valid config
+---
+version: 2
+endpoints:
+  - name: UserCount
+    class: Query
+    input:
+      list: false
+      type: DoesNotExist
+    output:
+      list: false
+      type: DoesNotExist

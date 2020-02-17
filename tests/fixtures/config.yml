@@ -1,0 +1,85 @@
+version: 1
+model:
+
+  # User
+  - name: User
+    props:
+      - name: name
+        type: String
+        required: true
+        validator: NameValidator
+
+  # Project
+  - name: Project
+    props:
+      - name: name
+        type: String
+      - name: description
+        type: String
+      - name: status
+        type: String
+      - name: priority
+        type: Int
+      - name: estimate
+        type: Float
+      - name: active
+        type: Boolean
+      - name: points
+        type: Int
+        resolver: ProjectPoints
+    rels:
+      - name: owner
+        props:
+          - name: since
+            type: String
+        nodes: [User]
+      - name: board
+        nodes: [KanbanBoard, ScrumBoard]
+      - name: activity
+        nodes: [Commit]
+        list: true
+      - name: issues
+        nodes: [Feature, Bug]
+        list: true
+  
+  # Feature
+  - name: Feature
+    props:
+      - name: name
+        type: String
+  
+  # Bug
+  - name: Bug
+    props:
+      - name: name
+        type: String
+  
+  # KanbanBoard
+  - name: KanbanBoard
+    props:
+      - name: name
+        type: String
+  
+  # ScrumBoard
+  - name: ScrumBoard
+    props:
+      - name: name
+        type: String
+  
+  # Commit
+  - name: Commit
+    props:
+      - name: hash
+        type: String
+
+endpoints: 
+
+  # ProjectCount:
+  - name: ProjectCount
+    class: Query
+    input:
+      list: false
+      type: ProjectQueryInput
+    output:
+      list: false
+      type: Int

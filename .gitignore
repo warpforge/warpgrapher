@@ -1,0 +1,11 @@
+*.freeze
+*.swo
+*.swp
+.old
+.tmp
+.vscode
+
+/doc
+/target
+**/*.rs.bk
+tarpaulin-report.html

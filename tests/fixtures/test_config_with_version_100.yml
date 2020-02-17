@@ -1,0 +1,8 @@
+# Valid config
+---
+version: 100
+model:
+  - name: Comment
+    props:
+      - name: title
+        type: String

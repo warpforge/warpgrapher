@@ -1,0 +1,45 @@
+[package]
+name = "warpgrapher"
+authors = ["Javier <javier@shellforge.com>"]
+description = "Automate web service creation with GraphQL and Neo4J"
+license = "MIT"
+repository = "https://gitlab.com/shellforge/warpgrapher"
+readme = "README.md"
+keywords = ["graphql", "neo4j"]
+categories = ["wasm", "web-programming"]
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+actix = "0.9.0"
+actix-http = "1.0.1"
+actix-net = "0.2.6"
+actix-rt = "1.0.0"
+actix-server-config = "0.1.2"
+actix-service = "0.4.1"
+actix-threadpool = "0.1.1"
+actix-web = "2.0.0"
+actix-cors = "0.2.0"
+base64 = "0.10.1"
+clap = "2.32.0"
+env_logger = "0.6.1"
+frank_jwt = "3.1.1"
+futures = "0.3.1"
+indexmap = "1.0.2"
+Inflector = "0.11.4"
+juniper = "0.13.1"
+log = "0.4.6"
+num_cpus = "1.0"
+r2d2 = "0.8.4"
+r2d2_cypher = "0.4.0"
+regex = "1"
+rusted_cypher = "1.1.0"
+serde = { version = "1.0.89", features = ["derive"] }
+serde_json = "1.0.39"
+serde_yaml = "0.8.8"
+uuid = "0.7.4"
+wasm-bindgen = "0.2.33"
+
+[dev-dependencies]
+assert_approx_eq = "1.1.0"
+serial_test = "0.3.2"

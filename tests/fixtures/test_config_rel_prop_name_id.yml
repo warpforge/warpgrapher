@@ -1,0 +1,31 @@
+# Invalid config
+---
+version: 2
+model:
+  - name: User
+    props:
+      - name: name
+        required: true
+        type: "String"
+  - name: Project
+    props:
+      - name: name
+        type: String
+      - name: description
+        type: String
+      - name: status
+        type: String
+      - name: priority
+        type: Int 
+      - name: estimate
+        type: Float
+      - name: active
+        type: Boolean
+      - name: points
+        type: Int 
+    rels:
+      - name: owner
+        props:
+          - name: ID 
+            type: Int 
+        nodes: [User]
