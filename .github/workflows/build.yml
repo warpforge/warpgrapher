@@ -9,7 +9,7 @@ jobs:
     #if: "!contains(github.event.head_commit.message, 'ci skip')"
 
     env:
-      DB_URL: http://localhost:testpass@docker:7474/db/data
+      DB_URL: http://neo4j:testpass@localhost:7474/db/data
       DB_PASS: testpass
       
     steps:
