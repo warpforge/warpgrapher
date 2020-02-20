@@ -33,13 +33,22 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
         
-    - name: Build
-      run: cargo build
+    - name: Install Clippy
+      run: rustup component add clippy
+    
+    - name: Install Cargo Audit
+      run: cargo install --list | grep cargo-audit || cargo install cargo-audit
+
+    - name: Run Linter
+      run: cargo clippy --all-targets --all-features -- -D warnings
+
+    - name: Run Audit
+      run: cargo audit
       
     - name: Start neo4j database
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
     
-    - name: Run tests
+    - name: Run Tests
       run: cargo test
     
     - name: Stop neo4j database
