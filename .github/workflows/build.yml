@@ -6,14 +6,23 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    #if: "!contains(github.event.head_commit.message, 'ci skip')"
 
+    env:
+      DB_URL: http://neo4j:testpass@docker:7474/db/data
+      DB_PASS: testpass
+      
     steps:
     - uses: actions/checkout@v2
-    - name: Start neo4j database
-      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/password123" -p 7474:7474 -p 7687:7687 neo4j:3.5
+      
     - name: Build
       run: cargo build
+      
+    - name: Start neo4j database
+      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
+    
     - name: Run tests
       run: cargo test
+    
     - name: Stop neo4j database
       run: docker rm -f neo4j
