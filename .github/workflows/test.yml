@@ -35,10 +35,12 @@ jobs:
       uses: actions/cache@v1
       with:
         path: rustbins
-        key: ${{ runner.os }}-cargo-rustbins-${{ hashFiles('**/Cargo.lock') }}
+        key: cargo-audit
  
     - run: pwd
     - run: ls -la
+    - run: ls -la rustbins || echo "na"
+    - run: ls -la rustbins/bin || echo "na"
 
     - name: Install Cargo Audit
       run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root ./rustbins
