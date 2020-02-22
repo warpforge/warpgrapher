@@ -48,7 +48,7 @@ jobs:
       run: echo "some lines" | grep line
 
     - name: Install Cargo Audit
-      run: cargo install --list | grep cargo-audit || cargo install cargo-audit
+      run: ls -la ~/.cargo/bin | grep cargo-audit || cargo install cargo-audit
         
     - name: Install Clippy
       run: rustup component add clippy
