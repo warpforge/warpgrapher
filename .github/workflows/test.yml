@@ -37,8 +37,6 @@ jobs:
         path: rustbins
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
   
-    - run: ls -la rustbins/bin/
-
     - name: Install Cargo Audit
       run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root ./rustbins
     
