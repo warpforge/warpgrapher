@@ -35,7 +35,7 @@ jobs:
     - name: Cache cargo audit
       uses: actions/cache@v1
       with:
-        path: ~/.cargo/bin/cargo-audit
+        path: ~/.cargo/bin
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
    
     - name: debug
