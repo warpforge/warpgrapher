@@ -12,6 +12,7 @@ jobs:
       
     steps:
     - uses: actions/checkout@v2
+    
       
     - name: Cache cargo registry
       uses: actions/cache@v1
@@ -30,12 +31,18 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-        
-    - name: Install Clippy
-      run: rustup component add clippy
+    
+    - name: Cache cargo audit
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo/bin/cargo-audit
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Install Cargo Audit
       run: cargo install --list | grep cargo-audit || cargo install cargo-audit
+        
+    - name: Install Clippy
+      run: rustup component add clippy
 
     - name: Run Linter
       run: cargo clippy --all-targets --all-features -- -D warnings

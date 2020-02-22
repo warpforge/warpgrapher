@@ -1,12 +1,12 @@
 [package]
 name = "warpgrapher"
-authors = ["Javier <javier@shellforge.com>"]
+authors = ["Javier Vazquez"]
 description = "Automate web service creation with GraphQL and Neo4J"
 license = "MIT"
-repository = "https://gitlab.com/shellforge/warpgrapher"
+repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
-categories = ["wasm", "web-programming"]
+categories = ["web-programming"]
 version = "0.1.0"
 edition = "2018"
 

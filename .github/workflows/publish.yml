@@ -6,14 +6,11 @@ on:
       - created
 
 jobs:
-  test:
+  publish:
     runs-on: ubuntu-latest
-      
     steps:
     - uses: actions/checkout@v2
-      
+    - name: Publish Crate
+      run: cargo publish --dry-run --token $CARGO_TOKEN
     - name: Publish Book
       run: echo "publishing book..."
-    
-    - name: Publish Crate
-      run: echo "publishing crate..."
