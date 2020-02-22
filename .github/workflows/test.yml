@@ -31,27 +31,23 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     
-    - name: Cache cargo audit
+    - name: Cache local cargo bins
       uses: actions/cache@v1
       with:
-        path: ~/.cargo/bin
+        path: rustbins
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
    
-    - run: ls -la ~/.cargo/bin
-
-    - run: cargo install --list
-
     - name: Install Cargo Audit
-      run: ls -la ~/.cargo/bin | grep cargo-audit || cargo install cargo-audit
+      run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root rustbins
+    
+    - name: Run Cargo Audit
+      run: rustbins/bin/cargo-audit audit
         
     - name: Install Clippy
       run: rustup component add clippy
 
     - name: Run Linter
       run: cargo clippy --all-targets --all-features -- -D warnings
-
-    - name: Run Audit
-      run: cargo audit
       
     - name: Start neo4j database
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
