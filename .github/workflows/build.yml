@@ -4,7 +4,7 @@ on: [pull_request_review_comment]
 
 jobs:
   test:
-    if: "github.event.comment.body == '@runtest'"
+    if: github.event.comment.body == '>runtest'
     runs-on: ubuntu-latest
 
     env:
