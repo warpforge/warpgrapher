@@ -4,7 +4,6 @@ on: [pull_request]
 
 jobs:
   test:
-      
     - name: Debug trigger
       run: echo ${{ github.action }}
     
