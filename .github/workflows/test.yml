@@ -47,6 +47,9 @@ jobs:
     - name: debug3
       run: echo "some lines" | grep line
 
+    - run: echo $CARGO_INSTALL_ROOT
+    - run: echo $CARGO_HOME
+
     - name: Install Cargo Audit
       run: ls -la ~/.cargo/bin | grep cargo-audit || cargo install cargo-audit
         
