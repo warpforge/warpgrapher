@@ -7,5 +7,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Debug trigger
-      run: echo ${{ github.action }}
+      run: echo ${{ github.event.action }}
     
