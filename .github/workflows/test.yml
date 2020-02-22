@@ -38,17 +38,9 @@ jobs:
         path: ~/.cargo/bin
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
    
-    - name: debug
-      run: ls -la ~/.cargo/bin
+    - run: ls -la ~/.cargo/bin
 
-    - name: debub2
-      run: cargo install --list
-    
-    - name: debug3
-      run: echo "some lines" | grep line
-
-    - run: echo $CARGO_INSTALL_ROOT
-    - run: echo $CARGO_HOME
+    - run: cargo install --list
 
     - name: Install Cargo Audit
       run: ls -la ~/.cargo/bin | grep cargo-audit || cargo install cargo-audit
