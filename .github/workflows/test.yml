@@ -35,7 +35,7 @@ jobs:
       uses: actions/cache@v1
       with:
         path: rustbins
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-rustbins-${{ hashFiles('**/Cargo.lock') }}
  
     - run: pwd
     - run: ls -la
