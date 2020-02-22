@@ -4,6 +4,8 @@ on: [pull_request]
 
 jobs:
   test:
+    runs-on: ubuntu-latest
+    steps:
     - name: Debug trigger
       run: echo ${{ github.action }}
     
