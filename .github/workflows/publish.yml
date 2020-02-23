@@ -11,4 +11,4 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Publish Crate
-      run: cargo publish --dry-run --token  ${{ secrets.CARGO_TOKEN }}
+      run: cargo publish --dry-run --token ${{ secrets.CARGO_TOKEN }}
