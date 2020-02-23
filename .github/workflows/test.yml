@@ -37,14 +37,8 @@ jobs:
         path: rustbins
         key: cargo-audit
  
-    - run: ls -la
-    - run: ls -la rustbins || echo "na"
-    - run: ls -la rustbins/bin || echo "na"
-
     - name: Install Cargo Audit
       run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root ./rustbins
-    
-    - run: ls -la rustbins/bin/
     
     - name: Run Cargo Audit
       run: rustbins/bin/cargo-audit audit
