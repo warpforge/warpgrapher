@@ -37,7 +37,6 @@ jobs:
         path: rustbins
         key: cargo-audit
  
-    - run: pwd
     - run: ls -la
     - run: ls -la rustbins || echo "na"
     - run: ls -la rustbins/bin || echo "na"
