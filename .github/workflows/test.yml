@@ -36,7 +36,7 @@ jobs:
         path: target
         key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
     
-    - name: Cache local cargo bins
+    - name: Cache cargo audit
       uses: actions/cache@v1
       with:
         path: rustbins
