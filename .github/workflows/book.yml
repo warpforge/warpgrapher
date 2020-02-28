@@ -13,6 +13,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      branch: gh-pages
+    
+    - uses: actions/checkout@v2
+      path: new_branch
       
     - name: Cache cargo registry
       uses: actions/cache@v1
@@ -25,12 +29,18 @@ jobs:
       with:
         path: ~/.cargo/git
         key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
- 
+
+    - name: Delete existing docs dir
+      run: rm -rf ./docs
+
     - name: Install mdbook
       run: cargo install mdbook
       
     - name: Build book
-      run: mdbook build book -d ../docs
+      run: mdbook build new_branch/book -d ../../docs
+
+    - run: ls -la
+    - run: ls -la docs
 
     - name: Commit files
       run: |
