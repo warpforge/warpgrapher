@@ -13,10 +13,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      ref: gh-pages
+      with:
+        ref: gh-pages
     
     - uses: actions/checkout@v2
-      path: new_branch
+      with:
+        path: new_branch
      
     - run: ls -la
 
