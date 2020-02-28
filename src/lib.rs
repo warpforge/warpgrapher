@@ -18,7 +18,7 @@ pub use error::ErrorKind;
 
 pub use server::config::{
     WarpgrapherConfig, WarpgrapherResolverFunc, WarpgrapherResolvers, WarpgrapherValidatorFunc,
-    WarpgrapherValidators,
+    WarpgrapherValidators, WarpgrapherType, WarpgrapherEndpoint
 };
 pub use server::context::{GraphQLContext, WarpgrapherRequestContext};
 pub use server::extensions::{Extension, WarpgrapherExtensions};
