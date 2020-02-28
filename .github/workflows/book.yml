@@ -41,7 +41,7 @@ jobs:
       run: cargo install mdbook
       
     - name: Build book
-      run: mdbook build new_branch/book -d ../../docs
+      run: mdbook build new_branch/book -d ../..
 
     - run: ls -la
     - run: ls -la docs
@@ -51,7 +51,7 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add docs
-        git commit -m "Updated built book" -a
+        git commit -a -m "Updated built book" -a
 
     - name: Push changes
       uses: ad-m/github-push-action@master
