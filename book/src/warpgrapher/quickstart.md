@@ -112,7 +112,7 @@ Navigate to the displayed URL. You should see the GraphQL Playground which allow
 
 First, list all `User` nodes in the database:
 
-```
+```graphql
 query {
   User {
     id
