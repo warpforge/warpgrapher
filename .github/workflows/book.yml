@@ -13,11 +13,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-      branch: gh-pages
+      ref: gh-pages
     
     - uses: actions/checkout@v2
       path: new_branch
-      
+     
+    - run: ls -la
+
     - name: Cache cargo registry
       uses: actions/cache@v1
       with:
