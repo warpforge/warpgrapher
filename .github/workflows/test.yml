@@ -6,6 +6,10 @@ on:
       - '**'
     tags-ignore:
       - '**'
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'examples/**'
 
 jobs:
   test:
