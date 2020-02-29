@@ -1,0 +1,11 @@
+version: 1
+model:
+
+  # User
+  - name: User
+    props:
+      - name: name
+        type: String
+      - name: tags
+        type: String
+        list: true
