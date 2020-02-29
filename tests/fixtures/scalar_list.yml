@@ -9,3 +9,6 @@ model:
       - name: tags
         type: String
         list: true
+      - name: values
+        type: Boolean
+        list: true
