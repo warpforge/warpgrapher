@@ -48,6 +48,7 @@ jobs:
     - run: ls -la gh-pages
 
     - name: Commit files
+      working-directory: ./gh-pages
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
