@@ -45,7 +45,12 @@ jobs:
     - run: ls -la gh-pages
 
     - name: Build book
-      run: mdbook build new_branch/book -d ../../gh-pages
+      run: mdbook build new_branch/book -d ../../docs
+    
+    - run: ls -la
+    - run: ls -la gh-pages
+
+    - run: cp -r docs/* gh-pages/
 
     - run: ls -la
     - run: ls -la gh-pages
