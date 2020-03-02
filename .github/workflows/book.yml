@@ -3,7 +3,7 @@ name: Docs
 on:
   push:
     branches:
-      - 21-book
+      - master
     tags-ignore:
       - '**'
 
@@ -21,8 +21,6 @@ jobs:
       with:
         path: new_branch
      
-    - run: ls -la
-
     - name: Cache cargo registry
       uses: actions/cache@v1
       with:
@@ -41,24 +39,14 @@ jobs:
     - name: Install mdbook
       run: cargo install mdbook
 
-    - run: ls -la
-    - run: ls -la gh-pages
-
     - name: Build book
       run: mdbook build new_branch/book -d ../../docs
     
-    - run: ls -la
-    - run: ls -la gh-pages
-
     - run: cp -r docs/* gh-pages/
-
-    - run: ls -la
-    - run: ls -la gh-pages
 
     - name: Commit files
       working-directory: ./gh-pages
       run: |
-        ls -la
         git status
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
