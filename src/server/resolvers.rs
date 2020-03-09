@@ -907,33 +907,32 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
             }
             Value::String(s) => executor.resolve_with_ctx(&(), s),
             Value::Array(a) => {
-                let x = &a.get(0);
-                if x.is_none() {
+                let v0 = &a.get(0);
+                if v0.is_none() {
                     let array : Vec<String> = vec![];
                     return executor.resolve_with_ctx(&(), &array);
                 }
-                let x = x.unwrap();
-
-                if x.is_string() {
+                let v0 = v0.unwrap();
+                if v0.is_string() {
                     let array : Vec<String> = a.iter().map(|x| x.as_str().unwrap().to_string()).collect();
                     return executor.resolve_with_ctx(&(), &array);
                 }
-                else if x.is_boolean() {
+                else if v0.is_boolean() {
                     let array : Vec<bool> = a.iter().map(|x| x.as_bool().unwrap()).collect();
                     return executor.resolve_with_ctx(&(), &array);
                 }
-                else if x.is_i64() {
+                else if v0.is_i64() {
                     let array : Vec<i32> = a.iter().map(|x| x.as_i64().unwrap() as i32).collect();
                     return executor.resolve_with_ctx(&(), &array);
                 }
-                else if x.is_f64() {
+                else if v0.is_f64() {
                     let array : Vec<f64> = a.iter().map(|x| x.as_f64().unwrap()).collect();
                     return executor.resolve_with_ctx(&(), &array);
                 }
                 else {
                     return Err(Error::new(
                         ErrorKind::InvalidPropertyType(
-                            String::from(field_name) + " is an array. Expected a scalar.",
+                            String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar list",
                         ),
                         None,
                     )
@@ -942,7 +941,7 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
             },
             Value::Object(_) => Err(Error::new(
                 ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an object. Expected a scalar.",
+                    String::from(field_name) + " is an object. Expected a scalar or a scalar list.",
                 ),
                 None,
             )
