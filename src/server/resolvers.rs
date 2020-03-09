@@ -908,6 +908,9 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
             Value::String(s) => executor.resolve_with_ctx(&(), s),
             Value::Array(a) => {
                 match &a.get(0) {
+                    None => {
+                        return executor.resolve_with_ctx(&(), &(vec![] as Vec<String>));
+                    },
                     Some(v) if v.is_string() => {
                         let array : Vec<String> = a.iter().map(|x| x.as_str().unwrap().to_string()).collect();
                         return executor.resolve_with_ctx(&(), &array);
@@ -924,14 +927,20 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
                         let array : Vec<i32> = a.iter().map(|x| x.as_i64().unwrap() as i32).collect();
                         return executor.resolve_with_ctx(&(), &array)
                     },
-                    _ => {
-                        return executor.resolve_with_ctx(&(), &(vec![] as Vec<String>));
+                    Some(_v) => {
+                        Err(Error::new(
+                            ErrorKind::InvalidPropertyType(
+                                String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array.",
+                            ),
+                            None,
+                        )
+                        .into())
                     }
                 }
             },
             Value::Object(_) => Err(Error::new(
                 ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an object. Expected a scalar or a scalar list.",
+                    String::from(field_name) + " is an object. Expected a scalar or a scalar array.",
                 ),
                 None,
             )
@@ -980,17 +989,3 @@ pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestC
         .into()),
     }
 }
-
-/*
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_resolve_scalar_arrays() {
-
-
-    }
-
-
-}
-*/
