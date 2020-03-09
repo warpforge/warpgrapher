@@ -1,14 +1,17 @@
 version: 1
 model:
 
-  # User
-  - name: User
+  - name: TestType
     props:
-      - name: name
-        type: String
-      - name: tags
+      - name: string_list
         type: String
         list: true
-      - name: values
+      - name: bool_list
         type: Boolean
+        list: true
+      - name: int_list
+        type: Int
+        list: true
+      - name: float_list
+        type: Float
         list: true

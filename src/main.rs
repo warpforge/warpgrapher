@@ -7,7 +7,8 @@ extern crate warpgrapher;
 
 use clap::{App, Arg};
 use warpgrapher::server::bind_port_from_env;
-use warpgrapher::{Error, Neo4jEndpoint, Server, WarpgrapherConfig};
+use warpgrapher::{Error, Neo4jEndpoint, Server};
+use warpgrapher::config::{WarpgrapherConfig};
 
 fn main() -> Result<(), Error> {
     env_logger::init();
