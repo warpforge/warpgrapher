@@ -186,7 +186,9 @@ where
             .map(|p| {
                 let f = match (p.type_name.as_str(), p.required, p.list, &p.kind) {
                     ("Boolean", false, false, _) => registry.field::<Option<bool>>(&p.name, &()),
-                    ("Boolean", false, true, _) => registry.field::<Option<Vec<bool>>>(&p.name, &()),
+                    ("Boolean", false, true, _) => {
+                        registry.field::<Option<Vec<bool>>>(&p.name, &())
+                    }
                     ("Boolean", true, false, _) => registry.field::<bool>(&p.name, &()),
                     ("Boolean", true, true, _) => registry.field::<Vec<bool>>(&p.name, &()),
                     ("Float", false, false, _) => registry.field::<Option<f64>>(&p.name, &()),
@@ -202,7 +204,9 @@ where
                     ("Int", true, false, _) => registry.field::<i32>(&p.name, &()),
                     ("Int", true, true, _) => registry.field::<Vec<i32>>(&p.name, &()),
                     ("String", false, false, _) => registry.field::<Option<String>>(&p.name, &()),
-                    ("String", false, true, _) => registry.field::<Option<Vec<String>>>(&p.name, &()),
+                    ("String", false, true, _) => {
+                        registry.field::<Option<Vec<String>>>(&p.name, &())
+                    }
                     ("String", true, false, _) => registry.field::<String>(&p.name, &()),
                     ("String", true, true, _) => registry.field::<Vec<String>>(&p.name, &()),
                     (_, false, false, PropertyKind::Rel(_)) => {
