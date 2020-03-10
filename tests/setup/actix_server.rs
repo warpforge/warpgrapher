@@ -35,58 +35,11 @@ impl AppData {
     }
 }
 
-/*
-struct Headers {
-    data: HashMap<String, String>
-}
-
-impl Headers {
-    fn new() -> Headers {
-        Headers {
-            data: HashMap::new(),
-        }
-    }
-}
-
-impl FromRequest for Headers {
-    type Error = Error;
-    type Future = Ready<Result<Self, Error>>;
-    type Config = HeadersConfig;
-
-    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let mut h = Headers::new();
-        h.data = HashMap::new();
-  
-        for (k, v) in req.headers().iter() {
-            if let Ok(s) = v.to_str() {
-                h.data.insert(k.as_str().to_string(), s.to_string());
-            }
-        }
-
-        ok(h)
-    }
-}
-
-struct HeadersConfig {
-    _ehandler: Option<Arc<dyn Fn(QueryPayloadError, &HttpRequest) -> Error + Send + Sync>>,
-}
-
-impl Default for HeadersConfig {
-    fn default() -> Self {
-        HeadersConfig { _ehandler: None }
-    }
-}
-*/
-
 async fn graphql(
       data: Data<AppData>,
       req: Json<GraphQLRequest>,
-      //_headers: Headers,
     ) -> Result<HttpResponse, Error> {
  
-    //TODO Convert actix Json to serde_json
-
-    //TODO Convert headers to metadata Hashmap
     let metadata: HashMap<String, String> = HashMap::new();
 
     let resp = &data.engine.execute(req, metadata);
@@ -151,7 +104,7 @@ pub fn start(
         };
         let _ = tx.send(Err(warpgrapher::Error::new(k, None)));
     })
-    .unwrap(); //TODO
+    .unwrap(); 
 
     let server = srv.system_exit().run();
     let _ = tx.send(Ok(server));
