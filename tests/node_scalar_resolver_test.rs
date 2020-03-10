@@ -102,3 +102,108 @@ fn scalar_lists_no_array_test() {
 
     assert!(server.shutdown().is_ok());
 }
+
+/// Passes if the create mutation and the read query both succeed.
+#[test]
+#[serial]
+fn scalar_no_lists_test() {
+    init();
+    clear_db();
+
+    let mut client = test_client();
+    let mut server = test_server("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    let _ = match client
+        .create_node(
+            "TestType",
+            "string_list",
+            &json!({
+                "string_list": ["string0", "string1", "string2", "string3"],
+            }),
+        ) 
+    {
+        Ok(_) => assert!(false),
+        Err(_) => assert!(true)
+    };
+
+    let _ = match client
+        .create_node(
+            "TestType",
+            "bool_list",
+            &json!({
+                "bool_list": [true, false, true, false],
+            }),
+        ) 
+    {
+        Ok(_) => assert!(false),
+        Err(_) => assert!(true)
+    };
+
+    let _ = match client
+        .create_node(
+            "TestType",
+            "int_list",
+            &json!({
+                "int_list": [0, 1, 2, 3],
+            }),
+        ) 
+    {
+        Ok(_) => assert!(false),
+        Err(_) => assert!(true)
+    };
+
+    let _ = match client
+        .create_node(
+            "TestType",
+            "float_list",
+            &json!({
+                "float_list": [0.0, 1.1, 2.2, 3.3],
+            }),
+        ) 
+    {
+        Ok(_) => assert!(false),
+        Err(_) => assert!(true)
+    };
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if the create mutation and the read query both succeed.
+#[test]
+#[serial]
+fn scalar_no_lists_no_array_test() {
+    init();
+    clear_db();
+
+    let mut client = test_client();
+    let mut server = test_server("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    let result = client
+        .create_node(
+            "TestType",
+            "string_list
+             bool_list
+             int_list
+             float_list
+            ",
+            &json!({
+                "string_list": "string0",
+                "bool_list": false,
+                "int_list": 0,
+                "float_list": 0.0,
+            }),
+        )
+        .unwrap();
+
+    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+
+    assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
+
+    assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
+
+    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0);
+
+    assert!(server.shutdown().is_ok());
+}
