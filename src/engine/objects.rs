@@ -8,7 +8,7 @@ use super::resolvers::{
 };
 use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
+use crate::engine::context::WarpgrapherRequestContext;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,

@@ -1,26 +1,33 @@
-extern crate env_logger;
+extern crate log;
+extern crate serde_yaml;
 extern crate warpgrapher;
 
 use actix::System;
 use actix_cors::Cors;
 use actix_http::error::Error;
+use actix_web::dev;
 use actix_web::middleware::Logger;
 use actix_web::web::{Data, Json};
-use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use juniper::http::playground::playground_source;
+use actix_web::{web, App, HttpResponse, HttpServer};
 use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
 
-use warpgrapher::{Neo4jEndpoint, Engine, WarpgrapherConfig};
+use super::server::{AppGlobalCtx, AppReqCtx};
+use warpgrapher::Engine;
+use warpgrapher::{
+    WarpgrapherConfig, WarpgrapherExtensions,
+    WarpgrapherResolvers, WarpgrapherValidators,
+};
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine
+    engine: Engine<AppGlobalCtx, AppReqCtx>
 }
 
 impl AppData {
     fn new(
-        engine: Engine 
+        engine: Engine<AppGlobalCtx, AppReqCtx>
     ) -> AppData {
         AppData {
             engine
@@ -99,73 +106,54 @@ async fn graphql(
     
 }
 
-async fn graphiql(
-        _data: Data<AppData>, 
-    ) -> impl Responder {
-
-    let html = playground_source(&"/graphql");
-
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(html)
-}
-
-#[allow(clippy::match_wild_err_arm)]
-fn main() {
-    env_logger::init();
-    
-    let matches = clap::App::new("warpgrapher-actixweb")
-        .version("0.1")
-        .about("Warpgrapher sample application using actix-web server")
-        .author("Warpgrapher")
-        .arg(
-            clap::Arg::with_name("CONFIG")
-                .help("Path to configuration file to use")
-                .required(true),
-        )
-        .get_matches();
-
-    let cfn = matches
-        .value_of("CONFIG")
-        .expect("Configuration required.");
-
-    let config = WarpgrapherConfig::from_file(cfn.to_string())
-        .expect("Could not load config file");
-
-    let db = match Neo4jEndpoint::from_env("DB_URL") {
-        Ok(db) => db,
-        Err(_) => panic!("Unable to find Neo4jEndpoint")
-    }; 
-    
-    let engine = Engine::<(), ()>::new(config, db)
+#[allow(clippy::ptr_arg)]
+pub fn start(
+    config: &WarpgrapherConfig,
+    db_url: &str,
+    global_ctx: &AppGlobalCtx,
+    resolvers: &WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
+    validators: &WarpgrapherValidators,
+    extensions: &WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    tx: Sender<Result<dev::Server, warpgrapher::Error>>,
+) {
+    let engine = Engine::<AppGlobalCtx, AppReqCtx>::new(config.clone(), db_url.to_string())
         .with_version("1.0".to_string())
+        .with_global_ctx(global_ctx.clone())
+        .with_resolvers(resolvers.clone())
+        .with_validators(validators.clone())
+        .with_extensions(extensions.clone())
         .build()
         .expect("Could not create warpgrapher engine");
 
     let graphql_endpoint = "/graphql";
-    let playground_endpoint = "/graphiql";
     let bind_addr = "127.0.0.1".to_string();
     let bind_port = "5000".to_string();
     let addr = format!("{}:{}", bind_addr, bind_port);
 
-    let sys = System::new("warpgrapher-actixweb");
+    let sys = System::new("warpgrapher-test-server");
 
     let app_data = AppData::new(
         engine
     );
 
-    HttpServer::new(move || {
+    let srv = HttpServer::new(move || {
         App::new()
             .data(app_data.clone())
             .wrap(Logger::default())
             .wrap(Cors::default())
             .route(graphql_endpoint, web::post().to(graphql))
-            .route(playground_endpoint, web::get().to(graphiql))
     })
     .bind(&addr)
-    .expect("Failed to start server")
-    .run();
+    .map_err(|e| {
+        let k = match e.kind() {
+            std::io::ErrorKind::AddrInUse => warpgrapher::ErrorKind::AddrInUse(e),
+            _ => warpgrapher::ErrorKind::AddrNotAvailable(e),
+        };
+        let _ = tx.send(Err(warpgrapher::Error::new(k, None)));
+    })
+    .unwrap(); //TODO
 
-    println!("Server available on: {:#?}", &addr);
+    let server = srv.system_exit().run();
+    let _ = tx.send(Ok(server));
     let _ = sys.run();
 }

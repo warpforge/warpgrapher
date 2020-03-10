@@ -7,6 +7,10 @@ use std::sync::mpsc::RecvError;
 /// Categories of Warpgrapher errors.
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// Returned by the `From` implementation for a `actix_http::error::Error` object. 
+    /// Conversion from `actix_http::error::Error`.
+    ActixHttpError(String),
+
     /// Returned when the server attempts to listen on an address/port
     /// combination that is already bound on the system.
     AddrInUse(std::io::Error),
@@ -139,6 +143,13 @@ pub enum ErrorKind {
     /// please report it to the warpgrapher team.
     FieldMissingResolverError(String, String),
 
+    /// Returned by the `From` implementation for a `String` object. 
+    /// Conversion from `String`.
+    GenericError(String),
+
+    /// Returned by the engine for convenience when converting a json object containing an error message to a string. This error wraps the resulting string.
+    GraphQLError(String),
+
     /// Returned when there is a failure executing a neo4j query and the expected results
     /// from the database are not returned.
     GraphQueryError(rusted_cypher::error::GraphError),
@@ -155,6 +166,20 @@ pub enum ErrorKind {
     /// Returned when a custom endpoint is defined or a resolver is
     /// defined for a field, but the corresponding resolver is not provided.
     ResolverNotFound(String, String),
+    
+    /// This error is returned if the root node could not be determined from the schema.
+    /// Note: This error should never be thrown. This is a critical error. If you see it,
+    /// please report it to the warpgrapher team.
+    MissingRootNode,
+   
+    /// This error is returned if the database pool was not created. 
+    /// Note: This error should never be thrown. This is a critical error. If you see it,
+    /// please report it to the warpgrapher team.
+    MissingDatabasePool,
+
+    /// Returned by the `From` implementation for a `serde_json::error::Error` object. 
+    /// Conversion from `serde_json::error::Error`.
+    SerdeJsonError(String),
 
     /// Returned when a `WarpgrapherServer` tries to shutdown but the server is not
     /// running.
@@ -169,6 +194,10 @@ pub enum ErrorKind {
 
     /// Returned when a `WarpgrapherServer` fails to start.
     ServerStartupFailed(RecvError),
+
+    /// Returned by the `From` implementation for a `r2d2::Error` object. 
+    /// Conversion from `r2d2::Error`.
+    R2D2Error(String),
 
     /// Returned when a custom input validator is defined, but the corresponding
     /// validator is not provided.
@@ -210,6 +239,30 @@ impl Error {
     /// ```
     pub fn new(kind: ErrorKind, source: Option<Box<dyn error::Error + Send + Sync>>) -> Error {
         Error { kind, source }
+    }
+}
+
+impl From<actix_http::error::Error> for Error {
+    fn from(error: actix_http::error::Error) -> Error {
+        Error::new(ErrorKind::ActixHttpError(error.to_string()), None)
+    }
+}
+
+impl From<serde_json::error::Error> for Error {
+    fn from(error: serde_json::error::Error) -> Error {
+        Error::new(ErrorKind::SerdeJsonError(error.to_string()), None)
+    }
+}
+
+impl From<r2d2::Error> for Error {
+    fn from(error: r2d2::Error) -> Error {
+        Error::new(ErrorKind::R2D2Error(error.to_string()), None)
+    }
+}
+
+impl From<String> for Error {
+    fn from(error: String) -> Error {
+        Error::new(ErrorKind::GenericError(error), None)
     }
 }
 

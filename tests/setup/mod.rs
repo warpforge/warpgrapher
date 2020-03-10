@@ -1,5 +1,6 @@
 pub mod extension;
 pub mod server;
+pub mod actix_server;
 
 use rusted_cypher::GraphClient;
 use std::env::var_os;
