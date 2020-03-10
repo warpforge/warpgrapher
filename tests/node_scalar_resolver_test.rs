@@ -8,6 +8,7 @@ use setup::{clear_db, init, test_client};
 /// Passes if the create mutation and the read query both succeed.
 #[test]
 #[serial]
+#[allow(clippy::float_cmp)]
 fn scalar_lists_test() {
     init();
     clear_db();
@@ -56,10 +57,10 @@ fn scalar_lists_test() {
 
     let floats = result.get("float_list").unwrap();
     assert!(floats.is_array());
-    assert_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0);
-    assert_eq!(floats.get(1).unwrap().as_f64().unwrap(), 1.1);
-    assert_eq!(floats.get(2).unwrap().as_f64().unwrap(), 2.2);
-    assert_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3);
+    assert_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0_f64);
+    assert_eq!(floats.get(1).unwrap().as_f64().unwrap(), 1.1_f64);
+    assert_eq!(floats.get(2).unwrap().as_f64().unwrap(), 2.2_f64);
+    assert_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3_f64);
 
     assert!(server.shutdown().is_ok());
 }
@@ -67,6 +68,7 @@ fn scalar_lists_test() {
 /// Passes if the create mutation and the read query both succeed.
 #[test]
 #[serial]
+#[allow(clippy::float_cmp)]
 fn scalar_lists_no_array_test() {
     init();
     clear_db();
@@ -98,7 +100,7 @@ fn scalar_lists_no_array_test() {
 
     assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
 
-    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0);
+    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0_f64);
 
     assert!(server.shutdown().is_ok());
 }
@@ -114,57 +116,41 @@ fn scalar_no_lists_test() {
     let mut server = test_server("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    let _ = match client
+    assert!(client
         .create_node(
             "TestType",
             "string_list",
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
-        ) 
-    {
-        Ok(_) => assert!(false),
-        Err(_) => assert!(true)
-    };
+        ).is_err());
 
-    let _ = match client
+    assert!(client
         .create_node(
             "TestType",
             "bool_list",
             &json!({
                 "bool_list": [true, false, true, false],
             }),
-        ) 
-    {
-        Ok(_) => assert!(false),
-        Err(_) => assert!(true)
-    };
+        ).is_err());
 
-    let _ = match client
+    assert!(client
         .create_node(
             "TestType",
             "int_list",
             &json!({
                 "int_list": [0, 1, 2, 3],
             }),
-        ) 
-    {
-        Ok(_) => assert!(false),
-        Err(_) => assert!(true)
-    };
+        ).is_err());
 
-    let _ = match client
+    assert!(client
         .create_node(
             "TestType",
             "float_list",
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
-        ) 
-    {
-        Ok(_) => assert!(false),
-        Err(_) => assert!(true)
-    };
+        ).is_err());
 
     assert!(server.shutdown().is_ok());
 }
@@ -172,6 +158,7 @@ fn scalar_no_lists_test() {
 /// Passes if the create mutation and the read query both succeed.
 #[test]
 #[serial]
+#[allow(clippy::float_cmp)]
 fn scalar_no_lists_no_array_test() {
     init();
     clear_db();
@@ -203,7 +190,7 @@ fn scalar_no_lists_no_array_test() {
 
     assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
 
-    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0);
+    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0_f64);
 
     assert!(server.shutdown().is_ok());
 }
