@@ -1,16 +1,16 @@
 use super::extension::{Metadata, MetadataExtension, MetadataExtensionCtx};
 use actix_web::dev;
-use std::env::var_os;
-use std::sync::Arc;
-use std::sync::mpsc;
-use std::thread::{spawn, JoinHandle};
 use futures::executor::block_on;
+use std::env::var_os;
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::thread::{spawn, JoinHandle};
 use warpgrapher::{
     Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
 };
 use warpgrapher::{
-    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext,
-    WarpgrapherResolvers, WarpgrapherValidators,
+    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext, WarpgrapherResolvers,
+    WarpgrapherValidators,
 };
 
 #[derive(Clone, Debug)]
@@ -120,14 +120,14 @@ where
 }
 
 pub struct Server {
-        config: WarpgrapherConfig,
-        db_url: String,
-        global_ctx: AppGlobalCtx,
-        resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-        validators: WarpgrapherValidators,
-        extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
-        server: Option<dev::Server>,
-        handle: Option<JoinHandle<()>>,
+    config: WarpgrapherConfig,
+    db_url: String,
+    global_ctx: AppGlobalCtx,
+    resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
+    validators: WarpgrapherValidators,
+    extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    server: Option<dev::Server>,
+    handle: Option<JoinHandle<()>>,
 }
 
 impl Server {
@@ -151,25 +151,22 @@ impl Server {
         }
     }
 
-    pub fn serve(
-        &mut self,
-        block: bool
-    ) -> Result<(), Error> {
+    pub fn serve(&mut self, block: bool) -> Result<(), Error> {
         if self.handle.is_some() || self.server.is_some() {
             return Err(Error::new(ErrorKind::ServerAlreadyRunning, None));
         }
 
         let (tx, rx) = mpsc::channel();
 
-        if block { 
+        if block {
             super::actix_server::start(
-                    &self.config,
-                    &self.db_url,
-                    &self.global_ctx,
-                    &self.resolvers,
-                    &self.validators,
-                    &self.extensions,
-                    tx,
+                &self.config,
+                &self.db_url,
+                &self.global_ctx,
+                &self.resolvers,
+                &self.validators,
+                &self.extensions,
+                tx,
             );
         } else {
             let config = self.config.clone();
@@ -198,20 +195,18 @@ impl Server {
                 Ok(s) => {
                     self.server = Some(s);
                     Ok(())
-                },
+                }
                 Err(e) => match self.handle.take() {
                     Some(h) => {
                         let _ = h.join();
                         Err(e)
-                    },
+                    }
                     None => Err(e),
                 },
             })
-    } 
+    }
 
-    pub fn shutdown(
-        &mut self
-    ) -> Result<(), Error> {
+    pub fn shutdown(&mut self) -> Result<(), Error> {
         let s = self
             .server
             .take()
@@ -225,12 +220,10 @@ impl Server {
         block_on(s.stop(true));
 
         h.join()
-            .map_err(|_| {
-                Error::new(ErrorKind::ServerShutdownFailed, None)
-            })
+            .map_err(|_| Error::new(ErrorKind::ServerShutdownFailed, None))
             .and_then(|_| Ok(()))
     }
-} 
+}
 
 #[allow(dead_code)]
 pub fn test_server(config_path: &str) -> Server {
@@ -275,11 +268,6 @@ pub fn test_server(config_path: &str) -> Server {
 
     // create server
     Server::new(
-        config,
-        db_url,
-        global_ctx,
-        resolvers,
-        validators,
-        extensions,
+        config, db_url, global_ctx, resolvers, validators, extensions,
     )
 }

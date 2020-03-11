@@ -7,7 +7,7 @@ use std::sync::mpsc::RecvError;
 /// Categories of Warpgrapher errors.
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// Returned by the `From` implementation for a `actix_http::error::Error` object. 
+    /// Returned by the `From` implementation for a `actix_http::error::Error` object.
     /// Conversion from `actix_http::error::Error`.
     ActixHttpError(String),
 
@@ -143,7 +143,7 @@ pub enum ErrorKind {
     /// please report it to the warpgrapher team.
     FieldMissingResolverError(String, String),
 
-    /// Returned by the `From` implementation for a `String` object. 
+    /// Returned by the `From` implementation for a `String` object.
     /// Conversion from `String`.
     GenericError(String),
 
@@ -166,18 +166,18 @@ pub enum ErrorKind {
     /// Returned when a custom endpoint is defined or a resolver is
     /// defined for a field, but the corresponding resolver is not provided.
     ResolverNotFound(String, String),
-    
+
     /// This error is returned if the root node could not be determined from the schema.
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
     MissingRootNode,
-   
-    /// This error is returned if the database pool was not created. 
+
+    /// This error is returned if the database pool was not created.
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
     MissingDatabasePool,
 
-    /// Returned by the `From` implementation for a `serde_json::error::Error` object. 
+    /// Returned by the `From` implementation for a `serde_json::error::Error` object.
     /// Conversion from `serde_json::error::Error`.
     SerdeJsonError(String),
 
@@ -195,7 +195,7 @@ pub enum ErrorKind {
     /// Returned when a `WarpgrapherServer` fails to start.
     ServerStartupFailed(RecvError),
 
-    /// Returned by the `From` implementation for a `r2d2::Error` object. 
+    /// Returned by the `From` implementation for a `r2d2::Error` object.
     /// Conversion from `r2d2::Error`.
     R2D2Error(String),
 

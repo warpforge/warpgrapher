@@ -1,7 +1,7 @@
 use resolvers::{project_count, project_points};
 use validators::name_validator;
 use warpgrapher::{
-    Error, Neo4jEndpoint, Engine, WarpgrapherConfig, WarpgrapherRequestContext,
+    Engine, Error, Neo4jEndpoint, WarpgrapherConfig, WarpgrapherRequestContext,
     WarpgrapherResolvers, WarpgrapherValidators,
 };
 extern crate env_logger;
@@ -9,9 +9,9 @@ extern crate frank_jwt;
 extern crate log;
 extern crate warpgrapher;
 
+mod actix_server;
 mod resolvers;
 mod validators;
-mod actix_server;
 
 #[derive(Clone, Debug)]
 pub struct GlobalContext {
@@ -86,7 +86,7 @@ fn main() -> Result<(), Error> {
     // define database endpoint
     let db = Neo4jEndpoint::from_env("DB_URL")?;
 
-    // engine 
+    // engine
     let engine: Engine<GlobalContext, ReqContext> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .with_validators(validators)

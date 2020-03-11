@@ -16,47 +16,33 @@ use std::sync::mpsc::Sender;
 use super::server::{AppGlobalCtx, AppReqCtx};
 use warpgrapher::Engine;
 use warpgrapher::{
-    WarpgrapherConfig, WarpgrapherExtensions,
-    WarpgrapherResolvers, WarpgrapherValidators,
+    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherResolvers, WarpgrapherValidators,
 };
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine<AppGlobalCtx, AppReqCtx>
+    engine: Engine<AppGlobalCtx, AppReqCtx>,
 }
 
 impl AppData {
-    fn new(
-        engine: Engine<AppGlobalCtx, AppReqCtx>
-    ) -> AppData {
-        AppData {
-            engine
-        }
+    fn new(engine: Engine<AppGlobalCtx, AppReqCtx>) -> AppData {
+        AppData { engine }
     }
 }
 
-async fn graphql(
-      data: Data<AppData>,
-      req: Json<GraphQLRequest>,
-    ) -> Result<HttpResponse, Error> {
- 
+async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
 
     let resp = &data.engine.execute(req, metadata);
 
     match resp {
-          Ok(body) => {
-              Ok(HttpResponse::Ok()
-                  .content_type("application/json")
-                  .body(body.to_string()))
-          },
-          Err(e) => {
-              Ok(HttpResponse::InternalServerError()
-                  .content_type("application/json")
-                  .body(e.to_string()))
-          }
+        Ok(body) => Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .body(body.to_string())),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .content_type("application/json")
+            .body(e.to_string())),
     }
-    
 }
 
 #[allow(clippy::ptr_arg)]
@@ -85,9 +71,7 @@ pub fn start(
 
     let sys = System::new("warpgrapher-test-server");
 
-    let app_data = AppData::new(
-        engine
-    );
+    let app_data = AppData::new(engine);
 
     let srv = HttpServer::new(move || {
         App::new()
@@ -104,7 +88,7 @@ pub fn start(
         };
         let _ = tx.send(Err(warpgrapher::Error::new(k, None)));
     })
-    .unwrap(); 
+    .unwrap();
 
     let server = srv.system_exit().run();
     let _ = tx.send(Ok(server));

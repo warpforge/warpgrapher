@@ -590,7 +590,7 @@ impl WarpgrapherType {
             endpoints,
         }
     }
-    
+
     /// Creates a new [`WarpgrapherType`] data structure from
     /// a yaml-formatted string
     pub fn from_yaml(yaml: &str) -> Result<WarpgrapherType, Error> {
@@ -745,12 +745,12 @@ pub fn compose(configs: Vec<WarpgrapherConfig>) -> Result<WarpgrapherConfig, Err
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::prelude::*;
     use super::{
         compose, ErrorKind, WarpgrapherConfig, WarpgrapherEndpointsFilter, WarpgrapherProp,
         WarpgrapherType,
     };
+    use std::fs::File;
+    use std::io::prelude::*;
 
     /// Passes if a new WarpgrapherConfiguration is created
     #[test]
@@ -808,7 +808,7 @@ mod tests {
         assert!(t.props.get(0).unwrap().name == "name");
         assert!(t.props.get(1).unwrap().name == "role");
     }
-    
+
     #[allow(clippy::match_wild_err_arm)]
     #[test]
     fn test_type_from_yaml() {

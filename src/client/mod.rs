@@ -126,7 +126,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_create_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient create_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned()))?;
@@ -169,7 +169,7 @@ impl WarpgrapherClient {
         let query = self.fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         debug!(
-            "WarpGrapherClient create_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
@@ -212,7 +212,7 @@ impl WarpgrapherClient {
         let query = self.fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         debug!(
-            "WarpGrapherClient delete_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
@@ -264,7 +264,7 @@ impl WarpgrapherClient {
         }
         let input = if m.is_empty() { None } else { Some(json!(m)) };
         debug!(
-            "WarpGrapherClient delete_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, input)?;
@@ -297,7 +297,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient read_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
@@ -333,7 +333,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_rel_query(type_name, rel_name, shape);
         debug!(
-            "WarpGrapherClient read_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
@@ -375,7 +375,7 @@ impl WarpgrapherClient {
         let query = self.fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         debug!(
-            "WarpGrapherClient update_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
@@ -416,7 +416,7 @@ impl WarpgrapherClient {
         let query = self.fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         debug!(
-            "WarpGrapherClient update_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = graphql(self.endpoint.to_owned(), query, Some(input))?;

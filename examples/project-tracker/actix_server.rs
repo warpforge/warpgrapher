@@ -16,47 +16,32 @@ use warpgrapher::Engine;
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine<GlobalContext, ReqContext>
+    engine: Engine<GlobalContext, ReqContext>,
 }
 
 impl AppData {
-    fn new(
-        engine: Engine<GlobalContext, ReqContext>
-    ) -> AppData {
-        AppData {
-            engine
-        }
+    fn new(engine: Engine<GlobalContext, ReqContext>) -> AppData {
+        AppData { engine }
     }
 }
 
-async fn graphql(
-      data: Data<AppData>,
-      req: Json<GraphQLRequest>,
-    ) -> Result<HttpResponse, Error> {
- 
+async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
 
     let resp = &data.engine.execute(req, metadata);
 
     match resp {
-          Ok(body) => {
-              Ok(HttpResponse::Ok()
-                  .content_type("application/json")
-                  .body(body.to_string()))
-          },
-          Err(e) => {
-              Ok(HttpResponse::InternalServerError()
-                  .content_type("application/json")
-                  .body(e.to_string()))
-          }
+        Ok(body) => Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .body(body.to_string())),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .content_type("application/json")
+            .body(e.to_string())),
     }
-    
 }
 
 #[allow(clippy::ptr_arg)]
-pub fn start(
-    engine: Engine<GlobalContext, ReqContext>,
-) {
+pub fn start(engine: Engine<GlobalContext, ReqContext>) {
     let graphql_endpoint = "/graphql";
     let bind_addr = "127.0.0.1".to_string();
     let bind_port = "5000".to_string();
@@ -64,9 +49,7 @@ pub fn start(
 
     let sys = System::new("warpgrapher-example-server");
 
-    let app_data = AppData::new(
-        engine
-    );
+    let app_data = AppData::new(engine);
 
     HttpServer::new(move || {
         App::new()

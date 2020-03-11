@@ -7,8 +7,8 @@ use super::config::{
     WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
-use crate::error::{Error, ErrorKind};
 use crate::engine::context::WarpgrapherRequestContext;
+use crate::error::{Error, ErrorKind};
 use inflector::Inflector;
 use juniper::RootNode;
 use serde_json::Map;

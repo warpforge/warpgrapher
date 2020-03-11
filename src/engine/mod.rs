@@ -1,4 +1,4 @@
-//! This module provides WarpGrapher servers, including supporting modules for
+//! This module provides the Warpgrapher engine, including supporting modules for
 //! configuration, GraphQL schema generation, resolvers, and interface to the
 //! database.
 
@@ -16,9 +16,9 @@ use schema::{create_root_node, RootRef};
 use serde_json;
 use serde_json::json;
 use std::collections::HashMap;
+use std::env::var_os;
 use std::fmt::Debug;
 use std::option::Option;
-use std::env::var_os;
 
 pub mod config;
 pub mod context;
@@ -35,7 +35,10 @@ fn graphql_error(err: &Box<dyn std::error::Error + Send + Sync>) -> Error {
         Ok(s) => Error::new(ErrorKind::GraphQLError(s), None),
         Err(e) => {
             error!("Failed to serialize error object:  {:#?}", e);
-            Error::new(ErrorKind::GraphQLError("INTERNAL SERVER ERROR".to_string()), None)
+            Error::new(
+                ErrorKind::GraphQLError("INTERNAL SERVER ERROR".to_string()),
+                None,
+            )
         }
     }
 }
@@ -44,7 +47,7 @@ impl WarpgrapherRequestContext for () {
     fn new() {}
 }
 
-/// A WarpGrapher GraphQL server.
+/// A Warpgrapher GraphQL engine.
 ///
 /// The [`Engine`] struct Juniper GraphQL service
 /// on top of it, with an auto-generated set of resolvers that cover basic CRUD
@@ -52,24 +55,20 @@ impl WarpgrapherRequestContext for () {
 /// the relationships between them.  The engine includes handling of back-end
 /// communications with the chosen databse.
 ///
-/// [`Server`]: ./struct.Server.html
+/// [`Engine`]: ./struct.Engine.html
 ///
 /// # Examples
 ///
-/// ```rustx
-/// use warpgrapher::{Server, Neo4jEndpoint};
-/// use warpgrapher::server::config::WarpgrapherConfig;
-/// use warpgrapher::server::{bind_port_from_env};
+/// ```rust
+/// use warpgrapher::{Engine, Neo4jEndpoint};
+/// use warpgrapher::engine::config::WarpgrapherConfig;
 ///
 /// let config = WarpgrapherConfig::default();
 /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
 ///
-/// let mut server = Server::<(), ()>::new(config, db)
-///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
+/// let mut engine = Engine::<(), ()>::new(config, db)
 ///     .build().unwrap();
 ///
-/// server.serve(false);
-/// server.shutdown();
 /// ```
 #[derive(Clone)]
 pub struct Engine<GlobalCtx = (), ReqCtx = ()>
@@ -100,15 +99,15 @@ where
     /// [`WarpgrapherConfiguration`]: ./config/struct.WarpgrapherConfiguration.html
     ///
     /// # Examples
-    /// use warpgrapher::{Server, Neo4jEndpoint};
-    /// use warpgrapher::server::config::WarpgrapherConfig;
-    /// use warpgrapher::server::{bind_port_from_env};
+    ///
+    /// ```rust
+    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<()>::new(config, db)
-    ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
+    /// let mut engine = Engine::<()>::new(config, db)
     ///     .build().unwrap();
     /// ```
     pub fn new(config: WarpgrapherConfig, database: String) -> Engine<GlobalCtx, ReqCtx> {
@@ -129,7 +128,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint};
     /// use warpgrapher::engine::config::WarpgrapherConfig;
@@ -153,11 +152,11 @@ where
         self
     }
 
-    /// Adds resolvers to the engine 
+    /// Adds resolvers to the engine
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherResolvers};
     /// use warpgrapher::engine::config::WarpgrapherConfig;
@@ -179,11 +178,11 @@ where
         self
     }
 
-    /// Adds validators to the engine 
+    /// Adds validators to the engine
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherValidators};
     /// use warpgrapher::engine::config::WarpgrapherConfig;
@@ -209,11 +208,10 @@ where
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherExtensions};
     /// use warpgrapher::engine::config::WarpgrapherConfig;
-    /// use warpgrapher::engine::{bind_port_from_env};
     ///
     /// let extensions = WarpgrapherExtensions::<(), ()>::new();
     ///
@@ -236,7 +234,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint};
     /// use warpgrapher::engine::config::WarpgrapherConfig;
@@ -254,7 +252,7 @@ where
     }
 
     /// Builds a configured [`Engine`] including generateing the data model, CRUD operations,
-    /// and custom endpoints from the [`WarpgrapherConfiguration`] `c`. 
+    /// and custom endpoints from the [`WarpgrapherConfiguration`] `c`.
     /// Returns the [`Engine`].
     ///
     /// [`Engine`]: ./struct.Engine.html
@@ -271,10 +269,10 @@ where
     ///
     /// # Examples
     ///
-    /// ```rustx
+    /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::server::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
@@ -283,13 +281,13 @@ where
     ///     .build().unwrap();
     /// ```
     pub fn build(mut self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
-        let manager = CypherConnectionManager { url: self.database.clone() };
-        
-        let pool = r2d2::Pool::builder()
-            .max_size(5)
-            .build(manager)?;
+        let manager = CypherConnectionManager {
+            url: self.database.clone(),
+        };
 
-        // validate server options
+        let pool = r2d2::Pool::builder().max_size(5).build(manager)?;
+
+        // validate engine options
         match Engine::validate_engine(&self.resolvers, &self.validators, &self.config) {
             Ok(_) => (),
             Err(e) => return Err(e),
@@ -428,12 +426,12 @@ where
 
         let root_node = match &self.root_node {
             Some(r) => r.clone(),
-            None => return Err(Error::new(ErrorKind::MissingRootNode, None))
+            None => return Err(Error::new(ErrorKind::MissingRootNode, None)),
         };
 
         let pool = match &self.pool {
             Some(p) => p.clone(),
-            None => return Err(Error::new(ErrorKind::MissingDatabasePool, None))
+            None => return Err(Error::new(ErrorKind::MissingDatabasePool, None)),
         };
 
         // execute graphql query

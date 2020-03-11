@@ -11,51 +11,35 @@ use juniper::http::playground::playground_source;
 use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
-use warpgrapher::{Neo4jEndpoint, Engine, WarpgrapherConfig};
+use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherConfig};
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine
+    engine: Engine,
 }
 
 impl AppData {
-    fn new(
-        engine: Engine 
-    ) -> AppData {
-        AppData {
-            engine
-        }
+    fn new(engine: Engine) -> AppData {
+        AppData { engine }
     }
 }
 
-async fn graphql(
-      data: Data<AppData>,
-      req: Json<GraphQLRequest>,
-    ) -> Result<HttpResponse, Error> {
- 
+async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
 
     let resp = &data.engine.execute(req, metadata);
 
     match resp {
-          Ok(body) => {
-              Ok(HttpResponse::Ok()
-                  .content_type("application/json")
-                  .body(body.to_string()))
-          },
-          Err(e) => {
-              Ok(HttpResponse::InternalServerError()
-                  .content_type("application/json")
-                  .body(e.to_string()))
-          }
+        Ok(body) => Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .body(body.to_string())),
+        Err(e) => Ok(HttpResponse::InternalServerError()
+            .content_type("application/json")
+            .body(e.to_string())),
     }
-    
 }
 
-async fn graphiql(
-        _data: Data<AppData>, 
-    ) -> impl Responder {
-
+async fn graphiql(_data: Data<AppData>) -> impl Responder {
     let html = playground_source(&"/graphql");
 
     HttpResponse::Ok()
@@ -66,7 +50,7 @@ async fn graphiql(
 #[allow(clippy::match_wild_err_arm)]
 fn main() {
     env_logger::init();
-    
+
     let matches = clap::App::new("warpgrapher-actixweb")
         .version("0.1")
         .about("Warpgrapher sample application using actix-web server")
@@ -78,18 +62,15 @@ fn main() {
         )
         .get_matches();
 
-    let cfn = matches
-        .value_of("CONFIG")
-        .expect("Configuration required.");
+    let cfn = matches.value_of("CONFIG").expect("Configuration required.");
 
-    let config = WarpgrapherConfig::from_file(cfn.to_string())
-        .expect("Could not load config file");
+    let config = WarpgrapherConfig::from_file(cfn.to_string()).expect("Could not load config file");
 
     let db = match Neo4jEndpoint::from_env("DB_URL") {
         Ok(db) => db,
-        Err(_) => panic!("Unable to find Neo4jEndpoint")
-    }; 
-    
+        Err(_) => panic!("Unable to find Neo4jEndpoint"),
+    };
+
     let engine = Engine::<(), ()>::new(config, db)
         .with_version("1.0".to_string())
         .build()
@@ -103,9 +84,7 @@ fn main() {
 
     let sys = System::new("warpgrapher-actixweb");
 
-    let app_data = AppData::new(
-        engine
-    );
+    let app_data = AppData::new(engine);
 
     HttpServer::new(move || {
         App::new()
