@@ -5,13 +5,13 @@ model:
     props:
       - name: string_list
         type: String
-        list: true
+        list: false 
       - name: bool_list
         type: Boolean
-        list: true
+        list: false
       - name: int_list
         type: Int
-        list: true
+        list: false
       - name: float_list
         type: Float
-        list: true
+        list: false
