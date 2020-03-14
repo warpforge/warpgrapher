@@ -17,8 +17,8 @@ pub use client::WarpgrapherClient;
 pub use error::{Error, ErrorKind};
 
 pub use server::config::{
-    WarpgrapherConfig, WarpgrapherResolverFunc, WarpgrapherResolvers, WarpgrapherValidatorFunc,
-    WarpgrapherValidators,
+    WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherResolverFunc, WarpgrapherResolvers,
+    WarpgrapherType, WarpgrapherValidatorFunc, WarpgrapherValidators,
 };
 pub use server::context::{GraphQLContext, WarpgrapherRequestContext};
 #[cfg(feature = "graphson2")]

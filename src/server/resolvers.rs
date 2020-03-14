@@ -780,16 +780,41 @@ where
                 }
             }
             Value::String(s) => executor.resolve_with_ctx(&(), s),
-            Value::Array(_) => Err(Error::new(
-                ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an array. Expected a scalar.",
-                ),
-                None,
-            )
-            .into()),
+            Value::Array(a) => {
+                match &a.get(0) {
+                    None => {
+                        executor.resolve_with_ctx(&(), &(vec![] as Vec<String>))
+                    },
+                    Some(v) if v.is_string() => {
+                        let array : Vec<String> = a.iter().map(|x| x.as_str().unwrap().to_string()).collect();
+                        executor.resolve_with_ctx(&(), &array)
+                    },
+                    Some(v) if v.is_boolean() => {
+                        let array : Vec<bool> = a.iter().map(|x| x.as_bool().unwrap()).collect();
+                        executor.resolve_with_ctx(&(), &array)
+                    },
+                    Some(v) if v.is_f64() => {
+                        let array : Vec<f64> = a.iter().map(|x| x.as_f64().unwrap()).collect();
+                        executor.resolve_with_ctx(&(), &array)
+                    }
+                    Some(v) if v.is_i64() => {
+                        let array : Vec<i32> = a.iter().map(|x| x.as_i64().unwrap() as i32).collect();
+                        executor.resolve_with_ctx(&(), &array)
+                    },
+                    Some(_v) => {
+                        Err(Error::new(
+                            ErrorKind::InvalidPropertyType(
+                                String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array.",
+                            ),
+                            None,
+                        )
+                        .into())
+                    }
+                }
+            },
             Value::Object(_) => Err(Error::new(
                 ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an object. Expected a scalar.",
+                    String::from(field_name) + " is an object. Expected a scalar or a scalar array.",
                 ),
                 None,
             )
