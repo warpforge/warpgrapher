@@ -1,6 +1,7 @@
 pub mod extension;
 pub mod server;
 
+#[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use std::env::var_os;
 use std::fs::File;
@@ -14,7 +15,7 @@ pub fn init() {
 
 #[allow(dead_code)]
 pub fn db_url() -> String {
-    match var_os("DB_URL") {
+    match var_os("WG_NEO4J_URL") {
         None => "http://neo4j:testpass@127.0.0.1:7474/db/data".to_owned(),
         Some(os) => os
             .to_str()
@@ -52,6 +53,13 @@ pub fn test_client() -> WarpgrapherClient {
     WarpgrapherClient::new(&gql_endpoint())
 }
 
+#[cfg(all(not(feaure = "graphson2"), not(feature = "neo4j")))]
+#[allow(dead_code)]
+pub fn clear_db() {
+    panic!("No database support feature chosen. Need to enable a database feature.");
+}
+
+#[cfg(feature = "neo4j")]
 #[allow(dead_code)]
 pub fn clear_db() {
     let graph = GraphClient::connect(db_url()).unwrap();

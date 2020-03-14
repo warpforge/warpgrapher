@@ -1,21 +1,50 @@
 mod setup;
 
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+use setup::test_client;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use setup::{clear_db, init};
 
-/// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
-fn create_mnst_new_rel() {
+fn create_mnst_new_rel_neo4j() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    create_mnst_new_rel();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn create_mnst_new_rel_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_mnst_new_rel();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if warpgrapher can create a node with a relationship to another new node
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn create_mnst_new_rel() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -90,20 +119,41 @@ fn create_mnst_new_rel() {
     assert!(activity
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn create_mnst_rel_existing_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_mnst_rel_existing_node();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn create_mnst_rel_existing_node() {
+fn create_mnst_rel_existing_node_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    create_mnst_rel_existing_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn create_mnst_rel_existing_node() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node("Project", "name", &json!({"name": "Project Zero"}))
@@ -187,20 +237,41 @@ fn create_mnst_rel_existing_node() {
     assert!(activity
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_mnst_rel_by_rel_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_rel_props();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn read_mnst_rel_by_rel_props() {
+fn read_mnst_rel_by_rel_props_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_rel_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn read_mnst_rel_by_rel_props() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -247,20 +318,41 @@ fn read_mnst_rel_by_rel_props() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_mnst_rel_by_src_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_src_props();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn read_mnst_rel_by_src_props() {
+fn read_mnst_rel_by_src_props_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_src_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn read_mnst_rel_by_src_props() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -313,20 +405,41 @@ fn read_mnst_rel_by_src_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_mnst_rel_by_dst_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_dst_props();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn read_mnst_rel_by_dst_props() {
+fn read_mnst_rel_by_dst_props_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    read_mnst_rel_by_dst_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn read_mnst_rel_by_dst_props() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -373,20 +486,41 @@ fn read_mnst_rel_by_dst_props() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_rel_by_rel_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_rel_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn update_mnst_rel_by_rel_prop() {
+fn update_mnst_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_rel_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn update_mnst_rel_by_rel_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -474,20 +608,41 @@ fn update_mnst_rel_by_rel_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_rel_by_src_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_src_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn update_mnst_rel_by_src_prop() {
+fn update_mnst_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_src_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn update_mnst_rel_by_src_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -544,20 +699,41 @@ fn update_mnst_rel_by_src_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_rel_by_dst_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_dst_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn update_mnst_rel_by_dst_prop() {
+fn update_mnst_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    update_mnst_rel_by_dst_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn update_mnst_rel_by_dst_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -645,20 +821,41 @@ fn update_mnst_rel_by_dst_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mnst_rel_by_rel_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_rel_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn delete_mnst_rel_by_rel_prop() {
+fn delete_mnst_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_rel_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn delete_mnst_rel_by_rel_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -723,20 +920,41 @@ fn delete_mnst_rel_by_rel_prop() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() != "11111"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mnst_rel_by_dst_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_dst_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn delete_mnst_rel_by_dst_prop() {
+fn delete_mnst_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_dst_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn delete_mnst_rel_by_dst_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -801,20 +1019,41 @@ fn delete_mnst_rel_by_dst_prop() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() != "11111"));
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mnst_rel_by_src_prop_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_src_prop();
 
     assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn delete_mnst_rel_by_src_prop() {
+fn delete_mnst_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    delete_mnst_rel_by_src_prop();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn delete_mnst_rel_by_src_prop() {
+    let mut client = test_client();
 
     let _p0 = client
         .create_node(
@@ -913,6 +1152,4 @@ fn delete_mnst_rel_by_src_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "33333"));
-
-    assert!(server.shutdown().is_ok());
 }

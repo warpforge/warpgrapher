@@ -1,4 +1,3 @@
-//! This module provides error handling for WarpGrapher.
 use serde_yaml;
 use std::error;
 use std::fmt::{Display, Formatter, Result};
@@ -63,7 +62,8 @@ pub enum ErrorKind {
 
     /// Returned when `WarpgrapherServer` fails to build a pool for the cypher
     /// connection manager.
-    CouldNotBuildCypherPool(r2d2::Error),
+    #[cfg(feature = "neo4j")]
+    CouldNotBuildDatabasePool(r2d2::Error),
 
     /// Returned when the internal resolver logic cannot infer the correct warpgrapher type
     /// that corresponds to data queried from the database.
@@ -139,10 +139,6 @@ pub enum ErrorKind {
     /// please report it to the warpgrapher team.
     FieldMissingResolverError(String, String),
 
-    /// Returned when there is a failure executing a neo4j query and the expected results
-    /// from the database are not returned.
-    GraphQueryError(rusted_cypher::error::GraphError),
-
     /// Returned when the output of a GraphQL execution is not a valid JSON.
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
@@ -169,6 +165,16 @@ pub enum ErrorKind {
 
     /// Returned when a `WarpgrapherServer` fails to start.
     ServerStartupFailed(RecvError),
+
+    /// Returned when a transaction is used after it is committed or rolled back.
+    TransactionFinished,
+
+    /// Returned when the DB_TYPE environment variable specified a database type that Warpgrapher
+    /// does not support. Note that this error is also returned if a supported database is specified
+    /// in the DB_TYPE environment variable, but Warpgrapher has been compiled without the
+    /// corresponding feature flag.  For example, Warpgrapher must be compiled with the graphson2
+    /// feature in order to use a graphson2 database type.
+    UnsupportedDatabase(String),
 
     /// Returned when a custom input validator is defined, but the corresponding
     /// validator is not provided.

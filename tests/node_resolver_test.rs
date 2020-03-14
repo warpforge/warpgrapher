@@ -1,22 +1,55 @@
 mod setup;
 
 use assert_approx_eq::assert_approx_eq;
+#[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, db_url, init, test_client};
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+use setup::test_client;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use setup::{clear_db, db_url, init};
 
 /// Passes if the create mutation and the read query both succeed.
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
-fn create_single_node() {
+fn create_single_node_neo4j() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    create_single_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if the create mutation and the read query both succeed.
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn create_single_node_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_single_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if the create mutation and the read query both succeed.
+#[allow(dead_code)]
+fn create_single_node() {
+    let mut client = test_client();
 
     let p0 = client
         .create_node(
@@ -57,20 +90,42 @@ fn create_single_node() {
         3.3
     );
     assert_eq!(projects_a[0].get("active").unwrap(), true);
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_query_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_query();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn ready_query_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_query();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
-#[serial]
+#[allow(dead_code)]
 fn read_query() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -107,21 +162,43 @@ fn read_query() {
     assert_eq!(projects_a[0].get("__typename").unwrap(), "Project");
     assert_eq!(projects_a[0].get("id").unwrap(), p0.get("id").unwrap());
     assert_eq!(projects_a[0].get("name").unwrap(), "Project1");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn handle_missing_properties_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    handle_missing_properties();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn handle_missing_properties_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    handle_missing_properties();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
-#[test]
-#[serial]
+#[allow(dead_code)]
 fn handle_missing_properties() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -147,20 +224,42 @@ fn handle_missing_properties() {
     assert_eq!(projects_a[0].get("id").unwrap(), p0.get("id").unwrap());
     assert_eq!(projects_a[0].get("name").unwrap(), "MJOLNIR");
     assert!(projects_a[0].get("description").unwrap().is_null());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mutation_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mutation();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn update_mutation_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mutation();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
-#[test]
-#[serial]
+#[allow(dead_code)]
 fn update_mutation() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -225,21 +324,42 @@ fn update_mutation() {
     );
     assert_eq!(after_projects_a[0].get("name").unwrap(), "Project1");
     assert_eq!(after_projects_a[0].get("status").unwrap(), "ACTIVE");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mutation_null_query_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mutation_null_query();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn update_mutation_null_query_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mutation_null_query();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn update_mutation_null_query() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -297,20 +417,42 @@ fn update_mutation_null_query() {
     assert_eq!(after_projects_a.len(), 2);
     assert_eq!(after_projects_a[0].get("status").unwrap(), "ACTIVE");
     assert_eq!(after_projects_a[1].get("status").unwrap(), "ACTIVE");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mutation_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mutation();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_mutation_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mutation();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
-#[test]
-#[serial]
+#[allow(dead_code)]
 fn delete_mutation() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -359,21 +501,42 @@ fn delete_mutation() {
     assert!(after_projects.is_array());
     let after_projects_a = after_projects.as_array().unwrap();
     assert_eq!(after_projects_a.len(), 0);
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mutation_null_query_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mutation_null_query();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_mutation_null_query_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mutation_null_query();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn delete_mutation_null_query() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -422,15 +585,12 @@ fn delete_mutation_null_query() {
     assert!(after_projects.is_array());
     let after_projects_a = after_projects.as_array().unwrap();
     assert_eq!(after_projects_a.len(), 0);
-
-    assert!(server.shutdown().is_ok());
 }
 
-/// Passes if creating a node manually without an id throws an error upon access
-/// to that node.
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
-fn error_on_node_missing_id() {
+fn error_on_node_missing_id_neo4j() {
     init();
     clear_db();
 
@@ -439,9 +599,34 @@ fn error_on_node_missing_id() {
         .exec("CREATE (n:Project { name: 'Project One' })")
         .unwrap();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    error_on_node_missing_id();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn error_on_node_missing_id_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    error_on_node_missing_id();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if creating a node manually without an id throws an error upon access
+/// to that node.
+#[allow(dead_code)]
+fn error_on_node_missing_id() {
+    let mut client = test_client();
 
     let projects = client
         .read_node(
@@ -469,6 +654,4 @@ fn error_on_node_missing_id() {
         .unwrap();
 
     assert!(pd.is_null());
-
-    assert!(server.shutdown().is_ok());
 }

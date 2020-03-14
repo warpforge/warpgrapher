@@ -2094,9 +2094,13 @@ fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
 /// [`Error`]: ../error/struct.Error.html
 /// [`CouldNotResolveWarpgrapherType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveWarpgrapherType
 ///
-pub fn create_root_node<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn create_root_node<GlobalCtx, ReqCtx>(
     c: &WarpgrapherConfig,
-) -> Result<RootRef<GlobalCtx, ReqCtx>, Error> {
+) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     // Runtime performance could be optimized by generating the entirety of the
     // schema in one loop iteration over the configuration. In fact, that's how
     // the first iteration of the code worked. However, doing so adds code
@@ -2118,11 +2122,11 @@ pub fn create_root_node<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCont
         ))
     })
     .map_err(|e| {
-        (e.downcast::<Error>()
+        e.downcast::<Error>()
             .and_then(|e| Ok(*e))
             .unwrap_or_else(|e| {
                 Error::new(ErrorKind::MissingSchemaElement(format!("{:#?}", e)), None)
-            }))
+            })
     })
 }
 

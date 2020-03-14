@@ -1,15 +1,26 @@
-use super::extension::{Metadata, MetadataExtension, MetadataExtensionCtx};
-//use super::server_addr;
-use std::env::var_os;
+#[cfg(feature = "neo4j")]
+use super::extension::MetadataExtension;
+use super::extension::{Metadata, MetadataExtensionCtx};
+#[cfg(feature = "neo4j")]
 use std::sync::Arc;
+#[cfg(feature = "graphson2")]
+use warpgrapher::server::database::graphson2::Graphson2Endpoint;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use warpgrapher::server::database::DatabaseEndpoint;
+#[cfg(feature = "neo4j")]
+use warpgrapher::server::database::DatabasePool;
 use warpgrapher::{
     Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
+    WarpgrapherRequestContext,
 };
+#[cfg(feature = "neo4j")]
 use warpgrapher::{
-    Server, WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext,
-    WarpgrapherResolvers, WarpgrapherValidators,
+    Neo4jEndpoint, WarpgrapherExtensions, WarpgrapherResolvers, WarpgrapherValidators,
 };
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use warpgrapher::{Server, WarpgrapherConfig};
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 #[derive(Clone, Debug)]
 pub struct AppGlobalCtx {
     version: String,
@@ -37,6 +48,7 @@ impl MetadataExtensionCtx for AppReqCtx {
     }
 }
 
+#[allow(dead_code)]
 pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
     let name = match value {
         serde_json::Value::Object(o) => match o.get("name") {
@@ -87,6 +99,7 @@ pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "neo4j")]
 pub fn project_count<AppGlobalCtx, AppReqCtx>(
     _info: &Info,
     _args: &Arguments,
@@ -95,16 +108,27 @@ pub fn project_count<AppGlobalCtx, AppReqCtx>(
 where
     AppReqCtx: WarpgrapherRequestContext,
 {
-    // get projects from database
-    let graph = executor.context().pool.get().unwrap();
-    let query = "MATCH (n:Project) RETURN (n);";
-    let results = graph.exec(query).unwrap();
+    match &executor.context().pool {
+        DatabasePool::Neo4j(p) => {
+            // get projects from database
+            let graph = p.get().unwrap();
+            let mut transaction = graph.transaction().begin()?.0;
+            let query = "MATCH (n:Project) RETURN (n);";
+            let results = transaction.exec(query).unwrap();
 
-    // return number of projects
-    let count = results.data.len();
-    Ok(Value::scalar(count as i32))
+            // return number of projects
+            let count = results.data.len();
+            Ok(Value::scalar(count as i32))
+        }
+        _ => Err(Error::new(
+            ErrorKind::UnsupportedDatabase("Anything but neo4j".to_owned()),
+            None,
+        )
+        .into()),
+    }
 }
 
+#[allow(dead_code)]
 pub fn project_points<AppGlobalCtx, AppReqCtx>(
     _info: &Info,
     _args: &Arguments,
@@ -117,7 +141,31 @@ where
 }
 
 #[allow(dead_code)]
-pub fn test_server(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
+#[cfg(feature = "graphson2")]
+pub fn test_server_graphson2(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
+    // load config
+    //let config_path = "./tests/fixtures/config.yml".to_string();
+    let config =
+        WarpgrapherConfig::from_file(config_path.to_string()).expect("Failed to load config file");
+
+    // create app context
+    let global_ctx = AppGlobalCtx {
+        version: "0.0.0".to_owned(),
+    };
+
+    // create server
+    Server::new(
+        config,
+        Graphson2Endpoint::from_env().unwrap().get_pool().unwrap(),
+    )
+    .with_global_ctx(global_ctx)
+    .build()
+    .expect("Failed to build server")
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub fn test_server_neo4j(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config =
@@ -148,21 +196,15 @@ pub fn test_server(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
     let extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx> =
         vec![Arc::new(metadata_extension)];
 
-    // configure server
-    let db_url = match var_os("DB_URL") {
-        None => "http://neo4j:testpass@127.0.0.1:7474/db/data".to_owned(),
-        Some(os) => os
-            .to_str()
-            .unwrap_or("http://neo4j:testpass@127.0.0.1:7474/db/data")
-            .to_owned(),
-    };
-
     // create server
-    Server::<AppGlobalCtx, AppReqCtx>::new(config, db_url)
-        .with_global_ctx(global_ctx)
-        .with_resolvers(resolvers)
-        .with_validators(validators)
-        .with_extensions(extensions)
-        .build()
-        .expect("Failed to build server")
+    Server::new(
+        config,
+        Neo4jEndpoint::from_env().unwrap().get_pool().unwrap(),
+    )
+    .with_global_ctx(global_ctx)
+    .with_resolvers(resolvers)
+    .with_validators(validators)
+    .with_extensions(extensions)
+    .build()
+    .expect("Failed to build server")
 }

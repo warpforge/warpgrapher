@@ -1,19 +1,25 @@
 mod setup;
 
+#[cfg(feature = "neo4j")]
 use serde_json::json;
+#[cfg(feature = "neo4j")]
 use serial_test::serial;
-use setup::server::test_server;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+#[cfg(feature = "neo4j")]
 use setup::{clear_db, gql_endpoint, init, test_client};
+#[cfg(feature = "neo4j")]
 use warpgrapher::client::graphql;
 
 /// Passes if the custom resolvers executes correctly
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
 fn custom_endpoint_resolver() {
     init();
     clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
     assert!(server.serve(false).is_ok());
 
     // create new projects
@@ -44,13 +50,14 @@ fn custom_endpoint_resolver() {
     assert!(server.shutdown().is_ok());
 }
 
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
 fn custom_prop_resolver() {
     init();
     clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
     assert!(server.serve(false).is_ok());
 
     // create new projects

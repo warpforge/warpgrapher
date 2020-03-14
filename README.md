@@ -39,7 +39,7 @@ git clone https://github.com/warpforge/warpgrapher.git
 ### Build Warpgrapher
 
 ```bash
-cargo build
+cargo build --features neo4j
 ```
 
 ### Test
@@ -48,7 +48,7 @@ Set env variables:
 
 ```bash
 export DB_PASS=my-db-pass
-export DB_URL=http://neo4j:${DB_PASS}@127.0.0.1:7474/db/data
+export WG_NEO4J_URL=http://neo4j:${DB_PASS}@127.0.0.1:7474/db/data
 ```
 
 Run neo4j database:
@@ -66,33 +66,31 @@ cargo test --lib
 Run all tests (unit and integration):
 
 ```bash
-cargo test
+cargo test --features neo4j
 ```
-
-Note that integration tests must be run sequentially in a single thread to avoid conflicting with one another.
 
 Run specific test:
 
 ```bash
-cargo test <TEST_NAME>
+cargo test --features neo4j <TEST_NAME>
 ```
 
 Run specific module:
 
 ```bash
-cargo test server::graphql::tests
+cargo test --features neo4j server::graphql::tests
 ```
 
 Print to console when running tests:
 
 ```bash
-cargo test -- --nocapture
+cargo test --features neo4j -- --nocapture
 ```
 
 Test coverage:
 
 ```bash
-cargo tarpaulin -o Html
+cargo tarpaulin --all-features -o Html
 ```
 
 Clippy

@@ -2,20 +2,50 @@
 mod setup;
 
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+use setup::test_client;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use setup::{clear_db, init};
 
-/// Passes if a node is created with an SNMT rel to a new node
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
-fn create_node_with_rel_to_new() {
+fn create_node_with_rel_to_new_neo4j() {
     init();
     clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    create_node_with_rel_to_new();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn create_node_with_rel_to_new_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_node_with_rel_to_new();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if a node is created with an SNMT rel to a new node
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn create_node_with_rel_to_new() {
+    let mut client = test_client();
 
     // create new Project with rel to new KanbanBoard
     let results0 = client
@@ -111,20 +141,42 @@ fn create_node_with_rel_to_new() {
     assert_eq!(p1_board_dst.get("__typename").unwrap(), "KanbanBoard");
     assert_eq!(p1_board_dst.get("name").unwrap(), "SPARTAN-V Board");
     assert_eq!(p1_board_dst.get("id").unwrap(), b0.get("id").unwrap());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn create_node_with_rel_to_existing_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_node_with_rel_to_existing();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn create_node_with_rel_to_existing_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_node_with_rel_to_existing();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if a node is created with an SNMT rel to existing node
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn create_node_with_rel_to_existing() {
-    init();
-    clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     // create new ScrumBoard
     let results0 = client
@@ -207,20 +259,43 @@ fn create_node_with_rel_to_existing() {
     let b1 = p1_board.get("dst").unwrap();
     assert_eq!(b1.get("__typename").unwrap(), "ScrumBoard");
     assert_eq!(b1.get("name").unwrap(), "SPARTAN-VI Board");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_multiple_nodes_with_multiple_rels_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_multiple_nodes_with_multiple_rels();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn read_multiple_nodes_with_multiple_rels_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_multiple_nodes_with_multiple_rels();
+
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if multiple nodes with multiple rels are read and
 /// the relationships associate correctly
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn read_multiple_nodes_with_multiple_rels() {
-    init();
-    clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     // create multiple nodes with multiple rels
     let results0 = client
@@ -340,19 +415,42 @@ fn read_multiple_nodes_with_multiple_rels() {
     let b2 = p2_board.get("dst").unwrap();
     assert_eq!(b2.get("__typename").unwrap(), "KanbanBoard");
     assert_eq!(b2.get("name").unwrap(), "SPARTAN-12 Board");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_node_with_matching_props_on_rel_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_node_with_matching_props_on_rel();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn read_node_with_matching_props_on_rel_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_node_with_matching_props_on_rel();
+
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if nodes matching props on a relationship are returned
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn read_node_with_matching_props_on_rel() {
-    init();
-    clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     // create nodes with rel with props
     let results0 = client
@@ -478,20 +576,43 @@ fn read_node_with_matching_props_on_rel() {
     assert_eq!(p1_board.get("__typename").unwrap(), "ProjectBoardRel");
     let b1 = p1_board.get("dst").unwrap();
     assert_eq!(b1.get("name").unwrap(), "ORION Board");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_node_with_matching_props_on_rel_dst_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn read_node_with_matching_props_on_rel_dst_node_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_node_with_matching_props_on_rel_dst_node();
+
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if it returns nodes with relationship dst nodes
 /// with matching props
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn read_node_with_matching_props_on_rel_dst_node() {
-    init();
-    clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     // create nodes with rel with props
     let _results0 = client
@@ -578,21 +699,42 @@ fn read_node_with_matching_props_on_rel_dst_node() {
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
     assert_eq!(p0.get("name").unwrap(), "SPARTAN");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_existing_node_with_rel_to_new_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_existing_node_with_rel_to_new_node();
 
     assert!(server.shutdown().is_ok());
 }
 
-/// Passes if a relationship to a new node is created
-/// for an existing node
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn update_existing_node_with_rel_to_new_node() {
+fn update_existing_node_with_rel_to_new_node_graphson2() {
     init();
     clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    update_existing_node_with_rel_to_new_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// for an existing node
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn update_existing_node_with_rel_to_new_node() {
+    let mut client = test_client();
 
     // create project node
     let _results0 = client
@@ -674,20 +816,41 @@ fn update_existing_node_with_rel_to_new_node() {
         p0_board.get("dst").unwrap().get("name").unwrap(),
         "ORION Board"
     );
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_existing_node_with_rel_to_existing_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_existing_node_with_rel_to_existing_node();
 
     assert!(server.shutdown().is_ok());
 }
 
-///
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn update_existing_node_with_rel_to_existing_node() {
+fn update_existing_node_with_rel_to_existing_node_graphson2() {
     init();
     clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    update_existing_node_with_rel_to_existing_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn update_existing_node_with_rel_to_existing_node() {
+    let mut client = test_client();
 
     // create project node
     let _results0 = client
@@ -769,20 +932,41 @@ fn update_existing_node_with_rel_to_existing_node() {
         p0_board.get("dst").unwrap().get("name").unwrap(),
         "ORION Board"
     );
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_with_matching_props_on_rel_dst_node();
 
     assert!(server.shutdown().is_ok());
 }
 
-///
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn delete_node_with_matching_props_on_rel_dst_node() {
+fn delete_node_with_matching_props_on_rel_dst_node_graphson2() {
     init();
     clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    delete_node_with_matching_props_on_rel_dst_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn delete_node_with_matching_props_on_rel_dst_node() {
+    let mut client = test_client();
 
     // create project nodes
     let _results0 = client
@@ -823,20 +1007,41 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);
     assert_eq!(results3[0].get("name").unwrap(), "SPARTAN-II");
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_node_with_force_detach_of_rels_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_with_force_detach_of_rels();
 
     assert!(server.shutdown().is_ok());
 }
 
-///
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn delete_node_with_force_detach_of_rels() {
+fn delete_node_with_force_detach_of_rels_graphson2() {
     init();
     clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    delete_node_with_force_detach_of_rels();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn delete_node_with_force_detach_of_rels() {
+    let mut client = test_client();
 
     // create project nodes
     let _results0 = client
@@ -895,6 +1100,4 @@ fn delete_node_with_force_detach_of_rels() {
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);
     assert_eq!(results3[0].get("name").unwrap(), "ORION Board");
-
-    assert!(server.shutdown().is_ok());
 }

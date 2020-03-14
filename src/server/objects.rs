@@ -1,14 +1,22 @@
 use super::context::GraphQLContext;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::resolvers::{
-    resolve_custom_endpoint, resolve_custom_field, resolve_node_create_mutation,
-    resolve_node_delete_mutation, resolve_node_update_mutation, resolve_object_field,
-    resolve_rel_create_mutation, resolve_rel_delete_mutation, resolve_rel_field, resolve_rel_props,
-    resolve_rel_update_mutation, resolve_scalar_field, resolve_static_version_query,
-    resolve_union_field,
+    resolve_custom_endpoint, resolve_node_create_mutation, resolve_node_delete_mutation,
+    resolve_node_update_mutation, resolve_object_field, resolve_rel_create_mutation,
+    resolve_rel_delete_mutation, resolve_rel_field, resolve_rel_update_mutation,
+    resolve_static_version_query,
+};
+use super::resolvers::{
+    resolve_custom_field, resolve_rel_props, resolve_scalar_field, resolve_union_field,
 };
 use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
 use crate::error::{Error, ErrorKind};
 use crate::server::context::WarpgrapherRequestContext;
+#[cfg(feature = "neo4j")]
+use crate::server::database::neo4j::Neo4jTransaction;
+use crate::server::database::DatabasePool;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::server::database::Transaction;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,
@@ -129,7 +137,7 @@ where
     _rctx: PhantomData<ReqCtx>,
 }
 
-impl<GlobalCtx: Debug, ReqCtx> Node<GlobalCtx, ReqCtx>
+impl<GlobalCtx, ReqCtx> Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + WarpgrapherRequestContext,
@@ -277,11 +285,145 @@ where
             .build_object_type::<Node<GlobalCtx, ReqCtx>>(info, &fields)
             .into_meta()
     }
+
+    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    fn resolve_field_with_transaction<T>(
+        &self,
+        info: &<Self as GraphQLType>::TypeInfo,
+        field_name: &str,
+        args: &Arguments,
+        executor: &Executor<<Self as GraphQLType>::Context>,
+        transaction: &mut T,
+    ) -> ExecutionResult
+    where
+        T: Transaction,
+    {
+        let sn = Self::name(info).ok_or_else(|| {
+            Error::new(ErrorKind::MissingSchemaElement(info.name.to_owned()), None)
+        })?;
+        trace!(
+            "Node::resolve_field called -- sn: {}, field_name: {}",
+            sn,
+            field_name,
+        );
+
+        let td = info.get_type_def()?;
+        let p = td.get_prop(field_name)?;
+        let input_opt: Option<Input<GlobalCtx, ReqCtx>> = args.get("input");
+
+        let r = match &p.kind {
+            PropertyKind::CustomResolver => {
+                resolve_custom_endpoint(info, field_name, args, executor)
+            }
+            PropertyKind::DynamicScalar => {
+                resolve_custom_field(info, field_name, &p.resolver, args, executor)
+            }
+            PropertyKind::Input => Err(Error::new(
+                ErrorKind::InvalidPropertyType("PropertyKind::Input".to_owned()),
+                None,
+            )
+            .into()),
+            PropertyKind::NodeCreateMutation => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_node_create_mutation(field_name, info, input, executor, transaction)
+            }
+            PropertyKind::NodeDeleteMutation(deltype) => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_node_delete_mutation(
+                    field_name,
+                    &deltype,
+                    info,
+                    input,
+                    executor,
+                    transaction,
+                )
+            }
+            PropertyKind::NodeUpdateMutation => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_node_update_mutation(field_name, info, input, executor, transaction)
+            }
+            PropertyKind::Object => resolve_object_field(
+                field_name,
+                self.fields.get("id"),
+                info,
+                input_opt,
+                executor,
+                transaction,
+            ),
+            PropertyKind::Rel(rel_name) => resolve_rel_field(
+                field_name,
+                self.fields.get("id"),
+                rel_name,
+                info,
+                input_opt,
+                executor,
+                transaction,
+            ),
+            PropertyKind::RelCreateMutation(src_label, rel_name) => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_rel_create_mutation(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    executor,
+                    transaction,
+                )
+            }
+            PropertyKind::RelDeleteMutation(src_label, rel_name) => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_rel_delete_mutation(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    executor,
+                    transaction,
+                )
+            }
+            PropertyKind::RelUpdateMutation(src_label, rel_name) => {
+                let input = input_opt.ok_or_else(|| {
+                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                })?;
+                resolve_rel_update_mutation(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    executor,
+                    transaction,
+                )
+            }
+            PropertyKind::Scalar => resolve_scalar_field(info, field_name, &self.fields, executor),
+            PropertyKind::Union => Err(Error::new(
+                ErrorKind::InvalidPropertyType("PropertyKind::Union".to_owned()),
+                None,
+            )
+            .into()),
+            PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
+        };
+        trace!("Node::resolve_field Response: {:#?}", r);
+        r
+    }
 }
 
-impl<GlobalCtx: Debug, ReqCtx: Debug> GraphQLType for Node<GlobalCtx, ReqCtx>
+impl<GlobalCtx, ReqCtx> GraphQLType for Node<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -331,6 +473,7 @@ where
         }
     }
 
+    #[allow(unused_variables)]
     fn resolve_field(
         &self,
         info: &Self::TypeInfo,
@@ -347,79 +490,29 @@ where
             field_name,
         );
 
-        let td = info.get_type_def()?;
-        let p = td.get_prop(field_name)?;
-        let input_opt: Option<Input<GlobalCtx, ReqCtx>> = args.get("input");
-
-        let r = match &p.kind {
-            PropertyKind::CustomResolver => {
-                resolve_custom_endpoint(info, field_name, args, executor)
+        match &executor.context().pool {
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let graph = p.get()?;
+                let mut transaction = Neo4jTransaction::new(graph.transaction().begin()?.0);
+                self.resolve_field_with_transaction(
+                    info,
+                    field_name,
+                    args,
+                    executor,
+                    &mut transaction,
+                )
             }
-            PropertyKind::DynamicScalar => {
-                resolve_custom_field(info, field_name, &p.resolver, args, executor)
+            #[cfg(feature = "graphson2")]
+            DatabasePool::Graphson2 => {
+                Err(Error::new(ErrorKind::UnsupportedDatabase("graphson2".to_owned()), None).into())
             }
-            PropertyKind::Input => Err(Error::new(
-                ErrorKind::InvalidPropertyType("PropertyKind::Input".to_owned()),
+            DatabasePool::NoDatabase => Err(Error::new(
+                ErrorKind::UnsupportedDatabase("no database".to_owned()),
                 None,
             )
             .into()),
-            PropertyKind::NodeCreateMutation => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_node_create_mutation(field_name, info, input, executor)
-            }
-            PropertyKind::NodeDeleteMutation(deltype) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_node_delete_mutation(field_name, &deltype, info, input, executor)
-            }
-            PropertyKind::NodeUpdateMutation => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_node_update_mutation(field_name, info, input, executor)
-            }
-            PropertyKind::Object => {
-                resolve_object_field(field_name, self.fields.get("id"), info, input_opt, executor)
-            }
-            PropertyKind::Rel(rel_name) => resolve_rel_field(
-                field_name,
-                self.fields.get("id"),
-                rel_name,
-                info,
-                input_opt,
-                executor,
-            ),
-            PropertyKind::RelCreateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_rel_create_mutation(field_name, src_label, rel_name, info, input, executor)
-            }
-            PropertyKind::RelDeleteMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_rel_delete_mutation(field_name, src_label, rel_name, info, input, executor)
-            }
-            PropertyKind::RelUpdateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
-                })?;
-                resolve_rel_update_mutation(field_name, src_label, rel_name, info, input, executor)
-            }
-            PropertyKind::Scalar => resolve_scalar_field(info, field_name, &self.fields, executor),
-            PropertyKind::Union => Err(Error::new(
-                ErrorKind::InvalidPropertyType("PropertyKind::Union".to_owned()),
-                None,
-            )
-            .into()),
-            PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
-        };
-        trace!("Node::resolve_field Response: {:#?}", r);
-        r
+        }
     }
 
     fn resolve_into_type(
@@ -484,9 +577,10 @@ where
     }
 }
 
-impl<GlobalCtx: Debug, ReqCtx: Debug> GraphQLType for Rel<GlobalCtx, ReqCtx>
+impl<GlobalCtx, ReqCtx> GraphQLType for Rel<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;

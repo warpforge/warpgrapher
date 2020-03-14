@@ -8,18 +8,20 @@ use actix_cors::Cors;
 use actix_web::dev;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::middleware::Logger;
-use actix_web::web::{Data, Json};
+use actix_web::web::Data;
+use actix_web::web::Json;
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
 use config::{WarpgrapherConfig, WarpgrapherProp, WarpgrapherResolvers, WarpgrapherValidators};
-use context::{GraphQLContext, WarpgrapherRequestContext};
+use context::GraphQLContext;
+use context::WarpgrapherRequestContext;
+use database::DatabasePool;
 use extensions::WarpgrapherExtensions;
 use futures::executor::block_on;
 use juniper::http::playground::playground_source;
 use juniper::http::GraphQLRequest;
 use log::{debug, error, trace};
-use r2d2::Pool;
-use r2d2_cypher::CypherConnectionManager;
 use schema::{create_root_node, RootRef};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serde_json;
 use serde_json::json;
 use std::collections::HashMap;
@@ -32,13 +34,31 @@ use std::thread::{spawn, JoinHandle};
 
 pub mod config;
 pub mod context;
+pub mod database;
 pub mod extensions;
 mod headers;
-pub mod neo4j;
 pub mod objects;
 mod resolvers;
 pub mod schema;
 mod visitors;
+
+pub fn bind_port_from_env(env_name: &str) -> String {
+    let default = "5000";
+    var_os(env_name)
+        .unwrap_or_else(|| default.to_string().into())
+        .to_str()
+        .unwrap_or(default)
+        .to_string()
+}
+
+pub fn bind_addr_from_env(env_name: &str) -> String {
+    let default = "127.0.0.1";
+    var_os(env_name)
+        .unwrap_or_else(|| default.to_string().into())
+        .to_str()
+        .unwrap_or(default)
+        .to_string()
+}
 
 #[allow(clippy::borrowed_box)]
 fn graphql_error(err: &Box<dyn std::error::Error + Send + Sync>) -> String {
@@ -59,10 +79,10 @@ impl WarpgrapherRequestContext for () {
 struct AppData<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: WarpgrapherRequestContext,
 {
     gql_endpoint: String,
-    pool: Pool<CypherConnectionManager>,
+    pool: DatabasePool,
     root_node: RootRef<GlobalCtx, ReqCtx>,
     resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
     validators: WarpgrapherValidators,
@@ -74,12 +94,12 @@ where
 impl<GlobalCtx, ReqCtx> AppData<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: WarpgrapherRequestContext,
 {
     #[allow(clippy::too_many_arguments)]
     fn new(
         gql_endpoint: String,
-        pool: Pool<CypherConnectionManager>,
+        pool: DatabasePool,
         root_node: RootRef<GlobalCtx, ReqCtx>,
         resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
         validators: WarpgrapherValidators,
@@ -113,14 +133,14 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::{Server, Neo4jEndpoint};
+/// use warpgrapher::Server;
 /// use warpgrapher::server::config::WarpgrapherConfig;
 /// use warpgrapher::server::{bind_port_from_env};
+/// use warpgrapher::server::database::DatabasePool;
 ///
-/// let config = WarpgrapherConfig::default();
-/// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+/// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
 ///
-/// let mut server = Server::<(), ()>::new(config, db)
+/// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
 ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
 ///     .build().unwrap();
 ///
@@ -130,10 +150,10 @@ where
 pub struct Server<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + WarpgrapherRequestContext,
 {
     pub config: WarpgrapherConfig,
-    pub database: String,
+    pub db_pool: DatabasePool,
     pub global_ctx: Option<GlobalCtx>,
     pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
     pub validators: WarpgrapherValidators,
@@ -151,7 +171,7 @@ where
 impl<GlobalCtx, ReqCtx> Server<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + WarpgrapherRequestContext,
 {
     /// Creates a new [`Server`], with required parameters config and database
     /// and allows optional parameters to be added using a builder pattern.
@@ -162,21 +182,21 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
     /// ```
-    pub fn new(config: WarpgrapherConfig, database: String) -> Server<GlobalCtx, ReqCtx> {
+    pub fn new(config: WarpgrapherConfig, db_pool: DatabasePool) -> Server<GlobalCtx, ReqCtx> {
         Server {
             config,
-            database,
+            db_pool,
             global_ctx: None,
             resolvers: HashMap::new(),
             validators: HashMap::new(),
@@ -198,9 +218,10 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct AppGlobalCtx {
@@ -210,9 +231,8 @@ where
     /// let global_ctx = AppGlobalCtx { global_var: "Hello World".to_owned() };
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<AppGlobalCtx, ()>::new(config, db)
+    /// let mut server = Server::<AppGlobalCtx, ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_global_ctx(global_ctx)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
@@ -228,16 +248,16 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint, WarpgrapherResolvers};
+    /// use warpgrapher::{Server, WarpgrapherResolvers};
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let resolvers = WarpgrapherResolvers::<(), ()>::new();
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_resolvers(resolvers)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
@@ -256,16 +276,16 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint, WarpgrapherValidators};
+    /// use warpgrapher::{Server, WarpgrapherValidators};
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let validators = WarpgrapherValidators::new();
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_validators(validators)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
@@ -284,16 +304,16 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint, WarpgrapherExtensions};
+    /// use warpgrapher::{Server, WarpgrapherExtensions};
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let extensions = WarpgrapherExtensions::<(), ()>::new();
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_extensions(extensions)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
@@ -312,14 +332,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_addr("127.0.0.1".to_owned())
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
@@ -335,14 +355,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
     /// ```
@@ -357,14 +377,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_graphql_endpoint("/graphql".to_owned())
     ///     .build().unwrap();
     /// ```
@@ -379,14 +399,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_playground_endpoint("/playground".to_owned())
     ///     .build().unwrap();
     /// ```
@@ -404,14 +424,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_version("1.0.0".to_owned())
     ///     .build().unwrap();
     /// ```
@@ -441,20 +461,24 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
     /// ```
     pub fn build(mut self) -> Result<Server<GlobalCtx, ReqCtx>, Error> {
         // validate server options
-        match Server::validate_server(&self.resolvers, &self.validators, &self.config) {
+        match Server::<GlobalCtx, ReqCtx>::validate_server(
+            &self.resolvers,
+            &self.validators,
+            &self.config,
+        ) {
             Ok(_) => (),
             Err(e) => return Err(e),
         }
@@ -683,14 +707,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::default();
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<(), ()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
     ///
@@ -709,7 +733,7 @@ where
 
         if block {
             Server::start(
-                self.database.clone(),
+                self.db_pool.clone(),
                 addr,
                 self.graphql_endpoint.clone(),
                 self.playground_endpoint.clone(),
@@ -728,7 +752,7 @@ where
                 self.version.clone(),
             );
         } else {
-            let database = self.database.clone();
+            let db_pool = self.db_pool.clone();
             let graphql_endpoint = self.graphql_endpoint.clone();
             let playground_endpoint = self.playground_endpoint.clone();
             let root_node = self.root_node.clone();
@@ -743,7 +767,7 @@ where
 
             self.handle = Some(spawn(move || {
                 Server::start(
-                    database,
+                    db_pool,
                     addr,
                     graphql_endpoint,
                     playground_endpoint,
@@ -780,7 +804,7 @@ where
 
     #[allow(clippy::too_many_arguments)]
     fn start(
-        db_url: String,
+        db_pool: DatabasePool,
         addr: String,
         graphql_endpoint: String,
         playground_endpoint: Option<String>,
@@ -792,60 +816,53 @@ where
         tx: Sender<Result<dev::Server, Error>>,
         version: Option<String>,
     ) {
-        let manager = CypherConnectionManager { url: db_url };
-        let _ = r2d2::Pool::builder()
-            .max_size(5)
-            .build(manager)
-            .map_err(|e| {
-                let _ = tx.send(Err(Error::new(ErrorKind::CouldNotBuildCypherPool(e), None)));
-            })
-            .and_then(|pool| {
-                let sys = System::new("warpgrapher");
+        let sys = System::new("warpgrapher");
 
-                let app_data = AppData::new(
-                    graphql_endpoint.clone(),
-                    pool,
-                    root_node.clone(),
-                    resolvers,
-                    validators,
-                    extensions,
-                    global_ctx,
-                    version,
+        let app_data = AppData::new(
+            graphql_endpoint.clone(),
+            db_pool,
+            root_node.clone(),
+            resolvers,
+            validators,
+            extensions,
+            global_ctx,
+            version,
+        );
+
+        let _ = HttpServer::new(move || {
+            let app = App::new()
+                .data(app_data.clone())
+                .wrap(Logger::default())
+                .wrap(Cors::default())
+                .service(
+                    web::resource(&graphql_endpoint.clone())
+                        .route(web::post().to(Server::<GlobalCtx, ReqCtx>::graphql)),
                 );
 
-                let srv = HttpServer::new(move || {
-                    let app = App::new()
-                        .data(app_data.clone())
-                        .wrap(Logger::default())
-                        .wrap(Cors::default())
-                        .service(
-                            web::resource(&graphql_endpoint.clone())
-                                .route(web::post().to(Server::<GlobalCtx, ReqCtx>::graphql)),
-                        );
-                    if let Some(endpoint) = playground_endpoint.clone() {
-                        app.service(
-                            web::resource(&endpoint)
-                                .route(web::get().to(Server::<GlobalCtx, ReqCtx>::graphiql)),
-                        )
-                    } else {
-                        app
-                    }
-                })
-                .bind(&addr.to_owned())
-                .map_err(|e| {
-                    trace!("Error spawning server: {:?}", e);
-                    let k = match e.kind() {
-                        std::io::ErrorKind::AddrInUse => ErrorKind::AddrInUse(e),
-                        _ => ErrorKind::AddrNotAvailable(e),
-                    };
-                    let _ = tx.send(Err(Error::new(k, None)));
-                })?;
-
-                let server = srv.system_exit().run();
-                let _ = tx.send(Ok(server));
-                let _ = sys.run();
-                Ok(())
-            });
+            if let Some(endpoint) = playground_endpoint.clone() {
+                app.service(
+                    web::resource(&endpoint)
+                        .route(web::get().to(Server::<GlobalCtx, ReqCtx>::graphiql)),
+                )
+            } else {
+                app
+            }
+        })
+        .bind(&addr)
+        .map_err(|e| {
+            trace!("Error spawning server: {:?}", e);
+            let k = match e.kind() {
+                std::io::ErrorKind::AddrInUse => ErrorKind::AddrInUse(e),
+                _ => ErrorKind::AddrNotAvailable(e),
+            };
+            let _ = tx.send(Err(Error::new(k, None)));
+        })
+        .and_then(|srv| {
+            let server = srv.system_exit().run();
+            let _ = tx.send(Ok(server));
+            let _ = sys.run();
+            Ok(())
+        });
     }
 
     /// Shuts down a server previously started using the ['serve']:
@@ -866,14 +883,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Server, Neo4jEndpoint};
+    /// use warpgrapher::Server;
     /// use warpgrapher::server::config::WarpgrapherConfig;
     /// use warpgrapher::server::{bind_port_from_env};
+    /// use warpgrapher::server::database::DatabasePool;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
-    /// let mut server = Server::<()>::new(config, db)
+    /// let mut server = Server::<(), ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_bind_port(bind_port_from_env("WG_BIND_PORT"))
     ///     .build().unwrap();
     ///
@@ -913,11 +930,16 @@ mod tests {
     use super::schema::Info;
     use super::Server;
     use crate::error::Error;
+    #[cfg(feature = "neo4j")]
+    use crate::server::database::neo4j::Neo4jEndpoint;
+    #[cfg(feature = "neo4j")]
+    use crate::server::database::DatabaseEndpoint;
     use juniper::{Arguments, ExecutionResult, Executor, Value};
-    use std::env::var_os;
+    use serde_json;
     use std::fs::File;
     use std::io::BufReader;
 
+    #[cfg(feature = "neo4j")]
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
@@ -938,19 +960,18 @@ mod tests {
     }
 
     /// Passes if the server can be created.
+    #[cfg(feature = "neo4j")]
     #[test]
     fn server_new() {
         init();
 
-        let db_url = match var_os("DB_URL") {
-            None => "http://neo4j:testpass@127.0.0.1:7474/db/data".to_owned(),
-            Some(os) => os
-                .to_str()
-                .unwrap_or("http://neo4j:testpass@127.0.0.1:7474/db/data")
-                .to_owned(),
-        };
         let config = load_config("tests/fixtures/config_minimal.yml");
-        let _server = Server::<()>::new(config, db_url).build().unwrap();
+        let _server = Server::<(), ()>::new(
+            config,
+            Neo4jEndpoint::from_env().unwrap().get_pool().unwrap(),
+        )
+        .build()
+        .unwrap();
     }
 
     #[test]
@@ -965,7 +986,7 @@ mod tests {
         let config = load_config("tests/fixtures/test_config_ok.yml");
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
     }
 
     #[test]
@@ -979,7 +1000,7 @@ mod tests {
         let mut validators = WarpgrapherValidators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
 
         //Validator defined
         //Validator in config
@@ -989,7 +1010,7 @@ mod tests {
         let mut validators = WarpgrapherValidators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
 
         //Validator not defined
         //validator in config
@@ -998,7 +1019,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_err());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_err());
     }
 
     #[test]
@@ -1011,7 +1032,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
 
         //Endpoint resolver in config
         //No resolver defined
@@ -1020,7 +1041,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_err());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_err());
 
         //Endpoint resolver in config
         //Resolver defined
@@ -1030,7 +1051,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
     }
 
     #[test]
@@ -1044,7 +1065,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
 
         //No prop resolver in config
         //Resolver defined
@@ -1054,7 +1075,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_ok());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_ok());
 
         //Prop resolver in config
         //No resolver defined
@@ -1063,7 +1084,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Server::validate_server(&resolvers, &validators, &config).is_err());
+        assert!(Server::<(), ()>::validate_server(&resolvers, &validators, &config).is_err());
     }
 
     pub fn my_resolver(
@@ -1077,19 +1098,4 @@ mod tests {
     pub fn my_validator(_value: &serde_json::Value) -> Result<(), Error> {
         Ok(())
     }
-}
-
-pub fn try_from_env(env_name: &str, default: String) -> String {
-    match var_os(env_name) {
-        None => default,
-        Some(os) => os.to_str().unwrap_or(&default).to_owned(),
-    }
-}
-
-pub fn bind_port_from_env(env_name: &str) -> String {
-    try_from_env(env_name, "5000".to_string())
-}
-
-pub fn bind_addr_from_env(env_name: &str) -> String {
-    try_from_env(env_name, "127.0.0.1".to_string())
 }

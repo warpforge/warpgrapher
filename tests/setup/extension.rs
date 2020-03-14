@@ -1,6 +1,9 @@
+#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 use std::fmt::Debug;
+#[cfg(feature = "neo4j")]
 use std::marker::PhantomData;
+#[cfg(feature = "neo4j")]
 use warpgrapher::{Extension, WarpgrapherRequestContext};
 
 /// Additional information about a request
@@ -16,6 +19,7 @@ pub trait MetadataExtensionCtx {
 }
 
 /// Extension that adds metadata to request
+#[cfg(feature = "neo4j")]
 #[derive(Clone)]
 pub struct MetadataExtension<GlobalCtx, ReqCtx>
 where
@@ -26,6 +30,7 @@ where
     _rctx: PhantomData<ReqCtx>,
 }
 
+#[cfg(feature = "neo4j")]
 impl<GlobalCtx, ReqCtx> MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
@@ -40,6 +45,7 @@ where
     }
 }
 
+#[cfg(feature = "neo4j")]
 impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,

@@ -1,21 +1,21 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
 use crate::server::config::{WarpgrapherResolvers, WarpgrapherValidators};
+use crate::server::database::DatabasePool;
 use crate::server::extensions::WarpgrapherExtensions;
 use juniper::Context;
-use r2d2::Pool;
-use r2d2_cypher::CypherConnectionManager;
+use std::fmt::Debug;
 
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
 ///
 /// ['GraphQLContext']: ./struct/GraphQLContext.html
-pub struct GraphQLContext<GlobalCtx, ReqCtx: WarpgrapherRequestContext>
+pub struct GraphQLContext<GlobalCtx, ReqCtx>
 where
     ReqCtx: WarpgrapherRequestContext,
 {
-    /// Connection pool for the Neo4J database
-    pub pool: Pool<CypherConnectionManager>,
+    /// Connection pool database
+    pub pool: DatabasePool,
     pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
     pub validators: WarpgrapherValidators,
     pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
@@ -28,12 +28,12 @@ impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
 where
     ReqCtx: WarpgrapherRequestContext,
 {
-    /// Takes an r2d2 Pool of CypherConnectionManager structs and returns a
+    /// Takes a DatabasePool and returns a
     /// ['GraphQLContext'] containing that connection pool.
     ///
     /// ['GraphQLContext']: ./struct/GraphQLContext.html
     pub fn new(
-        pool: Pool<CypherConnectionManager>,
+        pool: DatabasePool,
         resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
         validators: WarpgrapherValidators,
         extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
@@ -53,43 +53,43 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx: WarpgrapherRequestContext> Context for GraphQLContext<GlobalCtx, ReqCtx> {}
+impl<GlobalCtx, ReqCtx> Context for GraphQLContext<GlobalCtx, ReqCtx> where
+    ReqCtx: WarpgrapherRequestContext
+{
+}
 
-pub trait WarpgrapherRequestContext {
+pub trait WarpgrapherRequestContext: Clone + Debug + Send + Sync {
     fn new() -> Self;
 }
 
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "neo4j")]
     use super::GraphQLContext;
+    #[cfg(feature = "neo4j")]
     use crate::server::config::{WarpgrapherResolvers, WarpgrapherValidators};
-    use r2d2_cypher::CypherConnectionManager;
-    use std::env::var_os;
+    #[cfg(feature = "neo4j")]
+    use crate::server::database::neo4j::Neo4jEndpoint;
+    #[cfg(feature = "neo4j")]
+    use crate::server::database::DatabaseEndpoint;
 
+    #[cfg(feature = "neo4j")]
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
     /// Passes if the pool can be created without panicking
+    #[cfg(feature = "neo4j")]
     #[test]
     fn server_new() {
         init();
 
-        let db_url = match var_os("DB_URL") {
-            None => "http://neo4j:testpass@127.0.0.1:7474/db/data".to_owned(),
-            Some(os) => os
-                .to_str()
-                .unwrap_or("http://neo4j:testpass@127.0.0.1:7474/db/data")
-                .to_owned(),
-        };
-
-        let manager = CypherConnectionManager { url: db_url };
-        let pool = r2d2::Pool::builder().max_size(5).build(manager).unwrap();
+        let ne = Neo4jEndpoint::from_env().unwrap();
         let resolvers: WarpgrapherResolvers<(), ()> = WarpgrapherResolvers::new();
         let validators: WarpgrapherValidators = WarpgrapherValidators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-            pool,
+            ne.get_pool().unwrap(),
             resolvers.clone(),
             validators.clone(),
             vec![],

@@ -1,19 +1,25 @@
 mod setup;
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use log::trace;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+#[cfg(feature = "neo4j")]
 use setup::{clear_db, init, test_client};
 
 /// Passes if the custom validator executes correctly on create mutation
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
 fn custom_input_validator_create() {
     init();
     clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
     assert!(server.serve(false).is_ok());
 
     // Test validator on create
@@ -44,13 +50,14 @@ fn custom_input_validator_create() {
 }
 
 /// Passes if the custom validator executes correctly on update mutation
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
 #[test]
-#[serial]
 fn custom_input_validator_update() {
     init();
     clear_db();
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
+    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
     assert!(server.serve(false).is_ok());
 
     let _ = client

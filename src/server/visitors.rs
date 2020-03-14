@@ -1,19 +1,30 @@
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::config::WarpgrapherValidators;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::schema::{Info, PropertyKind};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::error::{Error, ErrorKind};
+use crate::server::context::WarpgrapherRequestContext;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::server::database::{QueryResult, Transaction};
+use crate::server::objects::Rel;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use juniper::FieldError;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use log::{debug, trace};
-use rusted_cypher::cypher::result::CypherResult;
-use rusted_cypher::cypher::transaction::{Started, Transaction};
-use rusted_cypher::Statement;
-use serde_json::Value;
-use std::collections::BTreeMap;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use serde_json::{Map, Value};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub struct SuffixGenerator {
     seed: i32,
 }
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 impl SuffixGenerator {
     pub fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
@@ -25,33 +36,17 @@ impl SuffixGenerator {
     }
 }
 
-fn extract_ids(results: &CypherResult, name: &str) -> Result<Vec<String>, FieldError> {
-    trace!("extract_ids called -- name: {}", name);
-
-    let mut v = Vec::new();
-    for row in results.rows() {
-        let n: Value = row.get(name)?;
-        if let Value::String(id) = n
-            .get("id")
-            .ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))?
-        {
-            v.push(id.to_owned());
-        } else {
-            return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
-        }
-    }
-
-    trace!("extract_ids ids: {:#?}", v);
-    Ok(v)
-}
-
-pub fn visit_node_create_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_node_create_mutation_input<T>(
     label: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_create_mutation_input called -- label: {}, info.name: {}, input: {:#?}",
         label,
@@ -61,7 +56,7 @@ pub fn visit_node_create_mutation_input(
 
     let itd = info.get_type_def()?;
 
-    let mut props = BTreeMap::new();
+    let mut props = HashMap::new();
     if let Value::Object(ref m) = input {
         for (k, v) in m.iter() {
             let p = itd.get_prop(k)?;
@@ -85,26 +80,25 @@ pub fn visit_node_create_mutation_input(
             }
         }
 
-        let statement = Statement::new(
-            String::from("CREATE (n:")
-                + label
-                + " { id: randomUUID() })\n"
-                + "SET n += $props\n"
-                + "RETURN n\n",
-        )
-        .with_param("props".to_owned(), &props)?;
+        let query = String::from("CREATE (n:")
+            + label
+            + " { id: randomUUID() })\n"
+            + "SET n += $props\n"
+            + "RETURN n\n";
+        let mut params = HashMap::new();
+        params.insert("props".to_owned(), props);
 
         debug!(
-            "visit_node_create_mutation_input Query statement: {:#?}",
-            statement
+            "visit_node_create_mutation_input Query statement query, params: {:#?}, {:#?}",
+            query, params
         );
-        let raw_results = transaction.exec(statement);
+        let raw_results = transaction.exec(&query, Some(&params));
         debug!(
             "visit_node_create_mutation_input Raw results: {:#?}",
             raw_results
         );
         let results = raw_results?;
-        let ids = extract_ids(&results, "n")?;
+        let ids = results.get_ids("n")?;
 
         for (k, v) in m.iter() {
             let p = itd.get_prop(k)?;
@@ -114,7 +108,7 @@ pub fn visit_node_create_mutation_input(
                 PropertyKind::Input => {
                     if let Value::Array(input_array) = v {
                         for val in input_array {
-                            visit_rel_create_mutation_input(
+                            let _ = visit_rel_create_mutation_input(
                                 label,
                                 &ids,
                                 &p.name,
@@ -125,7 +119,7 @@ pub fn visit_node_create_mutation_input(
                             )?;
                         }
                     } else {
-                        visit_rel_create_mutation_input(
+                        let _ = visit_rel_create_mutation_input(
                             label,
                             &ids,
                             &p.name,
@@ -152,14 +146,18 @@ pub fn visit_node_create_mutation_input(
     }
 }
 
-pub fn visit_node_delete_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_node_delete_input<T>(
     label: &str,
     var_suffix: &str,
     sg: &mut SuffixGenerator,
     info: &Info,
     input: &Value,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_delete_input called -- info.name: {}, label: {}, input: {:#?}",
         info.name,
@@ -170,7 +168,7 @@ pub fn visit_node_delete_input(
     let itd = info.get_type_def()?;
 
     if let Value::Object(ref m) = input {
-        let mut params = BTreeMap::new();
+        let mut params: HashMap<String, Value> = HashMap::new();
 
         let query = visit_node_query_input(
             label,
@@ -187,13 +185,14 @@ pub fn visit_node_delete_input(
             m.get("match"),
         )?;
 
-        let mut statement = Statement::new(query);
-        statement.set_parameters(&params)?;
-        debug!("visit_node_delete_input Query: {:#?}", statement);
-        let raw_results = transaction.exec(statement);
+        debug!(
+            "visit_node_delete_input query, params: {:#?}, {:#?}",
+            query, params
+        );
+        let raw_results = transaction.exec(&query, Some(&params));
         debug!("visit_node_delete_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
-        let ids = extract_ids(&results, &(String::from(label) + var_suffix))?;
+        let ids = results.get_ids(&(String::from(label) + var_suffix))?;
         trace!("visit_node_delete_input IDs for deletion: {:#?}", ids);
 
         visit_node_delete_mutation_input(
@@ -216,13 +215,17 @@ pub fn visit_node_delete_input(
     }
 }
 
-pub fn visit_node_delete_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_node_delete_mutation_input<T>(
     label: &str,
     ids: &[String],
     info: &Info,
     input: Option<&Value>,
-    mut transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_delete_mutation_input called -- info.name: {}, input: {:#?}",
         info.name,
@@ -251,7 +254,7 @@ pub fn visit_node_delete_mutation_input(
                                 k,
                                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                                 val,
-                                &mut transaction,
+                                transaction,
                             )?;
                         }
                     } else {
@@ -261,7 +264,7 @@ pub fn visit_node_delete_mutation_input(
                             k,
                             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                             v,
-                            &mut transaction,
+                            transaction,
                         )?;
                     }
                 }
@@ -276,22 +279,21 @@ pub fn visit_node_delete_mutation_input(
         }
     }
 
-    let statement = Statement::new(
-        String::from("MATCH (n:")
-            + label
-            + ")\n"
-            + "WHERE n.id IN $ids\n"
-            + if force { "DETACH " } else { "" }
-            + "DELETE n\n"
-            + "RETURN count(*) as count\n",
-    )
-    .with_param("ids", &ids)?;
+    let query = String::from("MATCH (n:")
+        + label
+        + ")\n"
+        + "WHERE n.id IN $ids\n"
+        + if force { "DETACH " } else { "" }
+        + "DELETE n\n"
+        + "RETURN count(*) as count\n";
+    let mut params = HashMap::new();
+    params.insert("ids".to_owned(), &ids);
 
     debug!(
-        "visit_node_delete_mutation_input Query statement: {:#?}",
-        statement
+        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
+        query, params
     );
-    let results = transaction.exec(statement)?;
+    let results = transaction.exec(&query, Some(&params))?;
     debug!(
         "visit_node_delete_mutation_input Query results: {:#?}",
         results
@@ -300,13 +302,17 @@ pub fn visit_node_delete_mutation_input(
     Ok(results)
 }
 
-fn visit_node_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+fn visit_node_input<T>(
     label: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<Vec<String>, FieldError> {
+    transaction: &mut T,
+) -> Result<Vec<String>, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_input Called -- label: {}, info.name: {}, input: {:#?}",
         label,
@@ -327,19 +333,17 @@ fn visit_node_input(
         let p = itd.get_prop(k)?;
 
         match k.as_ref() {
-            "NEW" => Ok(extract_ids(
-                &visit_node_create_mutation_input(
-                    label,
-                    &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-                    v,
-                    validators,
-                    transaction,
-                )?,
-                "n",
-            )?),
+            "NEW" => visit_node_create_mutation_input(
+                label,
+                &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                v,
+                validators,
+                transaction,
+            )?
+            .get_ids("n"),
             "EXISTING" => {
                 let mut sg = SuffixGenerator::new();
-                let mut params = BTreeMap::new();
+                let mut params: HashMap<String, Value> = HashMap::new();
                 let var_suffix = sg.get_suffix();
                 let query = visit_node_query_input(
                     label,
@@ -353,12 +357,13 @@ fn visit_node_input(
                     Some(v),
                 )?;
 
-                let mut statement = Statement::new(query);
-                statement.set_parameters(&params)?;
-                debug!("visit_node_input Query statement: {:#?}", statement);
-                let results = transaction.exec(statement)?;
+                debug!(
+                    "visit_node_input query, params: {:#?}, {:#?}",
+                    query, params
+                );
+                let results = transaction.exec(&query, Some(&params))?;
                 debug!("visit_node_input Query results: {:#?}", results);
-                extract_ids(&results, &(label.to_owned() + &var_suffix))
+                results.get_ids(&(label.to_owned() + &var_suffix))
             }
 
             _ => Err(Error::new(
@@ -373,13 +378,14 @@ fn visit_node_input(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_query_input(
     label: &str,
     var_suffix: &str,
     union_type: bool,
     return_node: bool,
     query: &str,
-    params: &mut BTreeMap<String, BTreeMap<String, Value>>,
+    params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     input: Option<&Value>,
@@ -392,7 +398,7 @@ pub fn visit_node_query_input(
     let itd = info.get_type_def()?;
     let param_suffix = sg.get_suffix();
 
-    let mut props = BTreeMap::new();
+    let mut props = Map::new();
     if let Some(Value::Object(ref m)) = input {
         for (k, v) in m.iter() {
             let p = itd.get_prop(k)?;
@@ -461,7 +467,7 @@ pub fn visit_node_query_input(
         qs.push_str(&(String::from(&wcs) + "\n"));
     }
 
-    params.insert(String::from(label) + &param_suffix, props);
+    params.insert(String::from(label) + &param_suffix, props.into());
 
     if return_node {
         qs.push_str(&(String::from("RETURN ") + label + var_suffix + "\n"));
@@ -470,13 +476,17 @@ pub fn visit_node_query_input(
     Ok(qs)
 }
 
-pub fn visit_node_update_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_node_update_input<T>(
     label: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    mut transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_update_input called -- info.name: {}, label {}, input: {:#?}",
         info.name,
@@ -489,7 +499,7 @@ pub fn visit_node_update_input(
 
     if let Value::Object(ref m) = input {
         let var_suffix = sg.get_suffix();
-        let mut params = BTreeMap::new();
+        let mut params: HashMap<String, Value> = HashMap::new();
 
         let query = visit_node_query_input(
             label,
@@ -506,13 +516,14 @@ pub fn visit_node_update_input(
             m.get("match"),
         )?;
 
-        let mut statement = Statement::new(query);
-        statement.set_parameters(&params)?;
-        debug!("visit_node_update_input Query: {:#?}", statement);
-        let raw_results = transaction.exec(statement);
+        debug!(
+            "visit_node_update_input query, params: {:#?}, {:#?}",
+            query, params
+        );
+        let raw_results = transaction.exec(&query, Some(&params));
         debug!("visit_node_update_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
-        let ids = extract_ids(&results, &(String::from(label) + &var_suffix))?;
+        let ids = results.get_ids(&(String::from(label) + &var_suffix))?;
         trace!("visit_node_update_input IDs for update: {:#?}", ids);
 
         visit_node_update_mutation_input(
@@ -529,21 +540,25 @@ pub fn visit_node_update_input(
                 )
             })?,
             validators,
-            &mut transaction,
+            transaction,
         )
     } else {
         Err(Error::new(ErrorKind::InputTypeMismatch(info.name.to_owned()), None).into())
     }
 }
 
-pub fn visit_node_update_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_node_update_mutation_input<T>(
     label: &str,
     ids: &[String],
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_node_update_mutation_input called -- label: {}, ids: {:#?}, info.name: {}, input: {:#?}",
         label,
@@ -554,7 +569,7 @@ pub fn visit_node_update_mutation_input(
 
     let itd = info.get_type_def()?;
 
-    let mut props = BTreeMap::new();
+    let mut props = Map::new();
 
     if let Value::Object(ref m) = input {
         for (k, v) in m.iter() {
@@ -579,22 +594,22 @@ pub fn visit_node_update_mutation_input(
             }
         }
 
-        let statement = Statement::new(
-            String::from("MATCH (n:")
-                + label
-                + ")\n"
-                + "WHERE n.id IN $ids\n"
-                + "SET n += $props\n"
-                + "RETURN n\n",
-        )
-        .with_param("ids", &ids)?
-        .with_param("props", &props)?;
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("ids".to_owned(), ids.into());
+        params.insert("props".to_owned(), props.into());
+
+        let query = String::from("MATCH (n:")
+            + label
+            + ")\n"
+            + "WHERE n.id IN $ids\n"
+            + "SET n += $props\n"
+            + "RETURN n\n";
 
         debug!(
-            "visit_node_update_mutation_input Query statement: {:#?}",
-            statement
+            "visit_node_update_mutation_input query, params: {:#?}, {:#?}",
+            query, params
         );
-        let raw_results = transaction.exec(statement);
+        let raw_results = transaction.exec(&query, Some(&params));
         debug!(
             "visit_node_update_mutation_input Query results: {:#?}",
             raw_results
@@ -612,7 +627,7 @@ pub fn visit_node_update_mutation_input(
                         for val in input_array {
                             visit_rel_change_input(
                                 label,
-                                &extract_ids(&results, "n")?,
+                                &results.get_ids("n")?,
                                 k,
                                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                                 val,
@@ -623,7 +638,7 @@ pub fn visit_node_update_mutation_input(
                     } else {
                         visit_rel_change_input(
                             label,
-                            &extract_ids(&results, "n")?,
+                            &results.get_ids("n")?,
                             k,
                             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                             v,
@@ -642,15 +657,19 @@ pub fn visit_node_update_mutation_input(
     }
 }
 
-pub fn visit_rel_change_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_change_input<T>(
     src_label: &str,
     src_ids: &[String],
     rel_name: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_change_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
          src_label,
@@ -716,16 +735,23 @@ pub fn visit_rel_change_input(
     }
 }
 
-pub fn visit_rel_create_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
     src_label: &str,
     rel_name: &str,
+    props_type_name: Option<&str>,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    mut transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
+where
+    T: Transaction,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
-        "visit_node_create_input called -- info.name: {}, rel_name {}, input: {:#?}",
+        "visit_rel_create_input called -- info.name: {}, rel_name {}, input: {:#?}",
         info.name,
         rel_name,
         input
@@ -736,7 +762,7 @@ pub fn visit_rel_create_input(
 
     if let Value::Object(ref m) = input {
         let var_suffix = sg.get_suffix();
-        let mut params = BTreeMap::new();
+        let mut params = HashMap::new();
 
         let query = visit_node_query_input(
             src_label,
@@ -753,13 +779,11 @@ pub fn visit_rel_create_input(
             m.get("match"),
         )?;
 
-        let mut statement = Statement::new(query);
-        statement.set_parameters(&params)?;
-        debug!("Query: {:#?}", statement);
-        let raw_results = transaction.exec(statement);
+        debug!("Query, params: {:#?}, {:#?}", query, params);
+        let raw_results = transaction.exec(&query, Some(&params));
         debug!("Raw result: {:#?}", raw_results);
         let results = raw_results?;
-        let ids = extract_ids(&results, &(String::from(src_label) + &var_suffix))?;
+        let ids = &results.get_ids(&(String::from(src_label) + &var_suffix))?;
         trace!("IDs for update: {:#?}", ids);
 
         let create_input = m.get("create").ok_or_else(|| {
@@ -769,6 +793,7 @@ pub fn visit_rel_create_input(
             )
         })?;
 
+        trace!("visit_rel_create_input calling get_rels.");
         match &create_input {
             Value::Object(_) => visit_rel_create_mutation_input(
                 src_label,
@@ -780,20 +805,13 @@ pub fn visit_rel_create_input(
                 ),
                 &create_input,
                 validators,
-                &mut transaction,
-            ),
+                transaction,
+            )?
+            .get_rels(&src_label, "", rel_name, "dst", "", props_type_name),
             Value::Array(create_input_array) => {
-                let mut results = CypherResult {
-                    columns: vec![
-                        "a".to_string(),
-                        "r".to_string(),
-                        "b".to_string(),
-                        "b_label".to_string(),
-                    ],
-                    data: vec![],
-                };
+                let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
                 for create_input_value in create_input_array {
-                    let r = visit_rel_create_mutation_input(
+                    let result = visit_rel_create_mutation_input(
                         src_label,
                         &ids,
                         rel_name,
@@ -803,13 +821,16 @@ pub fn visit_rel_create_input(
                         ),
                         create_input_value,
                         validators,
-                        &mut transaction,
-                    );
+                        transaction,
+                    )?;
 
-                    let data = r?.data;
-                    results.data.extend(data);
+                    for rel in
+                        result.get_rels(src_label, "", rel_name, "dst", "", props_type_name)?
+                    {
+                        v.push(rel)
+                    }
                 }
-                Ok(results)
+                Ok(v)
             }
             _ => Err(Error::new(ErrorKind::InputTypeMismatch(info.name.to_owned()), None).into()),
         }
@@ -818,15 +839,19 @@ pub fn visit_rel_create_input(
     }
 }
 
-pub fn visit_rel_create_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_create_mutation_input<T>(
     src_label: &str,
     src_ids: &[String],
     rel_name: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
             "visit_rel_create_mutation_input called -- src_label: {}, src_ids: {:#?}, rel_name: {}, info.name: {}, input: {:#?}",
             src_label,
@@ -851,36 +876,50 @@ pub fn visit_rel_create_mutation_input(
             transaction,
         )?;
 
-        let mut props = BTreeMap::new();
+        let mut props = Map::new();
         if let Some(Value::Object(pm)) = m.get("props") {
             for (k, v) in pm.iter() {
                 props.insert(k.to_owned(), v.clone());
             }
         }
 
-        let statement = Statement::new(
-            String::from("MATCH (a:")
-                + src_label
-                + "),(b:"
-                + &dst_label
-                + ")"
-                + "\n"
-                + "WHERE a.id IN $aid AND b.id IN $bid\n"
-                + "CREATE (a)-[r:"
-                + String::from(rel_name).as_str()
-                + " { id: randomUUID() }]->(b)\n"
-                + "SET r += $props\n"
-                + "RETURN a, r, b, labels(b) as b_label\n",
-        )
-        .with_param("aid", &src_ids)?
-        .with_param("bid", &dst_ids)?
-        .with_param("props", &props)?;
+        let query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + "),(dst:"
+            + &dst_label
+            + ")"
+            + "\n"
+            + "WHERE "
+            + src_label
+            + ".id IN $aid AND dst.id IN $bid\n"
+            + "CREATE ("
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + String::from(rel_name).as_str()
+            + " { id: randomUUID() }]->(dst)\n"
+            + "SET "
+            + rel_name
+            + " += $props\n"
+            + "RETURN "
+            + src_label
+            + ", "
+            + rel_name
+            + ", dst, labels(dst) as dst_label\n";
+
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("aid".to_owned(), src_ids.into());
+        params.insert("bid".to_owned(), dst_ids.into());
+        params.insert("props".to_owned(), props.into());
 
         debug!(
-            "visit_rel_create_mutation_input Query statement: {:#?}",
-            statement
+            "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
+            query, params
         );
-        let results = transaction.exec(statement)?;
+        let results = transaction.exec(&query, Some(&params))?;
         debug!(
             "visit_rel_create_mutation_input Query results: {:#?}",
             results
@@ -892,14 +931,18 @@ pub fn visit_rel_create_mutation_input(
     }
 }
 
-pub fn visit_rel_delete_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_delete_input<T>(
     src_label: &str,
     src_ids_opt: Option<&[String]>,
     rel_name: &str,
     info: &Info,
     input: &Value,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_delete_input called -- src_label {}, src_ids_opt {:#?}, rel_name {}, info.name: {}, input: {:#?}",
          src_label,
@@ -913,10 +956,10 @@ pub fn visit_rel_delete_input(
     let itd = info.get_type_def()?;
     let src_suffix = sg.get_suffix();
     let dst_suffix = sg.get_suffix();
-    let mut params = BTreeMap::new();
+    let mut params = HashMap::new();
 
     if let Value::Object(m) = input {
-        let query = visit_rel_query_input(
+        let read_query = visit_rel_query_input(
             src_label,
             &src_suffix,
             src_ids_opt,
@@ -934,34 +977,42 @@ pub fn visit_rel_delete_input(
             m.get("match"),
         )?;
 
-        let mut read_statement = Statement::new(query);
-        read_statement.set_parameters(&params)?;
-        debug!("visit_rel_delete_input Query {:#?}", read_statement);
-        let raw_read_results = transaction.exec(read_statement);
+        debug!(
+            "visit_rel_delete_input query, params: {:#?}, {:#?}",
+            read_query, params
+        );
+        let raw_read_results = transaction.exec(&read_query, Some(&params));
         debug!("visit_rel_delete_input Raw result: {:#?}", raw_read_results);
 
         let read_results = raw_read_results?;
 
-        let mut del_statement = Statement::new(
-            String::from("MATCH (a:")
-                + src_label
-                + ")-[r:"
-                + rel_name
-                + "]->()\n"
-                + "WHERE r.id IN $rids\n"
-                + "DELETE r\n"
-                + "RETURN count(*) as count\n",
+        let del_query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + rel_name
+            + "]->()\n"
+            + "WHERE "
+            + rel_name
+            + ".id IN $rids\n"
+            + "DELETE "
+            + rel_name
+            + "\n"
+            + "RETURN count(*) as count\n";
+        params.insert(
+            "rids".to_owned(),
+            read_results
+                .get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
+                .into(),
         );
-        del_statement.set_parameters(&params)?;
-        del_statement.add_param(
-            "rids",
-            &extract_ids(
-                &read_results,
-                &(String::from(rel_name) + &src_suffix + &dst_suffix),
-            )?,
-        )?;
-        debug!("visit_rel_delete_input Query {:#?}", del_statement);
-        let raw_del_results = transaction.exec(del_statement);
+        debug!(
+            "visit_rel_delete_input query, params: {:#?}, {:#?}",
+            del_query, params
+        );
+        let raw_del_results = transaction.exec(&del_query, Some(&params));
         debug!("visit_rel_delete_input Raw result: {:#?}", raw_del_results);
 
         let del_results = raw_del_results?;
@@ -969,7 +1020,7 @@ pub fn visit_rel_delete_input(
         if let Some(src) = m.get("src") {
             visit_rel_src_delete_mutation_input(
                 src_label,
-                &extract_ids(&read_results, &(src_label.to_string() + &src_suffix))?,
+                &read_results.get_ids(&(src_label.to_string() + &src_suffix))?,
                 &Info::new(
                     itd.get_prop("src")?.type_name.to_owned(),
                     info.type_defs.clone(),
@@ -981,7 +1032,7 @@ pub fn visit_rel_delete_input(
 
         if let Some(dst) = m.get("dst") {
             visit_rel_dst_delete_mutation_input(
-                &extract_ids(&read_results, &(String::from("dst") + &dst_suffix))?,
+                &read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
                 &Info::new(
                     itd.get_prop("dst")?.type_name.to_owned(),
                     info.type_defs.clone(),
@@ -997,12 +1048,16 @@ pub fn visit_rel_delete_input(
     }
 }
 
-pub fn visit_rel_dst_delete_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_dst_delete_mutation_input<T>(
     ids: &[String],
     info: &Info,
     input: &Value,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_rel_dst_delete_mutation_input called -- info.name: {}, input: {:#?}",
         info.name,
@@ -1030,11 +1085,12 @@ pub fn visit_rel_dst_delete_mutation_input(
     }
 }
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_dst_query_input(
     label: &str,
     var_suffix: &str,
     query: &str,
-    params: &mut BTreeMap<String, BTreeMap<String, Value>>,
+    params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     input: Option<&Value>,
@@ -1072,13 +1128,17 @@ fn visit_rel_dst_query_input(
     }
 }
 
-pub fn visit_rel_dst_update_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_dst_update_mutation_input<T>(
     ids: &[String],
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_rel_dst_update_mutation_input called -- info.name: {}, ids: {:#?}, input: {:#?}",
         info.name,
@@ -1108,12 +1168,16 @@ pub fn visit_rel_dst_update_mutation_input(
     }
 }
 
-fn visit_rel_nodes_mutation_input_union(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+fn visit_rel_nodes_mutation_input_union<T>(
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<(String, Vec<String>), FieldError> {
+    transaction: &mut T,
+) -> Result<(String, Vec<String>), FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_rel_nodes_mutation_input_union called -- info.name: {}, input: {:#?}",
         info.name,
@@ -1144,6 +1208,7 @@ fn visit_rel_nodes_mutation_input_union(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_query_input(
     src_label: &str,
     src_suffix: &str,
@@ -1153,7 +1218,7 @@ pub fn visit_rel_query_input(
     dst_suffix: &str,
     return_rel: bool,
     query: &str,
-    params: &mut BTreeMap<String, BTreeMap<String, Value>>,
+    params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     input_opt: Option<&Value>,
@@ -1177,7 +1242,7 @@ pub fn visit_rel_query_input(
     let src_prop = itd.get_prop("src")?;
     let dst_prop = itd.get_prop("dst")?;
 
-    let mut props = BTreeMap::new();
+    let mut props = Map::new();
     if let Some(Value::Object(ref m)) = input_opt {
         if let Some(id) = m.get("id") {
             props.insert("id".to_owned(), id.clone());
@@ -1277,7 +1342,7 @@ pub fn visit_rel_query_input(
                 )
             }
         }
-        let mut id_map = BTreeMap::new();
+        let mut id_map = Map::new();
         id_map.insert(
             "ids".to_string(),
             src_ids
@@ -1288,14 +1353,17 @@ pub fn visit_rel_query_input(
 
         params.insert(
             String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
-            id_map,
+            id_map.into(),
         );
     }
 
     if let Some(wcs) = wc {
         qs.push_str(&(String::from(&wcs) + "\n"));
     }
-    params.insert(String::from(rel_name) + src_suffix + dst_suffix, props);
+    params.insert(
+        String::from(rel_name) + src_suffix + dst_suffix,
+        props.into(),
+    );
 
     if let Some(Value::Object(ref m)) = input_opt {
         if let Some(src) = m.get("src") {
@@ -1349,13 +1417,17 @@ pub fn visit_rel_query_input(
     Ok(qs)
 }
 
-pub fn visit_rel_src_delete_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_src_delete_mutation_input<T>(
     label: &str,
     ids: &[String],
     info: &Info,
     input: &Value,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_rel_src_delete_mutation_input called -- info.name: {}, ids: {:#?}, input: {:#?}",
         info.name,
@@ -1384,14 +1456,18 @@ pub fn visit_rel_src_delete_mutation_input(
     }
 }
 
-pub fn visit_rel_src_update_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_src_update_mutation_input<T>(
     label: &str,
     ids: &[String],
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_src_update_mutation_input called -- info.name: {}, label: {}, ids: {:#?}, input: {:#?}",
          info.name,
@@ -1422,11 +1498,12 @@ pub fn visit_rel_src_update_mutation_input(
     }
 }
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_src_query_input(
     label: &str,
     label_suffix: &str,
     query: &str,
-    params: &mut BTreeMap<String, BTreeMap<String, Value>>,
+    params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     input: Option<&Value>,
@@ -1464,15 +1541,19 @@ fn visit_rel_src_query_input(
     }
 }
 
-pub fn visit_rel_update_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn visit_rel_update_input<T>(
     src_label: &str,
     src_ids: Option<&[String]>,
     rel_name: &str,
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_update_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
          src_label,
@@ -1484,12 +1565,12 @@ pub fn visit_rel_update_input(
 
     let mut sg = SuffixGenerator::new();
     let itd = info.get_type_def()?;
-    let mut params = BTreeMap::new();
+    let mut params = HashMap::new();
     let src_suffix = sg.get_suffix();
     let dst_suffix = sg.get_suffix();
 
     if let Value::Object(m) = input {
-        let query = visit_rel_query_input(
+        let read_query = visit_rel_query_input(
             src_label,
             &src_suffix,
             src_ids,
@@ -1507,10 +1588,11 @@ pub fn visit_rel_update_input(
             m.get("match"),
         )?;
 
-        let mut read_statement = Statement::new(query);
-        read_statement.set_parameters(&params)?;
-        debug!("visit_rel_update_input Query {:#?}", read_statement);
-        let raw_read_results = transaction.exec(read_statement);
+        debug!(
+            "visit_rel_update_input query, params: {:#?}, {:#?}",
+            read_query, params
+        );
+        let raw_read_results = transaction.exec(&read_query, Some(&params));
         debug!("visit_rel_update_input Raw result: {:#?}", raw_read_results);
 
         let read_results = raw_read_results?;
@@ -1518,13 +1600,10 @@ pub fn visit_rel_update_input(
         if let Some(update) = m.get("update") {
             visit_rel_update_mutation_input(
                 src_label,
-                &extract_ids(&read_results, &(String::from(src_label) + &src_suffix))?,
+                &read_results.get_ids(&(String::from(src_label) + &src_suffix))?,
                 rel_name,
-                &extract_ids(
-                    &read_results,
-                    &(String::from(rel_name) + &src_suffix + &dst_suffix),
-                )?,
-                &extract_ids(&read_results, &(String::from("dst") + &dst_suffix))?,
+                &read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
+                &read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
                 &Info::new(
                     itd.get_prop("update")?.type_name.to_owned(),
                     info.type_defs.clone(),
@@ -1542,7 +1621,8 @@ pub fn visit_rel_update_input(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_update_mutation_input(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+fn visit_rel_update_mutation_input<T>(
     src_label: &str,
     src_ids: &[String],
     rel_name: &str,
@@ -1551,8 +1631,11 @@ fn visit_rel_update_mutation_input(
     info: &Info,
     input: &Value,
     validators: &WarpgrapherValidators,
-    transaction: &mut Transaction<Started>,
-) -> Result<CypherResult, FieldError> {
+    transaction: &mut T,
+) -> Result<T::ImplQueryResult, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_update_mutation_input called -- info.name: {}, src_label: {}, src_ids: {:#?}, rel_name: {}, rel_ids: {:#?}, dst_ids: {:#?}, input: {:#?}",
          info.name,
@@ -1567,30 +1650,42 @@ fn visit_rel_update_mutation_input(
     let itd = info.get_type_def()?;
 
     if let Value::Object(m) = input {
-        let mut props = BTreeMap::new();
+        let mut props = Map::new();
         if let Some(Value::Object(pm)) = m.get("props") {
             for (k, v) in pm.iter() {
                 props.insert(k.to_owned(), v.clone());
             }
         }
 
-        let statement = Statement::new(
-            String::from("MATCH (a:")
-                + src_label
-                + ")-[r:"
-                + String::from(rel_name).as_str()
-                + "]->(b)\n"
-                + "WHERE r.id IN $rids\n"
-                + "SET r += $props\n"
-                + "RETURN a, r, b, labels(b) as b_label\n",
-        )
-        .with_param("rids", rel_ids)?
-        .with_param("props", &props)?;
+        let query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + String::from(rel_name).as_str()
+            + "]->(dst)\n"
+            + "WHERE "
+            + rel_name
+            + ".id IN $rids\n"
+            + "SET "
+            + rel_name
+            + " += $props\n"
+            + "RETURN "
+            + src_label
+            + ", "
+            + rel_name
+            + ", dst, labels(dst) as dst_label\n";
+
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("rids".to_owned(), rel_ids.into());
+        params.insert("props".to_owned(), props.into());
         debug!(
-            "visit_rel_update_mutation_input Query statement: {:#?}",
-            statement
+            "visit_rel_update_mutation_input query, params: {:#?}, {:#?}",
+            query, params
         );
-        let results = transaction.exec(statement)?;
+        let results = transaction.exec(&query, Some(&params))?;
         debug!(
             "visit_rel_update_mutation_input Query results: {:#?}",
             results
@@ -1629,6 +1724,7 @@ fn visit_rel_update_mutation_input(
     }
 }
 
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn validate_input(
     validators: &WarpgrapherValidators,
     v: &str,

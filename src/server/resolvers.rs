@@ -1,27 +1,38 @@
-use super::context::GraphQLContext;
-use super::objects::{Input, Node, Rel};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use super::objects::Input;
+use super::objects::Node;
 use super::schema::Info;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
-    visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
-    visit_rel_update_input, SuffixGenerator,
+    visit_node_update_input, visit_rel_create_input, visit_rel_delete_input,
 };
 use crate::error::{Error, ErrorKind};
-use crate::WarpgrapherRequestContext;
+use crate::server::context::{GraphQLContext, WarpgrapherRequestContext};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::server::database::{QueryResult, Transaction};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::server::visitors::{visit_rel_query_input, visit_rel_update_input, SuffixGenerator};
 use juniper::{Arguments, ExecutionResult, Executor};
-use log::{debug, trace};
-use rusted_cypher::Statement;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use log::debug;
+use log::trace;
 use serde_json::Map;
 use serde_json::Value;
-use std::collections::BTreeMap;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use std::collections::HashMap;
 use std::fmt::Debug;
 
-pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
     args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
         "resolve_custom_endpoint called -- field_name: {}, info.name: {:#?}",
         field_name,
@@ -57,13 +68,16 @@ pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestCont
     func(info, args, executor)
 }
 
-pub fn resolve_custom_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_custom_field<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
     resolver: &Option<String>,
     args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
         "resolve_custom_field called -- field_name: {:#?}, info.name: {:#?}",
         field_name,
@@ -102,22 +116,30 @@ pub fn resolve_custom_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
     func(info, args, executor)
 }
 
-pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_node_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_node_create_mutation called -- info.name: {:#?}, field_name: {}",
         info.name,
         field_name,
     );
 
-    let graph = executor.context().pool.get()?;
+    // let graph = executor.context().pool.get_client()?;
     let validators = &executor.context().validators;
 
-    let mut transaction = graph.transaction().begin()?.0;
+    // let mut transaction = graph.transaction()?;
+    // transaction.begin()?;
 
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
@@ -128,7 +150,7 @@ pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
         validators,
-        &mut transaction,
+        transaction,
     );
 
     if raw_result.is_ok() {
@@ -142,47 +164,44 @@ pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
 
     executor.resolve(
         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &Node::new(
-            p.type_name.to_owned(),
-            results
-                .rows()
-                .nth(0)
-                .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?
-                .get("n")?,
-        ),
+        &results.get_nodes("n")?.first(),
     )
 }
 
-pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_node_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     del_type: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_node_delete_mutation called -- info.name: {:#?}, field_name: {}",
         info.name,
         field_name,
     );
 
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
     let mut sg = SuffixGenerator::new();
-
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
     let itd = p.get_input_type_definition(info)?;
-
     let var_suffix = sg.get_suffix();
 
+    transaction.begin()?;
     let raw_results = visit_node_delete_input(
         del_type,
         &var_suffix,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
-        &mut transaction,
+        transaction,
     );
     trace!(
         "resolve_node_delete_mutation Raw results: {:#?}",
@@ -197,32 +216,22 @@ pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
 
     let results = raw_results?;
 
-    let ret_row = results
-        .rows()
-        .nth(0)
-        .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-    let ret_val = ret_row
-        .get("count")
-        .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
-
-    if let Value::Number(n) = ret_val {
-        if let Some(i_val) = n.as_i64() {
-            executor.resolve_with_ctx(&(), &(i_val as i32))
-        } else {
-            Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-        }
-    } else {
-        Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-    }
+    executor.resolve_with_ctx(&(), &results.get_count()?)
 }
 
-pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_node_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_node_read_query called -- field_name: {}, info.name: {:#?}, input_opt: {:#?}",
         field_name,
@@ -230,8 +239,6 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
         input_opt
     );
 
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
     let mut sg = SuffixGenerator::new();
 
     let td = info.get_type_def()?;
@@ -240,8 +247,9 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
 
     let var_suffix = sg.get_suffix();
 
-    let mut params = BTreeMap::new();
+    let mut params: HashMap<String, Value> = HashMap::new();
 
+    transaction.begin()?;
     let query = visit_node_query_input(
         &p.type_name,
         &var_suffix,
@@ -254,10 +262,11 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
         input_opt.as_ref().map(|i| &i.value),
     )?;
 
-    let mut statement = Statement::new(query);
-    statement.set_parameters(&params)?;
-    debug!("resolve_node_read_query Query: {:#?}", statement);
-    let raw_results = transaction.exec(statement);
+    debug!(
+        "resolve_node_read_query query, params: {:#?}, {:#?}",
+        query, params
+    );
+    let raw_results = transaction.exec(&query, Some(&params));
     debug!("resolve_node_read_query Raw result: {:#?}", raw_results);
 
     if raw_results.is_ok() {
@@ -269,39 +278,33 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
     let results = raw_results?;
 
     if p.list {
-        let mut v: Vec<Node<GlobalCtx, ReqCtx>> = Vec::new();
-        for row in results.rows() {
-            v.push(Node::new(
-                p.type_name.to_owned(),
-                row.get(&(p.type_name.to_owned() + &var_suffix))?,
-            ))
-        }
-
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
+            &results.get_nodes(&(p.type_name.to_owned() + &var_suffix))?,
         )
     } else {
-        let row = results
-            .rows()
-            .nth(0)
-            .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &Node::new(
-                p.type_name.to_owned(),
-                row.get(&(p.type_name.to_owned() + &var_suffix))?,
-            ),
+            &results
+                .get_nodes(&(p.type_name.to_owned() + &var_suffix))?
+                .first(),
         )
     }
 }
 
-pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_node_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
         info.name,
@@ -309,21 +312,20 @@ pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
         input
     );
 
-    let graph = executor.context().pool.get()?;
     let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
 
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
     let itd = p.get_input_type_definition(info)?;
+
+    transaction.begin()?;
 
     let raw_result = visit_node_update_input(
         &p.type_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
         validators,
-        &mut transaction,
+        transaction,
     );
     trace!("resolve_node_update_mutation Raw Result: {:#?}", raw_result);
 
@@ -335,24 +337,26 @@ pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
 
     let results = raw_result?;
 
-    let mut v: Vec<Node<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        v.push(Node::new(p.type_name.to_owned(), row.get("n")?))
-    }
-
     executor.resolve(
         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &v,
+        &results.get_nodes("n")?,
     )
 }
 
-pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_object_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     _id_opt: Option<&Value>,
     info: &Info,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_object_field called -- info.name: {}, field_name: {}, input_opt: {:#?}",
         info.name,
@@ -364,7 +368,7 @@ pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequest
     let _p = td.get_prop(field_name)?;
 
     if td.type_name == "Query" {
-        resolve_node_read_query(field_name, info, input_opt, executor)
+        resolve_node_read_query(field_name, info, input_opt, executor, transaction)
     } else {
         Err(Error::new(
             ErrorKind::InvalidPropertyType("To be implemented.".to_owned()),
@@ -374,14 +378,21 @@ pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequest
     }
 }
 
-pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_rel_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name,
@@ -390,10 +401,7 @@ pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
         rel_name, input
     );
 
-    let graph = executor.context().pool.get()?;
     let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
 
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
@@ -403,10 +411,14 @@ pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
     let raw_result = visit_rel_create_input(
         src_label,
         rel_name,
+        // The conversion from Error to None using ok() is actually okay here,
+        // as it's expected that some relationship types may not have props defined
+        // in their schema, in which case the missing property is fine.
+        rtd.get_prop("props").map(|pp| pp.type_name.as_str()).ok(),
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
         validators,
-        &mut transaction,
+        transaction,
     );
 
     if raw_result.is_ok() {
@@ -415,96 +427,46 @@ pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
         transaction.rollback()?;
     }
 
-    let results = raw_result?;
-    trace!("resolve_rel_create_mutation Results: {:#?}", results);
+    let rels = raw_result?;
+    trace!("resolve_rel_create_mutation Rels: {:#?}", rels);
 
-    let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        if let Value::Array(labels) = row.get("b_label")? {
-            if let Value::String(dst_type) = &labels[0] {
-                v.push(
-                    Rel::new(
-                        row.get::<Value>("r")?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                            })?
-                            .to_owned(),
-                        match rtd.get_prop("props") {
-                            Ok(pp) => Some(Node::new(pp.type_name.to_owned(), row.get("r")?)),
-                            Err(_e) => None,
-                        },
-                        Node::new(rtd.get_prop("src")?.type_name.to_owned(), row.get("a")?),
-                        Node::new(dst_type.to_string(), row.get("b")?),
-                    ),
-                );
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(String::from("b_label")),
-                    None,
-                )
-                .into());
-            }
-        } else {
-            return Err(Error::new(
-                ErrorKind::InvalidPropertyType(String::from("b_label")),
-                None,
-            )
-            .into());
-        }
-    }
-
-    let mutations = match info.type_defs.get("Mutation") {
-        Some(v) => v,
-        None => {
-            return Err(Error::new(
-                ErrorKind::MissingSchemaElement("Mutation".to_string()),
-                None,
-            )
-            .into());
-        }
-    };
-    let endpoint_td = match mutations.props.get(field_name) {
-        Some(v) => v,
-        None => {
-            return Err(Error::new(
-                ErrorKind::MissingSchemaElement("Mutation".to_string()),
-                None,
-            )
-            .into());
-        }
-    };
+    let mutations = info.get_type_def_by_name("Mutation")?;
+    let endpoint_td = mutations.get_prop(field_name)?;
 
     if endpoint_td.list {
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
+            &rels,
         )
     } else {
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v[0],
+            &rels[0],
         )
     }
 }
 
-pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_rel_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name,
         field_name,
         src_label, rel_name, input
     );
-
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
 
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
@@ -516,7 +478,7 @@ pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
         rel_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
-        &mut transaction,
+        transaction,
     );
     trace!("Raw results: {:#?}", raw_results);
 
@@ -528,34 +490,24 @@ pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
 
     let results = raw_results?;
 
-    let ret_row = results
-        .rows()
-        .nth(0)
-        .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-    let ret_val = ret_row
-        .get("count")
-        .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
-
-    if let Value::Number(n) = ret_val {
-        if let Some(i_val) = n.as_i64() {
-            executor.resolve_with_ctx(&(), &(i_val as i32))
-        } else {
-            Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-        }
-    } else {
-        Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-    }
+    executor.resolve_with_ctx(&(), &results.get_count()?)
 }
 
-pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_rel_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     id_opt: Option<&Value>,
     rel_name: &str,
     info: &Info,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_rel_field called -- info.name: {}, field_name: {}, id_opt: {:#?}, rel_name: {}, input_opt: {:#?}",
         info.name,
@@ -576,18 +528,31 @@ pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCon
             info,
             input_opt,
             executor,
+            transaction,
         )
     } else {
-        resolve_rel_read_query(field_name, None, rel_name, info, input_opt, executor)
+        resolve_rel_read_query(
+            field_name,
+            None,
+            rel_name,
+            info,
+            input_opt,
+            executor,
+            transaction,
+        )
     }
 }
 
-pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_props<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
     props: &Node<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
         "resolve_rel_props called -- info.name: {:#?}, field_name: {}",
         info.name,
@@ -603,14 +568,21 @@ pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCon
     )
 }
 
-pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_rel_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_ids_opt: Option<&[String]>,
     rel_name: &str,
     info: &Info,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, input_opt: {:#?}",
         info.name,
@@ -620,10 +592,7 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
         input_opt
     );
 
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
     let mut sg = SuffixGenerator::new();
-
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
     let itd = p.get_input_type_definition(info)?;
@@ -632,7 +601,7 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
     let src_prop = rtd.get_prop("src")?;
     let dst_prop = rtd.get_prop("dst")?;
 
-    let mut params = BTreeMap::new();
+    let mut params: HashMap<String, Value> = HashMap::new();
 
     let src_suffix = sg.get_suffix();
     let dst_suffix = sg.get_suffix();
@@ -652,10 +621,11 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
         input_opt.as_ref().map(|i| &i.value),
     )?;
 
-    let mut statement = Statement::new(query);
-    statement.set_parameters(&params)?;
-    debug!("resolve_rel_read_query Query: {:#?}", statement);
-    let raw_results = transaction.exec(statement);
+    debug!(
+        "resolve_rel_read_query Query query, params: {:#?} {:#?}",
+        query, params
+    );
+    let raw_results = transaction.exec(&query, Some(&params));
     debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
     if raw_results.is_ok() {
@@ -667,126 +637,51 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
     let results = raw_results?;
     trace!("resolve_rel_read_query Results: {:#?}", results);
 
+    trace!("resolve_rel_read_query calling get_rels.");
     if p.list {
-        let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-
-        for row in results.rows() {
-            if let Value::Array(labels) =
-                row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-            {
-                if let Value::String(dst_type) = &labels[0] {
-                    v.push(Rel::new(
-                        row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
-                            })?
-                            .to_owned(),
-                        match &props_prop {
-                            Ok(p) => Some(Node::new(
-                                p.type_name.to_owned(),
-                                row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-                            )),
-                            Err(_e) => None,
-                        },
-                        Node::new(
-                            src_prop.type_name.to_owned(),
-                            row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-                        ),
-                        Node::new(
-                            dst_type.to_owned(),
-                            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-                        ),
-                    ))
-                } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(
-                            String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                        ),
-                        None,
-                    )
-                    .into());
-                }
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(
-                        String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                    ),
-                    None,
-                )
-                .into());
-            };
-        }
-
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
+            &results.get_rels(
+                &src_prop.type_name,
+                &src_suffix,
+                rel_name,
+                &dst_prop.type_name,
+                &dst_suffix,
+                props_prop.map(|_| p.type_name.as_str()).ok(),
+            )?,
         )
     } else {
-        let row = results
-            .rows()
-            .nth(0)
-            .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-        if let Value::Array(labels) =
-            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-        {
-            if let Value::String(dst_type) = &labels[0] {
-                executor.resolve(
-                    &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-                    &Rel::new(
-                        row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                            })?
-                            .to_owned(),
-                        match props_prop {
-                            Ok(pp) => Some(Node::new(
-                                pp.type_name.to_owned(),
-                                row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-                            )),
-                            Err(_e) => None,
-                        },
-                        Node::new(
-                            src_prop.type_name.to_owned(),
-                            row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-                        ),
-                        Node::new(
-                            dst_type.to_string(),
-                            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-                        ),
-                    ),
-                )
-            } else {
-                Err(Error::new(
-                    ErrorKind::InvalidPropertyType(
-                        String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                    ),
-                    None,
-                )
-                .into())
-            }
-        } else {
-            Err(Error::new(
-                ErrorKind::InvalidPropertyType(
-                    String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                ),
-                None,
-            )
-            .into())
-        }
+        executor.resolve(
+            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            &results
+                .get_rels(
+                    &src_prop.type_name,
+                    &src_suffix,
+                    rel_name,
+                    &dst_prop.type_name,
+                    &dst_suffix,
+                    props_prop.map(|_| p.type_name.as_str()).ok(),
+                )?
+                .first(),
+        )
     }
 }
 
-pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_rel_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+    transaction: &mut T,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+    T: Transaction,
+{
     trace!(
         "resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name,
@@ -795,15 +690,14 @@ pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
         input
     );
 
-    let graph = executor.context().pool.get()?;
     let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
-
     let td = info.get_type_def()?;
     let p = td.get_prop(field_name)?;
     let itd = p.get_input_type_definition(info)?;
     let rtd = info.get_type_def_by_name(&p.type_name)?;
+    let props_prop = rtd.get_prop("props");
+    let src_prop = rtd.get_prop("src")?;
+    // let dst_prop = rtd.get_prop("dst")?;
 
     let raw_result = visit_rel_update_input(
         src_label,
@@ -812,7 +706,7 @@ pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         &input.value,
         validators,
-        &mut transaction,
+        transaction,
     );
     trace!("Raw Result: {:#?}", raw_result);
 
@@ -824,50 +718,30 @@ pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
 
     let results = raw_result?;
 
-    let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        if let Value::Array(labels) = row.get("b_label")? {
-            if let Value::String(dst_type) = &labels[0] {
-                v.push(Rel::new(
-                    row.get::<Value>("r")?
-                        .get("id")
-                        .ok_or_else(|| {
-                            Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                        })?
-                        .to_owned(),
-                    match rtd.get_prop("props") {
-                        Ok(pp) => Some(Node::new(pp.type_name.to_owned(), row.get("r")?)),
-                        Err(_e) => None,
-                    },
-                    Node::new(rtd.get_prop("src")?.type_name.to_owned(), row.get("a")?),
-                    Node::new(dst_type.to_string(), row.get("b")?),
-                ))
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType("b_label".to_string()),
-                    None,
-                )
-                .into());
-            }
-        } else {
-            return Err(
-                Error::new(ErrorKind::InvalidPropertyType("b_label".to_string()), None).into(),
-            );
-        };
-    }
-
+    trace!("resolve_rel_update_mutation calling get_rels");
     executor.resolve(
         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &v,
+        &results.get_rels(
+            &src_prop.type_name,
+            "",
+            rel_name,
+            "dst",
+            "",
+            props_prop.map(|_| p.type_name.as_str()).ok(),
+        )?,
     )
 }
 
-pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_scalar_field<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
     fields: &Map<String, Value>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
         "resolve_scalar_field called -- info.name: {}, field_name: {}",
         info.name,
@@ -924,24 +798,33 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
     )
 }
 
-pub fn resolve_static_version_query<GlobalCtx, ReqCtx: WarpgrapherRequestContext>(
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_static_version_query<GlobalCtx, ReqCtx>(
     _info: &Info,
     _args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: WarpgrapherRequestContext,
+{
     match &executor.context().version {
         Some(v) => Ok(juniper::Value::scalar(v.clone())),
         None => Ok(juniper::Value::Null),
     }
 }
 
-pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_union_field<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
     src: &Node<GlobalCtx, ReqCtx>,
     dst: &Node<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + WarpgrapherRequestContext,
+{
     trace!(
         "resolve_union_field called -- info.name: {}, field_name: {}",
         info.name,

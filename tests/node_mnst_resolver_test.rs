@@ -1,21 +1,50 @@
 mod setup;
 
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+use setup::test_client;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use setup::{clear_db, init};
 
-/// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-fn create_mnst_new_nodes() {
+fn create_mnst_new_nodes_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
+
+    create_mnst_new_nodes();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn create_mnst_new_nodes_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_mnst_new_nodes();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if warpgrapher can create a node with a relationship to another new node
+#[allow(clippy::cognitive_complexity, dead_code)]
+fn create_mnst_new_nodes() {
+    let mut client = test_client();
 
     let p0 = client
         .create_node(
@@ -129,21 +158,42 @@ fn create_mnst_new_nodes() {
     assert!(activity3
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn create_mnst_existing_nodes_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_mnst_existing_nodes();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn create_mnst_existing_nodes_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    create_mnst_existing_nodes();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn create_mnst_existing_nodes() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let c0 = client
         .create_node("Commit", "__typename id hash", &json!({"hash": "00000"}))
@@ -220,21 +270,42 @@ fn create_mnst_existing_nodes() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn read_mnst_by_rel_props_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_by_rel_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_mnst_by_rel_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_by_rel_props();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn read_mnst_by_rel_props() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -281,21 +352,42 @@ fn read_mnst_by_rel_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn read_mnst_by_dst_props_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_by_dst_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn read_mnst_by_dst_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    read_mnst_by_dst_props();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn read_mnst_by_dst_props() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -342,22 +434,42 @@ fn read_mnst_by_dst_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn update_mnst_new_node_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_new_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_new_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_new_node();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn update_mnst_new_node() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let _p0 = client
         .create_node(
@@ -403,22 +515,42 @@ fn update_mnst_new_node() {
     assert!(activityu
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn update_mnst_existing_node_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_existing_node();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_existing_node_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_existing_node();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn update_mnst_existing_node() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let _p0 = client
         .create_node(
@@ -468,22 +600,42 @@ fn update_mnst_existing_node() {
     assert!(activityu
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn update_mnst_relationship_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_relationship();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn update_mnst_relationship_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    update_mnst_relationship();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn update_mnst_relationship() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let _p0 = client
         .create_node(
@@ -532,22 +684,42 @@ fn update_mnst_relationship() {
     assert!(activityu
         .iter()
         .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_mnst_relationship_by_rel_props_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_relationship_by_rel_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mnst_relationship_by_rel_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_relationship_by_rel_props();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a relationship by its properties
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn delete_mnst_relationship_by_rel_props() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -604,22 +776,42 @@ fn delete_mnst_relationship_by_rel_props() {
     assert!(activityu
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_mnst_relationship_by_dst_props_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_relationship_by_dst_props();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_mnst_relationship_by_dst_props_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_mnst_relationship_by_dst_props();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn delete_mnst_relationship_by_dst_props() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -676,22 +868,42 @@ fn delete_mnst_relationship_by_dst_props() {
     assert!(activityu
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_node_by_mnst_rel_property_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_by_mnst_rel_property();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_node_by_mnst_rel_property_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_by_mnst_rel_property();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn delete_node_by_mnst_rel_property() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -727,22 +939,42 @@ fn delete_node_by_mnst_rel_property() {
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 0);
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn delete_node_by_mnst_dst_property_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_by_mnst_dst_property();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn delete_node_by_mnst_dst_property_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
+    assert!(server.serve(false).is_ok());
+
+    delete_node_by_mnst_dst_property();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node by the properties of the dst object at a relationship
-#[allow(clippy::cognitive_complexity)]
-#[test]
-#[serial]
+#[allow(clippy::cognitive_complexity, dead_code)]
 fn delete_node_by_mnst_dst_property() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
 
     let p0 = client
         .create_node(
@@ -778,6 +1010,4 @@ fn delete_node_by_mnst_dst_property() {
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 0);
-
-    assert!(server.shutdown().is_ok());
 }
