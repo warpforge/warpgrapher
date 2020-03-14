@@ -1,0 +1,17 @@
+version: 1
+model:
+
+  - name: TestType
+    props:
+      - name: string_list
+        type: String
+        list: false 
+      - name: bool_list
+        type: Boolean
+        list: false
+      - name: int_list
+        type: Int
+        list: false
+      - name: float_list
+        type: Float
+        list: false

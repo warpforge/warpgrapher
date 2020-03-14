@@ -590,6 +590,13 @@ impl WarpgrapherType {
             endpoints,
         }
     }
+
+    /// Creates a new [`WarpgrapherType`] data structure from
+    /// a yaml-formatted string
+    pub fn from_yaml(yaml: &str) -> Result<WarpgrapherType, Error> {
+        serde_yaml::from_str(yaml)
+            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
+    }
 }
 
 /// Configuration item for a custom Endpoint
@@ -742,6 +749,8 @@ mod tests {
         compose, ErrorKind, WarpgrapherConfig, WarpgrapherEndpointsFilter, WarpgrapherProp,
         WarpgrapherType,
     };
+    use std::fs::File;
+    use std::io::prelude::*;
 
     /// Passes if a new WarpgrapherConfiguration is created
     #[test]
@@ -798,6 +807,16 @@ mod tests {
         assert!(t.name == "User");
         assert!(t.props.get(0).unwrap().name == "name");
         assert!(t.props.get(1).unwrap().name == "role");
+    }
+
+    #[allow(clippy::match_wild_err_arm)]
+    #[test]
+    fn test_type_from_yaml() {
+        let mut file = File::open("tests/fixtures/types/Project.yml").unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+        let project = WarpgrapherType::from_yaml(&contents).unwrap();
+        assert_eq!(project.name, "Project");
     }
 
     #[allow(clippy::match_wild_err_arm)]

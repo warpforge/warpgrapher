@@ -82,16 +82,26 @@ where
         let args = props
             .iter()
             .map(|p| match (p.type_name.as_str(), p.required, p.list) {
-                ("Boolean", false, _) => registry.arg::<Option<bool>>(&p.name, &()),
-                ("Boolean", true, _) => registry.arg::<bool>(&p.name, &()),
-                ("Float", false, _) => registry.arg::<Option<f64>>(&p.name, &()),
-                ("Float", true, _) => registry.arg::<f64>(&p.name, &()),
-                ("ID", false, _) => registry.arg::<Option<ID>>(&p.name, &()),
-                ("ID", true, _) => registry.arg::<ID>(&p.name, &()),
-                ("Int", false, _) => registry.arg::<Option<i32>>(&p.name, &()),
-                ("Int", true, _) => registry.arg::<i32>(&p.name, &()),
-                ("String", false, _) => registry.arg::<Option<String>>(&p.name, &()),
-                ("String", true, _) => registry.arg::<String>(&p.name, &()),
+                ("Boolean", false, false) => registry.arg::<Option<bool>>(&p.name, &()),
+                ("Boolean", false, true) => registry.arg::<Option<Vec<bool>>>(&p.name, &()),
+                ("Boolean", true, false) => registry.arg::<bool>(&p.name, &()),
+                ("Boolean", true, true) => registry.arg::<Vec<bool>>(&p.name, &()),
+                ("Float", false, false) => registry.arg::<Option<f64>>(&p.name, &()),
+                ("Float", false, true) => registry.arg::<Option<Vec<f64>>>(&p.name, &()),
+                ("Float", true, false) => registry.arg::<f64>(&p.name, &()),
+                ("Float", true, true) => registry.arg::<Vec<f64>>(&p.name, &()),
+                ("ID", false, false) => registry.arg::<Option<ID>>(&p.name, &()),
+                ("ID", false, true) => registry.arg::<Option<Vec<ID>>>(&p.name, &()),
+                ("ID", true, false) => registry.arg::<ID>(&p.name, &()),
+                ("ID", true, true) => registry.arg::<Vec<ID>>(&p.name, &()),
+                ("Int", false, false) => registry.arg::<Option<i32>>(&p.name, &()),
+                ("Int", false, true) => registry.arg::<Option<Vec<i32>>>(&p.name, &()),
+                ("Int", true, false) => registry.arg::<i32>(&p.name, &()),
+                ("Int", true, true) => registry.arg::<Vec<i32>>(&p.name, &()),
+                ("String", false, false) => registry.arg::<Option<String>>(&p.name, &()),
+                ("String", false, true) => registry.arg::<Option<Vec<String>>>(&p.name, &()),
+                ("String", true, false) => registry.arg::<String>(&p.name, &()),
+                ("String", true, true) => registry.arg::<Vec<String>>(&p.name, &()),
                 (_, false, false) => registry.arg::<Option<Input<GlobalCtx, ReqCtx>>>(
                     &p.name,
                     &Info::new(p.type_name.clone(), info.type_defs.clone()),
@@ -175,16 +185,30 @@ where
             .iter()
             .map(|p| {
                 let f = match (p.type_name.as_str(), p.required, p.list, &p.kind) {
-                    ("Boolean", false, _, _) => registry.field::<Option<bool>>(&p.name, &()),
-                    ("Boolean", true, _, _) => registry.field::<bool>(&p.name, &()),
-                    ("Float", false, _, _) => registry.field::<Option<f64>>(&p.name, &()),
-                    ("Float", true, _, _) => registry.field::<f64>(&p.name, &()),
-                    ("ID", false, _, _) => registry.field::<Option<ID>>(&p.name, &()),
-                    ("ID", true, _, _) => registry.field::<ID>(&p.name, &()),
-                    ("Int", false, _, _) => registry.field::<Option<i32>>(&p.name, &()),
-                    ("Int", true, _, _) => registry.field::<i32>(&p.name, &()),
-                    ("String", false, _, _) => registry.field::<Option<String>>(&p.name, &()),
-                    ("String", true, _, _) => registry.field::<String>(&p.name, &()),
+                    ("Boolean", false, false, _) => registry.field::<Option<bool>>(&p.name, &()),
+                    ("Boolean", false, true, _) => {
+                        registry.field::<Option<Vec<bool>>>(&p.name, &())
+                    }
+                    ("Boolean", true, false, _) => registry.field::<bool>(&p.name, &()),
+                    ("Boolean", true, true, _) => registry.field::<Vec<bool>>(&p.name, &()),
+                    ("Float", false, false, _) => registry.field::<Option<f64>>(&p.name, &()),
+                    ("Float", false, true, _) => registry.field::<Option<Vec<f64>>>(&p.name, &()),
+                    ("Float", true, false, _) => registry.field::<f64>(&p.name, &()),
+                    ("Float", true, true, _) => registry.field::<Vec<f64>>(&p.name, &()),
+                    ("ID", false, false, _) => registry.field::<Option<ID>>(&p.name, &()),
+                    ("ID", false, true, _) => registry.field::<Option<Vec<ID>>>(&p.name, &()),
+                    ("ID", true, false, _) => registry.field::<ID>(&p.name, &()),
+                    ("ID", true, true, _) => registry.field::<Vec<ID>>(&p.name, &()),
+                    ("Int", false, false, _) => registry.field::<Option<i32>>(&p.name, &()),
+                    ("Int", false, true, _) => registry.field::<Option<Vec<i32>>>(&p.name, &()),
+                    ("Int", true, false, _) => registry.field::<i32>(&p.name, &()),
+                    ("Int", true, true, _) => registry.field::<Vec<i32>>(&p.name, &()),
+                    ("String", false, false, _) => registry.field::<Option<String>>(&p.name, &()),
+                    ("String", false, true, _) => {
+                        registry.field::<Option<Vec<String>>>(&p.name, &())
+                    }
+                    ("String", true, false, _) => registry.field::<String>(&p.name, &()),
+                    ("String", true, true, _) => registry.field::<Vec<String>>(&p.name, &()),
                     (_, false, false, PropertyKind::Rel(_)) => {
                         registry.field::<Option<Rel<GlobalCtx, ReqCtx>>>(
                             &p.name,
@@ -536,8 +560,10 @@ where
         let fields = props
             .iter()
             .map(|p| match (p.type_name.as_str(), p.required, p.list) {
-                ("ID", false, _) => registry.field::<Option<ID>>(&p.name, &()),
-                ("ID", true, _) => registry.field::<ID>(&p.name, &()),
+                ("ID", false, false) => registry.field::<Option<ID>>(&p.name, &()),
+                ("ID", false, true) => registry.field::<Option<Vec<ID>>>(&p.name, &()),
+                ("ID", true, false) => registry.field::<ID>(&p.name, &()),
+                ("ID", true, true) => registry.field::<Vec<ID>>(&p.name, &()),
                 (_, false, false) => registry.field::<Option<Node<GlobalCtx, ReqCtx>>>(
                     &p.name,
                     &Info::new(p.type_name.clone(), info.type_defs.clone()),
