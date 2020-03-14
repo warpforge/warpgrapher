@@ -40,6 +40,7 @@ mod headers;
 pub mod objects;
 mod resolvers;
 pub mod schema;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 mod visitors;
 
 pub fn bind_port_from_env(env_name: &str) -> String {

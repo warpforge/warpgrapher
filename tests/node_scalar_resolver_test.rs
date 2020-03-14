@@ -1,21 +1,50 @@
 mod setup;
 
 use serde_json::json;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
+use setup::test_client;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use setup::{clear_db, init};
 
-/// Passes if the create mutation and the read query both succeed.
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
 #[test]
-#[serial]
-#[allow(clippy::float_cmp)]
-fn scalar_lists_test() {
+fn scalar_lists_test_graphson2() {
     init();
     clear_db();
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/scalar_list.yml");
+    let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
+
+    scalar_lists_test();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn scalar_lists_test_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_lists_test();
+
+    assert!(server.shutdown().is_ok());
+}
+
+/// Passes if the create mutation and the read query both succeed.
+#[allow(clippy::float_cmp)]
+fn scalar_lists_test() {
+    let mut client = test_client();
 
     let result = client
         .create_node(
@@ -61,21 +90,42 @@ fn scalar_lists_test() {
     assert_eq!(floats.get(1).unwrap().as_f64().unwrap(), 1.1_f64);
     assert_eq!(floats.get(2).unwrap().as_f64().unwrap(), 2.2_f64);
     assert_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3_f64);
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn scalar_lists_no_array_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_lists_no_array_test();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn scalar_lists_no_array_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_lists_no_array_test();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
-#[serial]
 #[allow(clippy::float_cmp)]
 fn scalar_lists_no_array_test() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/scalar_list.yml");
-    assert!(server.serve(false).is_ok());
 
     let result = client
         .create_node(
@@ -101,20 +151,41 @@ fn scalar_lists_no_array_test() {
     assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
 
     assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0_f64);
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn scalar_no_lists_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_no_lists_test();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn scalar_no_lists_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_no_lists_test();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
-#[serial]
 fn scalar_no_lists_test() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
 
     assert!(client
         .create_node(
@@ -151,21 +222,42 @@ fn scalar_no_lists_test() {
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
         ).is_err());
+}
+
+#[cfg(feature = "graphson2")]
+#[serial(graphson2)]
+#[test]
+fn scalar_no_lists_no_array_graphson2() {
+    init();
+    clear_db();
+
+    let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_no_lists_no_array_test();
+
+    assert!(server.shutdown().is_ok());
+}
+
+#[cfg(feature = "neo4j")]
+#[serial(neo4j)]
+#[test]
+fn scalar_no_lists_no_array_neo4j() {
+    init();
+    clear_db();
+
+    let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
+    assert!(server.serve(false).is_ok());
+
+    scalar_no_lists_no_array_test();
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
-#[serial]
 #[allow(clippy::float_cmp)]
 fn scalar_no_lists_no_array_test() {
-    init();
-    clear_db();
-
     let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
 
     let result = client
         .create_node(
@@ -191,6 +283,4 @@ fn scalar_no_lists_no_array_test() {
     assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
 
     assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0_f64);
-
-    assert!(server.shutdown().is_ok());
 }

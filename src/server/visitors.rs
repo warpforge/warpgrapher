@@ -1,30 +1,20 @@
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::config::WarpgrapherValidators;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use super::schema::{Info, PropertyKind};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::error::{Error, ErrorKind};
 use crate::server::context::WarpgrapherRequestContext;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::server::database::{QueryResult, Transaction};
 use crate::server::objects::Rel;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use juniper::FieldError;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use log::{debug, trace};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serde_json::{Map, Value};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub struct SuffixGenerator {
     seed: i32,
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 impl SuffixGenerator {
     pub fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
@@ -36,7 +26,6 @@ impl SuffixGenerator {
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_create_mutation_input<T>(
     label: &str,
     info: &Info,
@@ -146,7 +135,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_delete_input<T>(
     label: &str,
     var_suffix: &str,
@@ -215,7 +203,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_delete_mutation_input<T>(
     label: &str,
     ids: &[String],
@@ -302,7 +289,6 @@ where
     Ok(results)
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_node_input<T>(
     label: &str,
     info: &Info,
@@ -378,7 +364,6 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_query_input(
     label: &str,
     var_suffix: &str,
@@ -476,7 +461,6 @@ pub fn visit_node_query_input(
     Ok(qs)
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_update_input<T>(
     label: &str,
     info: &Info,
@@ -547,7 +531,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_node_update_mutation_input<T>(
     label: &str,
     ids: &[String],
@@ -657,7 +640,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_change_input<T>(
     src_label: &str,
     src_ids: &[String],
@@ -735,7 +717,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
     src_label: &str,
     rel_name: &str,
@@ -839,7 +820,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_create_mutation_input<T>(
     src_label: &str,
     src_ids: &[String],
@@ -931,7 +911,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_delete_input<T>(
     src_label: &str,
     src_ids_opt: Option<&[String]>,
@@ -1048,7 +1027,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_dst_delete_mutation_input<T>(
     ids: &[String],
     info: &Info,
@@ -1085,7 +1063,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_dst_query_input(
     label: &str,
     var_suffix: &str,
@@ -1128,7 +1105,6 @@ fn visit_rel_dst_query_input(
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_dst_update_mutation_input<T>(
     ids: &[String],
     info: &Info,
@@ -1168,7 +1144,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_nodes_mutation_input_union<T>(
     info: &Info,
     input: &Value,
@@ -1208,7 +1183,6 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_query_input(
     src_label: &str,
     src_suffix: &str,
@@ -1417,7 +1391,6 @@ pub fn visit_rel_query_input(
     Ok(qs)
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_src_delete_mutation_input<T>(
     label: &str,
     ids: &[String],
@@ -1456,7 +1429,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_src_update_mutation_input<T>(
     label: &str,
     ids: &[String],
@@ -1498,7 +1470,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_src_query_input(
     label: &str,
     label_suffix: &str,
@@ -1541,7 +1512,6 @@ fn visit_rel_src_query_input(
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub fn visit_rel_update_input<T>(
     src_label: &str,
     src_ids: Option<&[String]>,
@@ -1621,7 +1591,6 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn visit_rel_update_mutation_input<T>(
     src_label: &str,
     src_ids: &[String],
@@ -1724,7 +1693,6 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 fn validate_input(
     validators: &WarpgrapherValidators,
     v: &str,
