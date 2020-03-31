@@ -1,9 +1,8 @@
 //! This module provides the Warpgrapher client.
 
 use super::error::{Error, ErrorKind};
-use actix_web::client::Client;
 use inflector::Inflector;
-use log::{debug, trace};
+use log::{debug};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -19,35 +18,37 @@ use std::collections::BTreeMap;
 /// use warpgrapher::client::graphql;
 ///
 /// let query = "query { Project { id name } }";
-/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None);
+/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None).await;
 /// let projects = results.unwrap().get("Project");
 /// ```
-#[actix_rt::main]
 pub async fn graphql(
     endpoint: String,
     query: String,
     input: Option<Value>,
 ) -> Result<Value, Error> {
-    // TODO: return a Future
+
+    // format request body
     let req_body = json!({
         "query": query.to_string(),
         "variables": {
             "input": input
         }
     });
-    let mut res = Client::default()
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .send_json(&req_body)
+
+    // send request
+    let client = reqwest::Client::new();
+    let resp = client.post(endpoint.as_str())
+        .json(&req_body)
+        .send()
         .await
         .map_err(|e| Error::new(ErrorKind::ClientRequestFailed(format!("{:#?}", e)), None))?;
 
-    let body: Value = res
-        .json()
+    // parse result
+    let body = resp.json::<serde_json::Value>()
         .await
         .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
-
-    trace!("Response Body: {:#?}", body);
+    
+    // extract data from result
     match body.get("data") {
         None => Err(Error::new(
             ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
@@ -97,6 +98,34 @@ impl WarpgrapherClient {
             endpoint: endpoint.to_string(),
         }
     }
+    
+    /// Executes a raw graphql query.
+    ///
+    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use serde_json::json;
+    /// use std::env::var_os;
+    /// use warpgrapher::WarpgrapherClient;
+    ///
+    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///
+    /// let query = "query { Project { id name } }";
+    /// let results = client.graphql(
+    ///    "http://localhost:5000/graphql".to_owned(), 
+    ///     query.to_owned(), 
+    ///     None
+    /// ).await;
+    /// ```
+    pub async fn graphql(
+        &mut self,
+        query: String,
+        input: Option<Value>
+    ) -> Result<Value, Error> {
+        graphql(self.endpoint.clone(), query, input).await
+    }
 
     /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
     /// a query shape and the input of the node being created.
@@ -105,20 +134,23 @@ impl WarpgrapherClient {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.create_node(
-    ///     "Project",
-    ///     "id name description",
-    ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
-    /// );
+    ///     let projects = client.create_node(
+    ///         "Project",
+    ///         "id name description",
+    ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
+    ///     ).await;
+    /// }
     /// ```
-    pub fn create_node(
+    pub async fn create_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -129,7 +161,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned()))?;
+        let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned())).await?;
         self.strip(&result, &format!("{}Create", type_name))
     }
 
@@ -142,7 +174,7 @@ impl WarpgrapherClient {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
@@ -156,9 +188,9 @@ impl WarpgrapherClient {
     ///     &json!({"name": "ProjectName"}),
     ///     &json!({"props": {"since": "2000"},
     ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
-    /// );
+    /// ).await;
     /// ```
-    pub fn create_rel(
+    pub async fn create_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -172,7 +204,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
         self.strip(
             &result,
             &format!("{}{}Create", type_name, rel_name.to_title_case()),
@@ -191,7 +223,7 @@ impl WarpgrapherClient {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     /// use serde_json::json;
@@ -201,9 +233,9 @@ impl WarpgrapherClient {
     /// let projects = client.delete_node(
     ///     "Project",
     ///     Some(&json!({"name": "MJOLNIR"})),
-    ///     None);
+    ///     None).await;
     /// ```
-    pub fn delete_node(
+    pub async fn delete_node(
         &mut self,
         type_name: &str,
         match_input: Option<&Value>,
@@ -215,7 +247,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
@@ -230,7 +262,7 @@ impl WarpgrapherClient {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
@@ -241,9 +273,9 @@ impl WarpgrapherClient {
     ///     Some(&json!({"props": {"since": "2000"}})),
     ///     None,
     ///     Some(&json!({"Bug": {"force": true}}))
-    /// );
+    /// ).await;
     /// ```
-    pub fn delete_rel(
+    pub async fn delete_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -267,7 +299,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input)?;
+        let result = graphql(self.endpoint.to_owned(), query, input).await?;
         self.strip(
             &result,
             &format!("{}{}Delete", type_name, rel_name.to_title_case()),
@@ -281,15 +313,15 @@ impl WarpgrapherClient {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
     /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.read_node("Project", "id name description", None);
+    /// let projects = client.read_node("Project", "id name description", None).await;
     /// ```
-    pub fn read_node(
+    pub async fn read_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -300,7 +332,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = graphql(self.endpoint.to_owned(), query, input.cloned()).await?;
         self.strip(&result, type_name)
     }
 
@@ -322,9 +354,9 @@ impl WarpgrapherClient {
     /// let proj_issues = client.read_rel("Project", "issues",
     ///     "id props { since }",
     ///     Some(&json!({"props": {"since": "2000"}}))
-    /// );
+    /// ).await;
     /// ```
-    pub fn read_rel(
+    pub async fn read_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -336,7 +368,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = graphql(self.endpoint.to_owned(), query, input.cloned()).await?;
         self.strip(
             &result,
             &format!("{}{}", type_name, rel_name.to_title_case()),
@@ -363,9 +395,9 @@ impl WarpgrapherClient {
     ///     "id name status",
     ///     Some(&json!({"name": "TodoApp"})),
     ///     &json!({"status": "ACTIVE"}),
-    /// );
+    /// ).await;
     /// ```
-    pub fn update_node(
+    pub async fn update_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -378,7 +410,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
         self.strip(&result, &format!("{}Update", type_name))
     }
 
@@ -403,9 +435,9 @@ impl WarpgrapherClient {
     ///     "id props {since} src {id name} dst {id name}",
     ///     Some(&json!({"props": {"since": "2000"}})),
     ///     &json!({"props": {"since": "2010"}})
-    /// );
+    /// ).await;
     /// ```
-    pub fn update_rel(
+    pub async fn update_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -419,7 +451,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
         self.strip(
             &result,
             &format!("{}{}Update", type_name, rel_name.to_title_case()),
