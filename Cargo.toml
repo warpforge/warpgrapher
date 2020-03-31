@@ -42,7 +42,6 @@ uuid = "0.7.4"
 wasm-bindgen = "0.2.33"
 
 [dev-dependencies]
-actix-rt = "1.0.0"
 assert_approx_eq = "1.1.0"
 serial_test = "0.3.2"
 tokio = { version = "0.2", features = ["rt-threaded", "macros"] }

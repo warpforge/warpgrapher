@@ -2,7 +2,7 @@
 
 use super::error::{Error, ErrorKind};
 use inflector::Inflector;
-use log::{debug};
+use log::{trace,debug};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -17,9 +17,12 @@ use std::collections::BTreeMap;
 /// use std::env::var_os;
 /// use warpgrapher::client::graphql;
 ///
-/// let query = "query { Project { id name } }";
-/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None).await;
-/// let projects = results.unwrap().get("Project");
+/// #[tokio::main]
+/// async fn main() {
+///     let query = "query { Project { id name } }";
+///     let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None).await;
+///     let projects = results.unwrap().get("Project");
+/// }
 /// ```
 pub async fn graphql(
     endpoint: String,
@@ -27,6 +30,7 @@ pub async fn graphql(
     input: Option<Value>,
 ) -> Result<Value, Error> {
 
+    trace!("issuing request to {}", endpoint);
     // format request body
     let req_body = json!({
         "query": query.to_string(),
@@ -110,14 +114,16 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let query = "query { Project { id name } }";
-    /// let results = client.graphql(
-    ///    "http://localhost:5000/graphql".to_owned(), 
-    ///     query.to_owned(), 
-    ///     None
-    /// ).await;
+    ///     let query = "query { Project { id name } }";
+    ///     let results = client.graphql(
+    ///         "query { Project { id name } }".to_string(),
+    ///         None
+    ///     ).await;
+    /// }
     /// ```
     pub async fn graphql(
         &mut self,
@@ -179,16 +185,19 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.create_rel(
-    ///     "Project",
-    ///     "issues",
-    ///     "id props { since } src { id name } dst { id name }",
-    ///     &json!({"name": "ProjectName"}),
-    ///     &json!({"props": {"since": "2000"},
-    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
-    /// ).await;
+    ///     let proj_issues = client.create_rel(
+    ///         "Project",
+    ///         "issues",
+    ///         "id props { since } src { id name } dst { id name }",
+    ///         &json!({"name": "ProjectName"}),
+    ///         &json!({"props": {"since": "2000"},
+    ///                "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
+    ///     ).await;
+    /// }
     /// ```
     pub async fn create_rel(
         &mut self,
@@ -228,12 +237,16 @@ impl WarpgrapherClient {
     /// use warpgrapher::WarpgrapherClient;
     /// use serde_json::json;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.delete_node(
-    ///     "Project",
-    ///     Some(&json!({"name": "MJOLNIR"})),
-    ///     None).await;
+    ///     let projects = client.delete_node(
+    ///         "Project",
+    ///         Some(&json!({"name": "MJOLNIR"})),
+    ///         None
+    ///     ).await;
+    /// }
     /// ```
     pub async fn delete_node(
         &mut self,
@@ -267,13 +280,16 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.delete_rel("Project", "issues",
-    ///     Some(&json!({"props": {"since": "2000"}})),
-    ///     None,
-    ///     Some(&json!({"Bug": {"force": true}}))
-    /// ).await;
+    ///     let proj_issues = client.delete_rel("Project", "issues",
+    ///        Some(&json!({"props": {"since": "2000"}})),
+    ///        None,
+    ///        Some(&json!({"Bug": {"force": true}}))
+    ///     ).await;
+    /// }
     /// ```
     pub async fn delete_rel(
         &mut self,
@@ -317,9 +333,12 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.read_node("Project", "id name description", None).await;
+    ///     let projects = client.read_node("Project", "id name description", None).await;
+    /// }
     /// ```
     pub async fn read_node(
         &mut self,
@@ -349,12 +368,15 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.read_rel("Project", "issues",
-    ///     "id props { since }",
-    ///     Some(&json!({"props": {"since": "2000"}}))
-    /// ).await;
+    ///     let proj_issues = client.read_rel("Project", "issues",
+    ///         "id props { since }",
+    ///         Some(&json!({"props": {"since": "2000"}}))
+    ///     ).await;
+    /// }
     /// ```
     pub async fn read_rel(
         &mut self,
@@ -388,14 +410,17 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.update_node(
-    ///     "Project",
-    ///     "id name status",
-    ///     Some(&json!({"name": "TodoApp"})),
-    ///     &json!({"status": "ACTIVE"}),
-    /// ).await;
+    ///     let projects = client.update_node(
+    ///         "Project",
+    ///         "id name status",
+    ///         Some(&json!({"name": "TodoApp"})),
+    ///         &json!({"status": "ACTIVE"}),
+    ///     ).await;
+    /// }
     /// ```
     pub async fn update_node(
         &mut self,
@@ -429,13 +454,16 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.update_rel("Project", "issues",
-    ///     "id props {since} src {id name} dst {id name}",
-    ///     Some(&json!({"props": {"since": "2000"}})),
-    ///     &json!({"props": {"since": "2010"}})
-    /// ).await;
+    ///     let proj_issues = client.update_rel("Project", "issues",
+    ///         "id props {since} src {id name} dst {id name}",
+    ///         Some(&json!({"props": {"since": "2000"}})),
+    ///         &json!({"props": {"since": "2010"}})
+    ///     ).await;
+    /// }
     /// ```
     pub async fn update_rel(
         &mut self,
