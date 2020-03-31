@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 ///     let projects = results.unwrap().get("Project");
 /// }
 /// ```
+#[allow(clippy::needless_doctest_main)]
 pub async fn graphql(
     endpoint: String,
     query: String,
@@ -125,6 +126,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn graphql(
         &mut self,
         query: String,
@@ -156,6 +158,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn create_node(
         &mut self,
         type_name: &str,
@@ -199,6 +202,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn create_rel(
         &mut self,
         type_name: &str,
@@ -248,6 +252,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn delete_node(
         &mut self,
         type_name: &str,
@@ -291,6 +296,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn delete_rel(
         &mut self,
         type_name: &str,
@@ -340,6 +346,7 @@ impl WarpgrapherClient {
     ///     let projects = client.read_node("Project", "id name description", None).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn read_node(
         &mut self,
         type_name: &str,
@@ -378,6 +385,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn read_rel(
         &mut self,
         type_name: &str,
@@ -422,6 +430,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn update_node(
         &mut self,
         type_name: &str,
@@ -465,6 +474,7 @@ impl WarpgrapherClient {
     ///     ).await;
     /// }
     /// ```
+    #[allow(clippy::needless_doctest_main)]
     pub async fn update_rel(
         &mut self,
         type_name: &str,

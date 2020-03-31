@@ -1,0 +1,35 @@
+name: Audit
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+    paths:
+      - 'Cargo.lock'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      DB_URL: http://neo4j:testpass@localhost:7474/db/data
+      DB_PASS: testpass
+      
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: Install Cargo Audit
+      run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root ./rustbins
+    
+    - name: Run Cargo Audit
+      run: rustbins/bin/cargo-audit audit || echo "Audit failed!"
+        
+    - name: Create security issue if audit fails
+      if: failure()
+      uses: JasonEtco/create-an-issue@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        title: Cargo audit failure

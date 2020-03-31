@@ -1,6 +1,5 @@
 mod setup;
 
-use log::{info};
 use serde_json::json;
 use serial_test::serial;
 use setup::server::test_server;
