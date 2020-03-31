@@ -46,12 +46,6 @@ jobs:
         path: rustbins
         key: cargo-audit
  
-    - name: Install Cargo Audit
-      run: ls -la rustbins/bin/cargo-audit | grep cargo-audit || cargo install cargo-audit --root ./rustbins
-    
-    - name: Run Cargo Audit
-      run: rustbins/bin/cargo-audit audit || echo "Audit failed!"
-        
     - name: Install Clippy
       run: rustup component add clippy
 
