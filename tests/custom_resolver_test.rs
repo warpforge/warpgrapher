@@ -1,5 +1,6 @@
 mod setup;
 
+use log::{info};
 use serde_json::json;
 use serial_test::serial;
 use setup::server::test_server;
@@ -11,6 +12,7 @@ use warpgrapher::client::graphql;
 #[serial]
 async fn custom_endpoint_resolver() {
     init();
+    println!("custom_endpoint_resolver");
     clear_db();
     let mut client = test_client();
     let mut server = test_server("./tests/fixtures/config.yml");
@@ -49,6 +51,7 @@ async fn custom_endpoint_resolver() {
 #[tokio::test]
 #[serial]
 async fn custom_prop_resolver() {
+    println!("custom_prop_resolver");
     init();
     clear_db();
     let mut client = test_client();

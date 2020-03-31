@@ -30,7 +30,7 @@ pub async fn graphql(
     input: Option<Value>,
 ) -> Result<Value, Error> {
 
-    trace!("issuing request to {}", endpoint);
+    trace!("issuing request: {}", query);
     // format request body
     let req_body = json!({
         "query": query.to_string(),
@@ -59,7 +59,7 @@ pub async fn graphql(
             None,
         )),
         Some(data) => {
-            debug!("Result Data: {:#?}", data);
+            //debug!("Result Data: {:#?}", data);
             Ok(data.to_owned())
         }
     }
