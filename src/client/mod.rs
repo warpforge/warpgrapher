@@ -31,7 +31,6 @@ pub async fn graphql(
     input: Option<Value>,
 ) -> Result<Value, Error> {
 
-    trace!("issuing request: {}", query);
     // format request body
     let req_body = json!({
         "query": query.to_string(),
