@@ -2,7 +2,7 @@
 
 use super::error::{Error, ErrorKind};
 use inflector::Inflector;
-use log::{trace,debug};
+use log::{debug};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 

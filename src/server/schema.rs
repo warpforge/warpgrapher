@@ -2118,11 +2118,11 @@ pub fn create_root_node<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCont
         ))
     })
     .map_err(|e| {
-        (e.downcast::<Error>()
+        e.downcast::<Error>()
             .and_then(|e| Ok(*e))
             .unwrap_or_else(|e| {
                 Error::new(ErrorKind::MissingSchemaElement(format!("{:#?}", e)), None)
-            }))
+            })
     })
 }
 
