@@ -64,6 +64,7 @@ fn create_node_with_rel_to_new() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-V",
                 "board": {
@@ -95,7 +96,8 @@ fn create_node_with_rel_to_new() {
             "__typename
             id
             name",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "SPARTAN-V Board"
             })),
         )
@@ -124,7 +126,8 @@ fn create_node_with_rel_to_new() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "SPARTAN-V"
             })),
         )
@@ -186,6 +189,7 @@ fn create_node_with_rel_to_existing() {
             id
             name
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-VI Board"
             }),
@@ -211,6 +215,7 @@ fn create_node_with_rel_to_existing() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-VI",
                 "board": {
@@ -245,7 +250,8 @@ fn create_node_with_rel_to_existing() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "SPARTAN-VI"
             })),
         )
@@ -304,6 +310,7 @@ fn read_multiple_nodes_with_multiple_rels() {
             "__typename
             id
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-10",
                 "board": {
@@ -324,6 +331,7 @@ fn read_multiple_nodes_with_multiple_rels() {
             "__typename
             id
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-11",
                 "board": {
@@ -344,6 +352,7 @@ fn read_multiple_nodes_with_multiple_rels() {
             "__typename
             id
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-12",
                 "board": {
@@ -376,6 +385,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                     }
                 } 
             }",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -457,6 +467,7 @@ fn read_node_with_matching_props_on_rel() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -479,6 +490,7 @@ fn read_node_with_matching_props_on_rel() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN",
                 "board": {
@@ -518,7 +530,8 @@ fn read_node_with_matching_props_on_rel() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "board": {
                     "props": {
                         "public": true
@@ -556,7 +569,8 @@ fn read_node_with_matching_props_on_rel() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "board": {
                     "props": {
                         "public": false
@@ -619,6 +633,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -640,6 +655,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN",
                 "board": {
@@ -681,7 +697,8 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 } 
              }
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "board": {
                     "dst": {
                         "ScrumBoard": {
@@ -741,6 +758,7 @@ fn update_existing_node_with_rel_to_new_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
             }),
@@ -764,6 +782,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 }
             }
             ",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "ORION"
             })),
@@ -800,6 +819,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 }
              }
             ",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -857,6 +877,7 @@ fn update_existing_node_with_rel_to_existing_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
             }),
@@ -867,6 +888,7 @@ fn update_existing_node_with_rel_to_existing_node() {
     let _results1 = client.create_node(
         "ScrumBoard",
         "id",
+        Some("1234".to_string()),
         &json!({
             "name": "ORION Board"
         }),
@@ -880,6 +902,7 @@ fn update_existing_node_with_rel_to_existing_node() {
             id
             name
             ",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "ORION"
             })),
@@ -916,6 +939,7 @@ fn update_existing_node_with_rel_to_existing_node() {
                  }
              }
             ",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -973,6 +997,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
             }),
@@ -982,6 +1007,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "SPARTAN-II",
             }),
@@ -990,7 +1016,12 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
 
     // delete node with matching props
     let _results2 = client
-        .delete_node("Project", Some(&json!({"name": "ORION"})), None)
+        .delete_node(
+            "Project",
+            Some("1234".to_string()),
+            Some(&json!({"name": "ORION"})),
+            None,
+        )
         .unwrap();
 
     // read projects
@@ -1001,6 +1032,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
              id
              name
             ",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1048,6 +1080,7 @@ fn delete_node_with_force_detach_of_rels() {
         .create_node(
             "Project",
             "id",
+            Some("1234".to_string()),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -1067,6 +1100,7 @@ fn delete_node_with_force_detach_of_rels() {
     let _results1 = client
         .delete_node(
             "Project",
+            Some("1234".to_string()),
             Some(&json!({"name": "ORION"})),
             Some(&json!({"force": true})),
         )
@@ -1080,6 +1114,7 @@ fn delete_node_with_force_detach_of_rels() {
              id
              name
             ",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1094,6 +1129,7 @@ fn delete_node_with_force_detach_of_rels() {
              id
              name
             ",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();

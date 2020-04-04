@@ -11,7 +11,7 @@
 #[macro_use]
 extern crate juniper;
 
-pub use juniper::{Arguments, ExecutionResult, Executor, Object, Value};
+pub use juniper::{Arguments, ExecutionResult, Executor, Object};
 
 pub use client::WarpgrapherClient;
 pub use error::{Error, ErrorKind};

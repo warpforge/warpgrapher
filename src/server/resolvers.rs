@@ -11,16 +11,15 @@ use crate::error::{Error, ErrorKind};
 use crate::server::context::{GraphQLContext, WarpgrapherRequestContext};
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::server::database::{QueryResult, Transaction};
+use crate::server::value::Value;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::server::visitors::{visit_rel_query_input, visit_rel_update_input, SuffixGenerator};
 use juniper::{Arguments, ExecutionResult, Executor};
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use log::debug;
 use log::trace;
-use serde_json::Map;
-use serde_json::Value;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt::Debug;
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
@@ -120,6 +119,7 @@ where
 pub fn resolve_node_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -148,7 +148,8 @@ where
     let raw_result = visit_node_create_mutation_input(
         &p.type_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         validators,
         transaction,
     );
@@ -173,6 +174,7 @@ pub fn resolve_node_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     del_type: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -200,7 +202,8 @@ where
         &var_suffix,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         transaction,
     );
     trace!(
@@ -223,6 +226,7 @@ where
 pub fn resolve_node_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -259,14 +263,15 @@ where
         &mut params,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        input_opt.as_ref().map(|i| &i.value),
+        partition_key_opt,
+        input_opt.map(|i| i.value),
     )?;
 
     debug!(
         "resolve_node_read_query query, params: {:#?}, {:#?}",
         query, params
     );
-    let raw_results = transaction.exec(&query, Some(&params));
+    let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
     debug!("resolve_node_read_query Raw result: {:#?}", raw_results);
 
     if raw_results.is_ok() {
@@ -296,6 +301,7 @@ where
 pub fn resolve_node_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -323,7 +329,8 @@ where
     let raw_result = visit_node_update_input(
         &p.type_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         validators,
         transaction,
     );
@@ -348,6 +355,7 @@ pub fn resolve_object_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     _id_opt: Option<&Value>,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -368,7 +376,7 @@ where
     let _p = td.get_prop(field_name)?;
 
     if td.type_name == "Query" {
-        resolve_node_read_query(field_name, info, input_opt, executor, transaction)
+        resolve_node_read_query(field_name, info, partition_key_opt, input_opt, executor, transaction)
     } else {
         Err(Error::new(
             ErrorKind::InvalidPropertyType("To be implemented.".to_owned()),
@@ -379,11 +387,13 @@ where
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_rel_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -416,7 +426,8 @@ where
         // in their schema, in which case the missing property is fine.
         rtd.get_prop("props").map(|pp| pp.type_name.as_str()).ok(),
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         validators,
         transaction,
     );
@@ -447,11 +458,13 @@ where
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_rel_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -477,7 +490,8 @@ where
         None,
         rel_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         transaction,
     );
     trace!("Raw results: {:#?}", raw_results);
@@ -494,11 +508,13 @@ where
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_rel_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
-    id_opt: Option<&Value>,
+    id_opt: Option<Value>,
     rel_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -520,27 +536,16 @@ where
     let td = info.get_type_def()?;
     let _p = td.get_prop(field_name)?;
 
-    if let Some(Value::String(id)) = id_opt {
-        resolve_rel_read_query(
-            field_name,
-            Some(&[id.to_owned()]),
-            rel_name,
-            info,
-            input_opt,
-            executor,
-            transaction,
-        )
-    } else {
-        resolve_rel_read_query(
-            field_name,
-            None,
-            rel_name,
-            info,
-            input_opt,
-            executor,
-            transaction,
-        )
-    }
+    resolve_rel_read_query(
+        field_name,
+        id_opt,
+        rel_name,
+        info,
+        partition_key_opt,
+        input_opt,
+        executor,
+        transaction,
+    )
 }
 
 pub fn resolve_rel_props<GlobalCtx, ReqCtx>(
@@ -569,11 +574,13 @@ where
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_rel_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
-    src_ids_opt: Option<&[String]>,
+    src_ids_opt: Option<Value>,
     rel_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -618,14 +625,15 @@ where
         &mut params,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        input_opt.as_ref().map(|i| &i.value),
+        partition_key_opt,
+        input_opt.map(|i| i.value),
     )?;
 
     debug!(
         "resolve_rel_read_query Query query, params: {:#?} {:#?}",
         query, params
     );
-    let raw_results = transaction.exec(&query, Some(&params));
+    let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
     debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
     if raw_results.is_ok() {
@@ -668,11 +676,13 @@ where
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_rel_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
+    partition_key_opt: &Option<String>,
     input: Input<GlobalCtx, ReqCtx>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
     transaction: &mut T,
@@ -704,7 +714,8 @@ where
         None,
         rel_name,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
+        partition_key_opt,
+        input.value,
         validators,
         transaction,
     );
@@ -735,7 +746,7 @@ where
 pub fn resolve_scalar_field<GlobalCtx, ReqCtx>(
     info: &Info,
     field_name: &str,
-    fields: &Map<String, Value>,
+    fields: &HashMap<String, Value>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
 ) -> ExecutionResult
 where
@@ -758,61 +769,18 @@ where
         },
         |v| match v {
             Value::Null => executor.resolve_with_ctx(&(), &None::<String>),
-            Value::Bool(b) => executor.resolve_with_ctx(&(), b),
-            Value::Number(n) => {
-                if let Some(i_val) = n.as_i64() {
-                    executor.resolve_with_ctx(&(), &(i_val as i32))
-                } else if n.is_f64() {
-                    executor.resolve_with_ctx(
-                        &(),
-                        &n.as_f64().ok_or_else(|| {
-                            Error::new(ErrorKind::InvalidPropertyType("f64".to_owned()), None)
-                        })?,
-                    )
-                } else {
-                    Err(Error::new(
-                        ErrorKind::InvalidPropertyType(
-                            "Could not convert numeric type.".to_owned(),
-                        ),
-                        None,
-                    )
-                    .into())
-                }
-            }
-            Value::String(s) => executor.resolve_with_ctx(&(), s),
-            Value::Array(a) => {
-                match &a.get(0) {
-                    None => {
-                        executor.resolve_with_ctx(&(), &(vec![] as Vec<String>))
-                    },
-                    Some(v) if v.is_string() => {
-                        let array : Vec<String> = a.iter().map(|x| x.as_str().unwrap().to_string()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(v) if v.is_boolean() => {
-                        let array : Vec<bool> = a.iter().map(|x| x.as_bool().unwrap()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(v) if v.is_f64() => {
-                        let array : Vec<f64> = a.iter().map(|x| x.as_f64().unwrap()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    }
-                    Some(v) if v.is_i64() => {
-                        let array : Vec<i32> = a.iter().map(|x| x.as_i64().unwrap() as i32).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(_v) => {
-                        Err(Error::new(
-                            ErrorKind::InvalidPropertyType(
-                                String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array.",
-                            ),
-                            None,
-                        )
-                        .into())
-                    }
-                }
+            Value::Bool(_) => executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?),
+            Value::Int64(_) | Value::UInt64(_) => executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?),
+            Value::Float64(_) => executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?),
+            Value::String(_) | Value::Uuid(_) => executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
+            Value::Array(a) => match a.get(0) {
+                Some(Value::Null) | Some(Value::String(_)) | Some(Value::Uuid(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
+                Some(Value::Bool(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
+                Some(Value::Int64(_)) | Some(Value::UInt64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<i32>>::try_into(v.clone())?),
+                Some(Value::Float64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?),
+                Some(Value::Array(_)) | Some(Value::Map(_)) | None => Err(Error::new(ErrorKind::InvalidPropertyType(String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array."), None).into()),
             },
-            Value::Object(_) => Err(Error::new(
+            Value::Map(_) => Err(Error::new(
                 ErrorKind::InvalidPropertyType(
                     String::from(field_name) + " is an object. Expected a scalar or a scalar array.",
                 ),

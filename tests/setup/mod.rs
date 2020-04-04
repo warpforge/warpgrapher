@@ -1,6 +1,10 @@
 pub mod extension;
 pub mod server;
 
+#[cfg(feature = "graphson2")]
+use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
+#[cfg(feature = "graphson2")]
+use log::trace;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use std::env::var_os;
@@ -13,15 +17,53 @@ pub fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
+#[cfg(feature = "graphson2")]
+pub fn graphson2_host() -> String {
+    var_os("WG_GRAPHSON2_HOST")
+        .expect("Expected WG_GRAPHSON2_HOST to be set.")
+        .to_str()
+        .expect("Expected WG_GRAPHSON2_HOST to be a string.")
+        .to_owned()
+}
+
+#[cfg(feature = "graphson2")]
+pub fn graphson2_port() -> u16 {
+    var_os("WG_GRAPHSON2_PORT")
+        .expect("Expected WG_GRAPHSON2_PORT to be set.")
+        .to_str()
+        .expect("Expected WG_GRAPHSON2_PORT to be a string.")
+        .parse::<u16>()
+        .expect("Expected WG_GRAPHSON2_PORT to be a u16.")
+}
+
 #[allow(dead_code)]
-pub fn db_url() -> String {
-    match var_os("WG_NEO4J_URL") {
-        None => "http://neo4j:testpass@127.0.0.1:7474/db/data".to_owned(),
-        Some(os) => os
-            .to_str()
-            .unwrap_or("http://neo4j:testpass@127.0.0.1:7474/db/data")
-            .to_owned(),
-    }
+#[cfg(feature = "graphson2")]
+pub fn graphson2_login() -> String {
+    var_os("WG_GRAPHSON2_LOGIN")
+        .expect("Expected WG_GRAPHSON2_LOGIN to be set.")
+        .to_str()
+        .expect("Expected WG_GRAPHSON2_LOGIN to be a string.")
+        .to_owned()
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "graphson2")]
+pub fn graphson2_pass() -> String {
+    var_os("WG_GRAPHSON2_PASS")
+        .expect("Expected WG_GRAPHSON2_PASS to be set.")
+        .to_str()
+        .expect("Expected WG_GRAPHSON2_PASS to be a string.")
+        .to_owned()
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub fn neo4j_url() -> String {
+    var_os("WG_NEO4J_URL")
+        .expect("Expected WG_NEO4J_URL to be set.")
+        .to_str()
+        .expect("Expected WG_NEO4J_URL to be a string.")
+        .to_owned()
 }
 
 #[allow(dead_code)]
@@ -53,15 +95,39 @@ pub fn test_client() -> WarpgrapherClient {
     WarpgrapherClient::new(&gql_endpoint())
 }
 
-#[cfg(all(not(feaure = "graphson2"), not(feature = "neo4j")))]
+#[cfg(feature = "graphson2")]
 #[allow(dead_code)]
-pub fn clear_db() {
-    panic!("No database support feature chosen. Need to enable a database feature.");
+pub fn clear_graphson2_db() {
+    // g.V().drop() -- delete the entire graph
+    let client = GremlinClient::connect(
+        ConnectionOptions::builder()
+            .host(graphson2_host())
+            .port(graphson2_port())
+            .pool_size(1)
+            .ssl(true)
+            .serializer(GraphSON::V2)
+            .credentials(&graphson2_login(), &graphson2_pass())
+            .build(),
+    )
+    .expect("Expected successful gremlin client creation.");
+
+    let results = client.execute("g.V().drop()", &[]);
+
+    trace!("{:#?}", results);
 }
 
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
-pub fn clear_db() {
-    let graph = GraphClient::connect(db_url()).unwrap();
+pub fn clear_neo4j_db() {
+    let graph = GraphClient::connect(neo4j_url()).unwrap();
     graph.exec("MATCH (n) DETACH DELETE (n)").unwrap();
+}
+
+#[allow(dead_code)]
+pub fn clear_db() {
+    #[cfg(feature = "graphson2")]
+    clear_graphson2_db();
+
+    #[cfg(feature = "neo4j")]
+    clear_neo4j_db();
 }

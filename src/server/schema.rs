@@ -11,7 +11,6 @@ use crate::error::{Error, ErrorKind};
 use crate::server::context::WarpgrapherRequestContext;
 use inflector::Inflector;
 use juniper::RootNode;
-use serde_json::Map;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::panic::catch_unwind;
@@ -22,7 +21,7 @@ pub type RootRef<GlobalCtx, ReqCtx> =
 
 //#[derive(Debug, PartialEq)]
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub enum InputKind {
+pub enum ArgumentKind {
     Required,
     Optional,
 }
@@ -125,55 +124,90 @@ impl NodeType {
 }
 
 //#[derive(Debug, PartialEq)]
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Property {
     pub name: String,
     pub kind: PropertyKind,
     pub type_name: String,
     pub required: bool,
     pub list: bool,
-    pub input: Option<(InputKind, String)>,
+    pub arguments: HashMap<String, Argument>,
     pub resolver: Option<String>,
     pub validator: Option<String>,
 }
 
 impl Property {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        name: String,
-        kind: PropertyKind,
-        type_name: String,
-        required: bool,
-        list: bool,
-        input: Option<(InputKind, String)>,
-        resolver: Option<String>,
-        validator: Option<String>,
-    ) -> Property {
+    pub fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
         Property {
             name,
             kind,
             type_name,
-            required,
-            list,
-            input,
-            resolver,
-            validator,
+            required: false,
+            list: false,
+            arguments: HashMap::new(),
+            resolver: None,
+            validator: None,
         }
     }
 
+    pub fn with_required(mut self, required: bool) -> Self {
+        self.required = required;
+        self
+    }
+
+    pub fn with_list(mut self, list: bool) -> Self {
+        self.list = list;
+        self
+    }
+
+    pub fn with_arguments(mut self, arguments: HashMap<String, Argument>) -> Self {
+        self.arguments = arguments;
+        self
+    }
+
+    pub fn with_resolver(mut self, resolver: &str) -> Self {
+        self.resolver = Some(resolver.to_string());
+        self
+    }
+
+    pub fn with_validator(mut self, validator: Option<String>) -> Self {
+        self.validator = validator;
+        self
+    }
+
     pub fn get_input_type_definition<'i>(&self, info: &'i Info) -> Result<&'i NodeType, Error> {
-        if let Some(input_field) = &self.input {
-            info.type_defs.get(&input_field.1).ok_or_else(|| {
+        self.arguments
+            .get("input")
+            .ok_or_else(|| {
                 Error::new(
-                    ErrorKind::MissingSchemaElement(input_field.1.to_owned()),
+                    ErrorKind::MissingSchemaElement(String::from("Input for ") + &self.name),
                     None,
                 )
             })
-        } else {
-            Err(Error::new(
-                ErrorKind::MissingSchemaElement(String::from("Input for ") + &self.name),
-                None,
-            ))
+            .and_then(|input_arg| {
+                info.type_defs.get(&input_arg.type_name).ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::MissingSchemaElement(input_arg.type_name.to_owned()),
+                        None,
+                    )
+                })
+            })
+    }
+}
+
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct Argument {
+    pub name: String,
+    pub kind: ArgumentKind,
+    pub type_name: String,
+}
+
+impl Argument {
+    pub fn new(name: String, kind: ArgumentKind, type_name: String) -> Argument {
+        Argument {
+            name,
+            kind,
+            type_name,
         }
     }
 }
@@ -187,16 +221,8 @@ fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<
     if id {
         hm.insert(
             "id".to_owned(),
-            Property::new(
-                "id".to_owned(),
-                PropertyKind::Scalar,
-                "ID".to_owned(),
-                object,
-                false,
-                None,
-                None,
-                None,
-            ),
+            Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned())
+                .with_required(object),
         );
     }
 
@@ -210,12 +236,10 @@ fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<
                         p.name.to_owned(),
                         PropertyKind::Scalar,
                         p.type_name.to_owned(),
-                        p.required && object,
-                        p.list,
-                        None,
-                        None,
-                        p.validator.to_owned(),
-                    ),
+                    )
+                    .with_required(p.required && object)
+                    .with_list(p.list)
+                    .with_validator(p.validator.clone()),
                 );
             }
             Some(r) => {
@@ -225,12 +249,11 @@ fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<
                         p.name.to_owned(),
                         PropertyKind::DynamicScalar,
                         p.type_name.to_owned(),
-                        p.required && object,
-                        p.list,
-                        None,
-                        Some(r.to_owned()),
-                        p.validator.to_owned(),
-                    ),
+                    )
+                    .with_required(p.required && object)
+                    .with_list(p.list)
+                    .with_resolver(r)
+                    .with_validator(p.validator.clone()),
                 );
             }
         };
@@ -264,19 +287,26 @@ fn fmt_node_object_name(t: &WarpgrapherType) -> String {
 /// }
 fn generate_node_object(t: &WarpgrapherType) -> NodeType {
     let mut props = generate_props(&t.props, true, true);
-    for r in t.rels.clone() {
+    for r in &t.rels {
+        let mut arguments = HashMap::new();
+        arguments.insert(
+            "input".to_string(),
+            Argument::new(
+                "input".to_string(),
+                ArgumentKind::Optional,
+                fmt_rel_query_input_name(t, r),
+            ),
+        );
+
         props.insert(
             r.name.to_owned(),
             Property::new(
                 r.name.to_owned(),
                 PropertyKind::Rel(r.name.to_owned()),
-                fmt_rel_object_name(t, &r),
-                false,
-                r.list,
-                Some((InputKind::Optional, fmt_rel_query_input_name(t, &r))),
-                None,
-                None,
-            ),
+                fmt_rel_object_name(t, r),
+            )
+            .with_list(r.list)
+            .with_arguments(arguments),
         );
     }
     NodeType::new(t.name.to_owned(), TypeKind::Object, props)
@@ -311,12 +341,8 @@ fn generate_node_query_input(t: &WarpgrapherType) -> NodeType {
                 r.name.to_owned(),
                 PropertyKind::Input,
                 fmt_rel_query_input_name(t, &r),
-                false,
-                r.list,
-                None,
-                None,
-                None,
-            ),
+            )
+            .with_list(r.list),
         );
     }
     NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props)
@@ -349,12 +375,8 @@ fn generate_node_create_mutation_input(t: &WarpgrapherType) -> NodeType {
                 r.name.to_owned(),
                 PropertyKind::Input,
                 fmt_rel_create_mutation_input_name(t, &r),
-                false,
-                r.list,
-                None,
-                None,
-                None,
-            ),
+            )
+            .with_list(r.list),
         );
     }
     NodeType::new(
@@ -392,12 +414,8 @@ fn generate_node_update_mutation_input(t: &WarpgrapherType) -> NodeType {
                 r.name.to_owned(),
                 PropertyKind::Input,
                 fmt_rel_change_input_name(t, &r),
-                false,
-                r.list,
-                None,
-                None,
-                None,
-            ),
+            )
+            .with_list(r.list),
         );
     }
     NodeType::new(
@@ -433,11 +451,6 @@ fn generate_node_input(t: &WarpgrapherType) -> NodeType {
             "EXISTING".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -446,11 +459,6 @@ fn generate_node_input(t: &WarpgrapherType) -> NodeType {
             "NEW".to_string(),
             PropertyKind::Input,
             fmt_node_create_mutation_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_node_input_name(t), TypeKind::Input, props)
@@ -482,11 +490,6 @@ fn generate_node_update_input(t: &WarpgrapherType) -> NodeType {
             "match".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -495,11 +498,6 @@ fn generate_node_update_input(t: &WarpgrapherType) -> NodeType {
             "modify".to_string(),
             PropertyKind::Input,
             fmt_node_update_mutation_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_node_update_input_name(t), TypeKind::Input, props)
@@ -531,11 +529,6 @@ fn generate_node_delete_input(t: &WarpgrapherType) -> NodeType {
             "match".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -544,11 +537,6 @@ fn generate_node_delete_input(t: &WarpgrapherType) -> NodeType {
             "delete".to_string(),
             PropertyKind::Input,
             fmt_node_delete_mutation_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_node_delete_input_name(t), TypeKind::Input, props)
@@ -581,11 +569,6 @@ fn generate_node_delete_mutation_input(t: &WarpgrapherType) -> NodeType {
             "force".to_string(),
             PropertyKind::Scalar,
             "Boolean".to_string(),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     for r in &t.rels {
@@ -595,12 +578,8 @@ fn generate_node_delete_mutation_input(t: &WarpgrapherType) -> NodeType {
                 r.name.to_owned(),
                 PropertyKind::Input,
                 fmt_rel_delete_input_name(t, &r),
-                false,
-                r.list,
-                None,
-                None,
-                None,
-            ),
+            )
+            .with_list(r.list),
         );
     }
     NodeType::new(
@@ -623,16 +602,31 @@ fn fmt_node_read_endpoint_name(t: &WarpgrapherType) -> String {
 /// Ex:
 /// Project(input: ProjectQueryInput): [Project]
 fn generate_node_read_endpoint(t: &WarpgrapherType) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Optional,
+            fmt_node_query_input_name(t),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_node_read_endpoint_name(t),
         PropertyKind::Object,
         t.name.to_owned(),
-        false,
-        true,
-        Some((InputKind::Optional, fmt_node_query_input_name(t))),
-        None,
-        None,
     )
+    .with_list(true)
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
@@ -648,16 +642,30 @@ fn fmt_node_create_endpoint_name(t: &WarpgrapherType) -> String {
 /// Ex:
 /// ProjectCreate (input: ProjectCreateMutationInput): Project
 fn generate_node_create_endpoint(t: &WarpgrapherType) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_node_create_mutation_input_name(t),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_node_create_endpoint_name(t),
         PropertyKind::NodeCreateMutation,
         t.name.to_owned(),
-        false,
-        false,
-        Some((InputKind::Required, fmt_node_create_mutation_input_name(t))),
-        None,
-        None,
     )
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
@@ -673,16 +681,31 @@ fn fmt_node_update_endpoint_name(t: &WarpgrapherType) -> String {
 /// Ex:
 /// ProjectUpdate (input: ProjectUpdateInput): [Project]
 fn generate_node_update_endpoint(t: &WarpgrapherType) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_node_update_input_name(t),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_node_update_endpoint_name(t),
         PropertyKind::NodeUpdateMutation,
         t.name.to_owned(),
-        false,
-        true,
-        Some((InputKind::Required, fmt_node_update_input_name(t))),
-        None,
-        None,
     )
+    .with_list(true)
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteEndpoint
@@ -698,16 +721,30 @@ fn fmt_node_delete_endpoint_name(t: &WarpgrapherType) -> String {
 /// Ex:
 /// ProjectDelete (input: <ProjectQueryInput>): Int
 fn generate_node_delete_endpoint(t: &WarpgrapherType) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_node_delete_input_name(t),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_node_delete_endpoint_name(t),
         PropertyKind::NodeDeleteMutation(fmt_node_object_name(t)),
         "Int".to_string(),
-        false,
-        false,
-        Some((InputKind::Required, fmt_node_delete_input_name(t))),
-        None,
-        None,
     )
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelObject
@@ -747,17 +784,9 @@ fn generate_rel_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_owned(),
-        Property::new(
-            "id".to_owned(),
-            PropertyKind::Scalar,
-            "ID".to_owned(),
-            true,
-            false,
-            None,
-            None,
-            None,
-        ),
+        Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()).with_required(true),
     );
+
     if !r.props.is_empty() {
         props.insert(
             "props".to_owned(),
@@ -765,26 +794,13 @@ fn generate_rel_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
                 "props".to_string(),
                 PropertyKind::Object,
                 fmt_rel_props_object_name(t, r),
-                false,
-                false,
-                None,
-                None,
-                None,
             ),
         );
     }
     props.insert(
         "src".to_owned(),
-        Property::new(
-            "src".to_string(),
-            PropertyKind::Object,
-            t.name.to_owned(),
-            true,
-            false,
-            None,
-            None,
-            None,
-        ),
+        Property::new("src".to_string(), PropertyKind::Object, t.name.to_owned())
+            .with_required(true),
     );
     props.insert(
         "dst".to_owned(),
@@ -792,12 +808,8 @@ fn generate_rel_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
             "dst".to_string(),
             PropertyKind::Union,
             fmt_rel_nodes_union_name(t, r),
-            true,
-            false,
-            None,
-            None,
-            None,
-        ),
+        )
+        .with_required(true),
     );
     NodeType::new(fmt_rel_object_name(t, r), TypeKind::Rel, props)
 }
@@ -889,16 +901,7 @@ fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
     let mut props = HashMap::new();
     props.insert(
         "id".to_owned(),
-        Property::new(
-            "id".to_owned(),
-            PropertyKind::Scalar,
-            "ID".to_owned(),
-            false,
-            false,
-            None,
-            None,
-            None,
-        ),
+        Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()),
     );
     if !r.props.is_empty() {
         props.insert(
@@ -907,11 +910,6 @@ fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
                 "props".to_string(),
                 PropertyKind::Input,
                 fmt_rel_props_input_name(t, r),
-                false,
-                false,
-                None,
-                None,
-                None,
             ),
         );
     }
@@ -921,11 +919,6 @@ fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
             "src".to_string(),
             PropertyKind::Input,
             fmt_rel_src_query_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -934,11 +927,6 @@ fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
             "dst".to_string(),
             PropertyKind::Input,
             fmt_rel_dst_query_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_rel_query_input_name(t, r), TypeKind::Input, props)
@@ -977,11 +965,6 @@ fn generate_rel_create_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
                 "props".to_string(),
                 PropertyKind::Input,
                 fmt_rel_props_input_name(t, r),
-                false,
-                false,
-                None,
-                None,
-                None,
             ),
         );
     }
@@ -991,12 +974,8 @@ fn generate_rel_create_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
             "dst".to_string(),
             PropertyKind::Input,
             fmt_rel_nodes_mutation_input_union_name(t, r),
-            true,
-            false,
-            None,
-            None,
-            None,
-        ),
+        )
+        .with_required(true),
     );
     NodeType::new(
         fmt_rel_create_mutation_input_name(t, r),
@@ -1038,11 +1017,6 @@ fn generate_rel_change_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "ADD".to_string(),
             PropertyKind::Input,
             fmt_rel_create_mutation_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1051,11 +1025,6 @@ fn generate_rel_change_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "UPDATE".to_string(),
             PropertyKind::Input,
             fmt_rel_update_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1064,11 +1033,6 @@ fn generate_rel_change_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "DELETE".to_string(),
             PropertyKind::Input,
             fmt_rel_delete_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_rel_change_input_name(t, r), TypeKind::Input, props)
@@ -1107,11 +1071,6 @@ fn generate_rel_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
                 "props".to_string(),
                 PropertyKind::Input,
                 fmt_rel_props_input_name(t, r),
-                false,
-                false,
-                None,
-                None,
-                None,
             ),
         );
     }
@@ -1121,11 +1080,6 @@ fn generate_rel_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
             "src".to_string(),
             PropertyKind::Input,
             fmt_rel_src_update_mutation_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1134,11 +1088,6 @@ fn generate_rel_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
             "dst".to_string(),
             PropertyKind::Input,
             fmt_rel_dst_update_mutation_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(
@@ -1177,11 +1126,6 @@ fn generate_rel_src_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
             t.name.clone(),
             PropertyKind::Input,
             fmt_node_update_mutation_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(
@@ -1214,18 +1158,13 @@ fn fmt_rel_dst_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// }
 fn generate_rel_dst_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes.clone() {
+    for node in &r.nodes {
         props.insert(
             node.clone(),
             Property::new(
                 node.clone(),
                 PropertyKind::Input,
-                format!("{}UpdateMutationInput", node.clone()),
-                false,
-                false,
-                None,
-                None,
-                None,
+                format!("{}UpdateMutationInput", node),
             ),
         );
     }
@@ -1292,12 +1231,7 @@ fn generate_rel_src_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> Node
         Property::new(
             t.name.clone(),
             PropertyKind::Input,
-            format!("{}QueryInput", t.name.clone()),
-            false,
-            false,
-            None,
-            None,
-            None,
+            format!("{}QueryInput", t.name),
         ),
     );
     NodeType::new(fmt_rel_src_query_input_name(t, r), TypeKind::Input, props)
@@ -1326,19 +1260,14 @@ fn fmt_rel_dst_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// }
 fn generate_rel_dst_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes.clone() {
+    for node in &r.nodes {
         props.insert(
             node.clone(),
             Property::new(
                 node.clone(),
                 PropertyKind::Input,
                 //fmt_node_query_input_name(t, r),
-                format!("{}QueryInput", node.clone()),
-                false,
-                false,
-                None,
-                None,
-                None,
+                format!("{}QueryInput", node),
             ),
         );
     }
@@ -1368,19 +1297,10 @@ fn fmt_rel_nodes_mutation_input_union_name(t: &WarpgrapherType, r: &WarpgrapherR
 /// }
 fn generate_rel_nodes_mutation_input_union(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes.clone() {
+    for node in &r.nodes {
         props.insert(
             node.clone(),
-            Property::new(
-                node.clone(),
-                PropertyKind::Input,
-                format!("{}Input", node.clone()),
-                false,
-                false,
-                None,
-                None,
-                None,
-            ),
+            Property::new(node.clone(), PropertyKind::Input, format!("{}Input", node)),
         );
     }
     NodeType::new(
@@ -1421,11 +1341,6 @@ fn generate_rel_create_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "match".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1434,12 +1349,8 @@ fn generate_rel_create_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "create".to_string(),
             PropertyKind::Input,
             fmt_rel_create_mutation_input_name(t, &r),
-            false,
-            r.list,
-            None,
-            None,
-            None,
-        ),
+        )
+        .with_list(r.list),
     );
     NodeType::new(fmt_rel_create_input_name(t, r), TypeKind::Input, props)
 }
@@ -1475,11 +1386,6 @@ fn generate_rel_update_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "match".to_string(),
             PropertyKind::Input,
             fmt_rel_query_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1488,12 +1394,8 @@ fn generate_rel_update_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "update".to_string(),
             PropertyKind::Input,
             fmt_rel_update_mutation_input_name(t, &r),
-            true,
-            false,
-            None,
-            None,
-            None,
-        ),
+        )
+        .with_required(true),
     );
     NodeType::new(fmt_rel_update_input_name(t, r), TypeKind::Input, props)
 }
@@ -1530,11 +1432,6 @@ fn generate_rel_delete_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "match".to_string(),
             PropertyKind::Input,
             fmt_rel_query_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1543,11 +1440,6 @@ fn generate_rel_delete_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "src".to_string(),
             PropertyKind::Input,
             fmt_rel_src_delete_mutation_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     props.insert(
@@ -1556,11 +1448,6 @@ fn generate_rel_delete_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
             "dst".to_string(),
             PropertyKind::Input,
             fmt_rel_dst_delete_mutation_input_name(t, r),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(fmt_rel_delete_input_name(t, r), TypeKind::Input, props)
@@ -1594,11 +1481,6 @@ fn generate_rel_src_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
             t.name.clone(),
             PropertyKind::Input,
             fmt_node_delete_mutation_input_name(t),
-            false,
-            false,
-            None,
-            None,
-            None,
         ),
     );
     NodeType::new(
@@ -1630,18 +1512,13 @@ fn fmt_rel_dst_delete_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// }
 fn generate_rel_dst_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes.clone() {
+    for node in &r.nodes {
         props.insert(
             node.clone(),
             Property::new(
                 node.clone(),
                 PropertyKind::Input,
-                format!("{}DeleteMutationInput", node.clone()),
-                false,
-                false,
-                None,
-                None,
-                None,
+                format!("{}DeleteMutationInput", node),
             ),
         );
     }
@@ -1665,16 +1542,31 @@ fn fmt_rel_read_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String
 /// Ex:
 /// ProjectOwner(input: ProjectOwnerQueryInput): [ProjectOwnerRel]
 fn generate_rel_read_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Optional,
+            fmt_rel_query_input_name(t, r),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_rel_read_endpoint_name(t, r),
         PropertyKind::Rel(r.name.to_owned()),
         fmt_rel_object_name(t, r),
-        false,
-        true,
-        Some((InputKind::Optional, fmt_rel_query_input_name(t, r))),
-        None,
-        None,
     )
+    .with_list(true)
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateEndpoint
@@ -1694,16 +1586,31 @@ fn fmt_rel_create_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// Ex:
 /// ProjectOwnerCreate(input: ProjectOwnerCreateInput): ProjectOwnerRel
 fn generate_rel_create_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_rel_create_input_name(t, r),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_rel_create_endpoint_name(t, r),
         PropertyKind::RelCreateMutation(fmt_node_object_name(t), fmt_rel_name(r)),
         fmt_rel_object_name(t, r),
-        false,
-        r.list,
-        Some((InputKind::Required, fmt_rel_create_input_name(t, r))),
-        None,
-        None,
     )
+    .with_list(r.list)
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateEndpoint
@@ -1723,16 +1630,31 @@ fn fmt_rel_update_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// Ex:
 /// ProjectOwnerUpdate(input: ProjectOwnerUpdateInput): ProjectOwnerRel
 fn generate_rel_update_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_rel_update_input_name(t, r),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_rel_update_endpoint_name(t, r),
         PropertyKind::RelUpdateMutation(fmt_node_object_name(t), fmt_rel_name(r)),
         fmt_rel_object_name(t, r),
-        false,
-        true,
-        Some((InputKind::Required, fmt_rel_update_input_name(t, r))),
-        None,
-        None,
     )
+    .with_list(true)
+    .with_arguments(arguments)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDeleteEndpoint
@@ -1752,20 +1674,83 @@ fn fmt_rel_delete_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// Ex:
 /// ProjectOwnerDelete(input: ProjectOwnerQueryInput): [Project]
 fn generate_rel_delete_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+    let mut arguments = HashMap::new();
+    arguments.insert(
+        "input".to_string(),
+        Argument::new(
+            "input".to_string(),
+            ArgumentKind::Required,
+            fmt_rel_delete_input_name(t, r),
+        ),
+    );
+    arguments.insert(
+        "partitionKey".to_string(),
+        Argument::new(
+            "partitionKey".to_string(),
+            ArgumentKind::Optional,
+            "String".to_string(),
+        ),
+    );
+
     Property::new(
         fmt_rel_delete_endpoint_name(t, r),
         PropertyKind::RelDeleteMutation(fmt_node_object_name(t), fmt_rel_name(r)),
         "Int".to_string(),
-        false,
-        false,
-        Some((InputKind::Required, fmt_rel_delete_input_name(t, r))),
-        None,
-        None,
     )
+    .with_arguments(arguments)
 }
 
 /// Takes a WG Endpoint and returns a NodeType representing a root endpoint
 fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
+    let mut arguments = HashMap::new();
+    match &e.input {
+        None => {}
+        Some(input) => {
+            let is_required = if input.required {
+                ArgumentKind::Required
+            } else {
+                ArgumentKind::Optional
+            };
+            arguments.insert(
+                "partitionKey".to_string(),
+                Argument::new(
+                    "partitionKey".to_string(),
+                    ArgumentKind::Optional,
+                    "String".to_string(),
+                ),
+            );
+
+            match &input.type_def {
+                WarpgrapherTypeDef::Scalar(s) => match s {
+                    GraphqlType::Boolean => arguments.insert(
+                        "input".to_string(),
+                        Argument::new("input".to_string(), is_required, "Boolean".to_string()),
+                    ),
+                    GraphqlType::Float => arguments.insert(
+                        "input".to_string(),
+                        Argument::new("input".to_string(), is_required, "Float".to_string()),
+                    ),
+                    GraphqlType::Int => arguments.insert(
+                        "input".to_string(),
+                        Argument::new("input".to_string(), is_required, "Int".to_string()),
+                    ),
+                    GraphqlType::String => arguments.insert(
+                        "input".to_string(),
+                        Argument::new("input".to_string(), is_required, "String".to_string()),
+                    ),
+                },
+                WarpgrapherTypeDef::Existing(e) => arguments.insert(
+                    "input".to_string(),
+                    Argument::new("input".to_string(), is_required, e.clone()),
+                ),
+                WarpgrapherTypeDef::Custom(c) => arguments.insert(
+                    "input".to_string(),
+                    Argument::new("input".to_string(), is_required, c.name.clone()),
+                ),
+            };
+        }
+    }
+
     Property::new(
         e.name.clone(),
         PropertyKind::CustomResolver,
@@ -1779,30 +1764,10 @@ fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
             WarpgrapherTypeDef::Existing(s) => s.clone(),
             WarpgrapherTypeDef::Custom(t) => t.name.clone(),
         },
-        e.output.required,
-        e.output.list,
-        match &e.input {
-            None => None,
-            Some(input) => Some((
-                match &input.required {
-                    true => InputKind::Required,
-                    false => InputKind::Optional,
-                },
-                match &input.type_def {
-                    WarpgrapherTypeDef::Scalar(s) => match &s {
-                        GraphqlType::Int => "Int".to_string(),
-                        GraphqlType::Float => "Float".to_string(),
-                        GraphqlType::String => "String".to_string(),
-                        GraphqlType::Boolean => "Boolean".to_string(),
-                    },
-                    WarpgrapherTypeDef::Existing(e) => e.clone(),
-                    WarpgrapherTypeDef::Custom(c) => c.name.clone(),
-                },
-            )),
-        },
-        None,
-        None,
     )
+    .with_required(e.output.required)
+    .with_list(e.output.list)
+    .with_arguments(arguments)
 }
 
 fn generate_custom_endpoint_input(t: &WarpgrapherType) -> NodeType {
@@ -1814,12 +1779,8 @@ fn generate_custom_endpoint_input(t: &WarpgrapherType) -> NodeType {
                 r.name.to_owned(),
                 PropertyKind::Input,
                 fmt_rel_query_input_name(t, &r),
-                false,
-                r.list,
-                None,
-                None,
-                None,
-            ),
+            )
+            .with_list(r.list),
         );
     }
     NodeType::new(t.name.clone(), TypeKind::Input, props)
@@ -1830,11 +1791,6 @@ fn generate_static_version_query() -> Property {
         "_version".to_owned(),
         PropertyKind::VersionQuery,
         "String".to_owned(),
-        false,
-        false,
-        None,
-        None,
-        None,
     )
 }
 
@@ -2115,8 +2071,8 @@ where
     let root_query_info = Info::new("Query".to_owned(), nts);
     catch_unwind(|| {
         Arc::new(RootNode::new_with_info(
-            Node::new("Query".to_owned(), Map::new()),
-            Node::new("Mutation".to_owned(), Map::new()),
+            Node::new("Query".to_owned(), HashMap::new()),
+            Node::new("Mutation".to_owned(), HashMap::new()),
             root_query_info,
             root_mutation_info,
         ))
@@ -2161,8 +2117,8 @@ mod tests {
         generate_rel_props_input, generate_rel_props_object, generate_rel_query_input,
         generate_rel_read_endpoint, generate_rel_src_delete_mutation_input,
         generate_rel_src_update_mutation_input, generate_rel_update_endpoint,
-        generate_rel_update_input, generate_rel_update_mutation_input, generate_schema, Info,
-        InputKind, NodeType, Property, PropertyKind, TypeKind,
+        generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,
+        ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind,
     };
     use crate::server::config::{
         EndpointClass, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherEndpointType,
@@ -2470,19 +2426,15 @@ mod tests {
             "propname".to_string(),
             PropertyKind::Scalar,
             "String".to_string(),
-            true,
-            false,
-            None,
-            None,
-            None,
-        );
+        )
+        .with_required(true);
 
         assert!(p.name == "propname");
         assert!(p.kind == PropertyKind::Scalar);
         assert!(p.type_name == "String");
         assert!(p.required);
         assert!(!p.list);
-        assert!(p.input.is_none());
+        assert!(p.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2519,28 +2471,28 @@ mod tests {
         assert!(project_id.type_name == "ID");
         assert!(project_id.required);
         assert!(!project_id.list);
-        assert!(project_id.input == None);
+        assert!(project_id.arguments.is_empty());
         let project_name = project_node_object.props.get("name").unwrap();
         assert!(project_name.name == "name");
         assert!(project_name.kind == PropertyKind::Scalar);
         assert!(project_name.type_name == "String");
         assert!(project_name.required);
         assert!(!project_name.list);
-        assert!(project_name.input == None);
+        assert!(project_name.arguments.is_empty());
         let project_tags = project_node_object.props.get("tags").unwrap();
         assert!(project_tags.name == "tags");
         assert!(project_tags.kind == PropertyKind::Scalar);
         assert!(project_tags.type_name == "String");
         assert!(!project_tags.required);
         assert!(project_tags.list);
-        assert!(project_tags.input == None);
+        assert!(project_tags.arguments.is_empty());
         let project_public = project_node_object.props.get("public").unwrap();
         assert!(project_public.name == "public");
         assert!(project_public.kind == PropertyKind::Scalar);
         assert!(project_public.type_name == "Boolean");
         assert!(project_public.required);
         assert!(!project_public.list);
-        assert!(project_public.input == None);
+        assert!(project_public.arguments.is_empty());
         let project_owner = project_node_object.props.get("owner").unwrap();
         assert!(project_owner.name == "owner");
         assert!(match &project_owner.kind {
@@ -2550,9 +2502,12 @@ mod tests {
         assert!(project_owner.type_name == "ProjectOwnerRel");
         assert!(!project_owner.required);
         assert!(!project_owner.list);
-        assert!(
-            project_owner.input == Some((InputKind::Optional, "ProjectOwnerQueryInput".to_owned()))
-        );
+        assert!(project_owner.arguments.contains_key("input"));
+        if let Some(input) = project_owner.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectOwnerQueryInput");
+        }
         let project_board = project_node_object.props.get("board").unwrap();
         assert!(project_board.name == "board");
         assert!(match &project_board.kind {
@@ -2562,9 +2517,12 @@ mod tests {
         assert!(project_board.type_name == "ProjectBoardRel");
         assert!(!project_board.required);
         assert!(!project_board.list);
-        assert!(
-            project_board.input == Some((InputKind::Optional, "ProjectBoardQueryInput".to_owned()))
-        );
+        assert!(project_board.arguments.contains_key("input"));
+        if let Some(input) = project_board.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectBoardQueryInput");
+        }
         let project_commits = project_node_object.props.get("commits").unwrap();
         assert!(project_commits.name == "commits");
         assert!(match &project_commits.kind {
@@ -2574,10 +2532,12 @@ mod tests {
         assert!(project_commits.type_name == "ProjectCommitsRel");
         assert!(!project_commits.required);
         assert!(project_commits.list);
-        assert!(
-            project_commits.input
-                == Some((InputKind::Optional, "ProjectCommitsQueryInput".to_owned()))
-        );
+        assert!(project_commits.arguments.contains_key("input"));
+        if let Some(input) = project_commits.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectCommitsQueryInput");
+        }
         let project_issues = project_node_object.props.get("issues").unwrap();
         assert!(project_issues.name == "issues");
         assert!(match &project_issues.kind {
@@ -2587,10 +2547,12 @@ mod tests {
         assert!(project_issues.type_name == "ProjectIssuesRel");
         assert!(!project_issues.required);
         assert!(project_issues.list);
-        assert!(
-            project_issues.input
-                == Some((InputKind::Optional, "ProjectIssuesQueryInput".to_owned()))
-        );
+        assert!(project_issues.arguments.contains_key("input"));
+        if let Some(input) = project_issues.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectIssuesQueryInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -2627,56 +2589,56 @@ mod tests {
         assert!(project_id.type_name == "ID");
         assert!(!project_id.required);
         assert!(!project_id.list);
-        assert!(project_id.input == None);
+        assert!(project_id.arguments.is_empty());
         let project_name = project_query_input.props.get("name").unwrap();
         assert!(project_name.name == "name");
         assert!(project_name.kind == PropertyKind::Scalar);
         assert!(project_name.type_name == "String");
         assert!(!project_name.required);
         assert!(!project_name.list);
-        assert!(project_name.input == None);
+        assert!(project_name.arguments.is_empty());
         let project_tags = project_query_input.props.get("tags").unwrap();
         assert!(project_tags.name == "tags");
         assert!(project_tags.kind == PropertyKind::Scalar);
         assert!(project_tags.type_name == "String");
         assert!(!project_tags.required);
         assert!(project_tags.list);
-        assert!(project_tags.input == None);
+        assert!(project_tags.arguments.is_empty());
         let project_public = project_query_input.props.get("public").unwrap();
         assert!(project_public.name == "public");
         assert!(project_public.kind == PropertyKind::Scalar);
         assert!(project_public.type_name == "Boolean");
         assert!(!project_public.required);
         assert!(!project_public.list);
-        assert!(project_public.input == None);
+        assert!(project_public.arguments.is_empty());
         let project_owner = project_query_input.props.get("owner").unwrap();
         assert!(project_owner.name == "owner");
         assert!(project_owner.kind == PropertyKind::Input);
         assert!(project_owner.type_name == "ProjectOwnerQueryInput");
         assert!(!project_owner.required);
         assert!(!project_owner.list);
-        assert!(project_owner.input == None);
+        assert!(project_owner.arguments.is_empty());
         let project_board = project_query_input.props.get("board").unwrap();
         assert!(project_board.name == "board");
         assert!(project_board.kind == PropertyKind::Input);
         assert!(project_board.type_name == "ProjectBoardQueryInput");
         assert!(!project_board.required);
         assert!(!project_board.list);
-        assert!(project_board.input == None);
+        assert!(project_board.arguments.is_empty());
         let project_commits = project_query_input.props.get("commits").unwrap();
         assert!(project_commits.name == "commits");
         assert!(project_commits.kind == PropertyKind::Input);
         assert!(project_commits.type_name == "ProjectCommitsQueryInput");
         assert!(!project_commits.required);
         assert!(project_commits.list);
-        assert!(project_commits.input == None);
+        assert!(project_commits.arguments.is_empty());
         let project_issues = project_query_input.props.get("issues").unwrap();
         assert!(project_issues.name == "issues");
         assert!(project_issues.kind == PropertyKind::Input);
         assert!(project_issues.type_name == "ProjectIssuesQueryInput");
         assert!(!project_issues.required);
         assert!(project_issues.list);
-        assert!(project_issues.input == None);
+        assert!(project_issues.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2712,49 +2674,49 @@ mod tests {
         assert!(project_name.type_name == "String");
         assert!(!project_name.required);
         assert!(!project_name.list);
-        assert!(project_name.input == None);
+        assert!(project_name.arguments.is_empty());
         let project_tags = project_mutation_input.props.get("tags").unwrap();
         assert!(project_tags.name == "tags");
         assert!(project_tags.kind == PropertyKind::Scalar);
         assert!(project_tags.type_name == "String");
         assert!(!project_tags.required);
         assert!(project_tags.list);
-        assert!(project_tags.input == None);
+        assert!(project_tags.arguments.is_empty());
         let project_public = project_mutation_input.props.get("public").unwrap();
         assert!(project_public.name == "public");
         assert!(project_public.kind == PropertyKind::Scalar);
         assert!(project_public.type_name == "Boolean");
         assert!(!project_public.required);
         assert!(!project_public.list);
-        assert!(project_public.input == None);
+        assert!(project_public.arguments.is_empty());
         let project_owner = project_mutation_input.props.get("owner").unwrap();
         assert!(project_owner.name == "owner");
         assert!(project_owner.kind == PropertyKind::Input);
         assert!(project_owner.type_name == "ProjectOwnerCreateMutationInput");
         assert!(!project_owner.required);
         assert!(!project_owner.list);
-        assert!(project_owner.input == None);
+        assert!(project_owner.arguments.is_empty());
         let project_board = project_mutation_input.props.get("board").unwrap();
         assert!(project_board.name == "board");
         assert!(project_board.kind == PropertyKind::Input);
         assert!(project_board.type_name == "ProjectBoardCreateMutationInput");
         assert!(!project_board.required);
         assert!(!project_board.list);
-        assert!(project_board.input == None);
+        assert!(project_board.arguments.is_empty());
         let project_commits = project_mutation_input.props.get("commits").unwrap();
         assert!(project_commits.name == "commits");
         assert!(project_commits.kind == PropertyKind::Input);
         assert!(project_commits.type_name == "ProjectCommitsCreateMutationInput");
         assert!(!project_commits.required);
         assert!(project_commits.list);
-        assert!(project_commits.input == None);
+        assert!(project_commits.arguments.is_empty());
         let project_issues = project_mutation_input.props.get("issues").unwrap();
         assert!(project_issues.name == "issues");
         assert!(project_issues.kind == PropertyKind::Input);
         assert!(project_issues.type_name == "ProjectIssuesCreateMutationInput");
         assert!(!project_issues.required);
         assert!(project_issues.list);
-        assert!(project_issues.input == None);
+        assert!(project_issues.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2790,49 +2752,49 @@ mod tests {
         assert!(name.type_name == "String");
         assert!(!name.required);
         assert!(!name.list);
-        assert!(name.input == None);
+        assert!(name.arguments.is_empty());
         let tags = project_update_mutation_input.props.get("tags").unwrap();
         assert!(tags.name == "tags");
         assert!(tags.kind == PropertyKind::Scalar);
         assert!(tags.type_name == "String");
         assert!(!tags.required);
         assert!(tags.list);
-        assert!(tags.input == None);
+        assert!(tags.arguments.is_empty());
         let public = project_update_mutation_input.props.get("public").unwrap();
         assert!(public.name == "public");
         assert!(public.kind == PropertyKind::Scalar);
         assert!(public.type_name == "Boolean");
         assert!(!public.required);
         assert!(!public.list);
-        assert!(public.input == None);
+        assert!(public.arguments.is_empty());
         let owner = project_update_mutation_input.props.get("owner").unwrap();
         assert!(owner.name == "owner");
         assert!(owner.kind == PropertyKind::Input);
         assert!(owner.type_name == "ProjectOwnerChangeInput");
         assert!(!owner.required);
         assert!(!owner.list);
-        assert!(owner.input == None);
+        assert!(owner.arguments.is_empty());
         let board = project_update_mutation_input.props.get("board").unwrap();
         assert!(board.name == "board");
         assert!(board.kind == PropertyKind::Input);
         assert!(board.type_name == "ProjectBoardChangeInput");
         assert!(!board.required);
         assert!(!board.list);
-        assert!(board.input == None);
+        assert!(board.arguments.is_empty());
         let commits = project_update_mutation_input.props.get("commits").unwrap();
         assert!(commits.name == "commits");
         assert!(commits.kind == PropertyKind::Input);
         assert!(commits.type_name == "ProjectCommitsChangeInput");
         assert!(!commits.required);
         assert!(commits.list);
-        assert!(commits.input == None);
+        assert!(commits.arguments.is_empty());
         let issues = project_update_mutation_input.props.get("issues").unwrap();
         assert!(issues.name == "issues");
         assert!(issues.kind == PropertyKind::Input);
         assert!(issues.type_name == "ProjectIssuesChangeInput");
         assert!(!issues.required);
         assert!(issues.list);
-        assert!(issues.input == None);
+        assert!(issues.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2859,14 +2821,14 @@ mod tests {
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
-        assert!(project_match.input == None);
+        assert!(project_match.arguments.is_empty());
         let project_create = project_input.props.get("NEW").unwrap();
         assert!(project_create.name == "NEW");
         assert!(project_create.kind == PropertyKind::Input);
         assert!(project_create.type_name == "ProjectCreateMutationInput");
         assert!(!project_create.required);
         assert!(!project_create.list);
-        assert!(project_create.input == None);
+        assert!(project_create.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2893,14 +2855,14 @@ mod tests {
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
-        assert!(project_match.input == None);
+        assert!(project_match.arguments.is_empty());
         let project_update = project_update_input.props.get("modify").unwrap();
         assert!(project_update.name == "modify");
         assert!(project_update.kind == PropertyKind::Input);
         assert!(project_update.type_name == "ProjectUpdateMutationInput");
         assert!(!project_update.required);
         assert!(!project_update.list);
-        assert!(project_update.input == None);
+        assert!(project_update.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2929,14 +2891,14 @@ mod tests {
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
-        assert!(project_match.input == None);
+        assert!(project_match.arguments.is_empty());
         let project_delete = project_delete_input.props.get("delete").unwrap();
         assert!(project_delete.name == "delete");
         assert!(project_delete.kind == PropertyKind::Input);
         assert!(project_delete.type_name == "ProjectDeleteMutationInput");
         assert!(!project_delete.required);
         assert!(!project_delete.list);
-        assert!(project_delete.input == None);
+        assert!(project_delete.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -2969,35 +2931,35 @@ mod tests {
         assert!(force.type_name == "Boolean");
         assert!(!force.required);
         assert!(!force.list);
-        assert!(force.input == None);
+        assert!(force.arguments.is_empty());
         let owner = project_delete_mutation_input.props.get("owner").unwrap();
         assert!(owner.name == "owner");
         assert!(owner.kind == PropertyKind::Input);
         assert!(owner.type_name == "ProjectOwnerDeleteInput");
         assert!(!owner.required);
         assert!(!owner.list);
-        assert!(owner.input == None);
+        assert!(owner.arguments.is_empty());
         let board = project_delete_mutation_input.props.get("board").unwrap();
         assert!(board.name == "board");
         assert!(board.kind == PropertyKind::Input);
         assert!(board.type_name == "ProjectBoardDeleteInput");
         assert!(!board.required);
         assert!(!board.list);
-        assert!(board.input == None);
+        assert!(board.arguments.is_empty());
         let commits = project_delete_mutation_input.props.get("commits").unwrap();
         assert!(commits.name == "commits");
         assert!(commits.kind == PropertyKind::Input);
         assert!(commits.type_name == "ProjectCommitsDeleteInput");
         assert!(!commits.required);
         assert!(commits.list);
-        assert!(commits.input == None);
+        assert!(commits.arguments.is_empty());
         let issues = project_delete_mutation_input.props.get("issues").unwrap();
         assert!(issues.name == "issues");
         assert!(issues.kind == PropertyKind::Input);
         assert!(issues.type_name == "ProjectIssuesDeleteInput");
         assert!(!issues.required);
         assert!(issues.list);
-        assert!(issues.input == None);
+        assert!(issues.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3020,10 +2982,12 @@ mod tests {
         assert!(project_read_endpoint.type_name == "Project");
         assert!(!project_read_endpoint.required);
         assert!(project_read_endpoint.list);
-        assert!(
-            project_read_endpoint.input
-                == Some((InputKind::Optional, "ProjectQueryInput".to_string()))
-        );
+        assert!(project_read_endpoint.arguments.contains_key("input"));
+        if let Some(input) = project_read_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectQueryInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -3046,13 +3010,12 @@ mod tests {
         assert!(project_create_endpoint.type_name == "Project");
         assert!(!project_create_endpoint.required);
         assert!(!project_create_endpoint.list);
-        assert!(
-            project_create_endpoint.input
-                == Some((
-                    InputKind::Required,
-                    "ProjectCreateMutationInput".to_string()
-                ))
-        );
+        assert!(project_create_endpoint.arguments.contains_key("input"));
+        if let Some(input) = project_create_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectCreateMutationInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -3075,10 +3038,12 @@ mod tests {
         assert!(project_update_endpoint.type_name == "Project");
         assert!(!project_update_endpoint.required);
         assert!(project_update_endpoint.list);
-        assert!(
-            project_update_endpoint.input
-                == Some((InputKind::Required, "ProjectUpdateInput".to_string()))
-        );
+        assert!(project_update_endpoint.arguments.contains_key("input"));
+        if let Some(input) = project_update_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectUpdateInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -3104,10 +3069,12 @@ mod tests {
         assert!(project_delete_endpoint.type_name == "Int");
         assert!(!project_delete_endpoint.required);
         assert!(!project_delete_endpoint.list);
-        assert!(
-            project_delete_endpoint.input
-                == Some((InputKind::Required, "ProjectDeleteInput".to_string()))
-        );
+        assert!(project_delete_endpoint.arguments.contains_key("input"));
+        if let Some(input) = project_delete_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectDeleteInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -3147,28 +3114,28 @@ mod tests {
         assert!(project_owner_id.type_name == "ID");
         assert!(project_owner_id.required);
         assert!(!project_owner_id.list);
-        assert!(project_owner_id.input == None);
+        assert!(project_owner_id.arguments.is_empty());
         let project_owner_props = project_owner_object.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
         assert!(project_owner_props.kind == PropertyKind::Object);
         assert!(project_owner_props.type_name == "ProjectOwnerProps");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
-        assert!(project_owner_props.input == None);
+        assert!(project_owner_props.arguments.is_empty());
         let project_owner_dst = project_owner_object.props.get("dst").unwrap();
         assert!(project_owner_dst.name == "dst");
         assert!(project_owner_dst.kind == PropertyKind::Union);
         assert!(project_owner_dst.type_name == "ProjectOwnerNodesUnion");
         assert!(project_owner_dst.required);
         assert!(!project_owner_dst.list);
-        assert!(project_owner_dst.input == None);
+        assert!(project_owner_dst.arguments.is_empty());
         let project_owner_src = project_owner_object.props.get("src").unwrap();
         assert!(project_owner_src.name == "src");
         assert!(project_owner_src.kind == PropertyKind::Object);
         assert!(project_owner_src.type_name == "Project");
         assert!(project_owner_src.required);
         assert!(!project_owner_src.list);
-        assert!(project_owner_src.input == None);
+        assert!(project_owner_src.arguments.is_empty());
         /*
             type ProjectBoardRel {
                 id: ID!
@@ -3190,7 +3157,7 @@ mod tests {
         assert!(project_board_id.type_name == "ID");
         assert!(project_board_id.required);
         assert!(!project_board_id.list);
-        assert!(project_board_id.input == None);
+        assert!(project_board_id.arguments.is_empty());
         let project_board_props = project_board_object.props.get("props");
         assert!(project_board_props.is_none());
         let project_board_dst = project_board_object.props.get("dst").unwrap();
@@ -3199,14 +3166,14 @@ mod tests {
         assert!(project_board_dst.type_name == "ProjectBoardNodesUnion");
         assert!(project_board_dst.required);
         assert!(!project_board_dst.list);
-        assert!(project_board_dst.input == None);
+        assert!(project_board_dst.arguments.is_empty());
         let project_board_src = project_board_object.props.get("src").unwrap();
         assert!(project_board_src.name == "src");
         assert!(project_board_src.kind == PropertyKind::Object);
         assert!(project_board_src.type_name == "Project");
         assert!(project_board_src.required);
         assert!(!project_board_src.list);
-        assert!(project_board_src.input == None);
+        assert!(project_board_src.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3247,7 +3214,7 @@ mod tests {
         assert!(project_owner_props_name.type_name == "String");
         assert!(!project_owner_props_name.required);
         assert!(!project_owner_props_name.list);
-        assert!(project_owner_props_name.input == None);
+        assert!(project_owner_props_name.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3342,7 +3309,7 @@ mod tests {
         assert!(project_owner_id.type_name == "ID");
         assert!(!project_owner_id.required);
         assert!(!project_owner_id.list);
-        assert!(project_owner_id.input == None);
+        assert!(project_owner_id.arguments.is_empty());
         // props
         let project_owner_props = project_owner_query_input.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
@@ -3350,7 +3317,7 @@ mod tests {
         assert!(project_owner_props.type_name == "ProjectOwnerPropsInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
-        assert!(project_owner_props.input == None);
+        assert!(project_owner_props.arguments.is_empty());
         // src
         let project_owner_props = project_owner_query_input.props.get("src").unwrap();
         assert!(project_owner_props.name == "src");
@@ -3358,7 +3325,7 @@ mod tests {
         assert!(project_owner_props.type_name == "ProjectOwnerSrcQueryInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
-        assert!(project_owner_props.input == None);
+        assert!(project_owner_props.arguments.is_empty());
         // dst
         let project_owner_props = project_owner_query_input.props.get("dst").unwrap();
         assert!(project_owner_props.name == "dst");
@@ -3366,7 +3333,7 @@ mod tests {
         assert!(project_owner_props.type_name == "ProjectOwnerDstQueryInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
-        assert!(project_owner_props.input == None);
+        assert!(project_owner_props.arguments.is_empty());
         /*
             input ProjectBoardQueryInput {
                 id: ID
@@ -3388,7 +3355,7 @@ mod tests {
         assert!(project_board_id.type_name == "ID");
         assert!(!project_board_id.required);
         assert!(!project_board_id.list);
-        assert!(project_board_id.input == None);
+        assert!(project_board_id.arguments.is_empty());
         // props
         assert!(project_board_query_input.props.get("props").is_none());
         // src
@@ -3398,7 +3365,7 @@ mod tests {
         assert!(project_board_src.type_name == "ProjectBoardSrcQueryInput");
         assert!(!project_board_src.required);
         assert!(!project_board_src.list);
-        assert!(project_board_src.input == None);
+        assert!(project_board_src.arguments.is_empty());
         // dst
         let project_board_dst = project_board_query_input.props.get("dst").unwrap();
         assert!(project_board_dst.name == "dst");
@@ -3406,7 +3373,7 @@ mod tests {
         assert!(project_board_dst.type_name == "ProjectBoardDstQueryInput");
         assert!(!project_board_dst.required);
         assert!(!project_board_dst.list);
-        assert!(project_board_dst.input == None);
+        assert!(project_board_dst.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3449,7 +3416,7 @@ mod tests {
         assert!(project_owner_props.type_name == "ProjectOwnerPropsInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
-        assert!(project_owner_props.input == None);
+        assert!(project_owner_props.arguments.is_empty());
         // dst
         let project_owner_dst = project_owner_mutation_input.props.get("dst").unwrap();
         assert!(project_owner_dst.name == "dst");
@@ -3457,7 +3424,7 @@ mod tests {
         assert!(project_owner_dst.type_name == "ProjectOwnerNodesMutationInputUnion");
         assert!(project_owner_dst.required);
         assert!(!project_owner_dst.list);
-        assert!(project_owner_dst.input == None);
+        assert!(project_owner_dst.arguments.is_empty());
         /*
             input ProjectBoardCreateMutationInput {
                 dst: ProjectBoardNodesMutationInputUnion
@@ -3481,7 +3448,7 @@ mod tests {
         assert!(project_board_dst.type_name == "ProjectBoardNodesMutationInputUnion");
         assert!(project_board_dst.required);
         assert!(!project_board_dst.list);
-        assert!(project_board_dst.input == None);
+        assert!(project_board_dst.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3525,7 +3492,7 @@ mod tests {
         assert!(project_issues_add.type_name == "ProjectIssuesCreateMutationInput");
         assert!(!project_issues_add.required);
         assert!(!project_issues_add.list);
-        assert!(project_issues_add.input == None);
+        assert!(project_issues_add.arguments.is_empty());
         // UPDATE
         let project_issues_update = project_issues_change_input.props.get("UPDATE").unwrap();
         assert!(project_issues_update.name == "UPDATE");
@@ -3533,7 +3500,7 @@ mod tests {
         assert!(project_issues_update.type_name == "ProjectIssuesUpdateInput");
         assert!(!project_issues_update.required);
         assert!(!project_issues_update.list);
-        assert!(project_issues_update.input == None);
+        assert!(project_issues_update.arguments.is_empty());
         // DELETE
         let project_issues_delete = project_issues_change_input.props.get("DELETE").unwrap();
         assert!(project_issues_delete.name == "DELETE");
@@ -3541,7 +3508,7 @@ mod tests {
         assert!(project_issues_delete.type_name == "ProjectIssuesDeleteInput");
         assert!(!project_issues_delete.required);
         assert!(!project_issues_delete.list);
-        assert!(project_issues_delete.input == None);
+        assert!(project_issues_delete.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3588,7 +3555,7 @@ mod tests {
         assert!(props.type_name == "ProjectOwnerPropsInput");
         assert!(!props.required);
         assert!(!props.list);
-        assert!(props.input == None);
+        assert!(props.arguments.is_empty());
         // src
         let src = project_owner_update_mutation_input
             .props
@@ -3599,7 +3566,7 @@ mod tests {
         assert!(src.type_name == "ProjectOwnerSrcUpdateMutationInput");
         assert!(!src.required);
         assert!(!src.list);
-        assert!(src.input == None);
+        assert!(src.arguments.is_empty());
         // dst
         let dst = project_owner_update_mutation_input
             .props
@@ -3610,7 +3577,7 @@ mod tests {
         assert!(dst.type_name == "ProjectOwnerDstUpdateMutationInput");
         assert!(!dst.required);
         assert!(!dst.list);
-        assert!(dst.input == None);
+        assert!(dst.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3657,7 +3624,7 @@ mod tests {
         assert!(project.type_name == "ProjectUpdateMutationInput");
         assert!(!project.required);
         assert!(!project.list);
-        assert!(project.input == None);
+        assert!(project.arguments.is_empty());
         /*
             input ProjectIssuesSrcUpdateMutationInput {
                 Project: ProjectUpdateMutationInput
@@ -3683,7 +3650,7 @@ mod tests {
         assert!(project2.type_name == "ProjectUpdateMutationInput");
         assert!(!project2.required);
         assert!(!project2.list);
-        assert!(project2.input == None);
+        assert!(project2.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3735,7 +3702,7 @@ mod tests {
         assert!(user.type_name == "UserUpdateMutationInput");
         assert!(!user.required);
         assert!(!user.list);
-        assert!(user.input == None);
+        assert!(user.arguments.is_empty());
         /*
             input ProjectIssuesDstUpdateMutationInput {
                 Bug: BugUpdateMutationInput
@@ -3762,7 +3729,7 @@ mod tests {
         assert!(bug.type_name == "BugUpdateMutationInput");
         assert!(!bug.required);
         assert!(!bug.list);
-        assert!(bug.input == None);
+        assert!(bug.arguments.is_empty());
         let feature = project_issues_dst_update_mutation_input
             .props
             .get("Feature")
@@ -3772,7 +3739,7 @@ mod tests {
         assert!(feature.type_name == "FeatureUpdateMutationInput");
         assert!(!feature.required);
         assert!(!feature.list);
-        assert!(feature.input == None);
+        assert!(feature.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3813,7 +3780,7 @@ mod tests {
         assert!(project_owner_since.type_name == "String");
         assert!(!project_owner_since.required);
         assert!(!project_owner_since.list);
-        assert!(project_owner_since.input == None);
+        assert!(project_owner_since.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3892,7 +3859,7 @@ mod tests {
         assert!(user_input.type_name == "UserQueryInput");
         assert!(!user_input.required);
         assert!(!user_input.list);
-        assert!(user_input.input == None);
+        assert!(user_input.arguments.is_empty());
         /*
             input ProjectBoardNodesQueryInputUnion {
                 KanbanBoard: KanbanBoardQueryInput
@@ -3918,7 +3885,7 @@ mod tests {
         assert!(kanbanboard_input.type_name == "KanbanBoardQueryInput");
         assert!(!kanbanboard_input.required);
         assert!(!kanbanboard_input.list);
-        assert!(kanbanboard_input.input == None);
+        assert!(kanbanboard_input.arguments.is_empty());
         let scrumboard_input = project_board_nodes_query_input_union
             .props
             .get("ScrumBoard")
@@ -3928,7 +3895,7 @@ mod tests {
         assert!(scrumboard_input.type_name == "ScrumBoardQueryInput");
         assert!(!scrumboard_input.required);
         assert!(!scrumboard_input.list);
-        assert!(scrumboard_input.input == None);
+        assert!(scrumboard_input.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3986,7 +3953,7 @@ mod tests {
         assert!(user_input.type_name == "UserInput");
         assert!(!user_input.required);
         assert!(!user_input.list);
-        assert!(user_input.input == None);
+        assert!(user_input.arguments.is_empty());
         /*
             input ProjectBoardNodesQueryInputUnion {
                 KanbanBoard: KanbanBoardInput
@@ -4015,7 +3982,7 @@ mod tests {
         assert!(kanbanboard_input.type_name == "KanbanBoardInput");
         assert!(!kanbanboard_input.required);
         assert!(!kanbanboard_input.list);
-        assert!(kanbanboard_input.input == None);
+        assert!(kanbanboard_input.arguments.is_empty());
         let scrumboard_input = project_board_nodes_mutation_input_union
             .props
             .get("ScrumBoard")
@@ -4025,7 +3992,7 @@ mod tests {
         assert!(scrumboard_input.type_name == "ScrumBoardInput");
         assert!(!scrumboard_input.required);
         assert!(!scrumboard_input.list);
-        assert!(scrumboard_input.input == None);
+        assert!(scrumboard_input.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -4079,14 +4046,14 @@ mod tests {
         assert!(project_owner_match.type_name == "ProjectQueryInput");
         assert!(!project_owner_match.required);
         assert!(!project_owner_match.list);
-        assert!(project_owner_match.input == None);
+        assert!(project_owner_match.arguments.is_empty());
         let project_owner_create = project_owner_create_input.props.get("create").unwrap();
         assert!(project_owner_create.name == "create");
         assert!(project_owner_create.kind == PropertyKind::Input);
         assert!(project_owner_create.type_name == "ProjectOwnerCreateMutationInput");
         assert!(!project_owner_create.required);
         assert!(!project_owner_create.list);
-        assert!(project_owner_create.input == None);
+        assert!(project_owner_create.arguments.is_empty());
         /*
             input ProjectBoardCreateInput {
                 match: ProjectQueryInput
@@ -4109,14 +4076,14 @@ mod tests {
         assert!(project_board_match.type_name == "ProjectQueryInput");
         assert!(!project_board_match.required);
         assert!(!project_board_match.list);
-        assert!(project_board_match.input == None);
+        assert!(project_board_match.arguments.is_empty());
         let project_board_create = project_board_create_input.props.get("create").unwrap();
         assert!(project_board_create.name == "create");
         assert!(project_board_create.kind == PropertyKind::Input);
         assert!(project_board_create.type_name == "ProjectBoardCreateMutationInput");
         assert!(!project_board_create.required);
         assert!(!project_board_create.list);
-        assert!(project_board_create.input == None);
+        assert!(project_board_create.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -4170,14 +4137,14 @@ mod tests {
         assert!(project_owner_match.type_name == "ProjectOwnerQueryInput");
         assert!(!project_owner_match.required);
         assert!(!project_owner_match.list);
-        assert!(project_owner_match.input == None);
+        assert!(project_owner_match.arguments.is_empty());
         let project_owner_update = project_owner_update_input.props.get("update").unwrap();
         assert!(project_owner_update.name == "update");
         assert!(project_owner_update.kind == PropertyKind::Input);
         assert!(project_owner_update.type_name == "ProjectOwnerUpdateMutationInput");
         assert!(project_owner_update.required);
         assert!(!project_owner_update.list);
-        assert!(project_owner_update.input == None);
+        assert!(project_owner_update.arguments.is_empty());
         /*
             input ProjectBoardUpdateInput {
                 match: ProjectBoardQueryInput
@@ -4200,14 +4167,14 @@ mod tests {
         assert!(project_board_match.type_name == "ProjectBoardQueryInput");
         assert!(!project_board_match.required);
         assert!(!project_board_match.list);
-        assert!(project_board_match.input == None);
+        assert!(project_board_match.arguments.is_empty());
         let project_board_update = project_board_update_input.props.get("update").unwrap();
         assert!(project_board_update.name == "update");
         assert!(project_board_update.kind == PropertyKind::Input);
         assert!(project_board_update.type_name == "ProjectBoardUpdateMutationInput");
         assert!(project_board_update.required);
         assert!(!project_board_update.list);
-        assert!(project_board_update.input == None);
+        assert!(project_board_update.arguments.is_empty());
     }
 
     #[test]
@@ -4248,21 +4215,21 @@ mod tests {
         assert!(pmatch.type_name == "ProjectOwnerQueryInput");
         assert!(!pmatch.required);
         assert!(!pmatch.list);
-        assert!(pmatch.input == None);
+        assert!(pmatch.arguments.is_empty());
         let src = project_owner_delete_input.props.get("src").unwrap();
         assert!(src.name == "src");
         assert!(src.kind == PropertyKind::Input);
         assert!(src.type_name == "ProjectOwnerSrcDeleteMutationInput");
         assert!(!src.required);
         assert!(!src.list);
-        assert!(src.input == None);
+        assert!(src.arguments.is_empty());
         let dst = project_owner_delete_input.props.get("dst").unwrap();
         assert!(dst.name == "dst");
         assert!(dst.kind == PropertyKind::Input);
         assert!(dst.type_name == "ProjectOwnerDstDeleteMutationInput");
         assert!(!dst.required);
         assert!(!dst.list);
-        assert!(dst.input == None);
+        assert!(dst.arguments.is_empty());
     }
 
     #[test]
@@ -4308,7 +4275,7 @@ mod tests {
         assert!(project.type_name == "ProjectDeleteMutationInput");
         assert!(!project.required);
         assert!(!project.list);
-        assert!(project.input == None);
+        assert!(project.arguments.is_empty());
     }
 
     #[test]
@@ -4354,7 +4321,7 @@ mod tests {
         assert!(user.type_name == "UserDeleteMutationInput");
         assert!(!user.required);
         assert!(!user.list);
-        assert!(user.input == None);
+        assert!(user.arguments.is_empty());
 
         /*
         input ProjectIssuesDstDeleteMutationInput {
@@ -4383,7 +4350,7 @@ mod tests {
         assert!(bug.type_name == "BugDeleteMutationInput");
         assert!(!bug.required);
         assert!(!bug.list);
-        assert!(bug.input == None);
+        assert!(bug.arguments.is_empty());
         let feature = project_issues_dst_delete_mutation_input
             .props
             .get("Feature")
@@ -4393,7 +4360,7 @@ mod tests {
         assert!(feature.type_name == "FeatureDeleteMutationInput");
         assert!(!feature.required);
         assert!(!feature.list);
-        assert!(feature.input == None);
+        assert!(feature.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -4436,10 +4403,12 @@ mod tests {
         assert!(project_owner_read_endpoint.type_name == "ProjectOwnerRel");
         assert!(!project_owner_read_endpoint.required);
         assert!(project_owner_read_endpoint.list);
-        assert!(
-            project_owner_read_endpoint.input
-                == Some((InputKind::Optional, "ProjectOwnerQueryInput".to_string()))
-        );
+        assert!(project_owner_read_endpoint.arguments.contains_key("input"));
+        if let Some(input) = project_owner_read_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "ProjectOwnerQueryInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -4486,10 +4455,14 @@ mod tests {
         assert!(project_owner_create_endpoint.type_name == "ProjectOwnerRel");
         assert!(!project_owner_create_endpoint.required);
         assert!(!project_owner_create_endpoint.list);
-        assert!(
-            project_owner_create_endpoint.input
-                == Some((InputKind::Required, "ProjectOwnerCreateInput".to_string()))
-        );
+        assert!(project_owner_create_endpoint
+            .arguments
+            .contains_key("input"));
+        if let Some(input) = project_owner_create_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectOwnerCreateInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -4536,10 +4509,14 @@ mod tests {
         assert!(project_owner_update_endpoint.type_name == "ProjectOwnerRel");
         assert!(!project_owner_update_endpoint.required);
         assert!(project_owner_update_endpoint.list);
-        assert!(
-            project_owner_update_endpoint.input
-                == Some((InputKind::Required, "ProjectOwnerUpdateInput".to_string()))
-        );
+        assert!(project_owner_update_endpoint
+            .arguments
+            .contains_key("input"));
+        if let Some(input) = project_owner_update_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectOwnerUpdateInput");
+        }
     }
 
     /// Passes if the right schema elements are generated
@@ -4586,12 +4563,17 @@ mod tests {
         assert!(project_owner_delete_endpoint.type_name == "Int");
         assert!(!project_owner_delete_endpoint.required);
         assert!(!project_owner_delete_endpoint.list);
-        assert!(
-            project_owner_delete_endpoint.input
-                == Some((InputKind::Required, "ProjectOwnerDeleteInput".to_string()))
-        );
+        assert!(project_owner_delete_endpoint
+            .arguments
+            .contains_key("input"));
+        if let Some(input) = project_owner_delete_endpoint.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "ProjectOwnerDeleteInput");
+        }
     }
 
+    #[allow(clippy::cognitive_complexity)]
     #[test]
     fn test_generate_custom_endpoint() {
         /*
@@ -4604,9 +4586,12 @@ mod tests {
         assert!(e1_object.type_name == "User");
         assert!(e1_object.required);
         assert!(e1_object.list);
-        assert!(
-            e1_object.input == Some((InputKind::Required, "UserCreateMutationInput".to_string()))
-        );
+        assert!(e1_object.arguments.contains_key("input"));
+        if let Some(input) = e1_object.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "UserCreateMutationInput");
+        }
         /*
             DisableUser(input: UserQueryInput): User
         */
@@ -4617,7 +4602,12 @@ mod tests {
         assert!(e2_object.type_name == "User");
         assert!(e2_object.required);
         assert!(!e2_object.list);
-        assert!(e2_object.input == Some((InputKind::Required, "UserQueryInput".to_string())));
+        assert!(e2_object.arguments.contains_key("input"));
+        if let Some(input) = e2_object.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Required);
+            assert!(input.type_name == "UserQueryInput");
+        }
         /*
             ComputeBurndown(input: BurndownFilter): BurndownMetrics
         */
@@ -4628,7 +4618,12 @@ mod tests {
         assert!(e3_object.type_name == "BurndownMetrics");
         assert!(e3_object.required);
         assert!(!e3_object.list);
-        assert!(e3_object.input == Some((InputKind::Optional, "BurndownFilter".to_string())));
+        assert!(e3_object.arguments.contains_key("input"));
+        if let Some(input) = e3_object.arguments.get("input") {
+            assert!(input.name == "input");
+            assert!(input.kind == ArgumentKind::Optional);
+            assert!(input.type_name == "BurndownFilter");
+        }
     }
 
     /// Passes if the right schema elements are generated

@@ -50,6 +50,7 @@ fn create_mnmt_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
@@ -58,7 +59,7 @@ fn create_mnmt_new_rel() {
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"since": "today"}, "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
                     {"props": {"since": "yesterday"}, "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
@@ -93,7 +94,7 @@ fn create_mnmt_new_rel() {
     let projects = client
         .read_node(
             "Project",
-            "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -165,12 +166,18 @@ fn create_mnmt_rel_existing_node() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
 
     let b0 = client
-        .create_node("Bug", "__typename name", &json!({"name": "Bug Zero"}))
+        .create_node(
+            "Bug",
+            "__typename name",
+            Some("1234".to_string()),
+            &json!({"name": "Bug Zero"}),
+        )
         .unwrap();
 
     assert!(b0.is_object());
@@ -181,6 +188,7 @@ fn create_mnmt_rel_existing_node() {
         .create_node(
             "Feature",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Feature Zero"}),
         )
         .unwrap();
@@ -193,7 +201,7 @@ fn create_mnmt_rel_existing_node() {
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!([
                 {"props": {"since": "today"}, "dst": {"Feature": {"EXISTING": {"name": "Feature Zero"}}}},
@@ -229,7 +237,7 @@ fn create_mnmt_rel_existing_node() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -301,6 +309,7 @@ fn read_mnmt_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -321,8 +330,8 @@ fn read_mnmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
-            Some(&json!({"props": {"since": "yesterday"}})),
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",Some("1234".to_string()),
+            Some(json!({"props": {"since": "yesterday"}})),
         )
         .unwrap();
 
@@ -382,6 +391,7 @@ fn read_mnmt_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -402,8 +412,8 @@ fn read_mnmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234".to_string()),
+            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .unwrap();
 
@@ -472,6 +482,7 @@ fn read_mnmt_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -500,8 +511,8 @@ fn read_mnmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
-            Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234".to_string()),
+            Some(json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
         )
         .unwrap();
 
@@ -526,8 +537,8 @@ fn read_mnmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
-            Some(&json!({"dst": {"Feature": {"name": "Feature Zero"}}})),
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234".to_string()),
+            Some(json!({"dst": {"Feature": {"name": "Feature Zero"}}})),
         )
         .unwrap();
 
@@ -587,6 +598,7 @@ fn update_mnmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -615,7 +627,7 @@ fn update_mnmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234".to_string()),
             Some(&json!({"props": {"since": "yesterday"}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -644,8 +656,8 @@ fn update_mnmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -732,6 +744,7 @@ fn update_mnmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -752,7 +765,7 @@ fn update_mnmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -826,6 +839,7 @@ fn update_mnmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -854,7 +868,7 @@ fn update_mnmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234".to_string()),
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -883,8 +897,8 @@ fn update_mnmt_rel_by_dst_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -971,6 +985,7 @@ fn delete_mnmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -999,6 +1014,7 @@ fn delete_mnmt_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234".to_string()),
             Some(&json!({"props": {"since": "today"}})),
             None,
             None,
@@ -1008,7 +1024,7 @@ fn delete_mnmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1093,6 +1109,7 @@ fn delete_mnmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -1121,6 +1138,7 @@ fn delete_mnmt_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
             None,
             None,
@@ -1130,7 +1148,7 @@ fn delete_mnmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1215,6 +1233,7 @@ fn delete_mnmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -1235,6 +1254,7 @@ fn delete_mnmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "issues": [
@@ -1255,6 +1275,7 @@ fn delete_mnmt_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -1264,16 +1285,16 @@ fn delete_mnmt_rel_by_src_prop() {
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 

@@ -40,6 +40,7 @@ mod headers;
 pub mod objects;
 mod resolvers;
 pub mod schema;
+pub mod value;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 mod visitors;
 
@@ -935,8 +936,8 @@ mod tests {
     use crate::server::database::neo4j::Neo4jEndpoint;
     #[cfg(feature = "neo4j")]
     use crate::server::database::DatabaseEndpoint;
-    use juniper::{Arguments, ExecutionResult, Executor, Value};
-    use serde_json;
+    use crate::server::value::Value;
+    use juniper::{Arguments, ExecutionResult, Executor};
     use std::fs::File;
     use std::io::BufReader;
 
@@ -1093,10 +1094,10 @@ mod tests {
         _args: &Arguments,
         _executor: &Executor<GraphQLContext<(), ()>>,
     ) -> ExecutionResult {
-        Ok(Value::scalar(100 as i32))
+        Ok(juniper::Value::scalar(100 as i32))
     }
 
-    pub fn my_validator(_value: &serde_json::Value) -> Result<(), Error> {
+    pub fn my_validator(_value: &Value) -> Result<(), Error> {
         Ok(())
     }
 }

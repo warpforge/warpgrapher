@@ -38,20 +38,44 @@ git clone https://github.com/warpforge/warpgrapher.git
 
 ### Build Warpgrapher
 
+To build for use with Graphson2 graph engines:
+
+```bash
+cargo build --features graphson2
+```
+
+To build for use with Neo4J:
+
 ```bash
 cargo build --features neo4j
 ```
 
 ### Test
 
-Set env variables:
+Set env variables.
+
+For Graphson2 graphs:
+
+```bash
+export WG_GRAPHSON2_URL=http://localhost/
+export WG_GRAPHSON2_LOGIN=username
+export WG_GRAPHSON2_PASS=my-db-pass
+```
+
+For Neo4J:
 
 ```bash
 export DB_PASS=my-db-pass
 export WG_NEO4J_URL=http://neo4j:${DB_PASS}@127.0.0.1:7474/db/data
 ```
 
-Run neo4j database:
+Run the database.
+
+For Graphson2:
+
+Commands to run the database will vary, depending on the server, e.g. Tinkerpop vs. CosmosDB.
+
+For neo4j:
 
 ```bash
 docker run --rm -e NEO4J_AUTH="neo4j/${DB_PASS}" -p 7474:7474 -p 7687:7687 neo4j:3.5
@@ -63,28 +87,42 @@ Run unit tests:
 cargo test --lib
 ```
 
-Run all tests (unit and integration):
+Run all tests (unit and integration).
+
+For Graphson2:
+
+```bash
+cargo test --features graphson2
+```
+
+For Neo4J:
 
 ```bash
 cargo test --features neo4j
 ```
 
+For all databases:
+
+```bash
+cargo test --all-features
+```
+
 Run specific test:
 
 ```bash
-cargo test --features neo4j <TEST_NAME>
+cargo test --features DB_FEATURE <TEST_NAME>
 ```
 
 Run specific module:
 
 ```bash
-cargo test --features neo4j server::graphql::tests
+cargo test --features DB_FEATURE  server::graphql::tests
 ```
 
 Print to console when running tests:
 
 ```bash
-cargo test --features neo4j -- --nocapture
+cargo test --features DB_FEATURE -- --nocapture
 ```
 
 Test coverage:
@@ -104,3 +142,13 @@ cargo clippy --all-targets --all-features -- -D warnings
 ```bash
 cargo fmt
 ```
+
+### Review against API style guidelines
+
+Review your change against the following Rust language API style guidelines.
+
+https://rust-lang.github.io/api-guidelines/
+
+If reviewing a PR, use the following as a review checklist:
+
+https://rust-lang.github.io/api-guidelines/checklist.html

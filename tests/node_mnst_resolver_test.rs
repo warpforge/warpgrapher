@@ -49,7 +49,7 @@ fn create_mnst_new_nodes() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", 
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "dst": { "Commit": { "NEW": { "hash": "11111" } } } } ] })
         )
         .unwrap();
@@ -78,7 +78,7 @@ fn create_mnst_new_nodes() {
     let p1 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project One", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "22222" } } } }, { "dst": { "Commit": { "NEW": { "hash": "33333" } } } } ] })
         )
         .unwrap();
@@ -107,7 +107,7 @@ fn create_mnst_new_nodes() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -196,14 +196,24 @@ fn create_mnst_existing_nodes() {
     let mut client = test_client();
 
     let c0 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "00000"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234".to_string()),
+            &json!({"hash": "00000"}),
+        )
         .unwrap();
     assert!(c0.is_object());
     assert_eq!(c0.get("__typename").unwrap(), "Commit");
     assert_eq!(c0.get("hash").unwrap(), "00000");
 
     let c1 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "11111"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234".to_string()),
+            &json!({"hash": "11111"}),
+        )
         .unwrap();
     assert!(c1.is_object());
     assert_eq!(c1.get("__typename").unwrap(), "Commit");
@@ -212,7 +222,7 @@ fn create_mnst_existing_nodes() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "EXISTING": { "hash": "00000" } } } }, { "dst": { "Commit": {"EXISTING": { "hash": "11111" }}}} ] }))
         .unwrap();
 
@@ -240,7 +250,7 @@ fn create_mnst_existing_nodes() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -310,7 +320,7 @@ fn read_mnst_by_rel_props() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .unwrap();
 
@@ -321,8 +331,8 @@ fn read_mnst_by_rel_props() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
-            Some(&json!({"activity": {"props": {"repo": "Repo Zero"}}}))
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
+            Some(json!({"activity": {"props": {"repo": "Repo Zero"}}}))
         )
         .unwrap();
 
@@ -392,7 +402,7 @@ fn read_mnst_by_dst_props() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
@@ -403,8 +413,8 @@ fn read_mnst_by_dst_props() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
-            Some(&json!({"activity": {"dst": {"Commit": {"hash": "11111"}}}}))
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
+            Some(json!({"activity": {"dst": {"Commit": {"hash": "11111"}}}}))
         )
         .unwrap();
 
@@ -474,14 +484,14 @@ fn update_mnst_new_node() {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"NEW": {"hash": "22222"}}}}}})
         )
@@ -555,18 +565,23 @@ fn update_mnst_existing_node() {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
     let _c0 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "22222"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234".to_string()),
+            &json!({"hash": "22222"}),
+        )
         .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"EXISTING": {"hash": "22222"}}}}}})
         )
@@ -640,14 +655,14 @@ fn update_mnst_relationship() {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"UPDATE": {"match": {"dst": {"Commit": {"hash": "00000"}}}, "update": {"props": {"repo": "Repo 0"}}}}})
         )
@@ -724,7 +739,7 @@ fn delete_mnst_relationship_by_rel_props() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
@@ -739,7 +754,7 @@ fn delete_mnst_relationship_by_rel_props() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"props": {"repo": "Repo Zero"}}}}})
         )
@@ -816,7 +831,7 @@ fn delete_mnst_relationship_by_dst_props() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
@@ -831,7 +846,7 @@ fn delete_mnst_relationship_by_dst_props() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"dst": {"Commit": {"hash": "00000"}}}}}})
         )
@@ -908,7 +923,7 @@ fn delete_node_by_mnst_rel_property() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
@@ -923,6 +938,7 @@ fn delete_node_by_mnst_rel_property() {
     client
         .delete_node(
             "Project",
+            Some("1234".to_string()),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
@@ -931,7 +947,7 @@ fn delete_node_by_mnst_rel_property() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -979,7 +995,7 @@ fn delete_node_by_mnst_dst_property() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
     .unwrap();
 
@@ -994,6 +1010,7 @@ fn delete_node_by_mnst_dst_property() {
     client
         .delete_node(
             "Project",
+            Some("1234".to_string()),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
@@ -1002,7 +1019,7 @@ fn delete_node_by_mnst_dst_property() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
         .unwrap();

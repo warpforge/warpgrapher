@@ -4,10 +4,11 @@ use crate::error::{Error, ErrorKind};
 use crate::server::context::WarpgrapherRequestContext;
 use crate::server::database::{QueryResult, Transaction};
 use crate::server::objects::Rel;
+use crate::server::value::Value;
 use juniper::FieldError;
 use log::{debug, trace};
-use serde_json::{Map, Value};
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
@@ -29,7 +30,8 @@ impl SuffixGenerator {
 pub fn visit_node_create_mutation_input<T>(
     label: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -45,9 +47,8 @@ where
 
     let itd = info.get_type_def()?;
 
-    let mut props = HashMap::new();
-    if let Value::Object(ref m) = input {
-        for (k, v) in m.iter() {
+    if let Value::Map(ref m) = input {
+        for k in m.keys() {
             let p = itd.get_prop(k)?;
 
             match p.kind {
@@ -55,13 +56,28 @@ where
                     p.validator
                         .as_ref()
                         .map_or(Ok(()), |v_name| validate_input(validators, &v_name, &input))?;
-
-                    props.insert(k.to_owned(), v.clone());
                 }
-                PropertyKind::Input => {} // Handle these later
+                _ => {} // No validation action to take
+            }
+        }
+    }
+
+    if let Value::Map(m) = input {
+        let mut props: HashMap<String, Value> = HashMap::new();
+        let mut inputs: HashMap<String, Value> = HashMap::new();
+        for (k, v) in m.into_iter() {
+            let p = itd.get_prop(&k)?;
+
+            match p.kind {
+                PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                    props.insert(k, v);
+                }
+                PropertyKind::Input => {
+                    inputs.insert(k, v);
+                } // Handle these later
                 _ => {
                     return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(itd.type_name.clone() + "::" + k),
+                        ErrorKind::InvalidPropertyType(itd.type_name.clone() + "::" + &k),
                         None,
                     )
                     .into())
@@ -69,28 +85,11 @@ where
             }
         }
 
-        let query = String::from("CREATE (n:")
-            + label
-            + " { id: randomUUID() })\n"
-            + "SET n += $props\n"
-            + "RETURN n\n";
-        let mut params = HashMap::new();
-        params.insert("props".to_owned(), props);
-
-        debug!(
-            "visit_node_create_mutation_input Query statement query, params: {:#?}, {:#?}",
-            query, params
-        );
-        let raw_results = transaction.exec(&query, Some(&params));
-        debug!(
-            "visit_node_create_mutation_input Raw results: {:#?}",
-            raw_results
-        );
-        let results = raw_results?;
+        let results = transaction.create_node(label, partition_key_opt, props)?;
         let ids = results.get_ids("n")?;
 
-        for (k, v) in m.iter() {
-            let p = itd.get_prop(k)?;
+        for (k, v) in inputs.into_iter() {
+            let p = itd.get_prop(&k)?;
 
             match p.kind {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {} // Handled earlier
@@ -99,9 +98,10 @@ where
                         for val in input_array {
                             let _ = visit_rel_create_mutation_input(
                                 label,
-                                &ids,
+                                ids.clone(),
                                 &p.name,
                                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                                partition_key_opt,
                                 val,
                                 validators,
                                 transaction,
@@ -110,9 +110,10 @@ where
                     } else {
                         let _ = visit_rel_create_mutation_input(
                             label,
-                            &ids,
+                            ids.clone(),
                             &p.name,
                             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                            partition_key_opt,
                             v,
                             validators,
                             transaction,
@@ -140,7 +141,8 @@ pub fn visit_node_delete_input<T>(
     var_suffix: &str,
     sg: &mut SuffixGenerator,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -155,7 +157,7 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(ref m) = input {
+    if let Value::Map(mut m) = input {
         let mut params: HashMap<String, Value> = HashMap::new();
 
         let query = visit_node_query_input(
@@ -170,14 +172,15 @@ where
                 itd.get_prop("match")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("match"),
+            partition_key_opt,
+            m.remove("match"), // Remove used to take ownership
         )?;
 
         debug!(
             "visit_node_delete_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, Some(&params));
+        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
         debug!("visit_node_delete_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.get_ids(&(String::from(label) + var_suffix))?;
@@ -185,12 +188,14 @@ where
 
         visit_node_delete_mutation_input(
             label,
-            &ids,
+            ids,
             &Info::new(
                 itd.get_prop("delete")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            Some(m.get("delete").ok_or_else(|| {
+            partition_key_opt,
+            Some(m.remove("delete").ok_or_else(|| {
+                // remove used to take ownership
                 Error::new(
                     ErrorKind::MissingProperty("input::delete".to_owned(), None),
                     None,
@@ -205,9 +210,10 @@ where
 
 pub fn visit_node_delete_mutation_input<T>(
     label: &str,
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: Option<&Value>,
+    partition_key_opt: &Option<String>,
+    input: Option<Value>,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -222,13 +228,13 @@ where
     let itd = info.get_type_def()?;
     let mut force = false;
 
-    if let Some(Value::Object(ref m)) = input {
-        for (k, v) in m.iter() {
-            let p = itd.get_prop(k)?;
+    if let Some(Value::Map(m)) = input {
+        for (k, v) in m.into_iter() {
+            let p = itd.get_prop(&k)?;
 
             match p.kind {
                 PropertyKind::Scalar => {
-                    if k == "force" && *v == Value::Bool(true) {
+                    if k == "force" && v == Value::Bool(true) {
                         force = true
                     }
                 }
@@ -237,9 +243,10 @@ where
                         for val in input_array {
                             visit_rel_delete_input(
                                 label,
-                                Some(ids),
-                                k,
+                                Some(ids.clone()),
+                                &k,
                                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                                partition_key_opt,
                                 val,
                                 transaction,
                             )?;
@@ -247,9 +254,10 @@ where
                     } else {
                         visit_rel_delete_input(
                             label,
-                            Some(ids),
-                            k,
+                            Some(ids.clone()),
+                            &k,
                             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                            partition_key_opt,
                             v,
                             transaction,
                         )?;
@@ -257,7 +265,7 @@ where
                 }
                 _ => {
                     return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + k),
+                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + &k),
                         None,
                     )
                     .into())
@@ -274,13 +282,13 @@ where
         + "DELETE n\n"
         + "RETURN count(*) as count\n";
     let mut params = HashMap::new();
-    params.insert("ids".to_owned(), &ids);
+    params.insert("ids".to_owned(), ids);
 
     debug!(
         "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
         query, params
     );
-    let results = transaction.exec(&query, Some(&params))?;
+    let results = transaction.exec(&query, partition_key_opt, Some(params))?;
     debug!(
         "visit_node_delete_mutation_input Query results: {:#?}",
         results
@@ -292,10 +300,11 @@ where
 fn visit_node_input<T>(
     label: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
-) -> Result<Vec<String>, FieldError>
+) -> Result<Value, FieldError>
 where
     T: Transaction,
 {
@@ -308,20 +317,21 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(
                 ErrorKind::MissingProperty(String::from(&info.name) + "::NEW or ::EXISTING", None),
                 None,
             )
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         match k.as_ref() {
             "NEW" => visit_node_create_mutation_input(
                 label,
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                partition_key_opt,
                 v,
                 validators,
                 transaction,
@@ -340,6 +350,7 @@ where
                     &mut params,
                     &mut sg,
                     &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                    partition_key_opt,
                     Some(v),
                 )?;
 
@@ -347,13 +358,13 @@ where
                     "visit_node_input query, params: {:#?}, {:#?}",
                     query, params
                 );
-                let results = transaction.exec(&query, Some(&params))?;
+                let results = transaction.exec(&query, partition_key_opt, Some(params))?;
                 debug!("visit_node_input Query results: {:#?}", results);
                 results.get_ids(&(label.to_owned() + &var_suffix))
             }
 
             _ => Err(Error::new(
-                ErrorKind::InvalidProperty(String::from(&info.name) + "::" + k),
+                ErrorKind::InvalidProperty(String::from(&info.name) + "::" + &k),
                 None,
             )
             .into()),
@@ -373,7 +384,8 @@ pub fn visit_node_query_input(
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    input: Option<&Value>,
+    partition_key_opt: &Option<String>,
+    input: Option<Value>,
 ) -> Result<String, FieldError> {
     trace!(
              "visit_node_query_input called -- label: {}, var_suffix: {}, union_type: {}, return_node: {}, info.name: {}, input: {:#?}",
@@ -383,21 +395,21 @@ pub fn visit_node_query_input(
     let itd = info.get_type_def()?;
     let param_suffix = sg.get_suffix();
 
-    let mut props = Map::new();
-    if let Some(Value::Object(ref m)) = input {
-        for (k, v) in m.iter() {
-            let p = itd.get_prop(k)?;
+    let mut props = HashMap::new();
+    if let Some(Value::Map(m)) = input {
+        for (k, v) in m.into_iter() {
+            let p = itd.get_prop(&k)?;
 
             match p.kind {
                 PropertyKind::Scalar => {
-                    props.insert(k.to_owned(), v.clone());
+                    props.insert(k, v);
                 }
                 PropertyKind::Input => {
                     qs.push_str(&visit_rel_query_input(
                         label,
                         var_suffix,
                         None,
-                        k,
+                        &k,
                         "dst",
                         &sg.get_suffix(),
                         false,
@@ -405,12 +417,13 @@ pub fn visit_node_query_input(
                         params,
                         sg,
                         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                        partition_key_opt,
                         Some(v),
                     )?);
                 }
                 _ => {
                     return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + k),
+                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + &k),
                         None,
                     )
                     .into())
@@ -464,7 +477,8 @@ pub fn visit_node_query_input(
 pub fn visit_node_update_input<T>(
     label: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -481,7 +495,7 @@ where
     let mut sg = SuffixGenerator::new();
     let itd = info.get_type_def()?;
 
-    if let Value::Object(ref m) = input {
+    if let Value::Map(mut m) = input {
         let var_suffix = sg.get_suffix();
         let mut params: HashMap<String, Value> = HashMap::new();
 
@@ -497,14 +511,15 @@ where
                 itd.get_prop("match")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("match"),
+            partition_key_opt,
+            m.remove("match"), // Remove used to take ownership
         )?;
 
         debug!(
             "visit_node_update_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, Some(&params));
+        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
         debug!("visit_node_update_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.get_ids(&(String::from(label) + &var_suffix))?;
@@ -512,12 +527,14 @@ where
 
         visit_node_update_mutation_input(
             label,
-            &ids,
+            ids,
             &Info::new(
                 itd.get_prop("modify")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("modify").ok_or_else(|| {
+            partition_key_opt,
+            m.remove("modify").ok_or_else(|| {
+                // remove() used here to take ownership of the "modify" value, not borrow it
                 Error::new(
                     ErrorKind::MissingProperty("input::modify".to_owned(), None),
                     None,
@@ -533,9 +550,10 @@ where
 
 pub fn visit_node_update_mutation_input<T>(
     label: &str,
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -552,24 +570,37 @@ where
 
     let itd = info.get_type_def()?;
 
-    let mut props = Map::new();
-
-    if let Value::Object(ref m) = input {
-        for (k, v) in m.iter() {
+    if let Value::Map(ref m) = input {
+        for k in m.keys() {
             let p = itd.get_prop(k)?;
 
             match p.kind {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {
                     p.validator
                         .as_ref()
-                        .map_or(Ok(()), |v| validate_input(validators, &v, &input))?;
-
-                    props.insert(k.to_owned(), v.clone());
+                        .map_or(Ok(()), |v_name| validate_input(validators, &v_name, &input))?;
                 }
-                PropertyKind::Input => {} // Handle these rels later
+                _ => {} // No validation action to take
+            }
+        }
+    }
+
+    if let Value::Map(m) = input {
+        let mut props = HashMap::new();
+        let mut inputs = HashMap::new();
+        for (k, v) in m.into_iter() {
+            let p = itd.get_prop(&k)?;
+
+            match p.kind {
+                PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                    props.insert(k.to_owned(), v);
+                }
+                PropertyKind::Input => {
+                    inputs.insert(k, v);
+                } // Handle these rels later
                 _ => {
                     return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + k),
+                        ErrorKind::InvalidPropertyType(String::from(&info.name) + "::" + &k),
                         None,
                     )
                     .into())
@@ -578,7 +609,7 @@ where
         }
 
         let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("ids".to_owned(), ids.into());
+        params.insert("ids".to_owned(), ids);
         params.insert("props".to_owned(), props.into());
 
         let query = String::from("MATCH (n:")
@@ -592,7 +623,7 @@ where
             "visit_node_update_mutation_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, Some(&params));
+        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
         debug!(
             "visit_node_update_mutation_input Query results: {:#?}",
             raw_results
@@ -600,8 +631,8 @@ where
 
         let results = raw_results?;
 
-        for (k, v) in m.iter() {
-            let p = itd.get_prop(k)?;
+        for (k, v) in inputs.into_iter() {
+            let p = itd.get_prop(&k)?;
 
             match p.kind {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {} // Properties handled above
@@ -610,9 +641,10 @@ where
                         for val in input_array {
                             visit_rel_change_input(
                                 label,
-                                &results.get_ids("n")?,
-                                k,
+                                results.get_ids("n")?,
+                                &k,
                                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                                partition_key_opt,
                                 val,
                                 validators,
                                 transaction,
@@ -621,9 +653,10 @@ where
                     } else {
                         visit_rel_change_input(
                             label,
-                            &results.get_ids("n")?,
-                            k,
+                            results.get_ids("n")?,
+                            &k,
                             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                            partition_key_opt,
                             v,
                             validators,
                             transaction,
@@ -640,12 +673,14 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn visit_rel_change_input<T>(
     src_label: &str,
-    src_ids: &[String],
+    src_ids: Value,
     rel_name: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -663,8 +698,9 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(ref m) = input {
-        if let Some(v) = m.get("ADD") {
+    if let Value::Map(mut m) = input {
+        if let Some(v) = m.remove("ADD") {
+            // Using remove to take ownership
             visit_rel_create_mutation_input(
                 src_label,
                 src_ids,
@@ -673,11 +709,13 @@ where
                     itd.get_prop("ADD")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 v,
                 validators,
                 transaction,
             )
-        } else if let Some(v) = m.get("DELETE") {
+        } else if let Some(v) = m.remove("DELETE") {
+            // Using remove to take ownership
             visit_rel_delete_input(
                 src_label,
                 Some(src_ids),
@@ -686,10 +724,12 @@ where
                     itd.get_prop("DELETE")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 v,
                 transaction,
             )
-        } else if let Some(v) = m.get("UPDATE") {
+        } else if let Some(v) = m.remove("UPDATE") {
+            // Using remove to take ownership
             visit_rel_update_input(
                 src_label,
                 Some(src_ids),
@@ -698,6 +738,7 @@ where
                     itd.get_prop("UPDATE")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 v,
                 validators,
                 transaction,
@@ -717,12 +758,14 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
     src_label: &str,
     rel_name: &str,
     props_type_name: Option<&str>,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
@@ -741,7 +784,7 @@ where
     let mut sg = SuffixGenerator::new();
     let itd = info.get_type_def()?;
 
-    if let Value::Object(ref m) = input {
+    if let Value::Map(mut m) = input {
         let var_suffix = sg.get_suffix();
         let mut params = HashMap::new();
 
@@ -757,17 +800,19 @@ where
                 itd.get_prop("match")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("match"),
+            partition_key_opt,
+            m.remove("match"), // Remove used to take ownership
         )?;
 
         debug!("Query, params: {:#?}, {:#?}", query, params);
-        let raw_results = transaction.exec(&query, Some(&params));
+        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
         debug!("Raw result: {:#?}", raw_results);
         let results = raw_results?;
-        let ids = &results.get_ids(&(String::from(src_label) + &var_suffix))?;
+        let ids = results.get_ids(&(String::from(src_label) + &var_suffix))?;
         trace!("IDs for update: {:#?}", ids);
 
-        let create_input = m.get("create").ok_or_else(|| {
+        let create_input = m.remove("create").ok_or_else(|| {
+            // Using remove to take ownership
             Error::new(
                 ErrorKind::MissingProperty("input::create".to_owned(), None),
                 None,
@@ -775,16 +820,17 @@ where
         })?;
 
         trace!("visit_rel_create_input calling get_rels.");
-        match &create_input {
-            Value::Object(_) => visit_rel_create_mutation_input(
+        match create_input {
+            Value::Map(_) => visit_rel_create_mutation_input(
                 src_label,
-                &ids,
+                ids,
                 rel_name,
                 &Info::new(
                     itd.get_prop("create")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
-                &create_input,
+                partition_key_opt,
+                create_input,
                 validators,
                 transaction,
             )?
@@ -794,12 +840,13 @@ where
                 for create_input_value in create_input_array {
                     let result = visit_rel_create_mutation_input(
                         src_label,
-                        &ids,
+                        ids.clone(),
                         rel_name,
                         &Info::new(
                             itd.get_prop("create")?.type_name.to_owned(),
                             info.type_defs.clone(),
                         ),
+                        partition_key_opt,
                         create_input_value,
                         validators,
                         transaction,
@@ -820,12 +867,14 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn visit_rel_create_mutation_input<T>(
     src_label: &str,
-    src_ids: &[String],
+    src_ids: Value,
     rel_name: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -844,22 +893,24 @@ where
     let itd = info.get_type_def()?;
     let dst_prop = itd.get_prop("dst")?;
 
-    if let Value::Object(m) = input {
+    if let Value::Map(mut m) = input {
         let dst = m
-            .get("dst")
+            .remove("dst") // Using remove to take ownership
             .ok_or_else(|| Error::new(ErrorKind::MissingProperty("dst".to_owned(), None), None))?;
 
         let (dst_label, dst_ids) = visit_rel_nodes_mutation_input_union(
             &Info::new(dst_prop.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             dst,
             validators,
             transaction,
         )?;
 
-        let mut props = Map::new();
-        if let Some(Value::Object(pm)) = m.get("props") {
-            for (k, v) in pm.iter() {
-                props.insert(k.to_owned(), v.clone());
+        let mut props = HashMap::new();
+        if let Some(Value::Map(pm)) = m.remove("props") {
+            // remove rather than get to take ownership
+            for (k, v) in pm.into_iter() {
+                props.insert(k.to_owned(), v);
             }
         }
 
@@ -891,15 +942,15 @@ where
             + ", dst, labels(dst) as dst_label\n";
 
         let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("aid".to_owned(), src_ids.into());
-        params.insert("bid".to_owned(), dst_ids.into());
-        params.insert("props".to_owned(), props.into());
+        params.insert("aid".to_owned(), src_ids);
+        params.insert("bid".to_owned(), dst_ids);
+        params.insert("props".to_owned(), Value::Map(props));
 
         debug!(
             "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let results = transaction.exec(&query, Some(&params))?;
+        let results = transaction.exec(&query, partition_key_opt, Some(params))?;
         debug!(
             "visit_rel_create_mutation_input Query results: {:#?}",
             results
@@ -913,10 +964,11 @@ where
 
 pub fn visit_rel_delete_input<T>(
     src_label: &str,
-    src_ids_opt: Option<&[String]>,
+    src_ids_opt: Option<Value>,
     rel_name: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -937,7 +989,7 @@ where
     let dst_suffix = sg.get_suffix();
     let mut params = HashMap::new();
 
-    if let Value::Object(m) = input {
+    if let Value::Map(mut m) = input {
         let read_query = visit_rel_query_input(
             src_label,
             &src_suffix,
@@ -953,14 +1005,15 @@ where
                 itd.get_prop("match")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("match"),
+            partition_key_opt,
+            m.remove("match"), // remove rather than get to take ownership
         )?;
 
         debug!(
             "visit_rel_delete_input query, params: {:#?}, {:#?}",
             read_query, params
         );
-        let raw_read_results = transaction.exec(&read_query, Some(&params));
+        let raw_read_results = transaction.exec(&read_query, partition_key_opt, Some(params));
         debug!("visit_rel_delete_input Raw result: {:#?}", raw_read_results);
 
         let read_results = raw_read_results?;
@@ -981,41 +1034,45 @@ where
             + rel_name
             + "\n"
             + "RETURN count(*) as count\n";
-        params.insert(
+
+        let mut del_params = HashMap::new();
+        del_params.insert(
             "rids".to_owned(),
-            read_results
-                .get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-                .into(),
+            read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
         );
         debug!(
             "visit_rel_delete_input query, params: {:#?}, {:#?}",
-            del_query, params
+            del_query, del_params
         );
-        let raw_del_results = transaction.exec(&del_query, Some(&params));
+        let raw_del_results = transaction.exec(&del_query, partition_key_opt, Some(del_params));
         debug!("visit_rel_delete_input Raw result: {:#?}", raw_del_results);
 
         let del_results = raw_del_results?;
 
-        if let Some(src) = m.get("src") {
+        if let Some(src) = m.remove("src") {
+            // Uses remove to take ownership
             visit_rel_src_delete_mutation_input(
                 src_label,
-                &read_results.get_ids(&(src_label.to_string() + &src_suffix))?,
+                read_results.get_ids(&(src_label.to_string() + &src_suffix))?,
                 &Info::new(
                     itd.get_prop("src")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 src,
                 transaction,
             )?;
         }
 
-        if let Some(dst) = m.get("dst") {
+        if let Some(dst) = m.remove("dst") {
+            // Uses remove to take ownership
             visit_rel_dst_delete_mutation_input(
-                &read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
+                read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
                 &Info::new(
                     itd.get_prop("dst")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 dst,
                 transaction,
             )?;
@@ -1028,9 +1085,10 @@ where
 }
 
 pub fn visit_rel_dst_delete_mutation_input<T>(
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1044,17 +1102,18 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(ErrorKind::MissingProperty(info.name.to_owned(), None), None)
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         visit_node_delete_mutation_input(
-            k,
+            &k,
             ids,
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             Some(v),
             transaction,
         )
@@ -1063,6 +1122,7 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_rel_dst_query_input(
     label: &str,
     var_suffix: &str,
@@ -1070,7 +1130,8 @@ fn visit_rel_dst_query_input(
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    input: Option<&Value>,
+    partition_key_opt: &Option<String>,
+    input: Option<Value>,
 ) -> Result<String, FieldError> {
     trace!(
          "visit_rel_dst_query_input called -- label: {}, var_suffix: {}, info.name: {}, input: {:#?}",
@@ -1082,9 +1143,9 @@ fn visit_rel_dst_query_input(
 
     let itd = info.get_type_def()?;
 
-    if let Some(Value::Object(m)) = input {
-        if let Some((k, v)) = m.iter().next() {
-            let p = itd.get_prop(k)?;
+    if let Some(Value::Map(m)) = input {
+        if let Some((k, v)) = m.into_iter().next() {
+            let p = itd.get_prop(&k)?;
 
             visit_node_query_input(
                 label,
@@ -1095,6 +1156,7 @@ fn visit_rel_dst_query_input(
                 params,
                 sg,
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                partition_key_opt,
                 Some(v),
             )
         } else {
@@ -1106,9 +1168,10 @@ fn visit_rel_dst_query_input(
 }
 
 pub fn visit_rel_dst_update_mutation_input<T>(
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -1124,17 +1187,18 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(ErrorKind::MissingProperty(info.name.to_owned(), None), None)
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         visit_node_update_mutation_input(
-            k,
-            &ids,
+            &k,
+            ids,
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             v,
             validators,
             transaction,
@@ -1146,10 +1210,11 @@ where
 
 fn visit_rel_nodes_mutation_input_union<T>(
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
-) -> Result<(String, Vec<String>), FieldError>
+) -> Result<(String, Value), FieldError>
 where
     T: Transaction,
 {
@@ -1161,16 +1226,17 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(ErrorKind::MissingProperty(info.name.to_owned(), None), None)
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         let dst_ids = visit_node_input(
-            k,
+            &k,
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             v,
             validators,
             transaction,
@@ -1186,7 +1252,7 @@ where
 pub fn visit_rel_query_input(
     src_label: &str,
     src_suffix: &str,
-    src_ids_opt: Option<&[String]>,
+    src_ids_opt: Option<Value>,
     rel_name: &str,
     dst_var: &str,
     dst_suffix: &str,
@@ -1195,7 +1261,8 @@ pub fn visit_rel_query_input(
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    input_opt: Option<&Value>,
+    partition_key_opt: &Option<String>,
+    input_opt: Option<Value>,
 ) -> Result<String, FieldError> {
     trace!(
         "visit_rel_query_input called -- src_label: {}, src_suffix: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_rel: {:#?}, query: {}, info.name: {}, input: {:#?}",
@@ -1216,131 +1283,126 @@ pub fn visit_rel_query_input(
     let src_prop = itd.get_prop("src")?;
     let dst_prop = itd.get_prop("dst")?;
 
-    let mut props = Map::new();
-    if let Some(Value::Object(ref m)) = input_opt {
-        if let Some(id) = m.get("id") {
-            props.insert("id".to_owned(), id.clone());
+    let mut props = HashMap::new();
+    if let Some(Value::Map(mut m)) = input_opt {
+        // uses remove in order to take ownership
+        if let Some(id) = m.remove("id") {
+            props.insert("id".to_owned(), id);
         }
 
-        if let Some(Value::Object(rel_props)) = m.get("props") {
-            for (k, v) in rel_props.iter() {
-                props.insert(k.to_owned(), v.clone());
+        // uses remove to take ownership
+        if let Some(Value::Map(rel_props)) = m.remove("props") {
+            for (k, v) in (rel_props).into_iter() {
+                props.insert(k.to_owned(), v);
             }
         }
-    }
 
-    qs.push_str(
-        &(String::from("MATCH (")
-            + src_label
-            + src_suffix
-            + ":"
-            + src_label
-            + ")-["
-            + rel_name
-            + src_suffix
-            + dst_suffix
-            + ":"
-            + String::from(rel_name).as_str()
-            + "]->("
-            + dst_var
-            + dst_suffix
-            + ")\n"),
-    );
-
-    let mut wc = None;
-    for k in props.keys() {
-        match wc {
-            None => {
-                wc = Some(
-                    String::from("WHERE ")
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "."
-                        + &k
-                        + " = $"
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "."
-                        + &k,
-                )
-            }
-            Some(wcs) => {
-                wc = Some(
-                    wcs + " AND "
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "."
-                        + &k
-                        + " = $"
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "."
-                        + &k,
-                )
-            }
-        }
-    }
-
-    if let Some(src_ids) = src_ids_opt {
-        match wc {
-            None => {
-                wc = Some(
-                    String::from("WHERE ")
-                        + src_label
-                        + src_suffix
-                        + ".id IN $"
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "_srcids"
-                        + "."
-                        + "ids",
-                )
-            }
-            Some(wcs) => {
-                wc = Some(
-                    wcs + " AND "
-                        + src_label
-                        + src_suffix
-                        + ".id IN $"
-                        + rel_name
-                        + src_suffix
-                        + dst_suffix
-                        + "_srcids"
-                        + "."
-                        + "ids",
-                )
-            }
-        }
-        let mut id_map = Map::new();
-        id_map.insert(
-            "ids".to_string(),
-            src_ids
-                .iter()
-                .map(|s| Value::String(s.to_owned()))
-                .collect(),
+        qs.push_str(
+            &(String::from("MATCH (")
+                + src_label
+                + src_suffix
+                + ":"
+                + src_label
+                + ")-["
+                + rel_name
+                + src_suffix
+                + dst_suffix
+                + ":"
+                + String::from(rel_name).as_str()
+                + "]->("
+                + dst_var
+                + dst_suffix
+                + ")\n"),
         );
 
+        let mut wc = None;
+        for k in props.keys() {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+            }
+        }
+
+        if let Some(src_ids) = src_ids_opt {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+            }
+            let mut id_map = HashMap::new();
+            id_map.insert("ids".to_string(), src_ids);
+
+            params.insert(
+                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
+                id_map.try_into()?,
+            );
+        }
+
+        if let Some(wcs) = wc {
+            qs.push_str(&(String::from(&wcs) + "\n"));
+        }
         params.insert(
-            String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
-            id_map.into(),
+            String::from(rel_name) + src_suffix + dst_suffix,
+            props.into(),
         );
-    }
 
-    if let Some(wcs) = wc {
-        qs.push_str(&(String::from(&wcs) + "\n"));
-    }
-    params.insert(
-        String::from(rel_name) + src_suffix + dst_suffix,
-        props.into(),
-    );
-
-    if let Some(Value::Object(ref m)) = input_opt {
-        if let Some(src) = m.get("src") {
+        // Remove used to take ownership
+        if let Some(src) = m.remove("src") {
             qs.push_str(&visit_rel_src_query_input(
                 src_label,
                 src_suffix,
@@ -1348,11 +1410,13 @@ pub fn visit_rel_query_input(
                 params,
                 sg,
                 &Info::new(src_prop.type_name.to_owned(), info.type_defs.clone()),
+                partition_key_opt,
                 Some(src),
             )?);
         }
 
-        if let Some(dst) = m.get("dst") {
+        // Remove used to take ownership
+        if let Some(dst) = m.remove("dst") {
             qs.push_str(&visit_rel_dst_query_input(
                 dst_var,
                 dst_suffix,
@@ -1360,9 +1424,114 @@ pub fn visit_rel_query_input(
                 params,
                 sg,
                 &Info::new(dst_prop.type_name.to_owned(), info.type_defs.clone()),
+                partition_key_opt,
                 Some(dst),
             )?);
         }
+    } else {
+        qs.push_str(
+            &(String::from("MATCH (")
+                + src_label
+                + src_suffix
+                + ":"
+                + src_label
+                + ")-["
+                + rel_name
+                + src_suffix
+                + dst_suffix
+                + ":"
+                + String::from(rel_name).as_str()
+                + "]->("
+                + dst_var
+                + dst_suffix
+                + ")\n"),
+        );
+
+        let mut wc = None;
+        for k in props.keys() {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+            }
+        }
+
+        if let Some(src_ids) = src_ids_opt {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+            }
+            let mut id_map = HashMap::new();
+            id_map.insert("ids".to_string(), src_ids);
+
+            params.insert(
+                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
+                id_map.try_into()?,
+            );
+        }
+
+        if let Some(wcs) = wc {
+            qs.push_str(&(String::from(&wcs) + "\n"));
+        }
+        params.insert(
+            String::from(rel_name) + src_suffix + dst_suffix,
+            props.into(),
+        );
     }
 
     if return_rel {
@@ -1388,14 +1557,16 @@ pub fn visit_rel_query_input(
         );
     }
 
+    trace!("visit_rel_query_input -- query_string: {}", qs);
     Ok(qs)
 }
 
 pub fn visit_rel_src_delete_mutation_input<T>(
     label: &str,
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1410,17 +1581,18 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(ErrorKind::MissingProperty(info.name.to_owned(), None), None)
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         visit_node_delete_mutation_input(
             label,
             ids,
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             Some(v),
             transaction,
         )
@@ -1431,9 +1603,10 @@ where
 
 pub fn visit_rel_src_update_mutation_input<T>(
     label: &str,
-    ids: &[String],
+    ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -1450,17 +1623,18 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let (k, v) = m.iter().next().ok_or_else(|| {
+    if let Value::Map(m) = input {
+        let (k, v) = m.into_iter().next().ok_or_else(|| {
             Error::new(ErrorKind::MissingProperty(info.name.to_owned(), None), None)
         })?;
 
-        let p = itd.get_prop(k)?;
+        let p = itd.get_prop(&k)?;
 
         visit_node_update_mutation_input(
             label,
             ids,
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+            partition_key_opt,
             v,
             validators,
             transaction,
@@ -1470,6 +1644,7 @@ where
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_rel_src_query_input(
     label: &str,
     label_suffix: &str,
@@ -1477,7 +1652,8 @@ fn visit_rel_src_query_input(
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    input: Option<&Value>,
+    partition_key_opt: &Option<String>,
+    input: Option<Value>,
 ) -> Result<String, FieldError> {
     trace!(
          "visit_rel_src_query_input called -- label: {}, label_suffix: {}, info.name: {}, input: {:#?}",
@@ -1489,9 +1665,9 @@ fn visit_rel_src_query_input(
 
     let itd = info.get_type_def()?;
 
-    if let Some(Value::Object(m)) = input {
-        if let Some((k, v)) = m.iter().next() {
-            let p = itd.get_prop(k)?;
+    if let Some(Value::Map(m)) = input {
+        if let Some((k, v)) = m.into_iter().next() {
+            let p = itd.get_prop(&k)?;
 
             visit_node_query_input(
                 label,
@@ -1502,6 +1678,7 @@ fn visit_rel_src_query_input(
                 params,
                 sg,
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
+                partition_key_opt,
                 Some(v),
             )
         } else {
@@ -1512,12 +1689,14 @@ fn visit_rel_src_query_input(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn visit_rel_update_input<T>(
     src_label: &str,
-    src_ids: Option<&[String]>,
+    src_ids: Option<Value>,
     rel_name: &str,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -1539,7 +1718,7 @@ where
     let src_suffix = sg.get_suffix();
     let dst_suffix = sg.get_suffix();
 
-    if let Value::Object(m) = input {
+    if let Value::Map(mut m) = input {
         let read_query = visit_rel_query_input(
             src_label,
             &src_suffix,
@@ -1555,29 +1734,32 @@ where
                 itd.get_prop("match")?.type_name.to_owned(),
                 info.type_defs.clone(),
             ),
-            m.get("match"),
+            partition_key_opt,
+            m.remove("match"), // uses remove to take ownership
         )?;
 
         debug!(
             "visit_rel_update_input query, params: {:#?}, {:#?}",
             read_query, params
         );
-        let raw_read_results = transaction.exec(&read_query, Some(&params));
+        let raw_read_results = transaction.exec(&read_query, partition_key_opt, Some(params));
         debug!("visit_rel_update_input Raw result: {:#?}", raw_read_results);
 
         let read_results = raw_read_results?;
 
-        if let Some(update) = m.get("update") {
+        if let Some(update) = m.remove("update") {
+            // remove used to take ownership
             visit_rel_update_mutation_input(
                 src_label,
-                &read_results.get_ids(&(String::from(src_label) + &src_suffix))?,
+                read_results.get_ids(&(String::from(src_label) + &src_suffix))?,
                 rel_name,
-                &read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-                &read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
+                read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
+                read_results.get_ids(&(String::from("dst") + &dst_suffix))?,
                 &Info::new(
                     itd.get_prop("update")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 update,
                 validators,
                 transaction,
@@ -1593,12 +1775,13 @@ where
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_update_mutation_input<T>(
     src_label: &str,
-    src_ids: &[String],
+    src_ids: Value,
     rel_name: &str,
-    rel_ids: &[String],
-    dst_ids: &[String],
+    rel_ids: Value,
+    dst_ids: Value,
     info: &Info,
-    input: &Value,
+    partition_key_opt: &Option<String>,
+    input: Value,
     validators: &WarpgrapherValidators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
@@ -1618,11 +1801,12 @@ where
 
     let itd = info.get_type_def()?;
 
-    if let Value::Object(m) = input {
-        let mut props = Map::new();
-        if let Some(Value::Object(pm)) = m.get("props") {
-            for (k, v) in pm.iter() {
-                props.insert(k.to_owned(), v.clone());
+    if let Value::Map(mut m) = input {
+        let mut props = HashMap::new();
+        if let Some(Value::Map(pm)) = m.remove("props") {
+            // remove used to take ownership
+            for (k, v) in pm.into_iter() {
+                props.insert(k.to_owned(), v);
             }
         }
 
@@ -1648,19 +1832,20 @@ where
             + ", dst, labels(dst) as dst_label\n";
 
         let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("rids".to_owned(), rel_ids.into());
+        params.insert("rids".to_owned(), rel_ids);
         params.insert("props".to_owned(), props.into());
         debug!(
             "visit_rel_update_mutation_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let results = transaction.exec(&query, Some(&params))?;
+        let results = transaction.exec(&query, partition_key_opt, Some(params))?;
         debug!(
             "visit_rel_update_mutation_input Query results: {:#?}",
             results
         );
 
-        if let Some(src) = m.get("src") {
+        if let Some(src) = m.remove("src") {
+            // calling remove to take ownership
             visit_rel_src_update_mutation_input(
                 src_label,
                 src_ids,
@@ -1668,19 +1853,22 @@ where
                     itd.get_prop("src")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 src,
                 validators,
                 transaction,
             )?;
         }
 
-        if let Some(dst) = m.get("dst") {
+        if let Some(dst) = m.remove("dst") {
+            // calling remove to take ownership
             visit_rel_dst_update_mutation_input(
                 dst_ids,
                 &Info::new(
                     itd.get_prop("dst")?.type_name.to_owned(),
                     info.type_defs.clone(),
                 ),
+                partition_key_opt,
                 dst,
                 validators,
                 transaction,
@@ -1712,9 +1900,9 @@ fn validate_input(
     })?;
 
     trace!(
-        "validate_input Calling input validator function {validator_name} for input value {input_value}",
-        validator_name = v,
-        input_value = input
+        "validate_input Calling input validator function {} for input value {:#?}",
+        v,
+        input
     );
 
     func(input).or_else(|e| match e.kind {

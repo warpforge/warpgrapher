@@ -6,13 +6,15 @@ use rusted_cypher::GraphClient;
 use serde_json::json;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use serial_test::serial;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_url;
 #[cfg(feature = "graphson2")]
 use setup::server::test_server_graphson2;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
 use setup::test_client;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use setup::{clear_db, db_url, init};
+use setup::{clear_db, init};
 
 /// Passes if the create mutation and the read query both succeed.
 #[cfg(feature = "neo4j")]
@@ -54,7 +56,7 @@ fn create_single_node() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name description status priority estimate active",
+            "__typename id name description status priority estimate active", Some("1234".to_string()),
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
         .unwrap();
@@ -72,6 +74,7 @@ fn create_single_node() {
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -131,6 +134,7 @@ fn read_query() {
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234".to_string()),
             &json!({"name": "Project1"}),
         )
         .unwrap();
@@ -142,6 +146,7 @@ fn read_query() {
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234".to_string()),
             &json!({"name": "Project2"}),
         )
         .unwrap();
@@ -152,7 +157,8 @@ fn read_query() {
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -204,6 +210,7 @@ fn handle_missing_properties() {
         .create_node(
             "Project",
             "__typename id name description",
+            Some("1234".to_string()),
             &json!({"name": "MJOLNIR"}),
         )
         .unwrap();
@@ -214,7 +221,12 @@ fn handle_missing_properties() {
     assert!(p0.get("description").unwrap().is_null());
 
     let projects = client
-        .read_node("Project", "__typename id name description", None)
+        .read_node(
+            "Project",
+            "__typename id name description",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(projects.is_array());
@@ -265,6 +277,7 @@ fn update_mutation() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .unwrap();
@@ -277,7 +290,8 @@ fn update_mutation() {
         .read_node(
             "Project",
             "__typename id name status",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -296,6 +310,7 @@ fn update_mutation() {
         .update_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             Some(&json!({"name": "Project1"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -310,7 +325,8 @@ fn update_mutation() {
         .read_node(
             "Project",
             "__typename id name status",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -365,6 +381,7 @@ fn update_mutation_null_query() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .unwrap();
@@ -377,6 +394,7 @@ fn update_mutation_null_query() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
         .unwrap();
@@ -386,7 +404,12 @@ fn update_mutation_null_query() {
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node("Project", "__typename id name status", None)
+        .read_node(
+            "Project",
+            "__typename id name status",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -397,6 +420,7 @@ fn update_mutation_null_query() {
         .update_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             None,
             &json!({"status": "ACTIVE"}),
         )
@@ -409,7 +433,12 @@ fn update_mutation_null_query() {
     assert_eq!(pu_a[1].get("__typename").unwrap(), "Project");
     assert_eq!(pu_a[1].get("status").unwrap(), "ACTIVE");
     let after_projects = client
-        .read_node("Project", "__typename id name status", None)
+        .read_node(
+            "Project",
+            "__typename id name status",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -458,6 +487,7 @@ fn delete_mutation() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .unwrap();
@@ -470,7 +500,8 @@ fn delete_mutation() {
         .read_node(
             "Project",
             "__typename id name status",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -486,7 +517,12 @@ fn delete_mutation() {
     assert_eq!(before_projects_a[0].get("status").unwrap(), "PENDING");
 
     let pd = client
-        .delete_node("Project", Some(&json!({"name": "Project1"})), None)
+        .delete_node(
+            "Project",
+            Some("1234".to_string()),
+            Some(&json!({"name": "Project1"})),
+            None,
+        )
         .unwrap();
 
     assert_eq!(pd, 1);
@@ -494,7 +530,8 @@ fn delete_mutation() {
         .read_node(
             "Project",
             "__typename id name status",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -542,6 +579,7 @@ fn delete_mutation_null_query() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .unwrap();
@@ -554,6 +592,7 @@ fn delete_mutation_null_query() {
         .create_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
         .unwrap();
@@ -563,14 +602,21 @@ fn delete_mutation_null_query() {
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node("Project", "__typename id name status", None)
+        .read_node(
+            "Project",
+            "__typename id name status",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(before_projects.is_array());
     let before_projects_a = before_projects.as_array().unwrap();
     assert_eq!(before_projects_a.len(), 2);
 
-    let pd = client.delete_node("Project", None, None).unwrap();
+    let pd = client
+        .delete_node("Project", Some("1234".to_string()), None, None)
+        .unwrap();
 
     assert_eq!(pd, 2);
 
@@ -578,7 +624,8 @@ fn delete_mutation_null_query() {
         .read_node(
             "Project",
             "__typename id name status",
-            Some(&json!({"name": "Project1"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project1"})),
         )
         .unwrap();
 
@@ -594,7 +641,7 @@ fn error_on_node_missing_id_neo4j() {
     init();
     clear_db();
 
-    let graph = GraphClient::connect(db_url()).unwrap();
+    let graph = GraphClient::connect(neo4j_url()).unwrap();
     graph
         .exec("CREATE (n:Project { name: 'Project One' })")
         .unwrap();
@@ -632,7 +679,8 @@ fn error_on_node_missing_id() {
         .read_node(
             "Project",
             "__typename id name",
-            Some(&json!({"name": "Project One"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 
@@ -642,6 +690,7 @@ fn error_on_node_missing_id() {
         .update_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             Some(&json!({"name": "Project One"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -650,7 +699,12 @@ fn error_on_node_missing_id() {
     assert!(pu.is_null());
 
     let pd = client
-        .delete_node("Project", Some(&json!({"name": "Project One"})), None)
+        .delete_node(
+            "Project",
+            Some("1234".to_string()),
+            Some(&json!({"name": "Project One"})),
+            None,
+        )
         .unwrap();
 
     assert!(pd.is_null());

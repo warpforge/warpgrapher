@@ -27,6 +27,7 @@ fn custom_endpoint_resolver() {
         .create_node(
             "Project",
             "id name description",
+            Some("1234".to_string()),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
         .unwrap();
@@ -34,12 +35,19 @@ fn custom_endpoint_resolver() {
         .create_node(
             "Project",
             "id name description",
+            Some("1234".to_string()),
             &json!({"name": "SPARTANII", "description": "Cue MC music"}),
         )
         .unwrap();
 
     // count projects via custom resolver
-    let result = graphql(gql_endpoint(), "query { ProjectCount }".to_owned(), None).unwrap();
+    let result = graphql(
+        gql_endpoint(),
+        "query { ProjectCount }".to_owned(),
+        Some("1234".to_string()),
+        None,
+    )
+    .unwrap();
     let count = result.get("ProjectCount").unwrap();
 
     // verify result
@@ -65,6 +73,7 @@ fn custom_prop_resolver() {
         .create_node(
             "Project",
             "id name description",
+            Some("1234".to_string()),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
         .unwrap();
@@ -72,6 +81,7 @@ fn custom_prop_resolver() {
     let result = graphql(
         gql_endpoint(),
         "query { Project{id, points}}".to_owned(),
+        Some("1234".to_string()),
         None,
     )
     .unwrap();

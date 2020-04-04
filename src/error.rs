@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter, Result};
 use std::sync::mpsc::RecvError;
 
 /// Categories of Warpgrapher errors.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ErrorKind {
     /// Returned when the server attempts to listen on an address/port
@@ -60,10 +61,14 @@ pub enum ErrorKind {
     /// type that does not exist
     ConfigEndpointMissingTypeError(String, String),
 
+    /// Returned when a client for a GraphSON2 database pool cannot be built
+    #[cfg(feature = "graphson2")]
+    CouldNotBuildGraphson2Pool(gremlin_client::GremlinError),
+
     /// Returned when `WarpgrapherServer` fails to build a pool for the cypher
     /// connection manager.
     #[cfg(feature = "neo4j")]
-    CouldNotBuildDatabasePool(r2d2::Error),
+    CouldNotBuildNeo4jPool(r2d2::Error),
 
     /// Returned when the internal resolver logic cannot infer the correct warpgrapher type
     /// that corresponds to data queried from the database.
@@ -73,6 +78,10 @@ pub enum ErrorKind {
 
     /// Returned when an environment variable cannot be found
     EnvironmentVariableNotFound(String),
+
+    /// Returned when an environment variable for a port number cannot be parsed from the
+    /// environment variable string into a number
+    EnvironmentVariableParseError,
 
     /// Returned when there is a mismatch in the expected internal representation of a
     /// warpgrapher type
@@ -109,6 +118,10 @@ pub enum ErrorKind {
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
     MissingArgument(String),
+
+    /// Returned when the backend storage feature selected required a partition key, but
+    /// a partition key argument was not provided by the client.
+    MissingPartitionKey,
 
     /// Returned when warpgrapher missing a property expected for that node or rel type.
     /// This could occur if a node or relationship is created with a direct cypher query
@@ -168,6 +181,19 @@ pub enum ErrorKind {
 
     /// Returned when a transaction is used after it is committed or rolled back.
     TransactionFinished,
+
+    /// Warpgrapher transforms data between different serialization formats in the course of
+    /// relaying data between GraphQL and database back-ends. If data fails to convert successfully,
+    /// this error is thrown. For example, GraphQL only supports 32-bit integers, whereas some
+    /// database back-ends support 64-bit. This error would be thrown when trying to coerce a 64-bit
+    /// value from a database into a 32-bit GraphQL integer.
+    TypeConversionFailed(String),
+
+    /// This is an internal error thrown if a cofiguration schema is parsed incorrectly, resulting
+    /// in an unexpected GraphQL endpoint input argument. This is very unlikely to be returned as
+    /// a result of a problem with inputs to the engine, and most likely indicates an internal bug.
+    /// Thus, if you happen to see it, please open an issue at the Warpgrapher project.
+    UnexpectedSchemaArgument(String, String, String),
 
     /// Returned when the DB_TYPE environment variable specified a database type that Warpgrapher
     /// does not support. Note that this error is also returned if a supported database is specified

@@ -50,6 +50,7 @@ fn create_snst_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
@@ -58,7 +59,7 @@ fn create_snst_new_rel() {
         .create_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename props{since} dst{...on User{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
         )
@@ -73,6 +74,7 @@ fn create_snst_new_rel() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -127,12 +129,18 @@ fn create_snst_rel_existing_node() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
 
     let _u0 = client
-        .create_node("User", "__typename name", &json!({"name": "User Zero"}))
+        .create_node(
+            "User",
+            "__typename name",
+            Some("1234".to_string()),
+            &json!({"name": "User Zero"}),
+        )
         .unwrap();
 
     let o0 = client
@@ -140,6 +148,7 @@ fn create_snst_rel_existing_node() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({
                 "props": {"since": "yesterday"},
@@ -157,6 +166,7 @@ fn create_snst_rel_existing_node() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -209,6 +219,7 @@ fn read_snst_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -224,7 +235,8 @@ fn read_snst_rel_by_rel_props() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some("1234".to_string()),
+            Some(json!({"props": {"since": "yesterday"}})),
         )
         .unwrap();
 
@@ -284,6 +296,7 @@ fn read_snst_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -299,7 +312,8 @@ fn read_snst_rel_by_src_props() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some("1234".to_string()),
+            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .unwrap();
 
@@ -359,6 +373,7 @@ fn read_snst_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -374,7 +389,8 @@ fn read_snst_rel_by_dst_props() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
-            Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
+            Some("1234".to_string()),
+            Some(json!({"dst": {"User": {"name": "User Zero"}}})),
         )
         .unwrap();
 
@@ -434,6 +450,7 @@ fn update_snst_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -449,6 +466,7 @@ fn update_snst_rel_by_rel_prop() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
+            Some("1234".to_string()),
             Some(&json!({"props": {"since": "yesterday"}})),
             &json!({"props": {"since": "today"}}),
         )
@@ -478,6 +496,7 @@ fn update_snst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -533,6 +552,7 @@ fn update_snst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -548,6 +568,7 @@ fn update_snst_rel_by_src_prop() {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"since": "today"}}),
         )
@@ -577,6 +598,7 @@ fn update_snst_rel_by_src_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -632,6 +654,7 @@ fn update_snst_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -647,6 +670,7 @@ fn update_snst_rel_by_dst_prop() {
             "Project",
             "owner",
             "__typename props {since} dst {...on User{__typename name}}",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
             &json!({"props": {"since": "today"}}),
         )
@@ -676,6 +700,7 @@ fn update_snst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -731,6 +756,7 @@ fn delete_snst_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -745,6 +771,7 @@ fn delete_snst_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "owner",
+            Some("1234".to_string()),
             Some(&json!({"props": {"since": "yesterday"}})),
             None,
             None,
@@ -755,6 +782,7 @@ fn delete_snst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -808,6 +836,7 @@ fn delete_snst_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -822,6 +851,7 @@ fn delete_snst_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "owner",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
             None,
             None,
@@ -832,6 +862,7 @@ fn delete_snst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -885,6 +916,7 @@ fn delete_snst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -899,6 +931,7 @@ fn delete_snst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "owner": {
@@ -913,6 +946,7 @@ fn delete_snst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "owner",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -923,7 +957,8 @@ fn delete_snst_rel_by_src_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -931,7 +966,8 @@ fn delete_snst_rel_by_src_prop() {
         .read_node(
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 

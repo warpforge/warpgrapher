@@ -9,8 +9,9 @@ use warpgrapher::server::database::graphson2::Graphson2Endpoint;
 use warpgrapher::server::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::server::database::DatabasePool;
+use warpgrapher::server::value::Value;
 use warpgrapher::{
-    Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
+    Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info,
     WarpgrapherRequestContext,
 };
 #[cfg(feature = "neo4j")]
@@ -49,9 +50,9 @@ impl MetadataExtensionCtx for AppReqCtx {
 }
 
 #[allow(dead_code)]
-pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
+pub fn name_validator(value: &Value) -> Result<(), Error> {
     let name = match value {
-        serde_json::Value::Object(o) => match o.get("name") {
+        Value::Map(m) => match m.get("name") {
             Some(n) => n,
             None => {
                 return Err(Error::new(
@@ -75,7 +76,7 @@ pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
     };
 
     match name {
-        serde_json::Value::String(s) => {
+        Value::String(s) => {
             if s == "KENOBI" {
                 Err(Error::new(
                     ErrorKind::ValidationError(format!(
@@ -118,7 +119,7 @@ where
 
             // return number of projects
             let count = results.data.len();
-            Ok(Value::scalar(count as i32))
+            Ok(juniper::Value::scalar(count as i32))
         }
         _ => Err(Error::new(
             ErrorKind::UnsupportedDatabase("Anything but neo4j".to_owned()),
@@ -137,7 +138,7 @@ pub fn project_points<AppGlobalCtx, AppReqCtx>(
 where
     AppReqCtx: WarpgrapherRequestContext,
 {
-    Ok(Value::scalar(1_000_000 as i32))
+    Ok(juniper::Value::scalar(1_000_000 as i32))
 }
 
 #[allow(dead_code)]

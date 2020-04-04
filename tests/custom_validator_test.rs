@@ -1,10 +1,10 @@
 mod setup;
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(feature = "neo4j")]
 use log::trace;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(feature = "neo4j")]
 use serde_json::json;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(feature = "neo4j")]
 use serial_test::serial;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
@@ -25,7 +25,12 @@ fn custom_input_validator_create() {
     // Test validator on create
     // Validator pass
     let result = client
-        .create_node("User", "id name", &json!({"name": "ORION"}))
+        .create_node(
+            "User",
+            "id name",
+            Some("1234".to_string()),
+            &json!({"name": "ORION"}),
+        )
         .unwrap();
 
     let name = result.get("name").unwrap();
@@ -34,7 +39,12 @@ fn custom_input_validator_create() {
 
     // Validator fail
     let result = client
-        .create_node("User", "id name", &json!({"name": "KENOBI"}))
+        .create_node(
+            "User",
+            "id name",
+            Some("1234".to_string()),
+            &json!({"name": "KENOBI"}),
+        )
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
@@ -61,7 +71,12 @@ fn custom_input_validator_update() {
     assert!(server.serve(false).is_ok());
 
     let _ = client
-        .create_node("User", "id name", &json!({"name": "ORION"}))
+        .create_node(
+            "User",
+            "id name",
+            Some("1234".to_string()),
+            &json!({"name": "ORION"}),
+        )
         .unwrap();
 
     // Test validator on update
@@ -70,6 +85,7 @@ fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
+            Some("1234".to_string()),
             Some(&json!({"name": "ORION"})),
             &json!({"name": "SKYWALKER"}),
         )
@@ -84,6 +100,7 @@ fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
+            Some("1234".to_string()),
             Some(&json!({"name": "SKYWALKER"})),
             &json!({"name": "KENOBI"}),
         )

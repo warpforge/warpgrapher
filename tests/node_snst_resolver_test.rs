@@ -64,6 +64,7 @@ fn create_snst_new_node() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -112,6 +113,7 @@ fn create_snst_new_node() {
                     } 
                 } 
             }",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -168,6 +170,7 @@ fn create_node_with_rel_to_existing() {
             "__typename
             name
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -189,6 +192,7 @@ fn create_node_with_rel_to_existing() {
                 }
             }
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -227,7 +231,8 @@ fn create_node_with_rel_to_existing() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "Project Zero"
             })),
         )
@@ -286,6 +291,7 @@ fn read_multiple_snst_node_with_rel() {
             "__typename
             name
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -298,6 +304,7 @@ fn read_multiple_snst_node_with_rel() {
             "__typename
             name
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "User One"
             }),
@@ -319,6 +326,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -349,6 +357,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }
             ",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "owner": {
@@ -377,7 +386,8 @@ fn read_multiple_snst_node_with_rel() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "Project Zero"
             })),
         )
@@ -405,7 +415,8 @@ fn read_multiple_snst_node_with_rel() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "Project One"
             })),
         )
@@ -459,6 +470,7 @@ fn read_snst_node_by_rel_props() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -469,6 +481,7 @@ fn read_snst_node_by_rel_props() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -504,7 +517,8 @@ fn read_snst_node_by_rel_props() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "owner": {
                     "props": {
                         "since": "yesterday"
@@ -567,6 +581,7 @@ fn read_snst_node_by_dst_props() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -577,6 +592,7 @@ fn read_snst_node_by_dst_props() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -612,7 +628,8 @@ fn read_snst_node_by_dst_props() {
                     }
                 } 
             }",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "owner": {
                     "dst": {
                         "User": {
@@ -677,6 +694,7 @@ fn update_snst_node_with_new_rel() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -687,6 +705,7 @@ fn update_snst_node_with_new_rel() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -722,6 +741,7 @@ fn update_snst_node_with_new_rel() {
                     }
                 } 
             }",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -766,7 +786,8 @@ fn update_snst_node_with_new_rel() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -817,6 +838,7 @@ fn update_snst_node_with_existing_rel() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -827,6 +849,7 @@ fn update_snst_node_with_existing_rel() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User One"
             }),
@@ -837,6 +860,7 @@ fn update_snst_node_with_existing_rel() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -872,6 +896,7 @@ fn update_snst_node_with_existing_rel() {
                     }
                 } 
             }",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -916,7 +941,8 @@ fn update_snst_node_with_existing_rel() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -967,6 +993,7 @@ fn delete_snst_rel_by_dst_props() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -977,6 +1004,7 @@ fn delete_snst_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1012,6 +1040,7 @@ fn delete_snst_rel_by_dst_props() {
                     }
                 } 
             }",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -1048,7 +1077,8 @@ fn delete_snst_rel_by_dst_props() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -1099,6 +1129,7 @@ fn delete_snst_rel_by_rel_props() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -1109,6 +1140,7 @@ fn delete_snst_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1144,6 +1176,7 @@ fn delete_snst_rel_by_rel_props() {
                     }
                 } 
             }",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -1178,7 +1211,8 @@ fn delete_snst_rel_by_rel_props() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -1229,6 +1263,7 @@ fn delete_snst_node_by_dst_prop() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -1239,6 +1274,7 @@ fn delete_snst_node_by_dst_prop() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1260,6 +1296,7 @@ fn delete_snst_node_by_dst_prop() {
     let _projects = client
         .delete_node(
             "Project",
+            Some("1234".to_string()),
             Some(&json!({
                 "owner": {
                     "dst": {
@@ -1294,6 +1331,7 @@ fn delete_snst_node_by_dst_prop() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1307,7 +1345,8 @@ fn delete_snst_node_by_dst_prop() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -1358,6 +1397,7 @@ fn delete_snst_node_by_rel_prop() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -1368,6 +1408,7 @@ fn delete_snst_node_by_rel_prop() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1389,6 +1430,7 @@ fn delete_snst_node_by_rel_prop() {
     let _projects = client
         .delete_node(
             "Project",
+            Some("1234".to_string()),
             Some(&json!({
                 "owner": {
                     "props": {
@@ -1421,6 +1463,7 @@ fn delete_snst_node_by_rel_prop() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1434,7 +1477,8 @@ fn delete_snst_node_by_rel_prop() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),
@@ -1485,6 +1529,7 @@ fn detach_snst_rel_by_dst_delete() {
         .create_node(
             "User",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "User Zero"
             }),
@@ -1495,6 +1540,7 @@ fn detach_snst_rel_by_dst_delete() {
         .create_node(
             "Project",
             "__typename",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1516,6 +1562,7 @@ fn detach_snst_rel_by_dst_delete() {
     let _projects = client
         .delete_node(
             "User",
+            Some("1234".to_string()),
             Some(&json!({
                 "name": "User Zero"
             })),
@@ -1542,6 +1589,7 @@ fn detach_snst_rel_by_dst_delete() {
                     }
                 }
             }",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1561,7 +1609,8 @@ fn detach_snst_rel_by_dst_delete() {
             "__typename 
             name
             ",
-            Some(&json!({
+            Some("1234".to_string()),
+            Some(json!({
                 "name": "User Zero"
                 }
             )),

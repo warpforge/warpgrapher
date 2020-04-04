@@ -1,12 +1,12 @@
 mod setup;
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(feature = "neo4j")]
 use serial_test::serial;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
 #[cfg(feature = "neo4j")]
 use setup::{init, load_config};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(feature = "neo4j")]
 use warpgrapher::server::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Neo4jEndpoint;

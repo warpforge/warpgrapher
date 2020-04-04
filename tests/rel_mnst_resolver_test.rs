@@ -50,6 +50,7 @@ fn create_mnst_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
@@ -58,7 +59,7 @@ fn create_mnst_new_rel() {
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename props{repo} dst{...on Commit{__typename hash}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
@@ -91,6 +92,7 @@ fn create_mnst_new_rel() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -156,11 +158,21 @@ fn create_mnst_rel_existing_node() {
     let mut client = test_client();
 
     let _p0 = client
-        .create_node("Project", "name", &json!({"name": "Project Zero"}))
+        .create_node(
+            "Project",
+            "name",
+            Some("1234".to_string()),
+            &json!({"name": "Project Zero"}),
+        )
         .unwrap();
 
     let c0 = client
-        .create_node("Commit", "__typename hash", &json!({"hash": "00000"}))
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234".to_string()),
+            &json!({"hash": "00000"}),
+        )
         .unwrap();
 
     assert!(c0.is_object());
@@ -168,7 +180,12 @@ fn create_mnst_rel_existing_node() {
     assert_eq!(c0.get("hash").unwrap(), "00000");
 
     let c1 = client
-        .create_node("Commit", "__typename hash", &json!({"hash": "11111"}))
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234".to_string()),
+            &json!({"hash": "11111"}),
+        )
         .unwrap();
 
     assert!(c1.is_object());
@@ -179,7 +196,7 @@ fn create_mnst_rel_existing_node() {
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename props{repo} dst{...on Commit{__typename hash}}",Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": "11111"}}}}])
@@ -209,6 +226,7 @@ fn create_mnst_rel_existing_node() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -277,6 +295,7 @@ fn read_mnst_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -298,7 +317,8 @@ fn read_mnst_rel_by_rel_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
-            Some(&json!({"props": {"repo": "Repo Zero"}})),
+            Some("1234".to_string()),
+            Some(json!({"props": {"repo": "Repo Zero"}})),
         )
         .unwrap();
 
@@ -358,6 +378,7 @@ fn read_mnst_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -379,7 +400,8 @@ fn read_mnst_rel_by_src_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{ __typename hash}}",
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some("1234".to_string()),
+            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .unwrap();
 
@@ -445,6 +467,7 @@ fn read_mnst_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -466,7 +489,8 @@ fn read_mnst_rel_by_dst_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
-            Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
+            Some("1234".to_string()),
+            Some(json!({"dst": {"Commit": {"hash": "00000"}}})),
         )
         .unwrap();
 
@@ -526,6 +550,7 @@ fn update_mnst_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -547,6 +572,7 @@ fn update_mnst_rel_by_rel_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234".to_string()),
             Some(&json!({"props": {"repo": "Repo Zero"}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -576,7 +602,8 @@ fn update_mnst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
-            Some(&json!({"name": "Project Zero"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -648,6 +675,7 @@ fn update_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -669,6 +697,7 @@ fn update_mnst_rel_by_src_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -739,6 +768,7 @@ fn update_mnst_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -760,6 +790,7 @@ fn update_mnst_rel_by_dst_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -789,7 +820,8 @@ fn update_mnst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
-            Some(&json!({"name": "Project Zero"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -861,6 +893,7 @@ fn delete_mnst_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -881,6 +914,7 @@ fn delete_mnst_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234".to_string()),
             Some(&json!({"props": {"repo": "Repo One"}})),
             None,
             None,
@@ -891,6 +925,7 @@ fn delete_mnst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -960,6 +995,7 @@ fn delete_mnst_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -980,6 +1016,7 @@ fn delete_mnst_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"Commit": {"hash": "11111"}}})),
             None,
             None,
@@ -990,6 +1027,7 @@ fn delete_mnst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1059,6 +1097,7 @@ fn delete_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -1079,6 +1118,7 @@ fn delete_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "activity": [
@@ -1099,6 +1139,7 @@ fn delete_mnst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -1109,7 +1150,8 @@ fn delete_mnst_rel_by_src_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
-            Some(&json!({"name": "Project Zero"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -1117,7 +1159,8 @@ fn delete_mnst_rel_by_src_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
-            Some(&json!({"name": "Project One"})),
+            Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 

@@ -23,6 +23,7 @@ fn client_node_crud() {
         .create_node(
             "Project",
             "id name description status",
+            Some("1234".to_string()),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
         )
         .unwrap();
@@ -32,7 +33,9 @@ fn client_node_crud() {
     assert_eq!(p0.get("description").unwrap(), "Advanced armor");
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
-    let projects = client.read_node("Project", "id status", None).unwrap();
+    let projects = client
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .unwrap();
 
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
@@ -43,6 +46,7 @@ fn client_node_crud() {
         .update_node(
             "Project",
             "__typename id name status",
+            Some("1234".to_string()),
             Some(&json!({"name": "MJOLNIR"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -55,7 +59,9 @@ fn client_node_crud() {
     assert_eq!(pu_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
-    let u_projects = client.read_node("Project", "id status", None).unwrap();
+    let u_projects = client
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .unwrap();
 
     assert!(u_projects.is_array());
     let u_projects_a = u_projects.as_array().unwrap();
@@ -63,12 +69,19 @@ fn client_node_crud() {
     assert_eq!(u_projects_a[0].get("status").unwrap(), "ACTIVE");
 
     let pd = client
-        .delete_node("Project", Some(&json!({"name": "MJOLNIR"})), None)
+        .delete_node(
+            "Project",
+            Some("1234".to_string()),
+            Some(&json!({"name": "MJOLNIR"})),
+            None,
+        )
         .unwrap();
 
     assert_eq!(pd, 1);
 
-    let d_projects = client.read_node("Project", "id status", None).unwrap();
+    let d_projects = client
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .unwrap();
 
     assert!(d_projects.is_array());
     let d_projects_a = d_projects.as_array().unwrap();
@@ -88,13 +101,23 @@ fn client_rel_crud() {
     assert!(server.serve(false).is_ok());
 
     client
-        .create_node("Project", "id name", &json!({"name": "Project Zero"}))
+        .create_node(
+            "Project",
+            "id name",
+            Some("1234".to_string()),
+            &json!({"name": "Project Zero"}),
+        )
         .unwrap();
     client
-        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}))
+        .create_node(
+            "Bug",
+            "id name",
+            Some("1234".to_string()),
+            &json!({"name": "Bug Zero"}),
+        )
         .unwrap();
 
-    let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }",
+    let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234".to_string()),
     &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}}])).unwrap();
 
     assert!(results.is_array());
@@ -105,7 +128,13 @@ fn client_rel_crud() {
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel("Project", "issues", "id props { since }", None)
+        .read_rel(
+            "Project",
+            "issues",
+            "id props { since }",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(rels.is_array());
@@ -121,6 +150,7 @@ fn client_rel_crud() {
             "Project",
             "issues",
             "id props { since }",
+            Some("1234".to_string()),
             Some(&json!({"props": {"since": "2000"}})),
             &json!({"props": {"since": "2010"}}),
         )
@@ -132,7 +162,13 @@ fn client_rel_crud() {
     assert_eq!(ru_a[0].get("props").unwrap().get("since").unwrap(), "2010");
 
     let u_rels = client
-        .read_rel("Project", "issues", "id props { since }", None)
+        .read_rel(
+            "Project",
+            "issues",
+            "id props { since }",
+            Some("1234".to_string()),
+            None,
+        )
         .unwrap();
 
     assert!(u_rels.is_array());
@@ -147,6 +183,7 @@ fn client_rel_crud() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234".to_string()),
             Some(&json!({"props": {"since": "2010"}})),
             None,
             None,
@@ -155,7 +192,9 @@ fn client_rel_crud() {
 
     assert_eq!(rd, 1);
 
-    let d_rels = client.read_rel("Project", "issues", "id", None).unwrap();
+    let d_rels = client
+        .read_rel("Project", "issues", "id", Some("1234".to_string()), None)
+        .unwrap();
 
     assert!(d_rels.is_array());
     let d_rels_a = d_rels.as_array().unwrap();

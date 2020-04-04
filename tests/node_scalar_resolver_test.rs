@@ -42,7 +42,7 @@ fn scalar_lists_test_neo4j() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[allow(clippy::float_cmp)]
+#[allow(clippy::float_cmp, dead_code)]
 fn scalar_lists_test() {
     let mut client = test_client();
 
@@ -54,6 +54,7 @@ fn scalar_lists_test() {
              int_list
              float_list
             ",
+            Some("1234".to_string()),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
                 "bool_list": [true, false, true, false],
@@ -123,7 +124,7 @@ fn scalar_lists_no_array_neo4j() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[allow(clippy::float_cmp)]
+#[allow(clippy::float_cmp, dead_code)]
 fn scalar_lists_no_array_test() {
     let mut client = test_client();
 
@@ -135,6 +136,7 @@ fn scalar_lists_no_array_test() {
              int_list
              float_list
             ",
+            Some("1234".to_string()),
             &json!({
                 "string_list": "string0",
                 "bool_list": false,
@@ -144,7 +146,10 @@ fn scalar_lists_no_array_test() {
         )
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
@@ -184,6 +189,7 @@ fn scalar_no_lists_neo4j() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
+#[allow(dead_code)]
 fn scalar_no_lists_test() {
     let mut client = test_client();
 
@@ -191,37 +197,45 @@ fn scalar_no_lists_test() {
         .create_node(
             "TestType",
             "string_list",
+            Some("1234".to_string()),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
             "TestType",
             "bool_list",
+            Some("1234".to_string()),
             &json!({
                 "bool_list": [true, false, true, false],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
             "TestType",
             "int_list",
+            Some("1234".to_string()),
             &json!({
                 "int_list": [0, 1, 2, 3],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
             "TestType",
             "float_list",
+            Some("1234".to_string()),
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
-        ).is_err());
+        )
+        .is_err());
 }
 
 #[cfg(feature = "graphson2")]
@@ -255,7 +269,7 @@ fn scalar_no_lists_no_array_neo4j() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[allow(clippy::float_cmp)]
+#[allow(clippy::float_cmp, dead_code)]
 fn scalar_no_lists_no_array_test() {
     let mut client = test_client();
 
@@ -267,6 +281,7 @@ fn scalar_no_lists_no_array_test() {
              int_list
              float_list
             ",
+            Some("1234".to_string()),
             &json!({
                 "string_list": "string0",
                 "bool_list": false,
@@ -276,7 +291,10 @@ fn scalar_no_lists_no_array_test() {
         )
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 

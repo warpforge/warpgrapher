@@ -4,9 +4,9 @@
 use super::context::GraphQLContext;
 use super::schema::Info;
 use crate::error::{Error, ErrorKind};
+use crate::server::value::Value;
 use juniper::{Arguments, ExecutionResult, Executor};
 use serde::{Deserialize, Serialize};
-use serde_json::value::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -727,11 +727,11 @@ pub fn compose(configs: Vec<WarpgrapherConfig>) -> Result<WarpgrapherConfig, Err
         }
 
         for m in c.model {
-            model.push(m.clone());
+            model.push(m);
         }
 
         for e in c.endpoints {
-            endpoints.push(e.clone());
+            endpoints.push(e);
         }
     }
 

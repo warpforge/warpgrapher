@@ -1,15 +1,14 @@
-use super::{get_env_var, DatabaseEndpoint, DatabasePool, QueryResult};
+use super::{get_env_string, DatabaseEndpoint, DatabasePool, QueryResult};
 use crate::server::context::WarpgrapherRequestContext;
 use crate::server::objects::{Node, Rel};
+use crate::server::value::Value;
 use crate::{Error, ErrorKind};
 use juniper::FieldError;
-use log::trace;
+use log::{debug, trace};
 use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::cypher::result::CypherResult;
 use rusted_cypher::cypher::transaction::{Started, Transaction};
 use rusted_cypher::Statement;
-use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -21,7 +20,7 @@ pub struct Neo4jEndpoint {
 impl Neo4jEndpoint {
     pub fn from_env() -> Result<Neo4jEndpoint, Error> {
         Ok(Neo4jEndpoint {
-            db_url: get_env_var("WG_NEO4J_URL")?,
+            db_url: get_env_string("WG_NEO4J_URL")?,
         })
     }
 }
@@ -36,42 +35,10 @@ impl DatabaseEndpoint for Neo4jEndpoint {
             r2d2::Pool::builder()
                 .max_size(num_cpus::get().try_into().unwrap_or(8))
                 .build(manager)
-                .map_err(|e| Error::new(ErrorKind::CouldNotBuildDatabasePool(e), None))?,
+                .map_err(|e| Error::new(ErrorKind::CouldNotBuildNeo4jPool(e), None))?,
         ))
     }
 }
-
-/*
-#[derive(Clone, Debug)]
-pub struct Neo4jPool {
-    pool: Pool<CypherConnectionManager>,
-}
-*/
-
-// impl DatabasePool for Pool<CypherConnectionManager> {
-/*
-type ImplClient = GraphClient;
-fn get_client(&self) -> Result<GraphClient, FieldError> {
-    Ok( *self.get()?)
-}
-*/
-// }
-
-/*
-pub struct Neo4jClient<'t> {
-    client: PooledConnection<CypherConnectionManager>,
-    _t: PhantomData<Neo4jTransaction<'t>>,
-}
-*/
-
-/*
-impl DatabaseClient for GraphClient {
-    type ImplTransaction = Transaction;
-    fn get_transaction(&self) -> Result<Self::ImplTransaction, FieldError> {
-        Ok( self.transaction().begin()?.0)
-    }
-}
-*/
 
 pub struct Neo4jTransaction<'t> {
     transaction: Option<Transaction<'t, Started>>,
@@ -89,39 +56,65 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     type ImplQueryResult = Neo4jQueryResult;
 
     fn begin(&self) -> Result<(), FieldError> {
-        trace!("transaction::begin called");
+        debug!("transaction::begin called");
         Ok(())
     }
+
     fn commit(&mut self) -> Result<(), FieldError> {
-        trace!("transaction::commit called");
+        debug!("transaction::commit called");
         if let Some(t) = self.transaction.take() {
             t.commit().map(|_| Ok(()))?
         } else {
             Err(Error::new(ErrorKind::TransactionFinished, None).into())
         }
     }
-    fn exec<V>(
+
+    fn create_node(
         &mut self,
-        query: &str,
-        params: Option<&HashMap<String, V>>,
-    ) -> Result<Neo4jQueryResult, FieldError>
-    where
-        V: Debug + Serialize,
-    {
+        label: &str,
+        partition_key_opt: &Option<String>,
+        props: HashMap<String, Value>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        let query = String::from("CREATE (n:")
+            + label
+            + " { id: randomUUID() })\n"
+            + "SET n += $props\n"
+            + "RETURN n\n";
+        let mut params = HashMap::new();
+        params.insert("props".to_owned(), props.into());
+
         trace!(
-            "transaction::exec called with query, params: {:#?}, {:#?}",
+            "Neo4jTransaction::create_node query statement query, params: {:#?}, {:#?}",
             query,
             params
+        );
+        let raw_results = self.exec(&query, partition_key_opt, Some(params));
+        trace!(
+            "Neo4jTransaction::create_node raw results: {:#?}",
+            raw_results
+        );
+        raw_results
+    }
+
+    fn exec(
+        &mut self,
+        query: &str,
+        _partition_key_opt: &Option<String>,
+        params: Option<HashMap<String, Value>>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        debug!(
+            "transaction::exec called with query, params: {:#?}, {:#?}",
+            query, params
         );
         if let Some(transaction) = self.transaction.as_mut() {
             let mut statement = Statement::new(String::from(query));
             if let Some(p) = params {
-                for (k, v) in p.iter() {
-                    statement.add_param::<String, _>(k.into(), v)?;
+                for (k, v) in p.into_iter() {
+                    statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
                 }
             }
             let result = transaction.exec(statement);
-            trace!("transaction::exec result: {:#?}", result);
+            debug!("transaction::exec result: {:#?}", result);
             Ok(Neo4jQueryResult::new(result?))
         } else {
             Err(Error::new(ErrorKind::TransactionFinished, None).into())
@@ -129,7 +122,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {
-        trace!("transaction::rollback called");
+        debug!("transaction::rollback called");
         if let Some(t) = self.transaction.take() {
             Ok(t.rollback()?)
         } else {
@@ -162,8 +155,14 @@ impl QueryResult for Neo4jQueryResult {
 
         let mut v = Vec::new();
         for row in self.result.rows() {
-            v.push(Node::new(name.to_owned(), row.get(name)?))
+            let m: HashMap<String, serde_json::Value> = row.get(name)?;
+            let mut fields = HashMap::new();
+            for (k, v) in m.into_iter() {
+                fields.insert(k, v.try_into()?);
+            }
+            v.push(Node::new(name.to_owned(), fields));
         }
+        trace!("Neo4jQueryResults::get_nodes results: {:#?}", v);
         Ok(v)
     }
 
@@ -185,32 +184,55 @@ impl QueryResult for Neo4jQueryResult {
         let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
 
         for row in self.result.rows() {
-            if let Value::Array(labels) =
+            if let serde_json::Value::Array(labels) =
                 row.get(&(String::from(dst_name) + dst_suffix + "_label"))?
             {
-                if let Value::String(dst_type) = &labels[0] {
+                if let serde_json::Value::String(dst_type) = &labels[0] {
+                    let src_map: HashMap<String, serde_json::Value> =
+                        row.get::<HashMap<String, serde_json::Value>>(
+                            &(String::from(src_name) + src_suffix),
+                        )?;
+                    let mut src_wg_map = HashMap::new();
+                    for (k, v) in src_map.into_iter() {
+                        src_wg_map.insert(k, v.try_into()?);
+                    }
+
+                    let dst_map: HashMap<String, serde_json::Value> =
+                        row.get::<HashMap<String, serde_json::Value>>(
+                            &(String::from(dst_name) + dst_suffix),
+                        )?;
+                    let mut dst_wg_map = HashMap::new();
+                    for (k, v) in dst_map.into_iter() {
+                        dst_wg_map.insert(k, v.try_into()?);
+                    }
+
                     v.push(Rel::new(
-                        row.get::<Value>(&(String::from(rel_name) + src_suffix + dst_suffix))?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
-                            })?
-                            .to_owned(),
+                        row.get::<serde_json::Value>(
+                            &(String::from(rel_name) + src_suffix + dst_suffix),
+                        )?
+                        .get("id")
+                        .ok_or_else(|| {
+                            Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
+                        })?
+                        .clone()
+                        .try_into()?,
                         match props_type_name {
-                            Some(p_type_name) => Some(Node::new(
-                                p_type_name.to_string(),
-                                row.get(&(String::from(rel_name) + src_suffix + dst_suffix))?,
-                            )),
+                            Some(p_type_name) => {
+                                let map: HashMap<String, serde_json::Value> =
+                                    row.get::<HashMap<String, serde_json::Value>>(
+                                        &(String::from(rel_name) + src_suffix + dst_suffix),
+                                    )?;
+                                let mut wg_map = HashMap::new();
+                                for (k, v) in map.into_iter() {
+                                    wg_map.insert(k, v.try_into()?);
+                                }
+
+                                Some(Node::new(p_type_name.to_string(), wg_map))
+                            }
                             None => None,
                         },
-                        Node::new(
-                            src_name.to_owned(),
-                            row.get(&(String::from(src_name) + src_suffix))?,
-                        ),
-                        Node::new(
-                            dst_type.to_owned(),
-                            row.get(&(String::from(dst_name) + dst_suffix))?,
-                        ),
+                        Node::new(src_name.to_owned(), src_wg_map),
+                        Node::new(dst_type.to_owned(), dst_wg_map),
                     ))
                 } else {
                     return Err(Error::new(
@@ -229,24 +251,26 @@ impl QueryResult for Neo4jQueryResult {
                 .into());
             };
         }
+        trace!("Neo4jQueryResults::get_rels results: {:#?}", v);
         Ok(v)
     }
 
-    fn get_ids(&self, name: &str) -> Result<Vec<String>, FieldError> {
+    fn get_ids(&self, name: &str) -> Result<Value, FieldError> {
         trace!("Neo4jQueryResult::get_ids called");
 
         let mut v = Vec::new();
         for row in self.result.rows() {
-            let n: Value = row.get(name)?;
-            if let Value::String(id) = n.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))?
-        {v.push(id.to_owned());
-        } else {
-            return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
-        }
+            let n: serde_json::Value = row.get(name)?;
+
+            if let serde_json::Value::String(id) = n.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
+                v.push(Value::String(id.to_owned()));
+            } else {
+                return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
+            }
         }
 
         trace!("get_ids result: {:#?}", v);
-        Ok(v)
+        Ok(Value::Array(v))
     }
 
     fn get_count(&self) -> Result<i32, FieldError> {
@@ -261,7 +285,7 @@ impl QueryResult for Neo4jQueryResult {
             .get("count")
             .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
 
-        if let Value::Number(n) = ret_val {
+        if let serde_json::Value::Number(n) = ret_val {
             if let Some(i_val) = n.as_i64() {
                 Ok(i_val as i32)
             } else {
@@ -282,251 +306,3 @@ impl QueryResult for Neo4jQueryResult {
         self.len() == 0
     }
 }
-
-// let mut transaction = graph.transaction()?.begin()?.0;
-
-// For the implementation of get_nodes:
-// let mut v: Vec<Node<GlobalCtx, ReqCtx>> = Vec::new();
-// for row in results.rows() {
-//     v.push(Node::new(
-//         p.type_name.to_owned(),
-//         row.get(&(p.type_name.to_owned() + &var_suffix))
-//             .ok_or_else(|| {
-//                 Error::new(
-//                     ErrorKind::MissingResultElement(
-//                         String::from(p.type_name) + &var_suffix,
-//                     ),
-//                     None,
-//                 )
-//             })?
-//             .to_owned(),
-//     ))
-// }
-
-// For the implementation of get_node:
-// let row = results
-//     .rows()
-//     .iter()
-//     .nth(0)
-//     .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-// executor.resolve(
-//     &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-//     &Node::new(
-//         p.type_name.to_owned(),
-//         row.get(&(p.type_name.to_owned() + &var_suffix))
-//             .ok_or_else(|| {
-//                 Error::new(
-//                     ErrorKind::MissingResultElement(
-//                         String::from(p.type_name) + &var_suffix,
-//                     ),
-//                     None,
-//                 )
-//             })?
-//             .to_owned(),
-//     ),
-// )
-
-// For the implementation of get_rels:
-// let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-//
-// for row in results.rows() {
-//     if let Value::Array(labels) =
-//         row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-//     {
-//         if let Value::String(dst_type) = &labels[0] {
-//             v.push(Rel::new(
-//                 row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-//                     .get("id")
-//                     .ok_or_else(|| {
-//                         Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
-//                     })?
-//                     .to_owned(),
-//                 match &props_prop {
-//                     Ok(p) => Some(Node::new(
-//                         p.type_name.to_owned(),
-//                         row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-//                     )),
-//                     Err(_e) => None,
-//                 },
-//                 Node::new(
-//                     src_prop.type_name.to_owned(),
-//                     row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-//                 ),
-//                 Node::new(
-//                     dst_type.to_owned(),
-//                     row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-//                 ),
-//             ))
-//         } else {
-//             return Err(Error::new(
-//                 ErrorKind::InvalidPropertyType(
-//                     String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-//                 ),
-//                 None,
-//             )
-//             .into());
-//         }
-//     } else {
-//         return Err(Error::new(
-//             ErrorKind::InvalidPropertyType(
-//                 String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-//             ),
-//             None,
-//         )
-//         .into());
-//     };
-// }
-//
-// executor.resolve(
-//     &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-//     &v,
-// )
-
-// For the implementation of get_rel
-//     let row = results
-//         .rows()
-//         .nth(0)
-//         .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-//
-//     if let Value::Array(labels) =
-//         row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-//     {
-//         if let Value::String(dst_type) = &labels[0] {
-//             executor.resolve(
-//                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-//                 &Rel::new(
-//                     row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-//                         .get("id")
-//                         .ok_or_else(|| {
-//                             Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-//                         })?
-//                         .to_owned(),
-//                     match props_prop {
-//                         Ok(pp) => Some(Node::new(
-//                             pp.type_name.to_owned(),
-//                             row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-//                         )),
-//                         Err(_e) => None,
-//                     },
-//                     Node::new(
-//                         src_prop.type_name.to_owned(),
-//                         row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-//                     ),
-//                     Node::new(
-//                         dst_type.to_string(),
-//                         row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-//                     ),
-//                 ),
-//             )
-//         } else {
-//             Err(Error::new(
-//                 ErrorKind::InvalidPropertyType(
-//                     String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-//                 ),
-//                 None,
-//             )
-//             .into())
-//         }
-//     } else {
-//         Err(Error::new(
-//             ErrorKind::InvalidPropertyType(
-//                 String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-//             ),
-//             None,
-//         )
-//         .into())
-//     }
-// }
-
-// fn extract_ids(results: &CypherResult, name: &str) -> Result<Vec<String>, FieldError> {
-//     trace!("extract_ids called -- name: {}", name);
-
-//     let mut v = Vec::new();
-//     for row in results.rows() {
-//         let n: Value = row.get(name)?;
-//         if let Value::String(id) = n
-//             .get("id")
-//             .ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))?
-//         {
-//             v.push(id.to_owned());
-//         } else {
-//             return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
-//         }
-//     }
-
-//     trace!("extract_ids ids: {:#?}", v);
-//     Ok(v)
-// }
-
-// For implementation of get_count:
-// let ret_row = results
-//     .rows()
-//     .nth(0)
-//     .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-// let ret_val = ret_row
-//     .get("count")
-//     .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
-
-// let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-// for row in results.rows() {
-//     if let Value::Array(labels) = row.get("b_label")? {
-//         if let Value::String(dst_type) = &labels[0] {
-//             v.push(Rel::new(
-//                 row.get::<Value>("r")?
-//                     .get("id")
-//                     .ok_or_else(|| {
-//                         Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-//                     })?
-//                     .to_owned(),
-//                 match rtd.get_prop("props") {
-//                     Ok(pp) => Some(Node::new(pp.type_name.to_owned(), row.get("r")?)),
-//                     Err(_e) => None,
-//                 },
-//                 Node::new(rtd.get_prop("src")?.type_name.to_owned(), row.get("a")?),
-//                 Node::new(dst_type.to_string(), row.get("b")?),
-//             ))
-//         } else {
-//             return Err(Error::new(
-//                 ErrorKind::InvalidPropertyType("b_label".to_string()),
-//                 None,
-//             )
-//             .into());
-//         }
-//     } else {
-//         return Err(
-//             Error::new(ErrorKind::InvalidPropertyType("b_label".to_string()), None).into(),
-//         );
-//     };
-// }
-
-// For new and merge
-//   Value::Array(create_input_array) => {
-//         let mut results = CypherResult {
-//             columns: vec![
-//                 "a".to_string(),
-//                 "r".to_string(),
-//                 "b".to_string(),
-//                 "b_label".to_string(),
-//             ],
-//             data: vec![],
-//         };
-//         for create_input_value in create_input_array {
-//             let r = visit_rel_create_mutation_input(
-//                 src_label,
-//                 &ids,
-//                 rel_name,
-//                 &Info::new(
-//                     itd.get_prop("create")?.type_name.to_owned(),
-//                     info.type_defs.clone(),
-//                 ),
-//                 create_input_value,
-//                 validators,
-//                 transaction,
-//             );
-
-//             let data = r?.data;
-//             results.data.extend(data);
-//         }
-//         Ok(results)
-//     }

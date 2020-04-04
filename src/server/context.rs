@@ -90,8 +90,8 @@ mod tests {
         let validators: WarpgrapherValidators = WarpgrapherValidators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
             ne.get_pool().unwrap(),
-            resolvers.clone(),
-            validators.clone(),
+            resolvers,
+            validators,
             vec![],
             Some(()),
             Some(()),

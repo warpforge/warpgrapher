@@ -50,6 +50,7 @@ fn create_snmt_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
@@ -58,6 +59,7 @@ fn create_snmt_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project One"}),
         )
         .unwrap();
@@ -66,7 +68,7 @@ fn create_snmt_new_rel() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
@@ -81,7 +83,7 @@ fn create_snmt_new_rel() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project One"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
@@ -95,8 +97,8 @@ fn create_snmt_new_rel() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -114,8 +116,8 @@ fn create_snmt_new_rel() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 
@@ -169,6 +171,7 @@ fn create_snmt_rel_existing_node() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
         .unwrap();
@@ -177,6 +180,7 @@ fn create_snmt_rel_existing_node() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "Project One"}),
         )
         .unwrap();
@@ -185,6 +189,7 @@ fn create_snmt_rel_existing_node() {
         .create_node(
             "ScrumBoard",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "ScrumBoard Zero"}),
         )
         .unwrap();
@@ -193,6 +198,7 @@ fn create_snmt_rel_existing_node() {
         .create_node(
             "KanbanBoard",
             "__typename name",
+            Some("1234".to_string()),
             &json!({"name": "KanbanBoard Zero"}),
         )
         .unwrap();
@@ -201,7 +207,7 @@ fn create_snmt_rel_existing_node() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({
                 "props": {"public": true}, 
@@ -218,7 +224,7 @@ fn create_snmt_rel_existing_node() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project One"}),
             &json!({
                 "props": {"public": false}, 
@@ -234,8 +240,8 @@ fn create_snmt_rel_existing_node() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -251,8 +257,8 @@ fn create_snmt_rel_existing_node() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 
@@ -304,6 +310,7 @@ fn read_snmt_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -318,6 +325,7 @@ fn read_snmt_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -332,8 +340,8 @@ fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
-            Some(&json!({"props": {"public": true}})),
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"props": {"public": true}})),
         )
         .unwrap();
 
@@ -358,8 +366,8 @@ fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}",
-            Some(&json!({"props": {"public": false}})),
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234".to_string()),
+            Some(json!({"props": {"public": false}})),
         )
         .unwrap();
 
@@ -419,6 +427,7 @@ fn read_snmt_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -433,6 +442,7 @@ fn read_snmt_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -447,8 +457,8 @@ fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .unwrap();
 
@@ -473,8 +483,8 @@ fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
-            Some(&json!({"src": {"Project": {"name": "Project One"}}})),
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"src": {"Project": {"name": "Project One"}}})),
         )
         .unwrap();
 
@@ -534,6 +544,7 @@ fn read_snmt_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -548,6 +559,7 @@ fn read_snmt_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -562,8 +574,8 @@ fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
-            Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         )
         .unwrap();
 
@@ -588,8 +600,8 @@ fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
-            Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
         )
         .unwrap();
 
@@ -649,6 +661,7 @@ fn update_snmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -663,6 +676,7 @@ fn update_snmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -677,7 +691,7 @@ fn update_snmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"props": {"public": true}})),
             &json!({"props": {"public": false}}),
         )
@@ -706,8 +720,8 @@ fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
@@ -727,7 +741,7 @@ fn update_snmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"props": {"public": false}})),
             &json!({"props": {"public": true}}),
         )
@@ -762,8 +776,8 @@ fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 
@@ -818,6 +832,7 @@ fn update_snmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -832,6 +847,7 @@ fn update_snmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -846,7 +862,7 @@ fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"public": false}}),
         )
@@ -876,7 +892,7 @@ fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
             &json!({"props": {"public": true}}),
         )
@@ -941,6 +957,7 @@ fn update_snmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -955,6 +972,7 @@ fn update_snmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -969,7 +987,7 @@ fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
             &json!({"props": {"public": true}}),
         )
@@ -999,7 +1017,7 @@ fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
             &json!({"props": {"public": false}}),
         )
@@ -1064,6 +1082,7 @@ fn delete_snmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -1078,6 +1097,7 @@ fn delete_snmt_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234".to_string()),
             Some(&json!({"props": {"public": true}})),
             None,
             None,
@@ -1087,7 +1107,7 @@ fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1106,7 +1126,7 @@ fn delete_snmt_rel_by_rel_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
@@ -1115,6 +1135,7 @@ fn delete_snmt_rel_by_rel_prop() {
     let _b2 = client.delete_rel(
         "Project",
         "board",
+        Some("1234".to_string()),
         Some(&json!({"props": {"public": false}})),
         None,
         None,
@@ -1123,7 +1144,7 @@ fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1177,6 +1198,7 @@ fn delete_snmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -1191,6 +1213,7 @@ fn delete_snmt_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234".to_string()),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
             None,
             None,
@@ -1200,7 +1223,7 @@ fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1219,7 +1242,7 @@ fn delete_snmt_rel_by_dst_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
@@ -1228,6 +1251,7 @@ fn delete_snmt_rel_by_dst_prop() {
     let _b2 = client.delete_rel(
         "Project",
         "board",
+        Some("1234".to_string()),
         Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         None,
         None,
@@ -1236,7 +1260,7 @@ fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1290,6 +1314,7 @@ fn delete_snmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project Zero",
                 "board": {
@@ -1304,6 +1329,7 @@ fn delete_snmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234".to_string()),
             &json!({
                 "name": "Project One",
                 "board": {
@@ -1318,6 +1344,7 @@ fn delete_snmt_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -1327,16 +1354,16 @@ fn delete_snmt_rel_by_src_prop() {
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
-            Some(&json!({"name": "Project Zero"})),
+            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
 
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 
@@ -1370,6 +1397,7 @@ fn delete_snmt_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
             None,
             None,
@@ -1379,8 +1407,8 @@ fn delete_snmt_rel_by_src_prop() {
     let projects2 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
-            Some(&json!({"name": "Project One"})),
+            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            Some(json!({"name": "Project One"})),
         )
         .unwrap();
 

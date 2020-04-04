@@ -19,22 +19,26 @@ use std::collections::BTreeMap;
 /// use warpgrapher::client::graphql;
 ///
 /// let query = "query { Project { id name } }";
-/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None);
+/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(),
+///     Some("1234".to_string()), None);
 /// let projects = results.unwrap().get("Project");
 /// ```
 #[actix_rt::main]
 pub async fn graphql(
     endpoint: String,
     query: String,
+    partition_key: Option<String>,
     input: Option<Value>,
 ) -> Result<Value, Error> {
     // TODO: return a Future
     let req_body = json!({
         "query": query.to_string(),
         "variables": {
+            "partitionKey": partition_key,
             "input": input
         }
     });
+    trace!("client::graphql request body: {:#?}", req_body);
     let mut res = Client::default()
         .post(endpoint)
         .header("Content-Type", "application/json")
@@ -114,7 +118,7 @@ impl WarpgrapherClient {
     ///
     /// let projects = client.create_node(
     ///     "Project",
-    ///     "id name description",
+    ///     "id name description", Some("1234".to_string()),
     ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
     /// );
     /// ```
@@ -122,14 +126,20 @@ impl WarpgrapherClient {
         &mut self,
         type_name: &str,
         shape: &str,
+        partition_key: Option<String>,
         input: &Value,
     ) -> Result<Value, Error> {
         let query = self.fmt_create_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient create_node -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient create_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned()))?;
+        let result = graphql(
+            self.endpoint.to_owned(),
+            query,
+            partition_key,
+            Some(input.to_owned()),
+        )?;
         self.strip(&result, &format!("{}Create", type_name))
     }
 
@@ -153,6 +163,7 @@ impl WarpgrapherClient {
     ///     "Project",
     ///     "issues",
     ///     "id props { since } src { id name } dst { id name }",
+    ///     Some("1234".to_string()),
     ///     &json!({"name": "ProjectName"}),
     ///     &json!({"props": {"since": "2000"},
     ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
@@ -163,16 +174,17 @@ impl WarpgrapherClient {
         type_name: &str,
         rel_name: &str,
         shape: &str,
+        partition_key: Option<String>,
         match_input: &Value,
         create_input: &Value,
     ) -> Result<Value, Error> {
         let query = self.fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         debug!(
-            "WarpGrapherClient create_rel -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient create_rel -- query: {:#?}, partition_key {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, Some(input))?;
         self.strip(
             &result,
             &format!("{}{}Create", type_name, rel_name.to_title_case()),
@@ -199,23 +211,24 @@ impl WarpgrapherClient {
     /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
     /// let projects = client.delete_node(
-    ///     "Project",
+    ///     "Project", Some("1234".to_string()),
     ///     Some(&json!({"name": "MJOLNIR"})),
     ///     None);
     /// ```
     pub fn delete_node(
         &mut self,
         type_name: &str,
+        partition_key: Option<String>,
         match_input: Option<&Value>,
         delete_input: Option<&Value>,
     ) -> Result<Value, Error> {
         let query = self.fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         debug!(
-            "WarpGrapherClient delete_node -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient delete_node -- query: {:#?}, partitoin_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, Some(input))?;
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
@@ -237,7 +250,7 @@ impl WarpgrapherClient {
     ///
     /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.delete_rel("Project", "issues",
+    /// let proj_issues = client.delete_rel("Project", "issues", Some("1234".to_string()),
     ///     Some(&json!({"props": {"since": "2000"}})),
     ///     None,
     ///     Some(&json!({"Bug": {"force": true}}))
@@ -247,6 +260,7 @@ impl WarpgrapherClient {
         &mut self,
         type_name: &str,
         rel_name: &str,
+        partition_key: Option<String>,
         match_input: Option<&Value>,
         src_input: Option<&Value>,
         dst_input: Option<&Value>,
@@ -264,10 +278,10 @@ impl WarpgrapherClient {
         }
         let input = if m.is_empty() { None } else { Some(json!(m)) };
         debug!(
-            "WarpGrapherClient delete_rel -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient delete_rel -- query: {:#?}, parition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input)?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, input)?;
         self.strip(
             &result,
             &format!("{}{}Delete", type_name, rel_name.to_title_case()),
@@ -287,20 +301,21 @@ impl WarpgrapherClient {
     ///
     /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.read_node("Project", "id name description", None);
+    /// let projects = client.read_node("Project", "id name description", Some("1234".to_string()), None);
     /// ```
     pub fn read_node(
         &mut self,
         type_name: &str,
         shape: &str,
-        input: Option<&Value>,
+        partition_key: Option<String>,
+        input: Option<Value>,
     ) -> Result<Value, Error> {
         let query = self.fmt_read_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient read_node -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient read_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, input)?;
         self.strip(&result, type_name)
     }
 
@@ -320,8 +335,8 @@ impl WarpgrapherClient {
     /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
     /// let proj_issues = client.read_rel("Project", "issues",
-    ///     "id props { since }",
-    ///     Some(&json!({"props": {"since": "2000"}}))
+    ///     "id props { since }", Some("1234".to_string()),
+    ///     Some(json!({"props": {"since": "2000"}}))
     /// );
     /// ```
     pub fn read_rel(
@@ -329,14 +344,15 @@ impl WarpgrapherClient {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        input: Option<&Value>,
+        partition_key: Option<String>,
+        input: Option<Value>,
     ) -> Result<Value, Error> {
         let query = self.fmt_read_rel_query(type_name, rel_name, shape);
         debug!(
-            "WarpGrapherClient read_rel -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient read_rel -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, input)?;
         self.strip(
             &result,
             &format!("{}{}", type_name, rel_name.to_title_case()),
@@ -360,7 +376,7 @@ impl WarpgrapherClient {
     ///
     /// let projects = client.update_node(
     ///     "Project",
-    ///     "id name status",
+    ///     "id name status", Some("1234".to_string()),
     ///     Some(&json!({"name": "TodoApp"})),
     ///     &json!({"status": "ACTIVE"}),
     /// );
@@ -369,16 +385,17 @@ impl WarpgrapherClient {
         &mut self,
         type_name: &str,
         shape: &str,
+        partition_key: Option<String>,
         match_input: Option<&Value>,
         update_input: &Value,
     ) -> Result<Value, Error> {
         let query = self.fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         debug!(
-            "WarpGrapherClient update_node -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient update_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, Some(input))?;
         self.strip(&result, &format!("{}Update", type_name))
     }
 
@@ -400,7 +417,7 @@ impl WarpgrapherClient {
     /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
     /// let proj_issues = client.update_rel("Project", "issues",
-    ///     "id props {since} src {id name} dst {id name}",
+    ///     "id props {since} src {id name} dst {id name}", Some("1234".to_string()),
     ///     Some(&json!({"props": {"since": "2000"}})),
     ///     &json!({"props": {"since": "2010"}})
     /// );
@@ -410,16 +427,17 @@ impl WarpgrapherClient {
         type_name: &str,
         rel_name: &str,
         shape: &str,
+        partition_key: Option<String>,
         match_input: Option<&Value>,
         update_input: &Value,
     ) -> Result<Value, Error> {
         let query = self.fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         debug!(
-            "WarpGrapherClient update_rel -- query: {:#?}, input: {:#?}",
-            query, input
+            "WarpGrapherClient update_rel -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
+            query, partition_key, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = graphql(self.endpoint.to_owned(), query, partition_key, Some(input))?;
         self.strip(
             &result,
             &format!("{}{}Update", type_name, rel_name.to_title_case()),
@@ -428,8 +446,8 @@ impl WarpgrapherClient {
 
     fn fmt_create_node_query(&self, type_name: &str, shape: &str) -> String {
         format!(
-            "mutation Create($input: {type_name}CreateMutationInput!) {{ 
-                {type_name}Create(input: $input) {{ {shape} }}
+            "mutation Create($partitionKey: String, $input: {type_name}CreateMutationInput!) {{ 
+                {type_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -438,8 +456,8 @@ impl WarpgrapherClient {
 
     fn fmt_create_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "mutation Create($input: {type_name}{rel_name}CreateInput!) {{
-                {type_name}{rel_name}Create(input: $input) {{ {shape} }}
+            "mutation Create($partitionKey: String, $input: {type_name}{rel_name}CreateInput!) {{
+                {type_name}{rel_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = rel_name.to_title_case(),
@@ -449,8 +467,8 @@ impl WarpgrapherClient {
 
     fn fmt_delete_node_query(&self, type_name: &str) -> String {
         format!(
-            "mutation Delete($input: {type_name}DeleteInput!) {{ 
-                {type_name}Delete(input: $input)
+            "mutation Delete($partitionKey: String, $input: {type_name}DeleteInput!) {{ 
+                {type_name}Delete(partitionKey: $partitionKey, input: $input)
             }}",
             type_name = type_name
         )
@@ -458,8 +476,8 @@ impl WarpgrapherClient {
 
     fn fmt_delete_rel_query(&self, type_name: &str, rel_name: &str) -> String {
         format!(
-            "mutation Delete($input: {type_name}{rel_name}DeleteInput!) {{
-                {type_name}{rel_name}Delete(input: $input)
+            "mutation Delete($partitionKey: String, $input: {type_name}{rel_name}DeleteInput!) {{
+                {type_name}{rel_name}Delete(partitionKey: $partitionKey, input: $input)
             }}",
             type_name = type_name,
             rel_name = rel_name.to_title_case(),
@@ -468,8 +486,8 @@ impl WarpgrapherClient {
 
     fn fmt_read_node_query(&self, type_name: &str, shape: &str) -> String {
         format!(
-            "query Read($input: {type_name}QueryInput) {{ 
-                {type_name}(input: $input) {{ {shape} }}
+            "query Read($partitionKey: String, $input: {type_name}QueryInput) {{ 
+                {type_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -478,8 +496,8 @@ impl WarpgrapherClient {
 
     fn fmt_read_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "query Read($input: {type_name}{rel_name}QueryInput) {{
-                {type_name}{rel_name}(input: $input) {{ {shape} }}
+            "query Read($partitionKey: String, $input: {type_name}{rel_name}QueryInput) {{
+                {type_name}{rel_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = rel_name.to_title_case(),
@@ -489,8 +507,8 @@ impl WarpgrapherClient {
 
     fn fmt_update_node_query(&self, type_name: &str, shape: &str) -> String {
         format!(
-            "mutation Update($input: {type_name}UpdateInput!) {{
-                {type_name}Update(input: $input) {{ {shape} }}
+            "mutation Update($partitionKey: String, $input: {type_name}UpdateInput!) {{
+                {type_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -499,8 +517,8 @@ impl WarpgrapherClient {
 
     fn fmt_update_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "mutation Update($input: {type_name}{rel_name}UpdateInput!) {{
-                {type_name}{rel_name}Update(input: $input) {{ {shape} }}
+            "mutation Update($partitionKey: String, $input: {type_name}{rel_name}UpdateInput!) {{
+                {type_name}{rel_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = rel_name.to_title_case(),
@@ -537,8 +555,8 @@ mod tests {
         let client = WarpgrapherClient::new(&endpoint);
 
         let actual = client.fmt_read_node_query("Project", "id");
-        let expected = r#"query Read($input: ProjectQueryInput) { 
-                Project(input: $input) { id }
+        let expected = r#"query Read($partitionKey: String, $input: ProjectQueryInput) { 
+                Project(partitionKey: $partitionKey, input: $input) { id }
             }"#;
         assert_eq!(actual, expected);
     }
@@ -549,8 +567,8 @@ mod tests {
         let client = WarpgrapherClient::new(&endpoint);
 
         let actual = client.fmt_create_node_query("Project", "id");
-        let expected = r#"mutation Create($input: ProjectCreateMutationInput!) { 
-                ProjectCreate(input: $input) { id }
+        let expected = r#"mutation Create($partitionKey: String, $input: ProjectCreateMutationInput!) { 
+                ProjectCreate(partitionKey: $partitionKey, input: $input) { id }
             }"#;
         assert_eq!(actual, expected);
     }

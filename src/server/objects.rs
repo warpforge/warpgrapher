@@ -9,27 +9,29 @@ use super::resolvers::{
 use super::resolvers::{
     resolve_custom_field, resolve_rel_props, resolve_scalar_field, resolve_union_field,
 };
-use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
+use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
 use crate::error::{Error, ErrorKind};
 use crate::server::context::WarpgrapherRequestContext;
+#[cfg(feature = "graphson2")]
+use crate::server::database::graphson2::Graphson2Transaction;
 #[cfg(feature = "neo4j")]
 use crate::server::database::neo4j::Neo4jTransaction;
 use crate::server::database::DatabasePool;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::server::database::Transaction;
+use crate::server::value::Value;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,
     InputValue, Registry, Selection, ID,
 };
 use log::{error, trace};
-use serde::Serialize;
-use serde_json::{Map, Value};
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-#[derive(Debug, Serialize)]
-#[serde(transparent)]
+#[derive(Debug)]
 pub struct Input<GlobalCtx, ReqCtx> {
     pub value: Value,
     _gctx: PhantomData<GlobalCtx>,
@@ -51,7 +53,10 @@ where
     ReqCtx: WarpgrapherRequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
-        serde_json::to_value(v).ok().map(Input::new)
+        serde_json::to_value(v)
+            .ok()
+            .and_then(|val| val.try_into().ok())
+            .map(Input::new)
     }
 }
 
@@ -142,7 +147,7 @@ where
     ReqCtx: Debug + WarpgrapherRequestContext,
 {
     pub concrete_typename: String,
-    fields: Map<String, Value>,
+    fields: HashMap<String, Value>,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<ReqCtx>,
 }
@@ -152,7 +157,10 @@ where
     GlobalCtx: Debug,
     ReqCtx: Debug + WarpgrapherRequestContext,
 {
-    pub fn new(concrete_typename: String, fields: Map<String, Value>) -> Node<GlobalCtx, ReqCtx> {
+    pub fn new(
+        concrete_typename: String,
+        fields: HashMap<String, Value>,
+    ) -> Node<GlobalCtx, ReqCtx> {
         Node {
             concrete_typename,
             fields,
@@ -186,13 +194,14 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::object_meta called for {}.", nt.type_name);
         let mut props = nt.props.values().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| &p.name);
 
         let fields = props
             .iter()
             .map(|p| {
-                let f = match (p.type_name.as_str(), p.required, p.list, &p.kind) {
+                let mut f = match (p.type_name.as_str(), p.required, p.list, &p.kind) {
                     ("Boolean", false, false, _) => registry.field::<Option<bool>>(&p.name, &()),
                     ("Boolean", false, true, _) => {
                         registry.field::<Option<Vec<bool>>>(&p.name, &())
@@ -257,51 +266,65 @@ where
                     ),
                 };
 
-                match &p.input {
-                    None => f,
-                    Some((input_kind, input_name)) => match (input_name.as_str(), input_kind) {
-                        ("Boolean", InputKind::Required) => {
-                            f.argument(registry.arg::<bool>("input", &()))
+                for arg in p.arguments.values() {
+                    f = match (arg.name.as_str(), arg.type_name.as_str(), &arg.kind) {
+                        (name, "Boolean", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<bool>>(name, &()))
                         }
-                        ("Boolean", InputKind::Optional) => {
-                            f.argument(registry.arg::<Option<bool>>("input", &()))
+                        (name, "Boolean", ArgumentKind::Required) => {
+                            f.argument(registry.arg::<bool>(name, &()))
                         }
-                        ("Float", InputKind::Required) => {
-                            f.argument(registry.arg::<f64>("input", &()))
+                        (name, "Float", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<f64>>(name, &()))
                         }
-                        ("Float", InputKind::Optional) => {
-                            f.argument(registry.arg::<Option<f64>>("input", &()))
+                        (name, "Float", ArgumentKind::Required) => {
+                            f.argument(registry.arg::<f64>(name, &()))
                         }
-                        ("ID", InputKind::Required) => f.argument(registry.arg::<ID>("input", &())),
-                        ("ID", InputKind::Optional) => {
-                            f.argument(registry.arg::<Option<ID>>("input", &()))
+                        (name, "ID", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<ID>>(name, &()))
                         }
-                        ("Int", InputKind::Required) => {
-                            f.argument(registry.arg::<i32>("input", &()))
+                        (name, "ID", ArgumentKind::Required) => {
+                            f.argument(registry.arg::<ID>(name, &()))
                         }
-                        ("Int", InputKind::Optional) => {
-                            f.argument(registry.arg::<Option<i32>>("input", &()))
+                        (name, "Int", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<i32>>(name, &()))
                         }
-                        ("String", InputKind::Required) => {
-                            f.argument(registry.arg::<String>("input", &()))
+                        (name, "Int", ArgumentKind::Required) => {
+                            f.argument(registry.arg::<i32>(name, &()))
                         }
-                        ("String", InputKind::Optional) => {
-                            f.argument(registry.arg::<Option<String>>("input", &()))
+                        ("partitionKey", "String", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<String>>("partitionKey", &()))
                         }
-                        (_, InputKind::Required) => {
-                            f.argument(registry.arg::<Input<GlobalCtx, ReqCtx>>(
-                                "input",
-                                &Info::new(input_name.to_string(), info.type_defs.clone()),
-                            ))
+                        (name, "String", ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<String>>(name, &()))
                         }
-                        (_, InputKind::Optional) => {
+                        (name, "String", ArgumentKind::Required) => {
+                            f.argument(registry.arg::<String>(name, &()))
+                        }
+                        ("input", type_name, ArgumentKind::Optional) => {
                             f.argument(registry.arg::<Option<Input<GlobalCtx, ReqCtx>>>(
                                 "input",
-                                &Info::new(input_name.to_string(), info.type_defs.clone()),
+                                &Info::new(type_name.to_string(), info.type_defs.clone()),
                             ))
                         }
-                    },
+                        ("input", type_name, ArgumentKind::Required) => {
+                            f.argument(registry.arg::<Input<GlobalCtx, ReqCtx>>(
+                                "input",
+                                &Info::new(type_name.to_string(), info.type_defs.clone()),
+                            ))
+                        }
+                        (name, type_name, required) => panic!(Error::new(
+                            ErrorKind::UnexpectedSchemaArgument(
+                                name.to_string(),
+                                type_name.to_string(),
+                                format!("{:#?}", required)
+                            ),
+                            None
+                        )),
+                    };
                 }
+
+                f
             })
             .collect::<Vec<_>>();
 
@@ -326,7 +349,7 @@ where
             Error::new(ErrorKind::MissingSchemaElement(info.name.to_owned()), None)
         })?;
         trace!(
-            "Node::resolve_field called -- sn: {}, field_name: {}",
+            "Node::resolve_field_with_transaction called -- sn: {}, field_name: {}",
             sn,
             field_name,
         );
@@ -334,6 +357,7 @@ where
         let td = info.get_type_def()?;
         let p = td.get_prop(field_name)?;
         let input_opt: Option<Input<GlobalCtx, ReqCtx>> = args.get("input");
+        let partition_key_opt: &Option<String> = &args.get("partitionKey");
 
         let r = match &p.kind {
             PropertyKind::CustomResolver => {
@@ -351,7 +375,7 @@ where
                 let input = input_opt.ok_or_else(|| {
                     Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
                 })?;
-                resolve_node_create_mutation(field_name, info, input, executor, transaction)
+                resolve_node_create_mutation(field_name, info, partition_key_opt, input, executor, transaction)
             }
             PropertyKind::NodeDeleteMutation(deltype) => {
                 let input = input_opt.ok_or_else(|| {
@@ -361,6 +385,7 @@ where
                     field_name,
                     &deltype,
                     info,
+                    partition_key_opt,
                     input,
                     executor,
                     transaction,
@@ -370,21 +395,23 @@ where
                 let input = input_opt.ok_or_else(|| {
                     Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
                 })?;
-                resolve_node_update_mutation(field_name, info, input, executor, transaction)
+                resolve_node_update_mutation(field_name, info, partition_key_opt, input, executor, transaction)
             }
             PropertyKind::Object => resolve_object_field(
                 field_name,
                 self.fields.get("id"),
                 info,
+                partition_key_opt,
                 input_opt,
                 executor,
                 transaction,
             ),
             PropertyKind::Rel(rel_name) => resolve_rel_field(
                 field_name,
-                self.fields.get("id"),
+                self.fields.get("id").cloned(),
                 rel_name,
                 info,
+                partition_key_opt,
                 input_opt,
                 executor,
                 transaction,
@@ -398,6 +425,7 @@ where
                     src_label,
                     rel_name,
                     info,
+                    partition_key_opt,
                     input,
                     executor,
                     transaction,
@@ -412,6 +440,7 @@ where
                     src_label,
                     rel_name,
                     info,
+                    partition_key_opt,
                     input,
                     executor,
                     transaction,
@@ -426,6 +455,7 @@ where
                     src_label,
                     rel_name,
                     info,
+                    partition_key_opt,
                     input,
                     executor,
                     transaction,
@@ -439,7 +469,7 @@ where
             .into()),
             PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
         };
-        trace!("Node::resolve_field Response: {:#?}", r);
+        trace!("Node::resolve_field_with_transaction Response: {:#?}", r);
         r
     }
 }
@@ -509,9 +539,10 @@ where
             Error::new(ErrorKind::MissingSchemaElement(info.name.to_owned()), None)
         })?;
         trace!(
-            "Node::resolve_field called -- sn: {}, field_name: {}",
+            "Node::resolve_field called -- sn: {}, field_name: {}, args: {:#?}",
             sn,
             field_name,
+            args
         );
 
         match &executor.context().pool {
@@ -528,8 +559,15 @@ where
                 )
             }
             #[cfg(feature = "graphson2")]
-            DatabasePool::Graphson2 => {
-                Err(Error::new(ErrorKind::UnsupportedDatabase("graphson2".to_owned()), None).into())
+            DatabasePool::Graphson2(c) => {
+                let mut transaction = Graphson2Transaction::new(c.clone());
+                self.resolve_field_with_transaction(
+                    info,
+                    field_name,
+                    args,
+                    executor,
+                    &mut transaction,
+                )
             }
             DatabasePool::NoDatabase => Err(Error::new(
                 ErrorKind::UnsupportedDatabase("no database".to_owned()),
@@ -726,7 +764,7 @@ where
             )
             .into()),
             (PropertyKind::Scalar, _) => {
-                let mut m = Map::new();
+                let mut m = HashMap::new();
                 m.insert("id".to_string(), self.id.clone());
                 resolve_scalar_field(info, field_name, &m, executor)
             }
