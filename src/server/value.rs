@@ -291,6 +291,30 @@ impl PartialEq for Value {
 #[cfg(feature = "graphson2")]
 impl ToGValue for Value {
     fn to_gvalue(&self) -> GValue {
-        GValue::String("".to_string())
+        match self {
+            Value::Array(a) => {
+                let mut v = Vec::new();
+                for val in a {
+                    v.push(val.to_gvalue());
+                }
+                GValue::List(gremlin_client::List::new(v))
+            }
+            Value::Bool(b) => b.to_gvalue(),
+            Value::Float64(f) => f.to_gvalue(),
+            Value::Int64(i) => i.to_gvalue(),
+            Value::Map(hm) => {
+                let mut m = HashMap::new();
+                for (k, v) in hm.iter() {
+                    m.insert(k.to_string(), v.to_gvalue());
+                }
+                GValue::Map(m.into())
+            }
+            Value::Null => GValue::String("".to_string()),
+            Value::String(s) => s.to_gvalue(),
+            // Note, the conversion of a UInt64 to an Int64 may be lossy, but GValue has
+            // neither unsigned integer types, nor a try/error interface for value conversion
+            Value::UInt64(i) => GValue::Int64(*i as i64),
+            Value::Uuid(uuid) => GValue::Uuid(*uuid)
+        }
     }
 }

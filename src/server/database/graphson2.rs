@@ -99,8 +99,9 @@ impl Transaction for Graphson2Transaction {
         params: Option<HashMap<String, Value>>,
     ) -> Result<Graphson2QueryResult, FieldError> {
         trace!(
-            "Graphson2Transaction::exec called, query, param: {}, {:#?}",
+            "Graphson2Transaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
             query,
+            partition_key_opt,
             params
         );
 

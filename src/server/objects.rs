@@ -539,10 +539,9 @@ where
             Error::new(ErrorKind::MissingSchemaElement(info.name.to_owned()), None)
         })?;
         trace!(
-            "Node::resolve_field called -- sn: {}, field_name: {}, args: {:#?}",
+            "Node::resolve_field called -- sn: {}, field_name: {}",
             sn,
             field_name,
-            args
         );
 
         match &executor.context().pool {
