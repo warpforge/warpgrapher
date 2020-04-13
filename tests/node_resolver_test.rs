@@ -58,6 +58,7 @@ fn create_single_node() {
             "Project",
             "__typename id name description status priority estimate active", Some("1234".to_string()),
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+            // &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN"}),
         )
         .unwrap();
 

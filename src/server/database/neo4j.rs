@@ -144,7 +144,7 @@ impl Neo4jQueryResult {
 
 impl QueryResult for Neo4jQueryResult {
     fn get_nodes<GlobalCtx, ReqCtx>(
-        &self,
+        self,
         name: &str,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
@@ -167,7 +167,7 @@ impl QueryResult for Neo4jQueryResult {
     }
 
     fn get_rels<GlobalCtx, ReqCtx>(
-        &self,
+        self,
         src_name: &str,
         src_suffix: &str,
         rel_name: &str,

@@ -80,14 +80,14 @@ pub trait Transaction {
 
 pub trait QueryResult: Debug {
     fn get_nodes<GlobalCtx, ReqCtx>(
-        &self,
+        self,
         name: &str,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug;
     fn get_rels<GlobalCtx, ReqCtx>(
-        &self,
+        self,
         src_name: &str,
         src_suffix: &str,
         rel_name: &str,

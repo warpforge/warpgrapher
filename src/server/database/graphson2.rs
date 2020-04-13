@@ -8,13 +8,12 @@ use crate::{Error, ErrorKind};
 #[cfg(feature = "graphson2")]
 // use gremlin_client::process::traversal::traversal;
 #[cfg(feature = "graphson2")]
-use gremlin_client::{ConnectionOptions, GValue, GraphSON, GremlinClient, GremlinResult, ToGValue};
+use gremlin_client::{ConnectionOptions, GValue, GraphSON, GremlinClient, ToGValue, GID};
 use juniper::FieldError;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
-// use uuid::Uuid;
 
 pub struct Graphson2Endpoint {
     host: String,
@@ -43,7 +42,8 @@ impl DatabaseEndpoint for Graphson2Endpoint {
                     .port(self.port)
                     .pool_size(num_cpus::get().try_into().unwrap_or(8))
                     .ssl(true)
-                    .serializer(GraphSON::V2)
+                    .serializer(GraphSON::V1)
+                    .deserializer(GraphSON::V1)
                     .credentials(&self.login, &self.pass)
                     .build(),
             )
@@ -113,13 +113,13 @@ impl Transaction for Graphson2Transaction {
             }
             param_list.push(("partitionKey", pk));
 
-            let results = self.client.execute(query, param_list.as_slice())?;
+            let raw_results = self.client.execute(query, param_list.as_slice());
+            let results = raw_results?;
 
             let mut v = Vec::new();
             for r in results {
-                v.push(r);
+                v.push(r?);
             }
-            trace!("Graphson2Transaction::exec query results: {:#?}", v);
 
             Ok(Graphson2QueryResult::new(v))
         } else {
@@ -134,29 +134,75 @@ impl Transaction for Graphson2Transaction {
 
 #[derive(Debug)]
 pub struct Graphson2QueryResult {
-    results: Vec<GremlinResult<GValue>>,
+    results: Vec<GValue>,
 }
 
 impl Graphson2QueryResult {
-    pub fn new(results: Vec<GremlinResult<GValue>>) -> Graphson2QueryResult {
+    pub fn new(results: Vec<GValue>) -> Graphson2QueryResult {
         Graphson2QueryResult { results }
     }
 }
 
 impl QueryResult for Graphson2QueryResult {
     fn get_nodes<GlobalCtx, ReqCtx>(
-        &self,
-        _type_name: &str,
+        self,
+        _name: &str,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
-        Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
+        trace!(
+            "Graphson2QueryResult::get_nodes self.results: {:#?}",
+            self.results
+        );
+
+        let mut v = Vec::new();
+        for result in self.results {
+            if let GValue::Vertex(vertex) = result {
+                let mut fields = HashMap::new();
+                fields.insert(
+                    "id".to_string(),
+                    Value::String(match vertex.id() {
+                        GID::Int32(i) => i.to_string(),
+                        GID::Int64(i) => i.to_string(),
+                        GID::String(s) => s.to_string(),
+                    })
+                );
+
+                let label = vertex.label().to_string();
+
+                for (key, vertex_property_list) in vertex.into_iter() {
+                    fields.insert(
+                        key.to_owned(),
+                        vertex_property_list
+                            .into_iter()
+                            .next()
+                            .ok_or_else(|| {
+                                Error::new(
+                                    ErrorKind::MissingResultElement("Vertex Property".to_string()),
+                                    None,
+                                )
+                            })?
+                            .try_into()?,
+                    );
+                }
+
+                v.push(Node::new(label, fields))
+            } else {
+                return Err(
+                    Error::new(ErrorKind::InvalidType(format!("{:#?}", result)), None).into(),
+                );
+            }
+        }
+
+        trace!("Graphson2QueryResult::get_nodes returning {:#?}", v);
+
+        Ok(v)
     }
 
     fn get_rels<GlobalCtx, ReqCtx>(
-        &self,
+        self,
         _src_name: &str,
         _src_suffix: &str,
         _rel_name: &str,
@@ -168,22 +214,56 @@ impl QueryResult for Graphson2QueryResult {
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
+        trace!(
+            "Graphson2QueryResult::get_rels self.results: {:#?}",
+            self.results
+        );
         Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
     }
 
     fn get_ids(&self, _type_name: &str) -> Result<Value, FieldError> {
-        Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
+        trace!(
+            "Graphson2QueryResult::get_ids self.results: {:#?}",
+            self.results
+        );
+        let mut v = Vec::new();
+        for result in &self.results {
+            if let GValue::Vertex(vertex) = result {
+                v.push(Value::String(match vertex.id() {
+                    GID::String(s) => s.to_string(),
+                    GID::Int32(i) => i.to_string(),
+                    GID::Int64(i) => i.to_string()
+                }));
+            } else {
+                return Err(
+                    Error::new(ErrorKind::InvalidType(format!("{:#?}", result)), None).into(),
+                );
+            }
+        }
+        Ok(Value::Array(v))
     }
 
     fn get_count(&self) -> Result<i32, FieldError> {
+        trace!(
+            "Graphson2QueryResult::get_count self.results: {:#?}",
+            self.results
+        );
         Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
     }
 
     fn len(&self) -> i32 {
+        trace!(
+            "Graphson2QueryResult::len self.results: {:#?}",
+            self.results
+        );
         0
     }
 
     fn is_empty(&self) -> bool {
+        trace!(
+            "Graphson2QueryResult::is_empty self.results: {:#?}",
+            self.results
+        );
         true
     }
 }

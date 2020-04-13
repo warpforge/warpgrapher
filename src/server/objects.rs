@@ -375,7 +375,14 @@ where
                 let input = input_opt.ok_or_else(|| {
                     Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
                 })?;
-                resolve_node_create_mutation(field_name, info, partition_key_opt, input, executor, transaction)
+                resolve_node_create_mutation(
+                    field_name,
+                    info,
+                    partition_key_opt,
+                    input,
+                    executor,
+                    transaction,
+                )
             }
             PropertyKind::NodeDeleteMutation(deltype) => {
                 let input = input_opt.ok_or_else(|| {
@@ -395,7 +402,14 @@ where
                 let input = input_opt.ok_or_else(|| {
                     Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
                 })?;
-                resolve_node_update_mutation(field_name, info, partition_key_opt, input, executor, transaction)
+                resolve_node_update_mutation(
+                    field_name,
+                    info,
+                    partition_key_opt,
+                    input,
+                    executor,
+                    transaction,
+                )
             }
             PropertyKind::Object => resolve_object_field(
                 field_name,

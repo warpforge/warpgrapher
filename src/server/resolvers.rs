@@ -376,7 +376,14 @@ where
     let _p = td.get_prop(field_name)?;
 
     if td.type_name == "Query" {
-        resolve_node_read_query(field_name, info, partition_key_opt, input_opt, executor, transaction)
+        resolve_node_read_query(
+            field_name,
+            info,
+            partition_key_opt,
+            input_opt,
+            executor,
+            transaction,
+        )
     } else {
         Err(Error::new(
             ErrorKind::InvalidPropertyType("To be implemented.".to_owned()),
@@ -772,9 +779,9 @@ where
             Value::Bool(_) => executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?),
             Value::Int64(_) | Value::UInt64(_) => executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?),
             Value::Float64(_) => executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?),
-            Value::String(_) | Value::Uuid(_) => executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
+            Value::String(_) => executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
             Value::Array(a) => match a.get(0) {
-                Some(Value::Null) | Some(Value::String(_)) | Some(Value::Uuid(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
+                Some(Value::Null) | Some(Value::String(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
                 Some(Value::Bool(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
                 Some(Value::Int64(_)) | Some(Value::UInt64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<i32>>::try_into(v.clone())?),
                 Some(Value::Float64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?),
