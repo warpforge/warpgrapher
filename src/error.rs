@@ -7,10 +7,6 @@ use std::sync::mpsc::RecvError;
 /// Categories of Warpgrapher errors.
 #[derive(Debug)]
 pub enum ErrorKind {
-    /// Returned by the `From` implementation for a `actix_http::error::Error` object.
-    /// Conversion from `actix_http::error::Error`.
-    ActixHttpError(String),
-
     /// Returned when the server attempts to listen on an address/port
     /// combination that is already bound on the system.
     AddrInUse(std::io::Error),
@@ -108,6 +104,9 @@ pub enum ErrorKind {
     /// Returned when attempts to serialize/deserialize a struct to/from JSON fails
     JsonError(serde_json::error::Error),
 
+    /// Returned when attempts to convert a serde_json object to/from a String fails
+    JsonStringConversionFailed(serde_json::error::Error),
+
     /// Returned when a resolver's input is missing an expected argument. Given
     /// GraphQL's type system
     /// Note: This error should never be thrown. This is a critical error. If you see it,
@@ -177,10 +176,6 @@ pub enum ErrorKind {
     /// please report it to the warpgrapher team.
     MissingDatabasePool,
 
-    /// Returned by the `From` implementation for a `serde_json::error::Error` object.
-    /// Conversion from `serde_json::error::Error`.
-    SerdeJsonError(String),
-
     /// Returned when a `WarpgrapherServer` tries to shutdown but the server is not
     /// running.
     ServerNotRunning,
@@ -194,10 +189,6 @@ pub enum ErrorKind {
 
     /// Returned when a `WarpgrapherServer` fails to start.
     ServerStartupFailed(RecvError),
-
-    /// Returned by the `From` implementation for a `r2d2::Error` object.
-    /// Conversion from `r2d2::Error`.
-    R2D2Error(String),
 
     /// Returned when a custom input validator is defined, but the corresponding
     /// validator is not provided.
@@ -239,30 +230,6 @@ impl Error {
     /// ```
     pub fn new(kind: ErrorKind, source: Option<Box<dyn error::Error + Send + Sync>>) -> Error {
         Error { kind, source }
-    }
-}
-
-impl From<actix_http::error::Error> for Error {
-    fn from(error: actix_http::error::Error) -> Error {
-        Error::new(ErrorKind::ActixHttpError(error.to_string()), None)
-    }
-}
-
-impl From<serde_json::error::Error> for Error {
-    fn from(error: serde_json::error::Error) -> Error {
-        Error::new(ErrorKind::SerdeJsonError(error.to_string()), None)
-    }
-}
-
-impl From<r2d2::Error> for Error {
-    fn from(error: r2d2::Error) -> Error {
-        Error::new(ErrorKind::R2D2Error(error.to_string()), None)
-    }
-}
-
-impl From<String> for Error {
-    fn from(error: String) -> Error {
-        Error::new(ErrorKind::GenericError(error), None)
     }
 }
 

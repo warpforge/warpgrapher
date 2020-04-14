@@ -47,81 +47,22 @@ impl WarpgrapherRequestContext for () {
     fn new() {}
 }
 
-/// A Warpgrapher GraphQL engine.
-///
-/// The [`Engine`] struct Juniper GraphQL service
-/// on top of it, with an auto-generated set of resolvers that cover basic CRUD
-/// operations, and potentially custom resolvers, on a set of data types and
-/// the relationships between them.  The engine includes handling of back-end
-/// communications with the chosen databse.
-///
-/// [`Engine`]: ./struct.Engine.html
-///
-/// # Examples
-///
-/// ```rust
-/// use warpgrapher::{Engine, Neo4jEndpoint};
-/// use warpgrapher::engine::config::WarpgrapherConfig;
-///
-/// let config = WarpgrapherConfig::default();
-/// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
-///
-/// let mut engine = Engine::<(), ()>::new(config, db)
-///     .build().unwrap();
-///
-/// ```
 #[derive(Clone)]
-pub struct Engine<GlobalCtx = (), ReqCtx = ()>
+pub struct EngineBuilder<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
 {
-    pub config: WarpgrapherConfig,
-    pub database: String,
-    pub pool: Option<Pool<CypherConnectionManager>>,
-    pub global_ctx: Option<GlobalCtx>,
-    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-    pub validators: WarpgrapherValidators,
-    pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
-    pub version: Option<String>,
-    root_node: Option<RootRef<GlobalCtx, ReqCtx>>,
+    engine: Engine<GlobalCtx, ReqCtx>,
 }
 
-impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
+impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
 {
-    /// Creates a new [`Engine`], with required parameters config and database
-    /// and allows optional parameters to be added using a builder pattern.
-    ///
-    /// [`Engine`]: ./struct.Engine.html
-    /// [`WarpgrapherConfiguration`]: ./config/struct.WarpgrapherConfiguration.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
-    ///
-    /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
-    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
-    ///
-    /// let mut engine = Engine::<()>::new(config, db)
-    ///     .build().unwrap();
-    /// ```
-    pub fn new(config: WarpgrapherConfig, database: String) -> Engine<GlobalCtx, ReqCtx> {
-        Engine {
-            config,
-            database,
-            pool: None,
-            global_ctx: None,
-            resolvers: HashMap::new(),
-            validators: HashMap::new(),
-            extensions: vec![],
-            version: None,
-            root_node: None,
-        }
+    pub fn new(engine: Engine<GlobalCtx, ReqCtx>) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        EngineBuilder { engine }
     }
 
     /// Adds a global context to the engine
@@ -147,8 +88,8 @@ where
     ///     .with_global_ctx(global_ctx)
     ///     .build().unwrap();
     /// ```
-    pub fn with_global_ctx(mut self, global_ctx: GlobalCtx) -> Engine<GlobalCtx, ReqCtx> {
-        self.global_ctx = Some(global_ctx);
+    pub fn with_global_ctx(mut self, global_ctx: GlobalCtx) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        self.engine.global_ctx = Some(global_ctx);
         self
     }
 
@@ -173,8 +114,8 @@ where
     pub fn with_resolvers(
         mut self,
         resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-    ) -> Engine<GlobalCtx, ReqCtx> {
-        self.resolvers = resolvers;
+    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        self.engine.resolvers = resolvers;
         self
     }
 
@@ -199,8 +140,8 @@ where
     pub fn with_validators(
         mut self,
         validators: WarpgrapherValidators,
-    ) -> Engine<GlobalCtx, ReqCtx> {
-        self.validators = validators;
+    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        self.engine.validators = validators;
         self
     }
 
@@ -225,8 +166,8 @@ where
     pub fn with_extensions(
         mut self,
         extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
-    ) -> Engine<GlobalCtx, ReqCtx> {
-        self.extensions = extensions;
+    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        self.engine.extensions = extensions;
         self
     }
 
@@ -246,8 +187,8 @@ where
     ///     .with_version("1.0.0".to_owned())
     ///     .build().unwrap();
     /// ```
-    pub fn with_version(mut self, version: String) -> Engine<GlobalCtx, ReqCtx> {
-        self.version = Some(version);
+    pub fn with_version(mut self, version: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        self.engine.version = Some(version);
         self
     }
 
@@ -282,23 +223,30 @@ where
     /// ```
     pub fn build(mut self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
         let manager = CypherConnectionManager {
-            url: self.database.clone(),
+            url: self.engine.database.clone(),
         };
 
-        let pool = r2d2::Pool::builder().max_size(5).build(manager)?;
+        let pool = match r2d2::Pool::builder().max_size(5).build(manager) {
+            Ok(p) => p,
+            Err(e) => return Err(Error::new(ErrorKind::CouldNotBuildCypherPool(e), None)),
+        };
 
         // validate engine options
-        match Engine::validate_engine(&self.resolvers, &self.validators, &self.config) {
+        match EngineBuilder::validate_engine(
+            &self.engine.resolvers,
+            &self.engine.validators,
+            &self.engine.config,
+        ) {
             Ok(_) => (),
             Err(e) => return Err(e),
         }
 
-        self.pool = Some(pool);
+        self.engine.pool = Some(pool);
 
         // create graphql root node
-        self.root_node = Some(create_root_node(&self.config)?);
+        self.engine.root_node = Some(create_root_node(&self.engine.config)?);
 
-        Ok(self)
+        Ok(self.engine)
     }
 
     fn validate_engine(
@@ -399,6 +347,88 @@ where
         // validation passed
         Ok(())
     }
+}
+
+/// A Warpgrapher GraphQL engine.
+///
+/// The [`Engine`] struct Juniper GraphQL service
+/// on top of it, with an auto-generated set of resolvers that cover basic CRUD
+/// operations, and potentially custom resolvers, on a set of data types and
+/// the relationships between them.  The engine includes handling of back-end
+/// communications with the chosen databse.
+///
+/// [`Engine`]: ./struct.Engine.html
+///
+/// # Examples
+///
+/// ```rust
+/// use warpgrapher::{Engine, Neo4jEndpoint};
+/// use warpgrapher::engine::config::WarpgrapherConfig;
+///
+/// let config = WarpgrapherConfig::default();
+/// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+///
+/// let mut engine = Engine::<(), ()>::new(config, db)
+///     .build().unwrap();
+///
+/// ```
+#[derive(Clone)]
+pub struct Engine<GlobalCtx = (), ReqCtx = ()>
+where
+    GlobalCtx: 'static + Clone + Sync + Send + Debug,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+{
+    pub config: WarpgrapherConfig,
+    pub database: String,
+    pub pool: Option<Pool<CypherConnectionManager>>,
+    pub global_ctx: Option<GlobalCtx>,
+    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
+    pub validators: WarpgrapherValidators,
+    pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
+    pub version: Option<String>,
+    root_node: Option<RootRef<GlobalCtx, ReqCtx>>,
+}
+
+impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
+where
+    GlobalCtx: 'static + Clone + Sync + Send + Debug,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+{
+    /// Creates a new [`Engine`], with required parameters config and database
+    /// and allows optional parameters to be added using a builder pattern.
+    ///
+    /// [`Engine`]: ./struct.Engine.html
+    /// [`WarpgrapherConfiguration`]: ./config/struct.WarpgrapherConfiguration.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    ///
+    /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+    /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+    ///
+    /// let mut engine = Engine::<()>::new(config, db)
+    ///     .build().unwrap();
+    /// ```
+
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(config: WarpgrapherConfig, database: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        let e: Engine<GlobalCtx, ReqCtx> = Engine {
+            config,
+            database,
+            pool: None,
+            global_ctx: None,
+            resolvers: HashMap::new(),
+            validators: HashMap::new(),
+            extensions: vec![],
+            version: None,
+            root_node: None,
+        };
+
+        EngineBuilder::<GlobalCtx, ReqCtx>::new(e)
+    }
 
     pub fn execute(
         &self,
@@ -449,8 +479,14 @@ where
         );
 
         // convert graphql response (json) to mutable serde_json::Value
-        let res_str: String = serde_json::to_string(&res)?;
-        let mut res_value: serde_json::Value = serde_json::from_str(&res_str)?;
+        let res_str: String = match serde_json::to_string(&res) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
+        };
+        let mut res_value: serde_json::Value = match serde_json::from_str(&res_str) {
+            Ok(v) => v,
+            Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
+        };
 
         // run post request plugin hooks
         for extension in &self.extensions {
@@ -467,7 +503,10 @@ where
         }
 
         // convert graphql response to string
-        let body = serde_json::to_string(&res_value)?;
+        let body = match serde_json::to_string(&res_value) {
+            Ok(s) => s,
+            Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
+        };
 
         Ok(body)
     }
@@ -482,6 +521,7 @@ mod tests {
     use super::context::GraphQLContext;
     use super::schema::Info;
     use super::Engine;
+    use super::EngineBuilder;
     use crate::error::Error;
     use juniper::{Arguments, ExecutionResult, Executor, Value};
     use std::env::var_os;
@@ -535,7 +575,7 @@ mod tests {
         let config = load_config("tests/fixtures/test_config_ok.yml");
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
     }
 
     #[test]
@@ -549,7 +589,7 @@ mod tests {
         let mut validators = WarpgrapherValidators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
         //Validator defined
         //Validator in config
@@ -559,7 +599,7 @@ mod tests {
         let mut validators = WarpgrapherValidators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
         //Validator not defined
         //validator in config
@@ -568,7 +608,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_err());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
 
     #[test]
@@ -581,7 +621,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
         //Endpoint resolver in config
         //No resolver defined
@@ -590,7 +630,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_err());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
 
         //Endpoint resolver in config
         //Resolver defined
@@ -600,7 +640,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
     }
 
     #[test]
@@ -614,7 +654,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
         //No prop resolver in config
         //Resolver defined
@@ -624,7 +664,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_ok());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
         //Prop resolver in config
         //No resolver defined
@@ -633,7 +673,7 @@ mod tests {
         let resolvers = WarpgrapherResolvers::<(), ()>::new();
         let validators = WarpgrapherValidators::new();
 
-        assert!(Engine::validate_engine(&resolvers, &validators, &config).is_err());
+        assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
 
     pub fn my_resolver(
