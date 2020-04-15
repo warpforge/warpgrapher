@@ -3,8 +3,7 @@ mod setup;
 use serde_json::json;
 use serial_test::serial;
 use setup::server::test_server;
-use setup::{clear_db, gql_endpoint, init, test_client};
-use warpgrapher::client::graphql;
+use setup::{clear_db, init, test_client};
 
 /// Passes if the custom resolvers executes correctly
 #[tokio::test]
@@ -35,7 +34,7 @@ async fn custom_endpoint_resolver() {
         .unwrap();
 
     // count projects via custom resolver
-    let result = graphql(gql_endpoint(), "query { ProjectCount }".to_owned(), None).await.unwrap();
+    let result = client.graphql("query { ProjectCount }", None).await.unwrap();
     let count = result.get("ProjectCount").unwrap();
 
     // verify result
@@ -65,9 +64,8 @@ async fn custom_prop_resolver() {
         .await
         .unwrap();
 
-    let result = graphql(
-        gql_endpoint(),
-        "query { Project{id, points}}".to_owned(),
+    let result = client.graphql(
+        "query { Project{id, points}}",
         None,
     )
     .await

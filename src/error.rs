@@ -22,7 +22,7 @@ pub enum ErrorKind {
 
     /// Returned when `WarpgrapherClient` is unable to submit a request to
     /// the server (network error or server error).
-    ClientRequestFailed(String),
+    ClientRequestFailed,
 
     /// Returned when `WarpgrapherClient` receives a valid JSON response
     /// that does not contain the expected 'data' or 'errors' objects.

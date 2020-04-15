@@ -6,65 +6,6 @@ use log::{debug};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
-/// Takes and executes a raw GraphQL query. Takes an optional input which is inserted
-/// in the GraphQL request as "input" in the variables.
-///
-/// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use std::env::var_os;
-/// use warpgrapher::client::graphql;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     let query = "query { Project { id name } }";
-///     let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None).await;
-///     let projects = results.unwrap().get("Project");
-/// }
-/// ```
-#[allow(clippy::needless_doctest_main)]
-pub async fn graphql(
-    endpoint: String,
-    query: String,
-    input: Option<Value>,
-) -> Result<Value, Error> {
-
-    // format request body
-    let req_body = json!({
-        "query": query.to_string(),
-        "variables": {
-            "input": input
-        }
-    });
-
-    // send request
-    let client = reqwest::Client::new();
-    let resp = client.post(endpoint.as_str())
-        .json(&req_body)
-        .send()
-        .await
-        .map_err(|e| Error::new(ErrorKind::ClientRequestFailed(format!("{:#?}", e)), None))?;
-
-    // parse result
-    let body = resp.json::<serde_json::Value>()
-        .await
-        .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
-    
-    // extract data from result
-    match body.get("data") {
-        None => Err(Error::new(
-            ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
-            None,
-        )),
-        Some(data) => {
-            //debug!("Result Data: {:#?}", data);
-            Ok(data.to_owned())
-        }
-    }
-}
-
 /// A Warpgrapher GraphQL client
 ///
 /// The [`WarpgrapherClient`] provides a set of CRUD operations that will
@@ -80,6 +21,7 @@ pub async fn graphql(
 ///
 /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
 /// ```
+#[derive(Clone, Hash, Debug, Default)]
 pub struct WarpgrapherClient {
     endpoint: String,
 }
@@ -107,37 +49,80 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
+    /// #[feature(async_await)] 
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
     ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
     ///     let query = "query { Project { id name } }";
     ///     let results = client.graphql(
-    ///         "query { Project { id name } }".to_string(),
+    ///         "query { Project { id name } }",
     ///         None
     ///     ).await;
-    /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
     pub async fn graphql(
         &mut self,
-        query: String,
-        input: Option<Value>
+        query: &str,
+        input: Option<&Value>
     ) -> Result<Value, Error> {
-        graphql(self.endpoint.clone(), query, input).await
+
+        // format request body
+        let req_body = json!({
+            "query": query.to_string(),
+            "variables": {
+                "input": input
+            }
+        });
+
+        // send request
+        let client = reqwest::Client::new();
+        let resp = client.post(self.endpoint.as_str())
+            .json(&req_body)
+            .send()
+            .await
+            .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))))?;
+
+        // parse result
+        let body = resp.json::<serde_json::Value>()
+            .await
+            .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
+        
+        // extract data from result
+        match body.get("data") {
+            None => Err(Error::new(
+                ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
+                None,
+            )),
+            Some(data) => {
+                Ok(data.to_owned())
+            }
+        }
     }
 
     /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
     /// a query shape and the input of the node being created.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -169,7 +154,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned())).await?;
+        let result = self.graphql(&query, Some(input)).await?;
         self.strip(&result, &format!("{}Create", type_name))
     }
 
@@ -179,6 +164,13 @@ impl WarpgrapherClient {
     /// and an input of the relationship being created.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -216,7 +208,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(
             &result,
             &format!("{}{}Create", type_name, rel_name.to_title_case()),
@@ -232,6 +224,13 @@ impl WarpgrapherClient {
     /// the number of nodes of the WarpgrapherType deleted.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -264,7 +263,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
@@ -276,6 +275,13 @@ impl WarpgrapherClient {
     /// the number of matched relationships deleted.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -315,12 +321,18 @@ impl WarpgrapherClient {
         if let Some(dst) = dst_input {
             m.insert("dst".to_owned(), dst);
         }
-        let input = if m.is_empty() { None } else { Some(json!(m)) };
+        let value : serde_json::Value;
+        let input = if m.is_empty() { 
+            None 
+        } else { 
+            value = json!(m);
+            Some(&value)
+        };
         debug!(
             "WarpGrapherClient delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input).await?;
+        let result = self.graphql(&query, input).await?;
         self.strip(
             &result,
             &format!("{}{}Delete", type_name, rel_name.to_title_case()),
@@ -331,6 +343,13 @@ impl WarpgrapherClient {
     /// a query shape and takes an optional input which filters the results.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -357,7 +376,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned()).await?;
+        let result = self.graphql(&query, input).await?;
         self.strip(&result, type_name)
     }
 
@@ -366,6 +385,13 @@ impl WarpgrapherClient {
     /// criteria for selecting the relationship to read.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -397,7 +423,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned()).await?;
+        let result = self.graphql(&query, input).await?;
         self.strip(
             &result,
             &format!("{}{}", type_name, rel_name.to_title_case()),
@@ -409,6 +435,13 @@ impl WarpgrapherClient {
     /// mandatory update component of the input.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -443,7 +476,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &format!("{}Update", type_name))
     }
 
@@ -454,6 +487,13 @@ impl WarpgrapherClient {
     /// Returns the number of matched relationships deleted.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -488,7 +528,7 @@ impl WarpgrapherClient {
             "WarpGrapherClient update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input)).await?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(
             &result,
             &format!("{}{}Update", type_name, rel_name.to_title_case()),
