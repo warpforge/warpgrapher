@@ -225,7 +225,7 @@ impl WarpgrapherClient {
         let query = self.fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         debug!(
-            "WarpGrapherClient delete_node -- query: {:#?}, partitoin_key: {:#?}, input: {:#?}",
+            "WarpGrapherClient delete_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
             query, partition_key, input
         );
         let result = graphql(self.endpoint.to_owned(), query, partition_key, Some(input))?;

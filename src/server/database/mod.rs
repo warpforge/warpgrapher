@@ -69,12 +69,26 @@ pub trait Transaction {
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
+    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Self::ImplQueryResult, FieldError>;
     fn exec(
         &mut self,
         query: &str,
         partition_key_opt: &Option<String>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn node_query_string(
+        &mut self,
+        query_string: &str,
+        params: &mut HashMap<String, Value>,
+        label: &str,
+        var_suffix: &str,
+        union_type: bool,
+        return_node: bool,
+        param_suffix: &str,
+        props: HashMap<String, Value>,
+    ) -> Result<String, FieldError>;
     fn rollback(&mut self) -> Result<(), FieldError>;
 }
 

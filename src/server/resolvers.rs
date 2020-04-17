@@ -265,6 +265,7 @@ where
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         partition_key_opt,
         input_opt.map(|i| i.value),
+        transaction,
     )?;
 
     debug!(
@@ -634,6 +635,7 @@ where
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
         partition_key_opt,
         input_opt.map(|i| i.value),
+        transaction,
     )?;
 
     debug!(

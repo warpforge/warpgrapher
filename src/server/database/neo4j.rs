@@ -96,6 +96,30 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         raw_results
     }
 
+    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Neo4jQueryResult, FieldError> {
+    let query = String::from("MATCH (n:")
+        + label
+        + ")\n"
+        + "WHERE n.id IN $ids\n"
+        + if force { "DETACH " } else { "" }
+        + "DELETE n\n"
+        + "RETURN count(*) as count\n";
+    let mut params = HashMap::new();
+    params.insert("ids".to_owned(), ids);
+
+    trace!(
+        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
+        query, params
+    );
+    let results = self.exec(&query, partition_key_opt, Some(params))?;
+    trace!(
+        "visit_node_delete_mutation_input Query results: {:#?}",
+        results
+    );
+
+    Ok(results)
+    }
+
     fn exec(
         &mut self,
         query: &str,
@@ -119,6 +143,68 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         } else {
             Err(Error::new(ErrorKind::TransactionFinished, None).into())
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn node_query_string(
+        &mut self,
+        query_string: &str,
+        params: &mut HashMap<String, Value>,
+        label: &str,
+        var_suffix: &str,
+        union_type: bool,
+        return_node: bool,
+        param_suffix: &str,
+        props: HashMap<String, Value>,
+    ) -> Result<String, FieldError> {
+        trace!(
+            "transaction::node_query_string called, union_type: {:#?}",
+            union_type
+        );
+
+        let mut qs = query_string.to_string();
+
+        if union_type {
+            qs.push_str(&(String::from("MATCH (") + label + var_suffix + ")\n"));
+        } else {
+            qs.push_str(&(String::from("MATCH (") + label + var_suffix + ":" + label + ")\n"));
+        }
+
+        let mut wc = None;
+        for k in props.keys() {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + label
+                            + var_suffix
+                            + "."
+                            + &k
+                            + "=$"
+                            + label
+                            + param_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND " + label + "." + &k + "=$" + label + param_suffix + "." + &k,
+                    )
+                }
+            }
+        }
+        if let Some(wcs) = wc {
+            qs.push_str(&(String::from(&wcs) + "\n"));
+        }
+
+        params.insert(String::from(label) + param_suffix, props.into());
+
+        if return_node {
+            qs.push_str(&(String::from("RETURN ") + label + var_suffix + "\n"));
+        }
+
+        Ok(qs)
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {

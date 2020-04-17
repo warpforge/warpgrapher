@@ -92,6 +92,31 @@ impl Transaction for Graphson2Transaction {
         self.exec(&query, partition_key_opt, Some(props))
     }
 
+    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Graphson2QueryResult, FieldError> {
+    let query = String::from("MATCH (n:")
+        + label
+        + ")\n"
+        + "WHERE n.id IN $ids\n"
+        + if force { "DETACH " } else { "" }
+        + "DELETE n\n"
+        + "RETURN count(*) as count\n";
+    let mut params = HashMap::new();
+    params.insert("ids".to_owned(), ids);
+
+    trace!(
+        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
+        query, params
+    );
+    let results = self.exec(&query, partition_key_opt, Some(params))?;
+    trace!(
+        "visit_node_delete_mutation_input Query results: {:#?}",
+        results
+    );
+
+    Ok(results)
+    }
+
+
     fn exec(
         &mut self,
         query: &str,
@@ -125,6 +150,41 @@ impl Transaction for Graphson2Transaction {
         } else {
             Err(Error::new(ErrorKind::MissingPartitionKey, None).into())
         }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn node_query_string(
+        &mut self,
+        query_string: &str,
+        params: &mut HashMap<String, Value>,
+        label: &str,
+        _var_suffix: &str,
+        union_type: bool,
+        _return_node: bool,
+        param_suffix: &str,
+        props: HashMap<String, Value>,
+    ) -> Result<String, FieldError> {
+        trace!(
+            "transaction::node_query_string called, union_type: {:#?}",
+            union_type
+        );
+
+        let mut qs = query_string.to_string();
+
+        if union_type {
+            qs.push_str(&(String::from("g.V()")));
+        } else {
+            qs.push_str(&(String::from("g.V().hasLabel('") + label + "')"));
+        }
+
+        qs.push_str(".has('partitionKey', partitionKey)");
+
+        for (k, v) in props.into_iter() {
+            qs.push_str(&(String::from(".has('") + &k + "', " + &k + param_suffix + ")"));
+            params.insert(k + param_suffix, v);
+        }
+
+        Ok(qs)
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {
@@ -167,7 +227,7 @@ impl QueryResult for Graphson2QueryResult {
                         GID::Int32(i) => i.to_string(),
                         GID::Int64(i) => i.to_string(),
                         GID::String(s) => s.to_string(),
-                    })
+                    }),
                 );
 
                 let label = vertex.label().to_string();
@@ -232,7 +292,7 @@ impl QueryResult for Graphson2QueryResult {
                 v.push(Value::String(match vertex.id() {
                     GID::String(s) => s.to_string(),
                     GID::Int32(i) => i.to_string(),
-                    GID::Int64(i) => i.to_string()
+                    GID::Int64(i) => i.to_string(),
                 }));
             } else {
                 return Err(

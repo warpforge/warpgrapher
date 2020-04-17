@@ -114,7 +114,7 @@ fn read_query_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn ready_query_graphson2() {
+fn read_query_graphson2() {
     init();
     clear_db();
 

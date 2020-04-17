@@ -174,6 +174,7 @@ where
             ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
+            transaction,
         )?;
 
         debug!(
@@ -274,27 +275,7 @@ where
         }
     }
 
-    let query = String::from("MATCH (n:")
-        + label
-        + ")\n"
-        + "WHERE n.id IN $ids\n"
-        + if force { "DETACH " } else { "" }
-        + "DELETE n\n"
-        + "RETURN count(*) as count\n";
-    let mut params = HashMap::new();
-    params.insert("ids".to_owned(), ids);
-
-    debug!(
-        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
-        query, params
-    );
-    let results = transaction.exec(&query, partition_key_opt, Some(params))?;
-    debug!(
-        "visit_node_delete_mutation_input Query results: {:#?}",
-        results
-    );
-
-    Ok(results)
+    transaction.delete_nodes(label, force, ids, partition_key_opt)
 }
 
 fn visit_node_input<T>(
@@ -352,6 +333,7 @@ where
                     &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                     partition_key_opt,
                     Some(v),
+                    transaction,
                 )?;
 
                 debug!(
@@ -375,7 +357,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn visit_node_query_input(
+pub fn visit_node_query_input<T>(
     label: &str,
     var_suffix: &str,
     union_type: bool,
@@ -386,7 +368,11 @@ pub fn visit_node_query_input(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Option<Value>,
-) -> Result<String, FieldError> {
+    transaction: &mut T,
+) -> Result<String, FieldError>
+where
+    T: Transaction,
+{
     trace!(
              "visit_node_query_input called -- label: {}, var_suffix: {}, union_type: {}, return_node: {}, info.name: {}, input: {:#?}",
              label, var_suffix, union_type, return_node, info.name, input,
@@ -419,6 +405,7 @@ pub fn visit_node_query_input(
                         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                         partition_key_opt,
                         Some(v),
+                        transaction,
                     )?);
                 }
                 _ => {
@@ -432,46 +419,16 @@ pub fn visit_node_query_input(
         }
     }
 
-    if union_type {
-        qs.push_str(&(String::from("MATCH (") + label + var_suffix + ")\n"));
-    } else {
-        qs.push_str(&(String::from("MATCH (") + label + var_suffix + ":" + label + ")\n"));
-    }
-
-    let mut wc = None;
-    for k in props.keys() {
-        match wc {
-            None => {
-                wc = Some(
-                    String::from("WHERE ")
-                        + label
-                        + var_suffix
-                        + "."
-                        + &k
-                        + "=$"
-                        + label
-                        + &param_suffix
-                        + "."
-                        + &k,
-                )
-            }
-            Some(wcs) => {
-                wc =
-                    Some(wcs + " AND " + label + "." + &k + "=$" + label + &param_suffix + "." + &k)
-            }
-        }
-    }
-    if let Some(wcs) = wc {
-        qs.push_str(&(String::from(&wcs) + "\n"));
-    }
-
-    params.insert(String::from(label) + &param_suffix, props.into());
-
-    if return_node {
-        qs.push_str(&(String::from("RETURN ") + label + var_suffix + "\n"));
-    }
-
-    Ok(qs)
+    transaction.node_query_string(
+        &qs,
+        params,
+        label,
+        var_suffix,
+        union_type,
+        return_node,
+        &param_suffix,
+        props,
+    )
 }
 
 pub fn visit_node_update_input<T>(
@@ -513,6 +470,7 @@ where
             ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
+            transaction,
         )?;
 
         debug!(
@@ -802,6 +760,7 @@ where
             ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
+            transaction,
         )?;
 
         debug!("Query, params: {:#?}, {:#?}", query, params);
@@ -1007,6 +966,7 @@ where
             ),
             partition_key_opt,
             m.remove("match"), // remove rather than get to take ownership
+            transaction,
         )?;
 
         debug!(
@@ -1123,7 +1083,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_dst_query_input(
+fn visit_rel_dst_query_input<T>(
     label: &str,
     var_suffix: &str,
     query: &str,
@@ -1132,7 +1092,11 @@ fn visit_rel_dst_query_input(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Option<Value>,
-) -> Result<String, FieldError> {
+    transaction: &mut T,
+) -> Result<String, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_dst_query_input called -- label: {}, var_suffix: {}, info.name: {}, input: {:#?}",
          label,
@@ -1158,6 +1122,7 @@ fn visit_rel_dst_query_input(
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(v),
+                transaction,
             )
         } else {
             Ok(query.to_owned())
@@ -1249,7 +1214,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn visit_rel_query_input(
+pub fn visit_rel_query_input<T>(
     src_label: &str,
     src_suffix: &str,
     src_ids_opt: Option<Value>,
@@ -1263,7 +1228,11 @@ pub fn visit_rel_query_input(
     info: &Info,
     partition_key_opt: &Option<String>,
     input_opt: Option<Value>,
-) -> Result<String, FieldError> {
+    transaction: &mut T,
+) -> Result<String, FieldError>
+where
+    T: Transaction,
+{
     trace!(
         "visit_rel_query_input called -- src_label: {}, src_suffix: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_rel: {:#?}, query: {}, info.name: {}, input: {:#?}",
         src_label,
@@ -1412,6 +1381,7 @@ pub fn visit_rel_query_input(
                 &Info::new(src_prop.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(src),
+                transaction,
             )?);
         }
 
@@ -1426,6 +1396,7 @@ pub fn visit_rel_query_input(
                 &Info::new(dst_prop.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(dst),
+                transaction,
             )?);
         }
     } else {
@@ -1645,7 +1616,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_src_query_input(
+fn visit_rel_src_query_input<T>(
     label: &str,
     label_suffix: &str,
     query: &str,
@@ -1654,7 +1625,11 @@ fn visit_rel_src_query_input(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Option<Value>,
-) -> Result<String, FieldError> {
+    transaction: &mut T,
+) -> Result<String, FieldError>
+where
+    T: Transaction,
+{
     trace!(
          "visit_rel_src_query_input called -- label: {}, label_suffix: {}, info.name: {}, input: {:#?}",
          label,
@@ -1680,6 +1655,7 @@ fn visit_rel_src_query_input(
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(v),
+                transaction,
             )
         } else {
             Ok(query.to_owned())
@@ -1736,6 +1712,7 @@ where
             ),
             partition_key_opt,
             m.remove("match"), // uses remove to take ownership
+            transaction,
         )?;
 
         debug!(
