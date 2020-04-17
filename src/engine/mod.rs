@@ -234,11 +234,7 @@ where
         };
 
         // validate engine options
-        match EngineBuilder::validate_engine(
-            &self.resolvers,
-            &self.validators,
-            &self.config,
-        ) {
+        match EngineBuilder::validate_engine(&self.resolvers, &self.validators, &self.config) {
             Ok(_) => (),
             Err(e) => return Err(e),
         };
@@ -248,13 +244,13 @@ where
         let engine = Engine::<GlobalCtx, ReqCtx> {
             config: self.config.clone(),
             database: self.database,
-            pool: pool,
+            pool,
             global_ctx: self.global_ctx,
             resolvers: self.resolvers,
             validators: self.validators,
             extensions: self.extensions,
             version: self.version,
-            root_node: root_node,
+            root_node,
         };
 
         Ok(engine)
@@ -460,7 +456,7 @@ where
                 }
             }
         }
-        
+
         // execute graphql query
         let res = req.execute(
             &self.root_node,
