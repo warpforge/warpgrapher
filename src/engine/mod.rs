@@ -53,7 +53,13 @@ where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
 {
-    engine: Engine<GlobalCtx, ReqCtx>,
+    pub config: WarpgrapherConfig,
+    pub database: String,
+    pub global_ctx: Option<GlobalCtx>,
+    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
+    pub validators: WarpgrapherValidators,
+    pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
+    pub version: Option<String>,
 }
 
 impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
@@ -61,10 +67,6 @@ where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
 {
-    pub fn new(engine: Engine<GlobalCtx, ReqCtx>) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        EngineBuilder { engine }
-    }
-
     /// Adds a global context to the engine
     ///
     /// # Examples
@@ -89,7 +91,7 @@ where
     ///     .build().unwrap();
     /// ```
     pub fn with_global_ctx(mut self, global_ctx: GlobalCtx) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        self.engine.global_ctx = Some(global_ctx);
+        self.global_ctx = Some(global_ctx);
         self
     }
 
@@ -115,7 +117,7 @@ where
         mut self,
         resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
     ) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        self.engine.resolvers = resolvers;
+        self.resolvers = resolvers;
         self
     }
 
@@ -141,7 +143,7 @@ where
         mut self,
         validators: WarpgrapherValidators,
     ) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        self.engine.validators = validators;
+        self.validators = validators;
         self
     }
 
@@ -167,7 +169,7 @@ where
         mut self,
         extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
     ) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        self.engine.extensions = extensions;
+        self.extensions = extensions;
         self
     }
 
@@ -188,7 +190,7 @@ where
     ///     .build().unwrap();
     /// ```
     pub fn with_version(mut self, version: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        self.engine.version = Some(version);
+        self.version = Some(version);
         self
     }
 
@@ -221,9 +223,9 @@ where
     /// let mut engine = Engine::<()>::new(config, db)
     ///     .build().unwrap();
     /// ```
-    pub fn build(mut self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
+    pub fn build(self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
         let manager = CypherConnectionManager {
-            url: self.engine.database.clone(),
+            url: self.database.clone(),
         };
 
         let pool = match r2d2::Pool::builder().max_size(5).build(manager) {
@@ -233,20 +235,29 @@ where
 
         // validate engine options
         match EngineBuilder::validate_engine(
-            &self.engine.resolvers,
-            &self.engine.validators,
-            &self.engine.config,
+            &self.resolvers,
+            &self.validators,
+            &self.config,
         ) {
             Ok(_) => (),
             Err(e) => return Err(e),
-        }
+        };
 
-        self.engine.pool = Some(pool);
+        let root_node = create_root_node(&self.config)?;
 
-        // create graphql root node
-        self.engine.root_node = Some(create_root_node(&self.engine.config)?);
+        let engine = Engine::<GlobalCtx, ReqCtx> {
+            config: self.config.clone(),
+            database: self.database,
+            pool: pool,
+            global_ctx: self.global_ctx,
+            resolvers: self.resolvers,
+            validators: self.validators,
+            extensions: self.extensions,
+            version: self.version,
+            root_node: root_node,
+        };
 
-        Ok(self.engine)
+        Ok(engine)
     }
 
     fn validate_engine(
@@ -380,13 +391,13 @@ where
 {
     pub config: WarpgrapherConfig,
     pub database: String,
-    pub pool: Option<Pool<CypherConnectionManager>>,
+    pub pool: Pool<CypherConnectionManager>,
     pub global_ctx: Option<GlobalCtx>,
     pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
     pub validators: WarpgrapherValidators,
     pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
     pub version: Option<String>,
-    root_node: Option<RootRef<GlobalCtx, ReqCtx>>,
+    root_node: RootRef<GlobalCtx, ReqCtx>,
 }
 
 impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
@@ -415,19 +426,15 @@ where
 
     #[allow(clippy::new_ret_no_self)]
     pub fn new(config: WarpgrapherConfig, database: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        let e: Engine<GlobalCtx, ReqCtx> = Engine {
+        EngineBuilder::<GlobalCtx, ReqCtx> {
             config,
             database,
-            pool: None,
             global_ctx: None,
             resolvers: HashMap::new(),
             validators: HashMap::new(),
             extensions: vec![],
             version: None,
-            root_node: None,
-        };
-
-        EngineBuilder::<GlobalCtx, ReqCtx>::new(e)
+        }
     }
 
     pub fn execute(
@@ -453,22 +460,12 @@ where
                 }
             }
         }
-
-        let root_node = match &self.root_node {
-            Some(r) => r.clone(),
-            None => return Err(Error::new(ErrorKind::MissingRootNode, None)),
-        };
-
-        let pool = match &self.pool {
-            Some(p) => p.clone(),
-            None => return Err(Error::new(ErrorKind::MissingDatabasePool, None)),
-        };
-
+        
         // execute graphql query
         let res = req.execute(
-            &root_node,
+            &self.root_node,
             &GraphQLContext::<GlobalCtx, ReqCtx>::new(
-                pool,
+                self.pool.clone(),
                 self.resolvers.clone(),
                 self.validators.clone(),
                 self.extensions.clone(),

@@ -166,16 +166,6 @@ pub enum ErrorKind {
     /// defined for a field, but the corresponding resolver is not provided.
     ResolverNotFound(String, String),
 
-    /// This error is returned if the root node could not be determined from the schema.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    MissingRootNode,
-
-    /// This error is returned if the database pool was not created.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    MissingDatabasePool,
-
     /// Returned when a `WarpgrapherServer` tries to shutdown but the server is not
     /// running.
     ServerNotRunning,
