@@ -9,12 +9,11 @@ use config::{WarpgrapherConfig, WarpgrapherProp, WarpgrapherResolvers, Warpgraph
 use context::{GraphQLContext, WarpgrapherRequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
-use log::{debug, error};
+use log::{debug};
 use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
 use schema::{create_root_node, RootRef};
 use serde_json;
-use serde_json::json;
 use std::collections::HashMap;
 use std::env::var_os;
 use std::fmt::Debug;
@@ -28,20 +27,6 @@ pub mod objects;
 mod resolvers;
 pub mod schema;
 mod visitors;
-
-#[allow(clippy::borrowed_box)]
-fn graphql_error(err: &Box<dyn std::error::Error + Send + Sync>) -> Error {
-    match serde_json::to_string(&json!({ "message": format!("{}", err) })) {
-        Ok(s) => Error::new(ErrorKind::GraphQLError(s), None),
-        Err(e) => {
-            error!("Failed to serialize error object:  {:#?}", e);
-            Error::new(
-                ErrorKind::GraphQLError("INTERNAL SERVER ERROR".to_string()),
-                None,
-            )
-        }
-    }
-}
 
 impl WarpgrapherRequestContext for () {
     fn new() {}
@@ -452,7 +437,7 @@ where
             ) {
                 Ok(_) => {}
                 Err(e) => {
-                    return Err(graphql_error(e));
+                    return Err(Error::new(ErrorKind::PreRequestHookExtensionError(e), None));
                 }
             }
         }
@@ -490,7 +475,7 @@ where
             ) {
                 Ok(_) => {}
                 Err(e) => {
-                    return Err(graphql_error(e));
+                    return Err(Error::new(ErrorKind::PostRequestHookExtensionError(e), None));
                 }
             }
         }

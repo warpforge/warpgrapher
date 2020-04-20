@@ -142,13 +142,6 @@ pub enum ErrorKind {
     /// please report it to the warpgrapher team.
     FieldMissingResolverError(String, String),
 
-    /// Returned by the `From` implementation for a `String` object.
-    /// Conversion from `String`.
-    GenericError(String),
-
-    /// Returned by the engine for convenience when converting a json object containing an error message to a string. This error wraps the resulting string.
-    GraphQLError(String),
-
     /// Returned when there is a failure executing a neo4j query and the expected results
     /// from the database are not returned.
     GraphQueryError(rusted_cypher::error::GraphError),
@@ -157,6 +150,12 @@ pub enum ErrorKind {
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
     GraphQLOutputError(String),
+
+    /// Returned when a registered Pre Request Hook extension function returns an error
+    PreRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
+
+    /// Returned when a registered Post Requst Hook extension function returns an error
+    PostRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
 
     /// Returned when a resolver attempt to infer relationships between queried data via
     /// a regex match fails
