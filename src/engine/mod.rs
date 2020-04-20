@@ -9,7 +9,7 @@ use config::{WarpgrapherConfig, WarpgrapherProp, WarpgrapherResolvers, Warpgraph
 use context::{GraphQLContext, WarpgrapherRequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
-use log::{debug};
+use log::debug;
 use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
 use schema::{create_root_node, RootRef};
@@ -430,11 +430,8 @@ where
 
         // run pre request plugin hooks
         for extension in &self.extensions {
-            match &extension.pre_request_hook(
-                self.global_ctx.clone(),
-                Some(&mut req_ctx),
-                &metadata,
-            ) {
+            match extension.pre_request_hook(self.global_ctx.clone(), Some(&mut req_ctx), &metadata)
+            {
                 Ok(_) => {}
                 Err(e) => {
                     return Err(Error::new(ErrorKind::PreRequestHookExtensionError(e), None));
@@ -468,14 +465,17 @@ where
 
         // run post request plugin hooks
         for extension in &self.extensions {
-            match &extension.post_request_hook(
+            match extension.post_request_hook(
                 self.global_ctx.clone(),
                 Some(&req_ctx),
                 &mut res_value,
             ) {
                 Ok(_) => {}
                 Err(e) => {
-                    return Err(Error::new(ErrorKind::PostRequestHookExtensionError(e), None));
+                    return Err(Error::new(
+                        ErrorKind::PostRequestHookExtensionError(e),
+                        None,
+                    ));
                 }
             }
         }
