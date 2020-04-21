@@ -47,7 +47,7 @@ pub type WarpgrapherValidators = HashMap<String, Box<WarpgrapherValidatorFunc>>;
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::WarpgrapherConfig;
+/// use warpgrapher::engine::config::WarpgrapherConfig;
 ///
 /// let c = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
 /// ```
@@ -79,7 +79,7 @@ impl WarpgrapherConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::WarpgrapherConfig;
+    /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let c = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
     /// ```
@@ -102,7 +102,7 @@ impl WarpgrapherConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::WarpgrapherConfig;
+    /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::default();
     /// ```

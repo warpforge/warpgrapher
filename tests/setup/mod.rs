@@ -6,7 +6,8 @@ use rusted_cypher::GraphClient;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
-use warpgrapher::{WarpgrapherClient, WarpgrapherConfig};
+use warpgrapher::client::WarpgrapherClient;
+use warpgrapher::engine::config::WarpgrapherConfig;
 
 #[allow(dead_code)]
 pub fn init() {

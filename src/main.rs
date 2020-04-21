@@ -11,7 +11,9 @@ use juniper::http::playground::playground_source;
 use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
-use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherConfig};
+use warpgrapher::engine::Engine;
+use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::config::WarpgrapherConfig;
 
 #[derive(Clone)]
 struct AppData {

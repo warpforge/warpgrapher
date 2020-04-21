@@ -10,6 +10,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
+#[derive(Default)]
 pub struct SuffixGenerator {
     seed: i32,
 }

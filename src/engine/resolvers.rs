@@ -1,4 +1,4 @@
-use super::context::GraphQLContext;
+use super::context::{GraphQLContext, WarpgrapherRequestContext};
 use super::objects::{Input, Node, Rel};
 use super::schema::Info;
 use super::visitors::{
@@ -7,7 +7,6 @@ use super::visitors::{
     visit_rel_update_input, SuffixGenerator,
 };
 use crate::error::{Error, ErrorKind};
-use crate::WarpgrapherRequestContext;
 use juniper::{Arguments, ExecutionResult, Executor};
 use log::{debug, trace};
 use rusted_cypher::Statement;

@@ -5,13 +5,12 @@ use std::env::var_os;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-use warpgrapher::{
-    Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
-};
-use warpgrapher::{
-    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext, WarpgrapherResolvers,
-    WarpgrapherValidators,
-};
+use warpgrapher::{Error, ErrorKind};
+use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherValidators, WarpgrapherResolvers};
+use warpgrapher::engine::extensions::WarpgrapherExtensions;
+use warpgrapher::engine::context::{GraphQLContext, WarpgrapherRequestContext};
+use warpgrapher::engine::schema::Info;
 
 #[derive(Clone, Debug)]
 pub struct AppGlobalCtx {

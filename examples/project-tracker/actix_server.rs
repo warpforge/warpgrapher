@@ -12,7 +12,7 @@ use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
 use super::{GlobalContext, ReqContext};
-use warpgrapher::Engine;
+use warpgrapher::engine::Engine;
 
 #[derive(Clone)]
 struct AppData {

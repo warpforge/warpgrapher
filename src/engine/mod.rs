@@ -24,9 +24,9 @@ pub mod context;
 pub mod extensions;
 pub mod neo4j;
 pub mod objects;
-mod resolvers;
+pub mod resolvers;
 pub mod schema;
-mod visitors;
+pub mod visitors;
 
 impl WarpgrapherRequestContext for () {
     fn new() {}
@@ -58,7 +58,8 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
     /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// #[derive(Clone, Debug)]
@@ -86,8 +87,9 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherResolvers};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherResolvers};
     ///
     /// let resolvers = WarpgrapherResolvers::<(), ()>::new();
     ///
@@ -112,8 +114,9 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherValidators};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherValidators};
     ///
     /// let validators = WarpgrapherValidators::new();
     ///
@@ -138,8 +141,10 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherExtensions};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherValidators};
+    /// use warpgrapher::engine::extensions::WarpgrapherExtensions;
     ///
     /// let extensions = WarpgrapherExtensions::<(), ()>::new();
     ///
@@ -164,7 +169,8 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
     /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::default();
@@ -199,7 +205,8 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
     /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
@@ -354,7 +361,8 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::{Engine, Neo4jEndpoint};
+/// use warpgrapher::engine::Engine;
+/// use warpgrapher::engine::neo4j::Neo4jEndpoint;
 /// use warpgrapher::engine::config::WarpgrapherConfig;
 ///
 /// let config = WarpgrapherConfig::default();
@@ -395,7 +403,8 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
     /// use warpgrapher::engine::config::WarpgrapherConfig;
     ///
     /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());

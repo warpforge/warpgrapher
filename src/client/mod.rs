@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 ///
 /// ```rust
 /// use std::env::var_os;
-/// use warpgrapher::WarpgrapherClient;
+/// use warpgrapher::client::WarpgrapherClient;;
 ///
 /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
 /// ```
@@ -35,7 +35,7 @@ impl WarpgrapherClient {
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;
     ///
     /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     /// ```
@@ -61,7 +61,7 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -131,7 +131,7 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -179,7 +179,7 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -238,7 +238,7 @@ impl WarpgrapherClient {
     ///
     /// ```no_run
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     /// use serde_json::json;
     ///
     /// #[tokio::main]
@@ -290,7 +290,7 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -357,7 +357,7 @@ impl WarpgrapherClient {
     ///
     /// ```no_run
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -400,7 +400,7 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -450,7 +450,7 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {
@@ -502,7 +502,7 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::WarpgrapherClient;;
     ///
     /// #[tokio::main]
     /// async fn main() {

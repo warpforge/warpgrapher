@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use warpgrapher::{Extension, WarpgrapherRequestContext};
+use warpgrapher::engine::context::WarpgrapherRequestContext;
+use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
