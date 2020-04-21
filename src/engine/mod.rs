@@ -5,7 +5,7 @@
 use actix_web::web::Json;
 
 use super::error::{Error, ErrorKind};
-use config::{Config, WarpgrapherProp, WarpgrapherResolvers, WarpgrapherValidators};
+use config::{Config, Prop, WarpgrapherResolvers, WarpgrapherValidators};
 use context::{GraphQLContext, WarpgrapherRequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
@@ -275,8 +275,8 @@ where
         }
 
         //Validate Custom Prop defined in Config exists as a WarpgrapherResolver
-        let mut dyn_scalar_props: Vec<WarpgrapherProp> = Vec::new();
-        let mut props_with_validator: Vec<WarpgrapherProp> = Vec::new();
+        let mut dyn_scalar_props: Vec<Prop> = Vec::new();
+        let mut props_with_validator: Vec<Prop> = Vec::new();
 
         for m in config.model.iter() {
             for p in m.props.iter() {

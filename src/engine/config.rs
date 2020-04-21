@@ -35,7 +35,7 @@ pub type WarpgrapherValidatorFunc = fn(&Value) -> Result<(), Error>;
 
 pub type WarpgrapherValidators = HashMap<String, Box<WarpgrapherValidatorFunc>>;
 
-//pub enum WarpgrapherPropType {
+//pub enum PropType {
 //}
 
 /// Configuration item for a Warpgrapher data model. The configuration contains
@@ -326,13 +326,13 @@ impl Config {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::WarpgrapherProp;
+/// use warpgrapher::engine::config::Prop;
 ///
-/// let p = WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None);
+/// let p = Prop::new("name".to_string(), "String".to_string(), true, false, None, None);
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherProp {
+pub struct Prop {
     /// Name of the property
     pub name: String,
 
@@ -360,8 +360,8 @@ pub struct WarpgrapherProp {
     pub validator: Option<String>,
 }
 
-impl WarpgrapherProp {
-    /// Creates a new WarpgrapherProp struct. Takes a String for the name of
+impl Prop {
+    /// Creates a new Prop struct. Takes a String for the name of
     /// the property, a String for the type of the property, and a boolean
     /// that, if true, indicates the property is required, and if false, that
     /// the property is optional.
@@ -369,9 +369,9 @@ impl WarpgrapherProp {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::WarpgrapherProp;
+    /// use warpgrapher::engine::config::Prop;
     ///
-    /// let p = WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None);
+    /// let p = Prop::new("name".to_string(), "String".to_string(), true, false, None, None);
     /// ```
     pub fn new(
         name: String,
@@ -380,8 +380,8 @@ impl WarpgrapherProp {
         list: bool,
         resolver: Option<String>,
         validator: Option<String>,
-    ) -> WarpgrapherProp {
-        WarpgrapherProp {
+    ) -> Prop {
+        Prop {
             name,
             type_name,
             required,
@@ -424,7 +424,7 @@ pub struct Relationship {
 
     /// Properties of the relationship
     #[serde(default)]
-    pub props: Vec<WarpgrapherProp>,
+    pub props: Vec<Prop>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
@@ -438,7 +438,7 @@ impl Relationship {
         name: String,
         list: bool,
         nodes: Vec<String>,
-        props: Vec<WarpgrapherProp>,
+        props: Vec<Prop>,
         endpoints: EndpointsFilter,
     ) -> Relationship {
         Relationship {
@@ -527,12 +527,12 @@ impl Default for EndpointsFilter {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, EndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherType, Prop, EndpointsFilter};
 ///
 /// let wt = WarpgrapherType::new(
 ///     "User".to_string(),
-///     vec!(WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None),
-///          WarpgrapherProp::new("role".to_string(), "String".to_string(), true, false, None, None)),
+///     vec!(Prop::new("name".to_string(), "String".to_string(), true, false, None, None),
+///          Prop::new("role".to_string(), "String".to_string(), true, false, None, None)),
 ///     vec!(),
 ///     EndpointsFilter::all()
 /// );
@@ -544,7 +544,7 @@ pub struct WarpgrapherType {
     pub name: String,
 
     /// Vector of properties on this type
-    pub props: Vec<WarpgrapherProp>,
+    pub props: Vec<Prop>,
 
     /// Vector of relationships on this type
     #[serde(default)]
@@ -558,28 +558,28 @@ pub struct WarpgrapherType {
 
 impl WarpgrapherType {
     /// Creates a new WarpgrapherType struct. Takes a String name for the type
-    /// and a vector of [`WarpgrapherProp`] structs and returns a
+    /// and a vector of [`Prop`] structs and returns a
     /// [`WarpgrapherType`].
     ///
-    /// [`WarpgrapherProp`]: struct.WarpgrapherProp.html
+    /// [`Prop`]: struct.Prop.html
     /// [`WarpgrapherType`]: struct.WarpgrapherType.html
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, EndpointsFilter};
+    /// use warpgrapher::engine::config::{WarpgrapherType, Prop, EndpointsFilter};
     ///
     /// let wt = WarpgrapherType::new(
     ///     "User".to_string(),
-    ///     vec!(WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None),
-    ///          WarpgrapherProp::new("role".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Prop::new("name".to_string(), "String".to_string(), true, false, None, None),
+    ///          Prop::new("role".to_string(), "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
     /// ```
     pub fn new(
         name: String,
-        props: Vec<WarpgrapherProp>,
+        props: Vec<Prop>,
         rels: Vec<Relationship>,
         endpoints: EndpointsFilter,
     ) -> WarpgrapherType {
@@ -746,7 +746,7 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
 #[cfg(test)]
 mod tests {
     use super::{
-        compose, ErrorKind, Config, EndpointsFilter, WarpgrapherProp,
+        compose, ErrorKind, Config, EndpointsFilter, Prop,
         WarpgrapherType,
     };
     use std::fs::File;
@@ -761,10 +761,10 @@ mod tests {
         assert!(c.model.is_empty());
     }
 
-    // Passes if a WarpgrapherProp is created and prints correctly
+    // Passes if a Prop is created and prints correctly
     #[test]
     fn new_property() {
-        let p = WarpgrapherProp::new(
+        let p = Prop::new(
             "name".to_string(),
             "String".to_string(),
             true,
@@ -783,7 +783,7 @@ mod tests {
         let t = WarpgrapherType::new(
             "User".to_string(),
             vec![
-                WarpgrapherProp::new(
+                Prop::new(
                     "name".to_string(),
                     "String".to_string(),
                     true,
@@ -791,7 +791,7 @@ mod tests {
                     None,
                     None,
                 ),
-                WarpgrapherProp::new(
+                Prop::new(
                     "role".to_string(),
                     "String".to_string(),
                     true,

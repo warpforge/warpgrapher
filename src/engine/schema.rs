@@ -3,7 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, Config, Endpoint, WarpgrapherProp,
+    EndpointClass, GraphqlType, Config, Endpoint, Prop,
     Relationship, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
@@ -180,7 +180,7 @@ impl Property {
 
 /// Takes a vector of WG Props and returns a map of Property structs that
 /// represent the property fields in a graphql schema component
-fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<String, Property> {
+fn generate_props(props: &[Prop], id: bool, object: bool) -> HashMap<String, Property> {
     let mut hm = HashMap::new();
 
     // if the ID field was specified, add it
@@ -2162,7 +2162,7 @@ mod tests {
     };
     use crate::engine::config::{
         EndpointClass, Config, Endpoint, EndpointType,
-        EndpointsFilter, WarpgrapherProp, Relationship, WarpgrapherType,
+        EndpointsFilter, Prop, Relationship, WarpgrapherType,
         WarpgrapherTypeDef,
     };
     use std::collections::HashMap;
@@ -2176,7 +2176,7 @@ mod tests {
         WarpgrapherType::new(
             "Project".to_string(),
             vec![
-                WarpgrapherProp::new(
+                Prop::new(
                     "name".to_string(),
                     "String".to_string(),
                     true,
@@ -2184,7 +2184,7 @@ mod tests {
                     None,
                     None,
                 ),
-                WarpgrapherProp::new(
+                Prop::new(
                     "tags".to_string(),
                     "String".to_string(),
                     false,
@@ -2192,7 +2192,7 @@ mod tests {
                     None,
                     None,
                 ),
-                WarpgrapherProp::new(
+                Prop::new(
                     "public".to_string(),
                     "Boolean".to_string(),
                     true,
@@ -2206,7 +2206,7 @@ mod tests {
                     "owner".to_string(),
                     false,
                     vec!["User".to_string()],
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "since".to_string(),
                         "String".to_string(),
                         false,
@@ -2245,7 +2245,7 @@ mod tests {
     fn mock_user_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "User".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2261,7 +2261,7 @@ mod tests {
     fn mock_kanbanboard_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "KanbanBoard".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2277,7 +2277,7 @@ mod tests {
     fn mock_scrumboard_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "ScrumBoard".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2293,7 +2293,7 @@ mod tests {
     fn mock_feature_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "Feature".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2309,7 +2309,7 @@ mod tests {
     fn mock_bug_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "Bug".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2325,7 +2325,7 @@ mod tests {
     fn mock_commit_type() -> WarpgrapherType {
         WarpgrapherType::new(
             "Commit".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2382,7 +2382,7 @@ mod tests {
             Some(EndpointType::new(
                 WarpgrapherTypeDef::Custom(WarpgrapherType::new(
                     "BurndownFilter".to_string(),
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "ticket_types".to_string(),
                         "String".to_string(),
                         true,
@@ -2399,7 +2399,7 @@ mod tests {
             EndpointType::new(
                 WarpgrapherTypeDef::Custom(WarpgrapherType::new(
                     "BurndownMetrics".to_string(),
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "points".to_string(),
                         "Int".to_string(),
                         false,
@@ -4653,7 +4653,7 @@ mod tests {
             1,
             vec![WarpgrapherType::new(
                 "User".to_string(),
-                vec![WarpgrapherProp::new(
+                vec![Prop::new(
                     "name".to_string(),
                     "String".to_string(),
                     true,
