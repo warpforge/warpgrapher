@@ -1,7 +1,7 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::server::config::{WarpgrapherResolvers, WarpgrapherValidators};
-use crate::server::extensions::WarpgrapherExtensions;
+use crate::engine::config::{WarpgrapherResolvers, WarpgrapherValidators};
+use crate::engine::extensions::WarpgrapherExtensions;
 use juniper::Context;
 use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
@@ -63,7 +63,7 @@ pub trait WarpgrapherRequestContext {
 mod tests {
 
     use super::GraphQLContext;
-    use crate::server::config::{WarpgrapherResolvers, WarpgrapherValidators};
+    use crate::engine::config::{WarpgrapherResolvers, WarpgrapherValidators};
     use r2d2_cypher::CypherConnectionManager;
     use std::env::var_os;
 
@@ -73,7 +73,7 @@ mod tests {
 
     /// Passes if the pool can be created without panicking
     #[test]
-    fn server_new() {
+    fn engine_new() {
         init();
 
         let db_url = match var_os("DB_URL") {

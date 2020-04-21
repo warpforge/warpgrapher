@@ -16,17 +16,17 @@ pub use client::WarpgrapherClient;
 pub use error::Error;
 pub use error::ErrorKind;
 
-pub use server::config::{
+pub use engine::config::{
     WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherResolverFunc, WarpgrapherResolvers,
     WarpgrapherType, WarpgrapherValidatorFunc, WarpgrapherValidators,
 };
-pub use server::context::{GraphQLContext, WarpgrapherRequestContext};
-pub use server::extensions::{Extension, WarpgrapherExtensions};
-pub use server::neo4j::Neo4jEndpoint;
-pub use server::objects::Node;
-pub use server::schema::{Info, Property};
-pub use server::Server;
+pub use engine::context::{GraphQLContext, WarpgrapherRequestContext};
+pub use engine::extensions::{Extension, WarpgrapherExtensions};
+pub use engine::neo4j::Neo4jEndpoint;
+pub use engine::objects::Node;
+pub use engine::schema::{Info, Property};
+pub use engine::Engine;
 
 pub mod client;
+pub mod engine;
 pub mod error;
-pub mod server;

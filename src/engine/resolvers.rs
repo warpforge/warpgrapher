@@ -146,7 +146,7 @@ pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
             p.type_name.to_owned(),
             results
                 .rows()
-                .nth(0)
+                .next()
                 .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?
                 .get("n")?,
         ),
@@ -199,7 +199,7 @@ pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
 
     let ret_row = results
         .rows()
-        .nth(0)
+        .next()
         .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
 
     let ret_val = ret_row
@@ -284,7 +284,7 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
     } else {
         let row = results
             .rows()
-            .nth(0)
+            .next()
             .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
@@ -530,7 +530,7 @@ pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
 
     let ret_row = results
         .rows()
-        .nth(0)
+        .next()
         .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
 
     let ret_val = ret_row
@@ -725,7 +725,7 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
     } else {
         let row = results
             .rows()
-            .nth(0)
+            .next()
             .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
 
         if let Value::Array(labels) =

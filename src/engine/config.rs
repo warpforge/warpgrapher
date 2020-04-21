@@ -137,7 +137,7 @@ impl WarpgrapherConfig {
     ///
     /// #Example
     /// ```rust
-    ///     use warpgrapher::server::config::{WarpgrapherConfig};
+    ///     use warpgrapher::engine::config::{WarpgrapherConfig};
     ///
     ///     let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
     ///     config.validate();
@@ -242,7 +242,7 @@ impl WarpgrapherConfig {
             }
 
             /*
-            // TODO: need to move this inside server::validate() since it is possible for an endpoint
+            // TODO: need to move this inside engine::validate() since it is possible for an endpoint
             // input to be an auto-generated type which cannot be introspected from the context of the
             // config alone
             match &ep.input.type_def {
@@ -279,7 +279,7 @@ impl WarpgrapherConfig {
                 }
             }
 
-            // TODO: need to move this inside server::validate() since it is possible for an endpoint
+            // TODO: need to move this inside engine::validate() since it is possible for an endpoint
             // input to be an auto-generated type which cannot be introspected from the context of the
             // config alone
             match &ep.output.type_def {
@@ -326,7 +326,7 @@ impl WarpgrapherConfig {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::server::config::WarpgrapherProp;
+/// use warpgrapher::engine::config::WarpgrapherProp;
 ///
 /// let p = WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None);
 /// ```
@@ -369,7 +369,7 @@ impl WarpgrapherProp {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::server::config::WarpgrapherProp;
+    /// use warpgrapher::engine::config::WarpgrapherProp;
     ///
     /// let p = WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None);
     /// ```
@@ -397,7 +397,7 @@ impl WarpgrapherProp {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::server::config::{WarpgrapherRel, WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherRel, WarpgrapherEndpointsFilter};
 ///
 /// let p = WarpgrapherRel::new(
 ///            "teams".to_string(),
@@ -456,7 +456,7 @@ impl WarpgrapherRel {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::server::config::{WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherEndpointsFilter};
 ///
 /// let ef = WarpgrapherEndpointsFilter::new(true, true, true, true);
 /// ```
@@ -527,7 +527,7 @@ impl Default for WarpgrapherEndpointsFilter {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::server::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
 ///
 /// let wt = WarpgrapherType::new(
 ///     "User".to_string(),
@@ -567,7 +567,7 @@ impl WarpgrapherType {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::server::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
+    /// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
     ///
     /// let wt = WarpgrapherType::new(
     ///     "User".to_string(),
@@ -697,7 +697,7 @@ pub enum WarpgrapherTypeDef {
 ///
 /// #Example
 /// ```rust
-///     use warpgrapher::server::config::{WarpgrapherConfig, compose};
+///     use warpgrapher::engine::config::{WarpgrapherConfig, compose};
 ///
 ///     let mut config_vec: Vec<WarpgrapherConfig> = Vec::new();
 ///     let config = compose(config_vec).unwrap();
@@ -899,7 +899,7 @@ mod tests {
         }
 
         /*
-        // TODO: need to move this inside server::validate() since it is possible for an endpoint
+        // TODO: need to move this inside engine::validate() since it is possible for an endpoint
         // input to be an auto-generated type which cannot be introspected from the context of the
         // config alone
         //Test missing Endpoint type

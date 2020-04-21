@@ -7,8 +7,8 @@ use super::config::{
     WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
+use crate::engine::context::WarpgrapherRequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 use inflector::Inflector;
 use juniper::RootNode;
 use serde_json::Map;
@@ -2118,11 +2118,11 @@ pub fn create_root_node<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCont
         ))
     })
     .map_err(|e| {
-        (e.downcast::<Error>()
+        e.downcast::<Error>()
             .and_then(|e| Ok(*e))
             .unwrap_or_else(|e| {
                 Error::new(ErrorKind::MissingSchemaElement(format!("{:#?}", e)), None)
-            }))
+            })
     })
 }
 
@@ -2160,7 +2160,7 @@ mod tests {
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema, Info,
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
-    use crate::server::config::{
+    use crate::engine::config::{
         EndpointClass, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherEndpointType,
         WarpgrapherEndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
         WarpgrapherTypeDef,

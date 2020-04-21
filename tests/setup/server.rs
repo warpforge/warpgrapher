@@ -1,13 +1,16 @@
 use super::extension::{Metadata, MetadataExtension, MetadataExtensionCtx};
-//use super::server_addr;
+use actix_web::dev;
+use futures::executor::block_on;
 use std::env::var_os;
+use std::sync::mpsc;
 use std::sync::Arc;
+use std::thread::{spawn, JoinHandle};
 use warpgrapher::{
     Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
 };
 use warpgrapher::{
-    Server, WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext,
-    WarpgrapherResolvers, WarpgrapherValidators,
+    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext, WarpgrapherResolvers,
+    WarpgrapherValidators,
 };
 
 #[derive(Clone, Debug)]
@@ -116,8 +119,114 @@ where
     Ok(Value::scalar(1_000_000 as i32))
 }
 
+pub struct Server {
+    config: WarpgrapherConfig,
+    db_url: String,
+    global_ctx: AppGlobalCtx,
+    resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
+    validators: WarpgrapherValidators,
+    extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    server: Option<dev::Server>,
+    handle: Option<JoinHandle<()>>,
+}
+
+impl Server {
+    fn new(
+        config: WarpgrapherConfig,
+        db_url: String,
+        global_ctx: AppGlobalCtx,
+        resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
+        validators: WarpgrapherValidators,
+        extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    ) -> Server {
+        Server {
+            config,
+            db_url,
+            global_ctx,
+            resolvers,
+            validators,
+            extensions,
+            server: None,
+            handle: None,
+        }
+    }
+
+    pub fn serve(&mut self, block: bool) -> Result<(), Error> {
+        if self.handle.is_some() || self.server.is_some() {
+            return Err(Error::new(ErrorKind::ServerAlreadyRunning, None));
+        }
+
+        let (tx, rx) = mpsc::channel();
+
+        if block {
+            super::actix_server::start(
+                &self.config,
+                &self.db_url,
+                &self.global_ctx,
+                &self.resolvers,
+                &self.validators,
+                &self.extensions,
+                tx,
+            );
+        } else {
+            let config = self.config.clone();
+            let db_url = self.db_url.clone();
+            let global_ctx = self.global_ctx.clone();
+            let resolvers = self.resolvers.clone();
+            let validators = self.validators.clone();
+            let extensions = self.extensions.clone();
+
+            self.handle = Some(spawn(move || {
+                super::actix_server::start(
+                    &config,
+                    &db_url,
+                    &global_ctx,
+                    &resolvers,
+                    &validators,
+                    &extensions,
+                    tx,
+                );
+            }));
+        }
+
+        rx.recv()
+            .map_err(|e| Error::new(ErrorKind::ServerStartupFailed(e), None))
+            .and_then(|m| match m {
+                Ok(s) => {
+                    self.server = Some(s);
+                    Ok(())
+                }
+                Err(e) => match self.handle.take() {
+                    Some(h) => {
+                        let _ = h.join();
+                        Err(e)
+                    }
+                    None => Err(e),
+                },
+            })
+    }
+
+    pub fn shutdown(&mut self) -> Result<(), Error> {
+        let s = self
+            .server
+            .take()
+            .ok_or_else(|| Error::new(ErrorKind::ServerNotRunning, None))?;
+
+        let h = self
+            .handle
+            .take()
+            .ok_or_else(|| Error::new(ErrorKind::ServerNotRunning, None))?;
+
+        block_on(s.stop(true));
+
+        h.join()
+            .map_err(|_| Error::new(ErrorKind::ServerShutdownFailed, None))
+            .and_then(|_| Ok(()))
+    }
+}
+
 #[allow(dead_code)]
-pub fn test_server(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
+pub fn test_server(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config =
@@ -158,11 +267,7 @@ pub fn test_server(config_path: &str) -> Server<AppGlobalCtx, AppReqCtx> {
     };
 
     // create server
-    Server::<AppGlobalCtx, AppReqCtx>::new(config, db_url)
-        .with_global_ctx(global_ctx)
-        .with_resolvers(resolvers)
-        .with_validators(validators)
-        .with_extensions(extensions)
-        .build()
-        .expect("Failed to build server")
+    Server::new(
+        config, db_url, global_ctx, resolvers, validators, extensions,
+    )
 }

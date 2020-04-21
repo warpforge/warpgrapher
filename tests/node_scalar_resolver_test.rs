@@ -94,7 +94,10 @@ fn scalar_lists_no_array_test() {
         )
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
@@ -123,7 +126,8 @@ fn scalar_no_lists_test() {
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
@@ -132,7 +136,8 @@ fn scalar_no_lists_test() {
             &json!({
                 "bool_list": [true, false, true, false],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
@@ -141,7 +146,8 @@ fn scalar_no_lists_test() {
             &json!({
                 "int_list": [0, 1, 2, 3],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(client
         .create_node(
@@ -150,7 +156,8 @@ fn scalar_no_lists_test() {
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
-        ).is_err());
+        )
+        .is_err());
 
     assert!(server.shutdown().is_ok());
 }
@@ -184,7 +191,10 @@ fn scalar_no_lists_no_array_test() {
         )
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
