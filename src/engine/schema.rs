@@ -7,8 +7,8 @@ use super::config::{
     WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
+use crate::engine::context::WarpgrapherRequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 use inflector::Inflector;
 use juniper::RootNode;
 use serde_json::Map;
@@ -2160,7 +2160,7 @@ mod tests {
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema, Info,
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
-    use crate::server::config::{
+    use crate::engine::config::{
         EndpointClass, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherEndpointType,
         WarpgrapherEndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
         WarpgrapherTypeDef,

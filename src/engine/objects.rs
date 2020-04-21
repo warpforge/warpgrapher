@@ -7,8 +7,8 @@ use super::resolvers::{
     resolve_union_field,
 };
 use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
+use crate::engine::context::WarpgrapherRequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,

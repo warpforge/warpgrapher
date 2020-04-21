@@ -59,11 +59,12 @@ impl WarpgrapherClient {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// #[feature(async_await)] 
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
+    /// #[tokio::main]
+    /// async fn main() {
     ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
     ///     let query = "query { Project { id name } }";
@@ -71,6 +72,7 @@ impl WarpgrapherClient {
     ///         "query { Project { id name } }",
     ///         None
     ///     ).await;
+    /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
     pub async fn graphql(
@@ -151,7 +153,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_create_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient create_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(input)).await?;
@@ -205,7 +207,7 @@ impl WarpgrapherClient {
         let query = self.fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         debug!(
-            "WarpGrapherClient create_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
@@ -260,7 +262,7 @@ impl WarpgrapherClient {
         let query = self.fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         debug!(
-            "WarpGrapherClient delete_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
@@ -329,7 +331,7 @@ impl WarpgrapherClient {
             Some(&value)
         };
         debug!(
-            "WarpGrapherClient delete_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
@@ -373,7 +375,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_node_query(type_name, shape);
         debug!(
-            "WarpGrapherClient read_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
@@ -420,7 +422,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_rel_query(type_name, rel_name, shape);
         debug!(
-            "WarpGrapherClient read_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
@@ -473,7 +475,7 @@ impl WarpgrapherClient {
         let query = self.fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         debug!(
-            "WarpGrapherClient update_node -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
@@ -525,7 +527,7 @@ impl WarpgrapherClient {
         let query = self.fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         debug!(
-            "WarpGrapherClient update_rel -- query: {:#?}, input: {:#?}",
+            "WarpgrapherClient update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;

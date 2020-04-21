@@ -96,7 +96,10 @@ async fn scalar_lists_no_array_test() {
         .await
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
@@ -195,7 +198,10 @@ async fn scalar_no_lists_no_array_test() {
         .await
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 

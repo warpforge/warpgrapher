@@ -1,8 +1,7 @@
 use resolvers::{project_count, project_points};
 use validators::name_validator;
-use warpgrapher::server::bind_port_from_env;
 use warpgrapher::{
-    Error, Neo4jEndpoint, Server, WarpgrapherConfig, WarpgrapherRequestContext,
+    Engine, Error, Neo4jEndpoint, WarpgrapherConfig, WarpgrapherRequestContext,
     WarpgrapherResolvers, WarpgrapherValidators,
 };
 extern crate env_logger;
@@ -10,6 +9,7 @@ extern crate frank_jwt;
 extern crate log;
 extern crate warpgrapher;
 
+mod actix_server;
 mod resolvers;
 mod validators;
 
@@ -86,24 +86,15 @@ fn main() -> Result<(), Error> {
     // define database endpoint
     let db = Neo4jEndpoint::from_env("DB_URL")?;
 
-    // server
-    let mut server: Server<GlobalContext, ReqContext> = Server::new(config, db)
-        .with_bind_port(bind_port_from_env("WG_SAMPLE_PORT"))
+    // engine
+    let engine: Engine<GlobalContext, ReqContext> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .with_validators(validators)
         .with_global_ctx(global_ctx)
         .build()
-        .expect("Failed to build server");
+        .expect("Failed to build engine");
 
-    // start server
-    println!(
-        "Starting server: http://{}:{}/graphiql",
-        &server.bind_addr, &server.bind_port,
-    );
-    match server.serve(true) {
-        Ok(()) => (),
-        Err(_e) => println!("Failed to start server"),
-    }
+    actix_server::start(engine);
 
     Ok(())
 }
