@@ -397,9 +397,9 @@ impl WarpgrapherProp {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherRel, EndpointsFilter};
+/// use warpgrapher::engine::config::{Relationship, EndpointsFilter};
 ///
-/// let p = WarpgrapherRel::new(
+/// let p = Relationship::new(
 ///            "teams".to_string(),
 ///            true,
 ///            vec!["User".to_string()],
@@ -409,7 +409,7 @@ impl WarpgrapherProp {
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherRel {
+pub struct Relationship {
     /// Name of the relationship
     pub name: String,
 
@@ -432,16 +432,16 @@ pub struct WarpgrapherRel {
     pub endpoints: EndpointsFilter,
 }
 
-impl WarpgrapherRel {
-    /// Creates a new, empty [`WarpgrapherRel`] data structure
+impl Relationship {
+    /// Creates a new, empty [`Relationship`] data structure
     pub fn new(
         name: String,
         list: bool,
         nodes: Vec<String>,
         props: Vec<WarpgrapherProp>,
         endpoints: EndpointsFilter,
-    ) -> WarpgrapherRel {
-        WarpgrapherRel {
+    ) -> Relationship {
+        Relationship {
             name,
             list,
             nodes,
@@ -548,7 +548,7 @@ pub struct WarpgrapherType {
 
     /// Vector of relationships on this type
     #[serde(default)]
-    pub rels: Vec<WarpgrapherRel>,
+    pub rels: Vec<Relationship>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
@@ -580,7 +580,7 @@ impl WarpgrapherType {
     pub fn new(
         name: String,
         props: Vec<WarpgrapherProp>,
-        rels: Vec<WarpgrapherRel>,
+        rels: Vec<Relationship>,
         endpoints: EndpointsFilter,
     ) -> WarpgrapherType {
         WarpgrapherType {
