@@ -64,12 +64,12 @@ pub struct Config {
     #[serde(default)]
     pub model: Vec<WarpgrapherType>,
 
-    /// A vector of [`WarpgrapherEndpoint`] structures, each defining an
+    /// A vector of [`Endpoint`] structures, each defining an
     /// a custom root endpoint in the graphql schema
     ///
-    /// [`WarpgrapherEndpoint`]: struct.WarpgrapherEndpoint.html
+    /// [`Endpoint`]: struct.Endpoint.html
     #[serde(default)]
-    pub endpoints: Vec<WarpgrapherEndpoint>,
+    pub endpoints: Vec<Endpoint>,
 }
 
 impl Config {
@@ -86,7 +86,7 @@ impl Config {
     pub fn new(
         version: i32,
         model: Vec<WarpgrapherType>,
-        endpoints: Vec<WarpgrapherEndpoint>,
+        endpoints: Vec<Endpoint>,
     ) -> Config {
         Config {
             version,
@@ -128,8 +128,8 @@ impl Config {
     }
 
     /// Validates the [`Config`] data structure.
-    /// Checks to verify no duplicate [`WarpgrapherEndpoint`] or [`WarpgrapherType`], and that the
-    /// [`WarpgrapherEndpoint`] input/output types are defined in the model.
+    /// Checks to verify no duplicate [`Endpoint`] or [`WarpgrapherType`], and that the
+    /// [`Endpoint`] input/output types are defined in the model.
     /// Returns a Result<(), Error> where the error could be one of:
     /// - [`ConfigTypeDuplicateError`] if any Type is defined twice in the configuration.
     /// - [`ConfigEndpointDuplicateError`] if any Endpoint Type is defined twice in the configuration.
@@ -397,14 +397,14 @@ impl WarpgrapherProp {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherRel, WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherRel, EndpointsFilter};
 ///
 /// let p = WarpgrapherRel::new(
 ///            "teams".to_string(),
 ///            true,
 ///            vec!["User".to_string()],
 ///            vec![],  
-///            WarpgrapherEndpointsFilter::all()
+///            EndpointsFilter::all()
 ///         );
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -429,7 +429,7 @@ pub struct WarpgrapherRel {
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
     #[serde(default)]
-    pub endpoints: WarpgrapherEndpointsFilter,
+    pub endpoints: EndpointsFilter,
 }
 
 impl WarpgrapherRel {
@@ -439,7 +439,7 @@ impl WarpgrapherRel {
         list: bool,
         nodes: Vec<String>,
         props: Vec<WarpgrapherProp>,
-        endpoints: WarpgrapherEndpointsFilter,
+        endpoints: EndpointsFilter,
     ) -> WarpgrapherRel {
         WarpgrapherRel {
             name,
@@ -456,12 +456,12 @@ impl WarpgrapherRel {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{EndpointsFilter};
 ///
-/// let ef = WarpgrapherEndpointsFilter::new(true, true, true, true);
+/// let ef = EndpointsFilter::new(true, true, true, true);
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
-pub struct WarpgrapherEndpointsFilter {
+pub struct EndpointsFilter {
     /// True if a read endpoint should be generated for the corresponding type/rel
     #[serde(default = "get_true")]
     pub read: bool,
@@ -479,10 +479,10 @@ pub struct WarpgrapherEndpointsFilter {
     pub delete: bool,
 }
 
-impl WarpgrapherEndpointsFilter {
+impl EndpointsFilter {
     /// Creates a new filter with the option to configure all endpoints
-    pub fn new(read: bool, create: bool, update: bool, delete: bool) -> WarpgrapherEndpointsFilter {
-        WarpgrapherEndpointsFilter {
+    pub fn new(read: bool, create: bool, update: bool, delete: bool) -> EndpointsFilter {
+        EndpointsFilter {
             read,
             create,
             update,
@@ -491,8 +491,8 @@ impl WarpgrapherEndpointsFilter {
     }
 
     /// Creates a new filter with all endpoints set to true
-    pub fn all() -> WarpgrapherEndpointsFilter {
-        WarpgrapherEndpointsFilter {
+    pub fn all() -> EndpointsFilter {
+        EndpointsFilter {
             read: true,
             create: true,
             update: true,
@@ -501,8 +501,8 @@ impl WarpgrapherEndpointsFilter {
     }
 
     /// Creates a new filter with all endpoints set to false
-    pub fn none() -> WarpgrapherEndpointsFilter {
-        WarpgrapherEndpointsFilter {
+    pub fn none() -> EndpointsFilter {
+        EndpointsFilter {
             read: false,
             create: false,
             update: false,
@@ -511,9 +511,9 @@ impl WarpgrapherEndpointsFilter {
     }
 }
 
-impl Default for WarpgrapherEndpointsFilter {
-    fn default() -> WarpgrapherEndpointsFilter {
-        WarpgrapherEndpointsFilter {
+impl Default for EndpointsFilter {
+    fn default() -> EndpointsFilter {
+        EndpointsFilter {
             read: true,
             create: true,
             update: true,
@@ -527,14 +527,14 @@ impl Default for WarpgrapherEndpointsFilter {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
+/// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, EndpointsFilter};
 ///
 /// let wt = WarpgrapherType::new(
 ///     "User".to_string(),
 ///     vec!(WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None),
 ///          WarpgrapherProp::new("role".to_string(), "String".to_string(), true, false, None, None)),
 ///     vec!(),
-///     WarpgrapherEndpointsFilter::all()
+///     EndpointsFilter::all()
 /// );
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -553,7 +553,7 @@ pub struct WarpgrapherType {
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
     #[serde(default)]
-    pub endpoints: WarpgrapherEndpointsFilter,
+    pub endpoints: EndpointsFilter,
 }
 
 impl WarpgrapherType {
@@ -567,21 +567,21 @@ impl WarpgrapherType {
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, WarpgrapherEndpointsFilter};
+    /// use warpgrapher::engine::config::{WarpgrapherType, WarpgrapherProp, EndpointsFilter};
     ///
     /// let wt = WarpgrapherType::new(
     ///     "User".to_string(),
     ///     vec!(WarpgrapherProp::new("name".to_string(), "String".to_string(), true, false, None, None),
     ///          WarpgrapherProp::new("role".to_string(), "String".to_string(), true, false, None, None)),
     ///     vec!(),
-    ///     WarpgrapherEndpointsFilter::all()
+    ///     EndpointsFilter::all()
     /// );
     /// ```
     pub fn new(
         name: String,
         props: Vec<WarpgrapherProp>,
         rels: Vec<WarpgrapherRel>,
-        endpoints: WarpgrapherEndpointsFilter,
+        endpoints: EndpointsFilter,
     ) -> WarpgrapherType {
         WarpgrapherType {
             name,
@@ -603,7 +603,7 @@ impl WarpgrapherType {
 ///
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherEndpoint {
+pub struct Endpoint {
     /// Name of this Endpoint
     pub name: String,
 
@@ -611,20 +611,20 @@ pub struct WarpgrapherEndpoint {
     pub class: EndpointClass,
 
     /// Defines the input of the endpoint
-    pub input: Option<WarpgrapherEndpointType>,
+    pub input: Option<EndpointType>,
 
     /// Defines the type returned by the endpoint
-    pub output: WarpgrapherEndpointType,
+    pub output: EndpointType,
 }
 
-impl WarpgrapherEndpoint {
+impl Endpoint {
     pub fn new(
         name: String,
         class: EndpointClass,
-        input: Option<WarpgrapherEndpointType>,
-        output: WarpgrapherEndpointType,
-    ) -> WarpgrapherEndpoint {
-        WarpgrapherEndpoint {
+        input: Option<EndpointType>,
+        output: EndpointType,
+    ) -> Endpoint {
+        Endpoint {
             name,
             class,
             input,
@@ -642,7 +642,7 @@ pub enum EndpointClass {
 /// Configuration item for a custom Endpoint
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherEndpointType {
+pub struct EndpointType {
     /// Defines option for an endpoint type to use an existing or custom type
     #[serde(rename = "type")]
     pub type_def: WarpgrapherTypeDef,
@@ -656,13 +656,13 @@ pub struct WarpgrapherEndpointType {
     pub required: bool,
 }
 
-impl WarpgrapherEndpointType {
+impl EndpointType {
     pub fn new(
         type_def: WarpgrapherTypeDef,
         list: bool,
         required: bool,
-    ) -> WarpgrapherEndpointType {
-        WarpgrapherEndpointType {
+    ) -> EndpointType {
+        EndpointType {
             type_def,
             list,
             required,
@@ -706,7 +706,7 @@ pub enum WarpgrapherTypeDef {
 pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
     let mut version: Option<i32> = None;
     let mut model: Vec<WarpgrapherType> = Vec::new();
-    let mut endpoints: Vec<WarpgrapherEndpoint> = Vec::new();
+    let mut endpoints: Vec<Endpoint> = Vec::new();
 
     for c in configs {
         version = match version {
@@ -746,7 +746,7 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
 #[cfg(test)]
 mod tests {
     use super::{
-        compose, ErrorKind, Config, WarpgrapherEndpointsFilter, WarpgrapherProp,
+        compose, ErrorKind, Config, EndpointsFilter, WarpgrapherProp,
         WarpgrapherType,
     };
     use std::fs::File;
@@ -801,7 +801,7 @@ mod tests {
                 ),
             ],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         );
 
         assert!(t.name == "User");

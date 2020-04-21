@@ -3,7 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, Config, WarpgrapherEndpoint, WarpgrapherProp,
+    EndpointClass, GraphqlType, Config, Endpoint, WarpgrapherProp,
     WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
@@ -1765,7 +1765,7 @@ fn generate_rel_delete_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Prop
 }
 
 /// Takes a WG Endpoint and returns a NodeType representing a root endpoint
-fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
+fn generate_custom_endpoint(e: &Endpoint) -> Property {
     Property::new(
         e.name.clone(),
         PropertyKind::CustomResolver,
@@ -2161,8 +2161,8 @@ mod tests {
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
     use crate::engine::config::{
-        EndpointClass, Config, WarpgrapherEndpoint, WarpgrapherEndpointType,
-        WarpgrapherEndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
+        EndpointClass, Config, Endpoint, EndpointType,
+        EndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
         WarpgrapherTypeDef,
     };
     use std::collections::HashMap;
@@ -2214,31 +2214,31 @@ mod tests {
                         None,
                         None,
                     )],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
                 WarpgrapherRel::new(
                     "board".to_string(),
                     false,
                     vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
                 WarpgrapherRel::new(
                     "commits".to_string(),
                     true,
                     vec!["Commit".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
                 WarpgrapherRel::new(
                     "issues".to_string(),
                     true,
                     vec!["Feature".to_string(), "Bug".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
             ],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2254,7 +2254,7 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2270,7 +2270,7 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2286,7 +2286,7 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2302,7 +2302,7 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2318,7 +2318,7 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
@@ -2334,21 +2334,21 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_endpoint_one() -> WarpgrapherEndpoint {
+    fn mock_endpoint_one() -> Endpoint {
         // RegisterUsers(input: [UserCreateMutationInput]): [User]
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "RegisterUsers".to_string(),
             EndpointClass::Mutation,
-            Some(WarpgrapherEndpointType::new(
+            Some(EndpointType::new(
                 WarpgrapherTypeDef::Existing("UserCreateMutationInput".to_string()),
                 true,
                 true,
             )),
-            WarpgrapherEndpointType::new(
+            EndpointType::new(
                 WarpgrapherTypeDef::Existing("User".to_string()),
                 true,
                 true,
@@ -2356,17 +2356,17 @@ mod tests {
         )
     }
 
-    fn mock_endpoint_two() -> WarpgrapherEndpoint {
+    fn mock_endpoint_two() -> Endpoint {
         // DisableUser(input: UserQueryInput): User
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "DisableUser".to_string(),
             EndpointClass::Mutation,
-            Some(WarpgrapherEndpointType::new(
+            Some(EndpointType::new(
                 WarpgrapherTypeDef::Existing("UserQueryInput".to_string()),
                 false,
                 true,
             )),
-            WarpgrapherEndpointType::new(
+            EndpointType::new(
                 WarpgrapherTypeDef::Existing("User".to_string()),
                 false,
                 true,
@@ -2374,12 +2374,12 @@ mod tests {
         )
     }
 
-    fn mock_endpoint_three() -> WarpgrapherEndpoint {
+    fn mock_endpoint_three() -> Endpoint {
         // ComputeBurndown(input: BurndownFilter): BurndownMetrics
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "ComputeBurndown".to_string(),
             EndpointClass::Query,
-            Some(WarpgrapherEndpointType::new(
+            Some(EndpointType::new(
                 WarpgrapherTypeDef::Custom(WarpgrapherType::new(
                     "BurndownFilter".to_string(),
                     vec![WarpgrapherProp::new(
@@ -2391,12 +2391,12 @@ mod tests {
                         None,
                     )],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 )),
                 false,
                 false,
             )),
-            WarpgrapherEndpointType::new(
+            EndpointType::new(
                 WarpgrapherTypeDef::Custom(WarpgrapherType::new(
                     "BurndownMetrics".to_string(),
                     vec![WarpgrapherProp::new(
@@ -2408,7 +2408,7 @@ mod tests {
                         None,
                     )],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 )),
                 false,
                 true,
@@ -4662,7 +4662,7 @@ mod tests {
                     None,
                 )],
                 vec![],
-                WarpgrapherEndpointsFilter::new(false, true, false, false),
+                EndpointsFilter::new(false, true, false, false),
             )],
             Vec::new(),
         );
