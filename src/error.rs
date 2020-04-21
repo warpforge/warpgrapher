@@ -40,11 +40,11 @@ pub enum ErrorKind {
     /// a GraphQL scalar
     ConfigTypeScalarNameError(String, String),
 
-    /// Returned when a `WarpgrapherConfig` struct attempts to be initialized
+    /// Returned when a `Config` struct attempts to be initialized
     /// from a config file that cannot be found on disk.  
     ConfigNotFound(std::io::Error),
 
-    /// Returned when a `WarpgrapherConfig` fails to deserialize because the
+    /// Returned when a `Config` fails to deserialize because the
     /// provided data does not match the expected config spec
     ConfigDeserializationError(serde_yaml::Error),
 

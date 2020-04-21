@@ -15,7 +15,7 @@ use std::sync::mpsc::Sender;
 
 use super::server::{AppGlobalCtx, AppReqCtx};
 use warpgrapher::engine::Engine;
-use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherValidators, WarpgrapherResolvers};
+use warpgrapher::engine::config::{Config, WarpgrapherValidators, WarpgrapherResolvers};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
 
 #[derive(Clone)]
@@ -46,7 +46,7 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
 
 #[allow(clippy::ptr_arg)]
 pub fn start(
-    config: &WarpgrapherConfig,
+    config: &Config,
     db_url: &str,
     global_ctx: &AppGlobalCtx,
     resolvers: &WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,

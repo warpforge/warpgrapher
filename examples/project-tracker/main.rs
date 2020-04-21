@@ -3,7 +3,7 @@ use validators::name_validator;
 use warpgrapher::Error;
 use warpgrapher::engine::Engine;
 use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherResolvers, WarpgrapherValidators};
+use warpgrapher::engine::config::{Config, WarpgrapherResolvers, WarpgrapherValidators};
 use warpgrapher::engine::context::WarpgrapherRequestContext;
 
 extern crate env_logger;
@@ -82,7 +82,7 @@ fn main() -> Result<(), Error> {
     */
 
     // config
-    let config = WarpgrapherConfig::from_file("./examples/project-tracker/config.yml".to_string())
+    let config = Config::from_file("./examples/project-tracker/config.yml".to_string())
         .expect("Failed to load config file");
 
     // define database endpoint

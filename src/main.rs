@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 use warpgrapher::engine::Engine;
 use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::config::WarpgrapherConfig;
+use warpgrapher::engine::config::Config;
 
 #[derive(Clone)]
 struct AppData {
@@ -66,7 +66,7 @@ fn main() {
 
     let cfn = matches.value_of("CONFIG").expect("Configuration required.");
 
-    let config = WarpgrapherConfig::from_file(cfn.to_string()).expect("Could not load config file");
+    let config = Config::from_file(cfn.to_string()).expect("Could not load config file");
 
     let db = match Neo4jEndpoint::from_env("DB_URL") {
         Ok(db) => db,

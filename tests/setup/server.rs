@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
 use warpgrapher::{Error, ErrorKind};
 use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
-use warpgrapher::engine::config::{WarpgrapherConfig, WarpgrapherValidators, WarpgrapherResolvers};
+use warpgrapher::engine::config::{Config, WarpgrapherValidators, WarpgrapherResolvers};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
 use warpgrapher::engine::context::{GraphQLContext, WarpgrapherRequestContext};
 use warpgrapher::engine::schema::Info;
@@ -119,7 +119,7 @@ where
 }
 
 pub struct Server {
-    config: WarpgrapherConfig,
+    config: Config,
     db_url: String,
     global_ctx: AppGlobalCtx,
     resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
@@ -131,7 +131,7 @@ pub struct Server {
 
 impl Server {
     fn new(
-        config: WarpgrapherConfig,
+        config: Config,
         db_url: String,
         global_ctx: AppGlobalCtx,
         resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
@@ -229,7 +229,7 @@ pub fn test_server(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config =
-        WarpgrapherConfig::from_file(config_path.to_string()).expect("Failed to load config file");
+        Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
     let global_ctx = AppGlobalCtx {

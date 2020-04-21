@@ -7,7 +7,7 @@ use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
 use warpgrapher::client::WarpgrapherClient;
-use warpgrapher::engine::config::WarpgrapherConfig;
+use warpgrapher::engine::config::Config;
 
 #[allow(dead_code)]
 pub fn init() {
@@ -43,7 +43,7 @@ pub fn gql_endpoint() -> String {
 }
 
 #[allow(dead_code)]
-pub fn load_config(config: &str) -> WarpgrapherConfig {
+pub fn load_config(config: &str) -> Config {
     let cf = File::open(config).expect("Could not open test model config file.");
     let cr = BufReader::new(cf);
     serde_yaml::from_reader(cr).expect("Could not deserialize configuration file.")

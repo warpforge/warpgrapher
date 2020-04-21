@@ -3,7 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherProp,
+    EndpointClass, GraphqlType, Config, WarpgrapherEndpoint, WarpgrapherProp,
     WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
 };
 use super::objects::Node;
@@ -1840,7 +1840,7 @@ fn generate_static_version_query() -> Property {
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Config) -> HashMap<String, NodeType> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
@@ -2095,7 +2095,7 @@ fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
 /// [`CouldNotResolveWarpgrapherType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveWarpgrapherType
 ///
 pub fn create_root_node<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
-    c: &WarpgrapherConfig,
+    c: &Config,
 ) -> Result<RootRef<GlobalCtx, ReqCtx>, Error> {
     // Runtime performance could be optimized by generating the entirety of the
     // schema in one loop iteration over the configuration. In fact, that's how
@@ -2161,7 +2161,7 @@ mod tests {
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
     use crate::engine::config::{
-        EndpointClass, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherEndpointType,
+        EndpointClass, Config, WarpgrapherEndpoint, WarpgrapherEndpointType,
         WarpgrapherEndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
         WarpgrapherTypeDef,
     };
@@ -2416,8 +2416,8 @@ mod tests {
         )
     }
 
-    fn mock_config() -> WarpgrapherConfig {
-        WarpgrapherConfig::new(
+    fn mock_config() -> Config {
+        Config::new(
             1,
             vec![
                 mock_project_type(),
@@ -4649,7 +4649,7 @@ mod tests {
     /// Passes if the right schema elements are generated
     #[test]
     fn test_wg_type_endpoints_filter() {
-        let config = WarpgrapherConfig::new(
+        let config = Config::new(
             1,
             vec![WarpgrapherType::new(
                 "User".to_string(),
@@ -4690,7 +4690,7 @@ mod tests {
     #[test]
     fn type_lookup_error() {
         init();
-        let config = WarpgrapherConfig::new(1, vec![mock_project_type()], vec![]);
+        let config = Config::new(1, vec![mock_project_type()], vec![]);
         let root_node = create_root_node::<(), ()>(&config);
         assert!(root_node.is_err());
     }

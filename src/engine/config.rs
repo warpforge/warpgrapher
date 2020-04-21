@@ -47,13 +47,13 @@ pub type WarpgrapherValidators = HashMap<String, Box<WarpgrapherValidatorFunc>>;
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::WarpgrapherConfig;
+/// use warpgrapher::engine::config::Config;
 ///
-/// let c = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+/// let c = Config::new(1, Vec::new(), Vec::new());
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherConfig {
+pub struct Config {
     /// Version of the Warpgrapher configuration file format used
     pub version: i32,
 
@@ -72,52 +72,52 @@ pub struct WarpgrapherConfig {
     pub endpoints: Vec<WarpgrapherEndpoint>,
 }
 
-impl WarpgrapherConfig {
-    /// Creates a new, empty [`WarpgrapherConfig`] data structure
+impl Config {
+    /// Creates a new, empty [`Config`] data structure
     ///
-    /// [`WarpgrapherConfig`]: struct.WarpgrapherConfig.html
+    /// [`Config`]: struct.Config.html
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::config::Config;
     ///
-    /// let c = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+    /// let c = Config::new(1, Vec::new(), Vec::new());
     /// ```
     pub fn new(
         version: i32,
         model: Vec<WarpgrapherType>,
         endpoints: Vec<WarpgrapherEndpoint>,
-    ) -> WarpgrapherConfig {
-        WarpgrapherConfig {
+    ) -> Config {
+        Config {
             version,
             model,
             endpoints,
         }
     }
 
-    /// Creates a new, [`WarpgrapherConfig`] data structure with default
+    /// Creates a new, [`Config`] data structure with default
     /// values
     ///
-    /// [`WarpgrapherConfig`]: struct.WarpgrapherConfig.html
+    /// [`Config`]: struct.Config.html
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::config::Config;
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// ```
-    pub fn default() -> WarpgrapherConfig {
-        WarpgrapherConfig {
+    pub fn default() -> Config {
+        Config {
             version: 1,
             model: vec![],
             endpoints: vec![],
         }
     }
 
-    /// Creates a new [`WarpgrapherConfig`] data structure from
+    /// Creates a new [`Config`] data structure from
     /// the contents of the specified config file. Returns error
     /// if the config file could not be opened or deserialized.
-    pub fn from_file(path: String) -> Result<WarpgrapherConfig, Error> {
+    pub fn from_file(path: String) -> Result<Config, Error> {
         File::open(path)
             .map_err(|e| Error::new(ErrorKind::ConfigNotFound(e), None))
             .and_then(|f| {
@@ -127,7 +127,7 @@ impl WarpgrapherConfig {
             })
     }
 
-    /// Validates the [`WarpgrapherConfig`] data structure.
+    /// Validates the [`Config`] data structure.
     /// Checks to verify no duplicate [`WarpgrapherEndpoint`] or [`WarpgrapherType`], and that the
     /// [`WarpgrapherEndpoint`] input/output types are defined in the model.
     /// Returns a Result<(), Error> where the error could be one of:
@@ -137,9 +137,9 @@ impl WarpgrapherConfig {
     ///
     /// #Example
     /// ```rust
-    ///     use warpgrapher::engine::config::{WarpgrapherConfig};
+    ///     use warpgrapher::engine::config::{Config};
     ///
-    ///     let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+    ///     let config = Config::new(1, Vec::new(), Vec::new());
     ///     config.validate();
     /// ```
 
@@ -687,23 +687,23 @@ pub enum WarpgrapherTypeDef {
     Custom(WarpgrapherType),
 }
 
-/// Creates a combined [`WarpgrapherConfig`] data structure from multiple [`WarpgrapherConfig`] structs
-/// [`WarpgrapherConfig`]: struct.WarpgrapherConfig.html
+/// Creates a combined [`Config`] data structure from multiple [`Config`] structs
+/// [`Config`]: struct.Config.html
 ///
-/// All [`WarpgrapherConfig`] must be the same version.
+/// All [`Config`] must be the same version.
 ///
-/// Will return a Result<WarpgrapherConfig, Error> with a single [`WarpgrapherConfig`] struct or a
-/// [`ConfigVersionMismatchError`] if the versions across all WarpgrapherConfig do not match.
+/// Will return a Result<Config, Error> with a single [`Config`] struct or a
+/// [`ConfigVersionMismatchError`] if the versions across all Config do not match.
 ///
 /// #Example
 /// ```rust
-///     use warpgrapher::engine::config::{WarpgrapherConfig, compose};
+///     use warpgrapher::engine::config::{Config, compose};
 ///
-///     let mut config_vec: Vec<WarpgrapherConfig> = Vec::new();
+///     let mut config_vec: Vec<Config> = Vec::new();
 ///     let config = compose(config_vec).unwrap();
 /// ```
 
-pub fn compose(configs: Vec<WarpgrapherConfig>) -> Result<WarpgrapherConfig, Error> {
+pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
     let mut version: Option<i32> = None;
     let mut model: Vec<WarpgrapherType> = Vec::new();
     let mut endpoints: Vec<WarpgrapherEndpoint> = Vec::new();
@@ -740,22 +740,22 @@ pub fn compose(configs: Vec<WarpgrapherConfig>) -> Result<WarpgrapherConfig, Err
         None => 0,
     };
 
-    Ok(WarpgrapherConfig::new(version, model, endpoints))
+    Ok(Config::new(version, model, endpoints))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        compose, ErrorKind, WarpgrapherConfig, WarpgrapherEndpointsFilter, WarpgrapherProp,
+        compose, ErrorKind, Config, WarpgrapherEndpointsFilter, WarpgrapherProp,
         WarpgrapherType,
     };
     use std::fs::File;
     use std::io::prelude::*;
 
-    /// Passes if a new WarpgrapherConfiguration is created
+    /// Passes if a new Configuration is created
     #[test]
     fn new_warpgrapher_config() {
-        let c = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+        let c = Config::new(1, Vec::new(), Vec::new());
 
         assert!(c.version == 1);
         assert!(c.model.is_empty());
@@ -824,7 +824,7 @@ mod tests {
     fn test_validate() {
         //Test valid config
         let valid_config =
-            match WarpgrapherConfig::from_file("tests/fixtures/test_config_ok.yml".to_string()) {
+            match Config::from_file("tests/fixtures/test_config_ok.yml".to_string()) {
                 Err(_) => panic!(),
                 Ok(wgc) => wgc,
             };
@@ -832,23 +832,23 @@ mod tests {
         assert!(valid_config.validate().is_ok());
 
         //Test composed config
-        let mut config_vec: Vec<WarpgrapherConfig> = Vec::new();
+        let mut config_vec: Vec<Config> = Vec::new();
 
-        let valid_config_0: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_0: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_0.yml".to_string(),
         ) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
 
-        let valid_config_1: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_1: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_1.yml".to_string(),
         ) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
 
-        let valid_config_2: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_2: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_2.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -859,7 +859,7 @@ mod tests {
         config_vec.push(valid_config_1);
         config_vec.push(valid_config_2);
 
-        let composed_config: WarpgrapherConfig = match compose(config_vec) {
+        let composed_config: Config = match compose(config_vec) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
@@ -867,7 +867,7 @@ mod tests {
         assert!(composed_config.validate().is_ok());
 
         //Test duplicate Type
-        let duplicate_type_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let duplicate_type_config: Config = match Config::from_file(
             "tests/fixtures/test_config_duplicate_type.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -883,7 +883,7 @@ mod tests {
         }
 
         //Test duplicate Endpoint type
-        let duplicate_endpoint_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let duplicate_endpoint_config: Config = match Config::from_file(
             "tests/fixtures/test_config_duplicate_endpoint.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -903,8 +903,8 @@ mod tests {
         // input to be an auto-generated type which cannot be introspected from the context of the
         // config alone
         //Test missing Endpoint type
-        let missing_endpoint_type_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file("tests/fixtures/test_config_missing_endpoint_type.yml".to_string()) {
+        let missing_endpoint_type_config: Config =
+            match Config::from_file("tests/fixtures/test_config_missing_endpoint_type.yml".to_string()) {
                 Err(_) => panic!(),
                 Ok(wgc) => wgc,
             };
@@ -917,7 +917,7 @@ mod tests {
     #[allow(clippy::match_wild_err_arm)]
     #[test]
     fn config_prop_name_id_test() {
-        let node_prop_name_id_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let node_prop_name_id_config: Config = match Config::from_file(
             "tests/fixtures/test_config_node_prop_name_id.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -932,7 +932,7 @@ mod tests {
             },
         }
 
-        let rel_prop_name_id_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let rel_prop_name_id_config: Config = match Config::from_file(
             "tests/fixtures/test_config_rel_prop_name_id.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -952,7 +952,7 @@ mod tests {
     #[test]
     fn config_scalar_name_int_test() {
         //Test Scalar Type Name: Int
-        let scalar_type_name_int_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let scalar_type_name_int_config: Config = match Config::from_file(
             "tests/fixtures/test_config_scalar_type_name_int.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -968,8 +968,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Int
-        let scalar_endpoint_input_type_name_int_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_input_type_name_int_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_input_type_name_int.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -985,8 +985,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Int
-        let scalar_endpoint_output_type_name_int_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_output_type_name_int_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_output_type_name_int.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1006,7 +1006,7 @@ mod tests {
     #[test]
     fn config_scalar_name_float_test() {
         //Test Scalar Type Name: Float
-        let scalar_type_name_float_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let scalar_type_name_float_config: Config = match Config::from_file(
             "tests/fixtures/test_config_scalar_type_name_float.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -1022,8 +1022,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Float
-        let scalar_endpoint_input_type_name_float_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_input_type_name_float_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_input_type_name_float.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1039,8 +1039,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Float
-        let scalar_endpoint_output_type_name_float_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_output_type_name_float_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_output_type_name_float.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1060,7 +1060,7 @@ mod tests {
     #[test]
     fn config_scalar_name_string_test() {
         //Test Scalar Type Name: String
-        let scalar_type_name_string_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let scalar_type_name_string_config: Config = match Config::from_file(
             "tests/fixtures/test_config_scalar_type_name_string.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -1076,8 +1076,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: String
-        let scalar_endpoint_input_type_name_string_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_input_type_name_string_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_input_type_name_string.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1093,8 +1093,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: String
-        let scalar_endpoint_output_type_name_string_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_output_type_name_string_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_output_type_name_string.yml"
                     .to_string(),
             ) {
@@ -1115,7 +1115,7 @@ mod tests {
     #[test]
     fn config_scalar_name_id_test() {
         //Test Scalar Type Name: ID
-        let scalar_type_name_id_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let scalar_type_name_id_config: Config = match Config::from_file(
             "tests/fixtures/test_config_scalar_type_name_id.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -1131,8 +1131,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: id
-        let scalar_endpoint_input_type_name_id_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_input_type_name_id_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_input_type_name_id.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1148,8 +1148,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: ID
-        let scalar_endpoint_output_type_name_id_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_output_type_name_id_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_output_type_name_id.yml".to_string(),
             ) {
                 Err(_) => panic!(),
@@ -1169,7 +1169,7 @@ mod tests {
     #[test]
     fn config_scalar_name_boolean_test() {
         //Test Scalar Type Name: Boolean
-        let scalar_type_name_boolean_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let scalar_type_name_boolean_config: Config = match Config::from_file(
             "tests/fixtures/test_config_scalar_type_name_boolean.yml".to_string(),
         ) {
             Err(_) => panic!(),
@@ -1185,8 +1185,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Boolean
-        let scalar_endpoint_input_type_name_boolean_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_input_type_name_boolean_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_input_type_name_boolean.yml"
                     .to_string(),
             ) {
@@ -1203,8 +1203,8 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Boolean
-        let scalar_endpoint_output_type_name_boolean_config: WarpgrapherConfig =
-            match WarpgrapherConfig::from_file(
+        let scalar_endpoint_output_type_name_boolean_config: Config =
+            match Config::from_file(
                 "tests/fixtures/test_config_scalar_endpoint_output_type_name_boolean.yml"
                     .to_string(),
             ) {
@@ -1225,39 +1225,39 @@ mod tests {
     #[test]
     fn test_compose() {
         assert!(
-            WarpgrapherConfig::from_file("tests/fixtures/test_config_err.yml".to_string()).is_err()
+            Config::from_file("tests/fixtures/test_config_err.yml".to_string()).is_err()
         );
 
         assert!(
-            WarpgrapherConfig::from_file("tests/fixtures/test_config_ok.yml".to_string()).is_ok()
+            Config::from_file("tests/fixtures/test_config_ok.yml".to_string()).is_ok()
         );
 
-        let mut config_vec: Vec<WarpgrapherConfig> = Vec::new();
+        let mut config_vec: Vec<Config> = Vec::new();
 
         assert!(compose(config_vec.clone()).is_ok());
 
-        let valid_config_0: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_0: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_0.yml".to_string(),
         ) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
 
-        let valid_config_1: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_1: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_1.yml".to_string(),
         ) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
 
-        let valid_config_2: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let valid_config_2: Config = match Config::from_file(
             "tests/fixtures/test_config_compose_2.yml".to_string(),
         ) {
             Err(_) => panic!(),
             Ok(wgc) => wgc,
         };
 
-        let mismatch_version_config: WarpgrapherConfig = match WarpgrapherConfig::from_file(
+        let mismatch_version_config: Config = match Config::from_file(
             "tests/fixtures/test_config_with_version_100.yml".to_string(),
         ) {
             Err(_) => panic!(),
