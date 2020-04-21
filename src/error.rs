@@ -104,6 +104,9 @@ pub enum ErrorKind {
     /// Returned when attempts to serialize/deserialize a struct to/from JSON fails
     JsonError(serde_json::error::Error),
 
+    /// Returned when attempts to convert a serde_json object to/from a String fails
+    JsonStringConversionFailed(serde_json::error::Error),
+
     /// Returned when a resolver's input is missing an expected argument. Given
     /// GraphQL's type system
     /// Note: This error should never be thrown. This is a critical error. If you see it,
@@ -147,6 +150,12 @@ pub enum ErrorKind {
     /// Note: This error should never be thrown. This is a critical error. If you see it,
     /// please report it to the warpgrapher team.
     GraphQLOutputError(String),
+
+    /// Returned when a registered Pre Request Hook extension function returns an error
+    PreRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
+
+    /// Returned when a registered Post Requst Hook extension function returns an error
+    PostRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
 
     /// Returned when a resolver attempt to infer relationships between queried data via
     /// a regex match fails

@@ -96,7 +96,10 @@ async fn scalar_lists_no_array_test() {
         .await
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
@@ -126,7 +129,10 @@ async fn scalar_no_lists_test() {
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
         )
+<<<<<<< HEAD
         .await
+=======
+>>>>>>> d6368eac789d34533ee136d09b7fa0081f733ee4
         .is_err());
 
     assert!(client
@@ -137,7 +143,10 @@ async fn scalar_no_lists_test() {
                 "bool_list": [true, false, true, false],
             }),
         )
+<<<<<<< HEAD
         .await
+=======
+>>>>>>> d6368eac789d34533ee136d09b7fa0081f733ee4
         .is_err());
 
     assert!(client
@@ -148,7 +157,10 @@ async fn scalar_no_lists_test() {
                 "int_list": [0, 1, 2, 3],
             }),
         )
+<<<<<<< HEAD
         .await
+=======
+>>>>>>> d6368eac789d34533ee136d09b7fa0081f733ee4
         .is_err());
 
     assert!(client
@@ -159,7 +171,10 @@ async fn scalar_no_lists_test() {
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
         )
+<<<<<<< HEAD
         .await
+=======
+>>>>>>> d6368eac789d34533ee136d09b7fa0081f733ee4
         .is_err());
 
     assert!(server.shutdown().is_ok());
@@ -195,7 +210,10 @@ async fn scalar_no_lists_no_array_test() {
         .await
         .unwrap();
 
-    assert_eq!(result.get("string_list").unwrap().as_str().unwrap(), "string0");
+    assert_eq!(
+        result.get("string_list").unwrap().as_str().unwrap(),
+        "string0"
+    );
 
     assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
 
