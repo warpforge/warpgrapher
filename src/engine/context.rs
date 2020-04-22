@@ -10,9 +10,9 @@ use r2d2_cypher::CypherConnectionManager;
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
 ///
 /// ['GraphQLContext']: ./struct/GraphQLContext.html
-pub struct GraphQLContext<GlobalCtx, ReqCtx: WarpgrapherRequestContext>
+pub struct GraphQLContext<GlobalCtx, ReqCtx: RequestContext>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     /// Connection pool for the Neo4J database
     pub pool: Pool<CypherConnectionManager>,
@@ -26,7 +26,7 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     /// Takes an r2d2 Pool of CypherConnectionManager structs and returns a
     /// ['GraphQLContext'] containing that connection pool.
@@ -53,9 +53,9 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx: WarpgrapherRequestContext> Context for GraphQLContext<GlobalCtx, ReqCtx> {}
+impl<GlobalCtx, ReqCtx: RequestContext> Context for GraphQLContext<GlobalCtx, ReqCtx> {}
 
-pub trait WarpgrapherRequestContext {
+pub trait RequestContext {
     fn new() -> Self;
 }
 

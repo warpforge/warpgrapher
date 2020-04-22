@@ -1,4 +1,4 @@
-use super::context::{GraphQLContext, WarpgrapherRequestContext};
+use super::context::{GraphQLContext, RequestContext};
 use super::objects::{Input, Node, Rel};
 use super::schema::Info;
 use super::visitors::{
@@ -15,7 +15,7 @@ use serde_json::Value;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
     args: &Arguments,
@@ -56,7 +56,7 @@ pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestCont
     func(info, args, executor)
 }
 
-pub fn resolve_custom_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_custom_field<GlobalCtx, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
     resolver: &Option<String>,
@@ -101,7 +101,7 @@ pub fn resolve_custom_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
     func(info, args, executor)
 }
 
-pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
@@ -152,7 +152,7 @@ pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
     )
 }
 
-pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     del_type: &str,
     info: &Info,
@@ -216,7 +216,7 @@ pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
     }
 }
 
-pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     info: &Info,
     input_opt: Option<Input<GlobalCtx, ReqCtx>>,
@@ -295,7 +295,7 @@ pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequ
     }
 }
 
-pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     info: &Info,
     input: Input<GlobalCtx, ReqCtx>,
@@ -345,7 +345,7 @@ pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgraphe
     )
 }
 
-pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     _id_opt: Option<&Value>,
     info: &Info,
@@ -373,7 +373,7 @@ pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequest
     }
 }
 
-pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
@@ -487,7 +487,7 @@ pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
     }
 }
 
-pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
@@ -547,7 +547,7 @@ pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
     }
 }
 
-pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     id_opt: Option<&Value>,
     rel_name: &str,
@@ -581,7 +581,7 @@ pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCon
     }
 }
 
-pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
     props: &Node<GlobalCtx, ReqCtx>,
@@ -602,7 +602,7 @@ pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestCon
     )
 }
 
-pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     src_ids_opt: Option<&[String]>,
     rel_name: &str,
@@ -778,7 +778,7 @@ pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherReque
     }
 }
 
-pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     field_name: &str,
     src_label: &str,
     rel_name: &str,
@@ -861,7 +861,7 @@ pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + Warpgrapher
     )
 }
 
-pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
     fields: &Map<String, Value>,
@@ -948,7 +948,7 @@ pub fn resolve_scalar_field<GlobalCtx, ReqCtx: Debug + WarpgrapherRequestContext
     )
 }
 
-pub fn resolve_static_version_query<GlobalCtx, ReqCtx: WarpgrapherRequestContext>(
+pub fn resolve_static_version_query<GlobalCtx, ReqCtx: RequestContext>(
     _info: &Info,
     _args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
@@ -959,7 +959,7 @@ pub fn resolve_static_version_query<GlobalCtx, ReqCtx: WarpgrapherRequestContext
     }
 }
 
-pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + WarpgrapherRequestContext>(
+pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
     src: &Node<GlobalCtx, ReqCtx>,

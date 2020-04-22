@@ -6,7 +6,7 @@ use self::warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
 pub fn resolver(
     _info: &Info,
     _args: &Arguments,
-    _executor: &Executor<GraphQLContext<crate::GlobalContext, crate::ReqContext>>,
+    _executor: &Executor<GraphQLContext<crate::AppGlobalContext, crate::AppRequestContext>>,
 ) -> ExecutionResult {
     Ok(Value::scalar(1_000_000 as i32))
 }

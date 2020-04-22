@@ -9,7 +9,7 @@ use warpgrapher::{Error, ErrorKind};
 use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
 use warpgrapher::engine::config::{Config, WarpgrapherValidators, WarpgrapherResolvers};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
-use warpgrapher::engine::context::{GraphQLContext, WarpgrapherRequestContext};
+use warpgrapher::engine::context::{GraphQLContext, RequestContext};
 use warpgrapher::engine::schema::Info;
 
 #[derive(Clone, Debug)]
@@ -22,7 +22,7 @@ pub struct AppReqCtx {
     metadata: Metadata,
 }
 
-impl WarpgrapherRequestContext for AppReqCtx {
+impl RequestContext for AppReqCtx {
     fn new() -> AppReqCtx {
         AppReqCtx {
             metadata: Metadata {
@@ -95,7 +95,7 @@ pub fn project_count<AppGlobalCtx, AppReqCtx>(
     executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
 ) -> ExecutionResult
 where
-    AppReqCtx: WarpgrapherRequestContext,
+    AppReqCtx: RequestContext,
 {
     // get projects from database
     let graph = executor.context().pool.get().unwrap();
@@ -113,7 +113,7 @@ pub fn project_points<AppGlobalCtx, AppReqCtx>(
     _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
 ) -> ExecutionResult
 where
-    AppReqCtx: WarpgrapherRequestContext,
+    AppReqCtx: RequestContext,
 {
     Ok(Value::scalar(1_000_000 as i32))
 }

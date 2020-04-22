@@ -6,7 +6,7 @@ use actix_web::web::Json;
 
 use super::error::{Error, ErrorKind};
 use config::{Config, Prop, WarpgrapherResolvers, WarpgrapherValidators};
-use context::{GraphQLContext, WarpgrapherRequestContext};
+use context::{GraphQLContext, RequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
@@ -28,7 +28,7 @@ pub mod resolvers;
 pub mod schema;
 pub mod visitors;
 
-impl WarpgrapherRequestContext for () {
+impl RequestContext for () {
     fn new() {}
 }
 
@@ -36,7 +36,7 @@ impl WarpgrapherRequestContext for () {
 pub struct EngineBuilder<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     pub config: Config,
     pub database: String,
@@ -50,7 +50,7 @@ where
 impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     /// Adds a global context to the engine
     ///
@@ -194,12 +194,12 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] of kind [`CouldNotResolveWarpgrapherType`] if
+    /// Returns an [`Error`] of kind [`CouldNotResolveType`] if
     /// there is an error in the configuration, specifically if the
     /// configuration of type A references type B, but type B cannot be found.
     ///
     /// [`Error`]: ../error/struct.Error.html
-    /// [`CouldNotResolveWarpgrapherType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveWarpgrapherType
+    /// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
     ///
     /// # Examples
     ///
@@ -376,7 +376,7 @@ where
 pub struct Engine<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     pub config: Config,
     pub database: String,
@@ -392,7 +392,7 @@ where
 impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     /// Creates a new [`Engine`], with required parameters config and database
     /// and allows optional parameters to be added using a builder pattern.

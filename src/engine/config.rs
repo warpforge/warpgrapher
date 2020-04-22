@@ -40,9 +40,9 @@ pub type WarpgrapherValidators = HashMap<String, Box<WarpgrapherValidatorFunc>>;
 
 /// Configuration item for a Warpgrapher data model. The configuration contains
 /// the version of the Warpgrapher configuration file format, and a vector of
-/// [`WarpgrapherType`] structures.
+/// [`Type`] structures.
 ///
-/// [`WarpgrapherType`]: struct.WarpgrapherType.html
+/// [`Type`]: struct.Type.html
 ///
 /// # Examples
 ///
@@ -57,12 +57,12 @@ pub struct Config {
     /// Version of the Warpgrapher configuration file format used
     pub version: i32,
 
-    /// A vector of [`WarpgrapherType`] structures, each defining one type in
+    /// A vector of [`Type`] structures, each defining one type in
     /// the data model
     ///
-    /// [`WarpgrapherType`]: struct.WarpgrapherType.html
+    /// [`Type`]: struct.Type.html
     #[serde(default)]
-    pub model: Vec<WarpgrapherType>,
+    pub model: Vec<Type>,
 
     /// A vector of [`Endpoint`] structures, each defining an
     /// a custom root endpoint in the graphql schema
@@ -85,7 +85,7 @@ impl Config {
     /// ```
     pub fn new(
         version: i32,
-        model: Vec<WarpgrapherType>,
+        model: Vec<Type>,
         endpoints: Vec<Endpoint>,
     ) -> Config {
         Config {
@@ -128,7 +128,7 @@ impl Config {
     }
 
     /// Validates the [`Config`] data structure.
-    /// Checks to verify no duplicate [`Endpoint`] or [`WarpgrapherType`], and that the
+    /// Checks to verify no duplicate [`Endpoint`] or [`Type`], and that the
     /// [`Endpoint`] input/output types are defined in the model.
     /// Returns a Result<(), Error> where the error could be one of:
     /// - [`ConfigTypeDuplicateError`] if any Type is defined twice in the configuration.
@@ -209,7 +209,7 @@ impl Config {
 
             // Check for endpoint custom input using reserved names (GraphQL scalars)
             if let Some(input) = &ep.input {
-                if let WarpgrapherTypeDef::Custom(t) = &input.type_def {
+                if let TypeDef::Custom(t) = &input.type_def {
                     if scalar_names.iter().any(|s| s == &t.name) {
                         return Err(Error::new(
                                 ErrorKind::ConfigEndpointInputTypeScalarNameError(
@@ -226,7 +226,7 @@ impl Config {
             }
 
             // Check for endpoint custom input using reserved names (GraphQL scalars)
-            if let WarpgrapherTypeDef::Custom(t) = &ep.output.type_def {
+            if let TypeDef::Custom(t) = &ep.output.type_def {
                 if scalar_names.iter().any(|s| s == &t.name) {
                     return Err(Error::new(
                         ErrorKind::ConfigEndpointOutputTypeScalarNameError(
@@ -246,9 +246,9 @@ impl Config {
             // input to be an auto-generated type which cannot be introspected from the context of the
             // config alone
             match &ep.input.type_def {
-                WarpgrapherTypeDef::Null => { }
-                WarpgrapherTypeDef::Scalar(_) => { }
-                WarpgrapherTypeDef::Existing(t) => {
+                TypeDef::Null => { }
+                TypeDef::Scalar(_) => { }
+                TypeDef::Existing(t) => {
                     if !self.model.iter().any(|m| &m.name == t) {
                         return Err(Error::new(
                             ErrorKind::ConfigEndpointMissingTypeError(
@@ -262,8 +262,8 @@ impl Config {
                         ));
                     }
                 }
-                WarpgrapherTypeDef::Custom(_) => { }
-                WarpgrapherTypeDef::Custom(t) => {
+                TypeDef::Custom(_) => { }
+                TypeDef::Custom(t) => {
                     if !self.model.iter().any(|m| m.name == t.name) {
                         return Err(Error::new(
                             ErrorKind::ConfigEndpointMissingTypeError(
@@ -283,8 +283,8 @@ impl Config {
             // input to be an auto-generated type which cannot be introspected from the context of the
             // config alone
             match &ep.output.type_def {
-                WarpgrapherTypeDef::Scalar(_) => {}
-                WarpgrapherTypeDef::Existing(t) => {
+                TypeDef::Scalar(_) => {}
+                TypeDef::Existing(t) => {
                     if !self.model.iter().any(|m| &m.name == t) {
                         return Err(Error::new(
                             ErrorKind::ConfigEndpointMissingTypeError(
@@ -298,7 +298,7 @@ impl Config {
                         ));
                     }
                 }
-                WarpgrapherTypeDef::Custom(t) => {
+                TypeDef::Custom(t) => {
                     if !self.model.iter().any(|m| m.name == t.name) {
                         return Err(Error::new(
                             ErrorKind::ConfigEndpointMissingTypeError(
@@ -527,9 +527,9 @@ impl Default for EndpointsFilter {
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::engine::config::{WarpgrapherType, Prop, EndpointsFilter};
+/// use warpgrapher::engine::config::{Type, Prop, EndpointsFilter};
 ///
-/// let wt = WarpgrapherType::new(
+/// let wt = Type::new(
 ///     "User".to_string(),
 ///     vec!(Prop::new("name".to_string(), "String".to_string(), true, false, None, None),
 ///          Prop::new("role".to_string(), "String".to_string(), true, false, None, None)),
@@ -539,7 +539,7 @@ impl Default for EndpointsFilter {
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WarpgrapherType {
+pub struct Type {
     /// Name of this GraphQL type, also used as the Neo4J label for nodes
     pub name: String,
 
@@ -556,20 +556,20 @@ pub struct WarpgrapherType {
     pub endpoints: EndpointsFilter,
 }
 
-impl WarpgrapherType {
-    /// Creates a new WarpgrapherType struct. Takes a String name for the type
+impl Type {
+    /// Creates a new Type struct. Takes a String name for the type
     /// and a vector of [`Prop`] structs and returns a
-    /// [`WarpgrapherType`].
+    /// [`Type`].
     ///
     /// [`Prop`]: struct.Prop.html
-    /// [`WarpgrapherType`]: struct.WarpgrapherType.html
+    /// [`Type`]: struct.Type.html
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::engine::config::{WarpgrapherType, Prop, EndpointsFilter};
+    /// use warpgrapher::engine::config::{Type, Prop, EndpointsFilter};
     ///
-    /// let wt = WarpgrapherType::new(
+    /// let wt = Type::new(
     ///     "User".to_string(),
     ///     vec!(Prop::new("name".to_string(), "String".to_string(), true, false, None, None),
     ///          Prop::new("role".to_string(), "String".to_string(), true, false, None, None)),
@@ -582,8 +582,8 @@ impl WarpgrapherType {
         props: Vec<Prop>,
         rels: Vec<Relationship>,
         endpoints: EndpointsFilter,
-    ) -> WarpgrapherType {
-        WarpgrapherType {
+    ) -> Type {
+        Type {
             name,
             props,
             rels,
@@ -591,9 +591,9 @@ impl WarpgrapherType {
         }
     }
 
-    /// Creates a new [`WarpgrapherType`] data structure from
+    /// Creates a new [`Type`] data structure from
     /// a yaml-formatted string
-    pub fn from_yaml(yaml: &str) -> Result<WarpgrapherType, Error> {
+    pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
         serde_yaml::from_str(yaml)
             .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
     }
@@ -645,7 +645,7 @@ pub enum EndpointClass {
 pub struct EndpointType {
     /// Defines option for an endpoint type to use an existing or custom type
     #[serde(rename = "type")]
-    pub type_def: WarpgrapherTypeDef,
+    pub type_def: TypeDef,
 
     /// Determines if the endpoint type is a list
     #[serde(default = "get_false")]
@@ -658,7 +658,7 @@ pub struct EndpointType {
 
 impl EndpointType {
     pub fn new(
-        type_def: WarpgrapherTypeDef,
+        type_def: TypeDef,
         list: bool,
         required: bool,
     ) -> EndpointType {
@@ -681,10 +681,10 @@ pub enum GraphqlType {
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(untagged)]
-pub enum WarpgrapherTypeDef {
+pub enum TypeDef {
     Scalar(GraphqlType),
     Existing(String),
-    Custom(WarpgrapherType),
+    Custom(Type),
 }
 
 /// Creates a combined [`Config`] data structure from multiple [`Config`] structs
@@ -705,7 +705,7 @@ pub enum WarpgrapherTypeDef {
 
 pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
     let mut version: Option<i32> = None;
-    let mut model: Vec<WarpgrapherType> = Vec::new();
+    let mut model: Vec<Type> = Vec::new();
     let mut endpoints: Vec<Endpoint> = Vec::new();
 
     for c in configs {
@@ -747,7 +747,7 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
 mod tests {
     use super::{
         compose, ErrorKind, Config, EndpointsFilter, Prop,
-        WarpgrapherType,
+        Type,
     };
     use std::fs::File;
     use std::io::prelude::*;
@@ -777,10 +777,10 @@ mod tests {
         assert!(p.type_name == "String");
     }
 
-    /// Passes if a WarpgrapherType is created
+    /// Passes if a Type is created
     #[test]
     fn new_node_type() {
-        let t = WarpgrapherType::new(
+        let t = Type::new(
             "User".to_string(),
             vec![
                 Prop::new(
@@ -815,7 +815,7 @@ mod tests {
         let mut file = File::open("tests/fixtures/types/Project.yml").unwrap();
         let mut contents = String::new();
         file.read_to_string(&mut contents).unwrap();
-        let project = WarpgrapherType::from_yaml(&contents).unwrap();
+        let project = Type::from_yaml(&contents).unwrap();
         assert_eq!(project.name, "Project");
     }
 

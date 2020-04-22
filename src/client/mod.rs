@@ -114,7 +114,7 @@ impl WarpgrapherClient {
         }
     }
 
-    /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
+    /// Takes the name of a Type and executes a NodeCreate operation. Requires
     /// a query shape and the input of the node being created.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
@@ -160,7 +160,7 @@ impl WarpgrapherClient {
         self.strip(&result, &format!("{}Create", type_name))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelCreate operation. Requires also a query shape,
     /// an input to match the source node(s) for which the rel(s) will be created,
     /// and an input of the relationship being created.
@@ -217,13 +217,13 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes a Delete operation.
+    /// Takes the name of a Type and executes a Delete operation.
     /// Takes two optional inputs.  The first selects the node(s) for deletion.  
     /// The second contains options for forcing the delete, meaning deleting
     /// node along with any relationships to and from it -- without the force flag,
     /// deleting a node with relationships will fail.  Also contains options for
     /// deleting additional nodes and rels connected to the target node. Returns
-    /// the number of nodes of the WarpgrapherType deleted.
+    /// the number of nodes of the Type deleted.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
@@ -269,7 +269,7 @@ impl WarpgrapherClient {
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelDelete operation. Takes three optional inputs.  The
     /// first selects the relationship(s) for deletion. The second and third,
     /// if present, request the deletion of the src and dst nodes associated with the
@@ -341,7 +341,7 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes a Read operation. Requires
+    /// Takes the name of a Type and executes a Read operation. Requires
     /// a query shape and takes an optional input which filters the results.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
@@ -382,7 +382,7 @@ impl WarpgrapherClient {
         self.strip(&result, type_name)
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a read operation. Also takes an option input with match
     /// criteria for selecting the relationship to read.
     ///
@@ -432,7 +432,7 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes an Update operation.
+    /// Takes the name of a Type and executes an Update operation.
     /// Requires a query shape, an optional match component of the input, and a
     /// mandatory update component of the input.
     ///
@@ -482,7 +482,7 @@ impl WarpgrapherClient {
         self.strip(&result, &format!("{}Update", type_name))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelUpdate operation.  Requires a shape of result to
     /// be returned.  Takes an optional input that selects the relationship for
     /// update, and a mandatory input describing the update to be performed.  

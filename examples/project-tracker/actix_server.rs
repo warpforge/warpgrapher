@@ -11,16 +11,16 @@ use actix_web::{web, App, HttpResponse, HttpServer};
 use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
-use super::{GlobalContext, ReqContext};
+use super::{AppGlobalContext, AppRequestContext};
 use warpgrapher::engine::Engine;
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine<GlobalContext, ReqContext>,
+    engine: Engine<AppGlobalContext, AppRequestContext>,
 }
 
 impl AppData {
-    fn new(engine: Engine<GlobalContext, ReqContext>) -> AppData {
+    fn new(engine: Engine<AppGlobalContext, AppRequestContext>) -> AppData {
         AppData { engine }
     }
 }
@@ -41,7 +41,7 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
 }
 
 #[allow(clippy::ptr_arg)]
-pub fn start(engine: Engine<GlobalContext, ReqContext>) {
+pub fn start(engine: Engine<AppGlobalContext, AppRequestContext>) {
     let graphql_endpoint = "/graphql";
     let bind_addr = "127.0.0.1".to_string();
     let bind_port = "5000".to_string();
