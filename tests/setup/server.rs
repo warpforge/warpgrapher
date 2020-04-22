@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
 use warpgrapher::{Error, ErrorKind};
 use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
-use warpgrapher::engine::config::{Config, WarpgrapherValidators, WarpgrapherResolvers};
+use warpgrapher::engine::config::{Config, Validators, Resolvers};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
 use warpgrapher::engine::context::{GraphQLContext, RequestContext};
 use warpgrapher::engine::schema::Info;
@@ -122,8 +122,8 @@ pub struct Server {
     config: Config,
     db_url: String,
     global_ctx: AppGlobalCtx,
-    resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-    validators: WarpgrapherValidators,
+    resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+    validators: Validators,
     extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     server: Option<dev::Server>,
     handle: Option<JoinHandle<()>>,
@@ -134,8 +134,8 @@ impl Server {
         config: Config,
         db_url: String,
         global_ctx: AppGlobalCtx,
-        resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-        validators: WarpgrapherValidators,
+        resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+        validators: Validators,
         extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     ) -> Server {
         Server {
@@ -237,7 +237,7 @@ pub fn test_server(config_path: &str) -> Server {
     };
 
     // load resolvers
-    let mut resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx> = WarpgrapherResolvers::new();
+    let mut resolvers: Resolvers<AppGlobalCtx, AppReqCtx> = Resolvers::new();
     resolvers.insert(
         "ProjectCount".to_owned(),
         Box::new(project_count::<AppGlobalCtx, AppReqCtx>),
@@ -248,7 +248,7 @@ pub fn test_server(config_path: &str) -> Server {
         Box::new(project_points::<AppGlobalCtx, AppReqCtx>),
     );
 
-    let mut validators: WarpgrapherValidators = WarpgrapherValidators::new();
+    let mut validators: Validators = Validators::new();
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions

@@ -15,16 +15,16 @@ pub enum ErrorKind {
     /// assigned to any of the system's interfaces.
     AddrNotAvailable(std::io::Error),
 
-    /// Returned when `WarpgrapherClient` receives an HTTP response which
+    /// Returned when `Client` receives an HTTP response which
     /// contains a body that is not valid JSON. All GraphQL responses
     /// including errors are expected to be in the form of valid JSON.
     ClientReceivedInvalidJson,
 
-    /// Returned when `WarpgrapherClient` is unable to submit a request to
+    /// Returned when `Client` is unable to submit a request to
     /// the server (network error or server error).
     ClientRequestFailed,
 
-    /// Returned when `WarpgrapherClient` receives a valid JSON response
+    /// Returned when `Client` receives a valid JSON response
     /// that does not contain the expected 'data' or 'errors' objects.
     ClientRequestUnexpectedPayload(serde_json::Value),
 

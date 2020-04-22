@@ -6,7 +6,7 @@ use rusted_cypher::GraphClient;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
-use warpgrapher::client::WarpgrapherClient;
+use warpgrapher::client::Client;
 use warpgrapher::engine::config::Config;
 
 #[allow(dead_code)]
@@ -50,8 +50,8 @@ pub fn load_config(config: &str) -> Config {
 }
 
 #[allow(dead_code)]
-pub fn test_client() -> WarpgrapherClient {
-    WarpgrapherClient::new(&gql_endpoint())
+pub fn test_client() -> Client {
+    Client::new(&gql_endpoint())
 }
 
 #[allow(dead_code)]

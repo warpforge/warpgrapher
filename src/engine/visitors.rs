@@ -1,4 +1,4 @@
-use super::config::WarpgrapherValidators;
+use super::config::Validators;
 use super::schema::{Info, PropertyKind};
 use crate::error::{Error, ErrorKind};
 use juniper::FieldError;
@@ -50,7 +50,7 @@ pub fn visit_node_create_mutation_input(
     label: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -305,7 +305,7 @@ fn visit_node_input(
     label: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<Vec<String>, FieldError> {
     trace!(
@@ -475,7 +475,7 @@ pub fn visit_node_update_input(
     label: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     mut transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -542,7 +542,7 @@ pub fn visit_node_update_mutation_input(
     ids: &[String],
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -649,7 +649,7 @@ pub fn visit_rel_change_input(
     rel_name: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -722,7 +722,7 @@ pub fn visit_rel_create_input(
     rel_name: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     mut transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -825,7 +825,7 @@ pub fn visit_rel_create_mutation_input(
     rel_name: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -1077,7 +1077,7 @@ pub fn visit_rel_dst_update_mutation_input(
     ids: &[String],
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -1112,7 +1112,7 @@ pub fn visit_rel_dst_update_mutation_input(
 fn visit_rel_nodes_mutation_input_union(
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<(String, Vec<String>), FieldError> {
     trace!(
@@ -1390,7 +1390,7 @@ pub fn visit_rel_src_update_mutation_input(
     ids: &[String],
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -1471,7 +1471,7 @@ pub fn visit_rel_update_input(
     rel_name: &str,
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -1551,7 +1551,7 @@ fn visit_rel_update_mutation_input(
     dst_ids: &[String],
     info: &Info,
     input: &Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut Transaction<Started>,
 ) -> Result<CypherResult, FieldError> {
     trace!(
@@ -1631,7 +1631,7 @@ fn visit_rel_update_mutation_input(
 }
 
 fn validate_input(
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     v: &str,
     input: &Value,
 ) -> Result<(), FieldError> {

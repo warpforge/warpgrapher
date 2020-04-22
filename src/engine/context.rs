@@ -1,6 +1,6 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::engine::config::{WarpgrapherResolvers, WarpgrapherValidators};
+use crate::engine::config::{Resolvers, Validators};
 use crate::engine::extensions::WarpgrapherExtensions;
 use juniper::Context;
 use r2d2::Pool;
@@ -16,8 +16,8 @@ where
 {
     /// Connection pool for the Neo4J database
     pub pool: Pool<CypherConnectionManager>,
-    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-    pub validators: WarpgrapherValidators,
+    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    pub validators: Validators,
     pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
     pub global_ctx: Option<GlobalCtx>,
     pub req_ctx: Option<ReqCtx>,
@@ -34,8 +34,8 @@ where
     /// ['GraphQLContext']: ./struct/GraphQLContext.html
     pub fn new(
         pool: Pool<CypherConnectionManager>,
-        resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-        validators: WarpgrapherValidators,
+        resolvers: Resolvers<GlobalCtx, ReqCtx>,
+        validators: Validators,
         extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
         global_ctx: Option<GlobalCtx>,
         req_ctx: Option<ReqCtx>,
@@ -63,7 +63,7 @@ pub trait RequestContext {
 mod tests {
 
     use super::GraphQLContext;
-    use crate::engine::config::{WarpgrapherResolvers, WarpgrapherValidators};
+    use crate::engine::config::{Resolvers, Validators};
     use r2d2_cypher::CypherConnectionManager;
     use std::env::var_os;
 
@@ -86,8 +86,8 @@ mod tests {
 
         let manager = CypherConnectionManager { url: db_url };
         let pool = r2d2::Pool::builder().max_size(5).build(manager).unwrap();
-        let resolvers: WarpgrapherResolvers<(), ()> = WarpgrapherResolvers::new();
-        let validators: WarpgrapherValidators = WarpgrapherValidators::new();
+        let resolvers: Resolvers<(), ()> = Resolvers::new();
+        let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
             pool,
             resolvers.clone(),

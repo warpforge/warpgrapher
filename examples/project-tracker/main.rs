@@ -3,7 +3,7 @@ use validators::name_validator;
 use warpgrapher::Error;
 use warpgrapher::engine::Engine;
 use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::config::{Config, WarpgrapherResolvers, WarpgrapherValidators};
+use warpgrapher::engine::config::{Config, Resolvers, Validators};
 use warpgrapher::engine::context::RequestContext;
 
 extern crate env_logger;
@@ -55,7 +55,7 @@ fn main() -> Result<(), Error> {
     };
 
     // resolvers
-    let mut resolvers = WarpgrapherResolvers::<AppGlobalContext, AppRequestContext>::new();
+    let mut resolvers = Resolvers::<AppGlobalContext, AppRequestContext>::new();
     resolvers.insert(
         "ProjectCount".to_string(),
         Box::new(project_count::resolver),
@@ -65,7 +65,7 @@ fn main() -> Result<(), Error> {
         Box::new(project_points::resolver),
     );
 
-    let mut validators = WarpgrapherValidators::new();
+    let mut validators = Validators::new();
 
     validators.insert(
         "NameValidator".to_string(),

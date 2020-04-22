@@ -25,15 +25,15 @@ fn get_none() -> Option<String> {
     None
 }
 
-pub type WarpgrapherResolverFunc<GlobalCtx, ReqCtx> =
+pub type ResolverFunc<GlobalCtx, ReqCtx> =
     fn(&Info, &Arguments, &Executor<GraphQLContext<GlobalCtx, ReqCtx>>) -> ExecutionResult;
 
-pub type WarpgrapherResolvers<GlobalCtx, ReqCtx> =
-    HashMap<String, Box<WarpgrapherResolverFunc<GlobalCtx, ReqCtx>>>;
+pub type Resolvers<GlobalCtx, ReqCtx> =
+    HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
 
-pub type WarpgrapherValidatorFunc = fn(&Value) -> Result<(), Error>;
+pub type ValidatorFunc = fn(&Value) -> Result<(), Error>;
 
-pub type WarpgrapherValidators = HashMap<String, Box<WarpgrapherValidatorFunc>>;
+pub type Validators = HashMap<String, Box<ValidatorFunc>>;
 
 //pub enum PropType {
 //}

@@ -15,7 +15,7 @@ use std::sync::mpsc::Sender;
 
 use super::server::{AppGlobalCtx, AppReqCtx};
 use warpgrapher::engine::Engine;
-use warpgrapher::engine::config::{Config, WarpgrapherValidators, WarpgrapherResolvers};
+use warpgrapher::engine::config::{Config, Validators, Resolvers};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
 
 #[derive(Clone)]
@@ -49,8 +49,8 @@ pub fn start(
     config: &Config,
     db_url: &str,
     global_ctx: &AppGlobalCtx,
-    resolvers: &WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-    validators: &WarpgrapherValidators,
+    resolvers: &Resolvers<AppGlobalCtx, AppReqCtx>,
+    validators: &Validators,
     extensions: &WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     tx: Sender<Result<dev::Server, warpgrapher::Error>>,
 ) {
