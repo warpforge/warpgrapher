@@ -1,12 +1,11 @@
-use resolvers::{project_contributors};
-//use resolvers::{project_count, project_points, project_contributors};
+use resolvers::{project_contributors, project_count, project_points};
 use validators::name_validator;
-use warpgrapher::Error;
-use warpgrapher::engine::Engine;
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::config::{Config, Validators};
-use warpgrapher::engine::resolvers::{Resolvers};
 use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::resolvers::Resolvers;
+use warpgrapher::engine::Engine;
+use warpgrapher::Error;
 
 extern crate env_logger;
 extern crate frank_jwt;
@@ -58,7 +57,6 @@ fn main() -> Result<(), Error> {
 
     // resolvers
     let mut resolvers = Resolvers::<AppGlobalContext, AppRequestContext>::new();
-    /*
     resolvers.insert(
         "ProjectCount".to_string(),
         Box::new(project_count::resolver),
@@ -67,7 +65,6 @@ fn main() -> Result<(), Error> {
         "ProjectPoints".to_string(),
         Box::new(project_points::resolver),
     );
-    */
     resolvers.insert(
         "ProjectContributors".to_string(),
         Box::new(project_contributors::resolver),

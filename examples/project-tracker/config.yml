@@ -19,7 +19,7 @@ model:
         list: true
       - name: points
         type: Int
-        #resolver: ProjectPoints
+        resolver: ProjectPoints
     rels:
       - name: owner
         nodes: [User]

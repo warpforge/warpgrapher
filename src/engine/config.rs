@@ -78,11 +78,7 @@ impl Config {
     ///
     /// let c = Config::new(1, Vec::new(), Vec::new());
     /// ```
-    pub fn new(
-        version: i32,
-        model: Vec<Type>,
-        endpoints: Vec<Endpoint>,
-    ) -> Config {
+    pub fn new(version: i32, model: Vec<Type>, endpoints: Vec<Endpoint>) -> Config {
         Config {
             version,
             model,
@@ -426,7 +422,7 @@ pub struct Relationship {
     /// auto generated for the relationship
     #[serde(default)]
     pub endpoints: EndpointsFilter,
-    
+
     /// The name of the resolver function to be called when querying for the value of this prop.
     /// If this field is None, the prop resolves the scalar value from the database.
     #[serde(default = "get_none")]
@@ -441,7 +437,7 @@ impl Relationship {
         nodes: Vec<String>,
         props: Vec<Prop>,
         endpoints: EndpointsFilter,
-        resolver: Option<String>
+        resolver: Option<String>,
     ) -> Relationship {
         Relationship {
             name,
@@ -449,7 +445,7 @@ impl Relationship {
             nodes,
             props,
             endpoints,
-            resolver
+            resolver,
         }
     }
 }
@@ -660,11 +656,7 @@ pub struct EndpointType {
 }
 
 impl EndpointType {
-    pub fn new(
-        type_def: TypeDef,
-        list: bool,
-        required: bool,
-    ) -> EndpointType {
+    pub fn new(type_def: TypeDef, list: bool, required: bool) -> EndpointType {
         EndpointType {
             type_def,
             list,
@@ -748,10 +740,7 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        compose, ErrorKind, Config, EndpointsFilter, Prop,
-        Type,
-    };
+    use super::{compose, Config, EndpointsFilter, ErrorKind, Prop, Type};
     use std::fs::File;
     use std::io::prelude::*;
 
@@ -826,37 +815,34 @@ mod tests {
     #[test]
     fn test_validate() {
         //Test valid config
-        let valid_config =
-            match Config::from_file("tests/fixtures/test_config_ok.yml".to_string()) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let valid_config = match Config::from_file("tests/fixtures/test_config_ok.yml".to_string())
+        {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         assert!(valid_config.validate().is_ok());
 
         //Test composed config
         let mut config_vec: Vec<Config> = Vec::new();
 
-        let valid_config_0: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_0.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_0: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_0.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
-        let valid_config_1: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_1.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_1: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_1.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
-        let valid_config_2: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_2.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_2: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_2.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
         config_vec.push(valid_config_0);
         config_vec.push(valid_config_1);
@@ -870,12 +856,11 @@ mod tests {
         assert!(composed_config.validate().is_ok());
 
         //Test duplicate Type
-        let duplicate_type_config: Config = match Config::from_file(
-            "tests/fixtures/test_config_duplicate_type.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let duplicate_type_config: Config =
+            match Config::from_file("tests/fixtures/test_config_duplicate_type.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
         match duplicate_type_config.validate() {
             Ok(_) => panic!(),
@@ -920,12 +905,12 @@ mod tests {
     #[allow(clippy::match_wild_err_arm)]
     #[test]
     fn config_prop_name_id_test() {
-        let node_prop_name_id_config: Config = match Config::from_file(
-            "tests/fixtures/test_config_node_prop_name_id.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let node_prop_name_id_config: Config =
+            match Config::from_file("tests/fixtures/test_config_node_prop_name_id.yml".to_string())
+            {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
         match node_prop_name_id_config.validate() {
             Ok(_) => panic!(),
@@ -971,13 +956,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Int
-        let scalar_endpoint_input_type_name_int_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_input_type_name_int.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_int_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_input_type_name_int.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_int_config.validate() {
             Ok(_) => panic!(),
@@ -988,13 +972,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Int
-        let scalar_endpoint_output_type_name_int_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_output_type_name_int.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_int_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_output_type_name_int.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_int_config.validate() {
             Ok(_) => panic!(),
@@ -1025,13 +1008,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Float
-        let scalar_endpoint_input_type_name_float_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_input_type_name_float.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_float_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_input_type_name_float.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_float_config.validate() {
             Ok(_) => panic!(),
@@ -1042,13 +1024,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Float
-        let scalar_endpoint_output_type_name_float_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_output_type_name_float.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_float_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_output_type_name_float.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_float_config.validate() {
             Ok(_) => panic!(),
@@ -1079,13 +1060,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: String
-        let scalar_endpoint_input_type_name_string_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_input_type_name_string.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_string_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_input_type_name_string.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_string_config.validate() {
             Ok(_) => panic!(),
@@ -1096,14 +1076,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: String
-        let scalar_endpoint_output_type_name_string_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_output_type_name_string.yml"
-                    .to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_string_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_output_type_name_string.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_string_config.validate() {
             Ok(_) => panic!(),
@@ -1134,13 +1112,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: id
-        let scalar_endpoint_input_type_name_id_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_input_type_name_id.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_id_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_input_type_name_id.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_id_config.validate() {
             Ok(_) => panic!(),
@@ -1151,13 +1128,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: ID
-        let scalar_endpoint_output_type_name_id_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_output_type_name_id.yml".to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_id_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_output_type_name_id.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_id_config.validate() {
             Ok(_) => panic!(),
@@ -1188,14 +1164,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Boolean
-        let scalar_endpoint_input_type_name_boolean_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_input_type_name_boolean.yml"
-                    .to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_boolean_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_input_type_name_boolean.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_boolean_config.validate() {
             Ok(_) => panic!(),
@@ -1206,14 +1180,12 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Boolean
-        let scalar_endpoint_output_type_name_boolean_config: Config =
-            match Config::from_file(
-                "tests/fixtures/test_config_scalar_endpoint_output_type_name_boolean.yml"
-                    .to_string(),
-            ) {
-                Err(_) => panic!(),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_boolean_config: Config = match Config::from_file(
+            "tests/fixtures/test_config_scalar_endpoint_output_type_name_boolean.yml".to_string(),
+        ) {
+            Err(_) => panic!(),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_boolean_config.validate() {
             Ok(_) => panic!(),
@@ -1227,38 +1199,31 @@ mod tests {
     #[allow(clippy::match_wild_err_arm)]
     #[test]
     fn test_compose() {
-        assert!(
-            Config::from_file("tests/fixtures/test_config_err.yml".to_string()).is_err()
-        );
+        assert!(Config::from_file("tests/fixtures/test_config_err.yml".to_string()).is_err());
 
-        assert!(
-            Config::from_file("tests/fixtures/test_config_ok.yml".to_string()).is_ok()
-        );
+        assert!(Config::from_file("tests/fixtures/test_config_ok.yml".to_string()).is_ok());
 
         let mut config_vec: Vec<Config> = Vec::new();
 
         assert!(compose(config_vec.clone()).is_ok());
 
-        let valid_config_0: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_0.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_0: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_0.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
-        let valid_config_1: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_1.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_1: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_1.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
-        let valid_config_2: Config = match Config::from_file(
-            "tests/fixtures/test_config_compose_2.yml".to_string(),
-        ) {
-            Err(_) => panic!(),
-            Ok(wgc) => wgc,
-        };
+        let valid_config_2: Config =
+            match Config::from_file("tests/fixtures/test_config_compose_2.yml".to_string()) {
+                Err(_) => panic!(),
+                Ok(wgc) => wgc,
+            };
 
         let mismatch_version_config: Config = match Config::from_file(
             "tests/fixtures/test_config_with_version_100.yml".to_string(),

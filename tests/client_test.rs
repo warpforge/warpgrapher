@@ -28,7 +28,10 @@ async fn client_node_crud() {
     assert_eq!(p0.get("description").unwrap(), "Advanced armor");
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
-    let projects = client.read_node("Project", "id status", None).await.unwrap();
+    let projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
@@ -52,7 +55,10 @@ async fn client_node_crud() {
     assert_eq!(pu_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
-    let u_projects = client.read_node("Project", "id status", None).await.unwrap();
+    let u_projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(u_projects.is_array());
     let u_projects_a = u_projects.as_array().unwrap();
@@ -66,7 +72,10 @@ async fn client_node_crud() {
 
     assert_eq!(pd, 1);
 
-    let d_projects = client.read_node("Project", "id status", None).await.unwrap();
+    let d_projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(d_projects.is_array());
     let d_projects_a = d_projects.as_array().unwrap();
@@ -158,7 +167,10 @@ async fn client_rel_crud() {
 
     assert_eq!(rd, 1);
 
-    let d_rels = client.read_rel("Project", "issues", "id", None).await.unwrap();
+    let d_rels = client
+        .read_rel("Project", "issues", "id", None)
+        .await
+        .unwrap();
 
     assert!(d_rels.is_array());
     let d_rels_a = d_rels.as_array().unwrap();

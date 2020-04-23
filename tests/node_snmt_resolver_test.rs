@@ -722,13 +722,15 @@ async fn update_existing_node_with_rel_to_existing_node() {
         .unwrap();
 
     // create board node
-    let _results1 = client.create_node(
-        "ScrumBoard",
-        "id",
-        &json!({
-            "name": "ORION Board"
-        }),
-    ).await;
+    let _results1 = client
+        .create_node(
+            "ScrumBoard",
+            "id",
+            &json!({
+                "name": "ORION Board"
+            }),
+        )
+        .await;
 
     // update project node to create a rel to a new node
     let _results2 = client

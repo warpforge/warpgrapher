@@ -1,12 +1,13 @@
 use super::context::{GraphQLContext, RequestContext};
-use super::objects::{Object, Input, Node, Rel};
-use super::schema::{Info};
+use super::objects::{Input, Node, Object, Rel};
+use super::schema::Info;
 use super::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input, SuffixGenerator,
 };
 use crate::error::{Error, ErrorKind};
+use inflector::Inflector;
 use juniper::{Arguments, ExecutionResult, Executor, FieldError};
 use log::{debug, trace};
 use rusted_cypher::Statement;
@@ -14,15 +15,13 @@ use serde_json::Map;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
-use inflector::Inflector;
 
 pub type ResolverFunc<GlobalCtx, ReqCtx> =
     fn(ResolverContext<GlobalCtx, ReqCtx>) -> ExecutionResult;
 
-pub type Resolvers<GlobalCtx, ReqCtx> =
-    HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
+pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
 
-pub struct ResolverContext<'a, GlobalCtx, ReqCtx> 
+pub struct ResolverContext<'a, GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
@@ -34,26 +33,24 @@ where
     pub executor: &'a Executor<'a, GraphQLContext<GlobalCtx, ReqCtx>>,
 }
 
-impl<'a, GlobalCtx, ReqCtx> ResolverContext<'a, GlobalCtx, ReqCtx> 
+impl<'a, GlobalCtx, ReqCtx> ResolverContext<'a, GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
 {
-
     pub fn new(
-        field_name: String, 
-        info: &'a Info, 
+        field_name: String,
+        info: &'a Info,
         args: &'a Arguments,
         parent: Object<'a, GlobalCtx, ReqCtx>,
-        executor: &'a Executor<GraphQLContext<GlobalCtx, ReqCtx>>
-    ) -> Self 
-    {
+        executor: &'a Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
+    ) -> Self {
         ResolverContext {
-            field_name: field_name,
-            info: info,
-            args: args,
-            parent: parent,
-            executor: executor
+            field_name,
+            info,
+            args,
+            parent,
+            executor,
         }
     }
 
@@ -64,39 +61,51 @@ where
     fn get_db()
 
     fn get_client()
-    
+
     fn return_scalar()
 
     fn return_node()
 
     */
 
+    pub fn return_scalar<T>(&self, v: T) -> ExecutionResult
+    where
+        T: std::convert::Into<juniper::DefaultScalarValue>,
+    {
+        Ok(juniper::Value::scalar::<T>(v))
+    }
+
     pub fn return_rel(
         &self,
-        id: &str, 
-        props: Option<&serde_json::map::Map<String, Value>>, 
+        id: &str,
+        props: Option<&serde_json::map::Map<String, Value>>,
         dst: Node<GlobalCtx, ReqCtx>,
     ) -> ExecutionResult
-    where 
+    where
         GlobalCtx: Debug,
         ReqCtx: Debug + RequestContext,
     {
-            
         let id = serde_json::Value::String(id.to_string());
 
         let props = match &props {
             None => None,
-            Some(p) => Some(Node::new("props".to_string(), p.clone().to_owned()))
+            Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
+            //Some(p) => Some(Node::new("props".to_string(), p.clone().to_owned())),
         };
 
         let parent_node = match self.parent {
             Object::Node(n) => n.to_owned(),
-            _ => { return Err(FieldError::new("Invalid parent passed", juniper::Value::Null))}
+            _ => {
+                return Err(FieldError::new(
+                    "Invalid parent passed",
+                    juniper::Value::Null,
+                ))
+            }
         };
 
         let src = Node::new(
             parent_node.concrete_typename.clone(),
-            parent_node.fields.clone()
+            parent_node.fields.clone(),
         );
 
         let rel = Rel::new(id, props, src, dst);
@@ -107,21 +116,19 @@ where
             self.field_name.to_owned().to_title_case(),
             "Rel".to_string()
         );
-        self.executor.resolve(
-            &Info::new(object_name, self.info.type_defs.clone()),
-            &rel
-        )
+        self.executor
+            .resolve(&Info::new(object_name, self.info.type_defs.clone()), &rel)
     }
 
     /*
-    // TODO    
+    // TODO
     pub fn return_rel_list(
         &self,
-        id: &str, 
-        props: Option<&serde_json::map::Map<String, Value>>, 
+        id: &str,
+        props: Option<&serde_json::map::Map<String, Value>>,
         dst: Node<GlobalCtx, ReqCtx>,
     ) -> ExecutionResult
-    where 
+    where
         GlobalCtx: Debug,
         ReqCtx: Debug + RequestContext,
     {
@@ -129,7 +136,6 @@ where
     }
     */
 }
-
 
 pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     info: &Info,
@@ -170,7 +176,13 @@ pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>
     // pluginHooks
 
     // results
-    func(ResolverContext::new(field_name.to_string(), info, args, parent, executor))
+    func(ResolverContext::new(
+        field_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
 }
 
 pub fn resolve_custom_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
@@ -216,7 +228,13 @@ pub fn resolve_custom_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
         )
     })?;
 
-    func(ResolverContext::new(field_name.to_string(), info, args, parent, executor))
+    func(ResolverContext::new(
+        field_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
 }
 
 pub fn resolve_custom_rel<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
@@ -226,7 +244,7 @@ pub fn resolve_custom_rel<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     parent: Object<GlobalCtx, ReqCtx>,
     args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult 
+) -> ExecutionResult
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
@@ -266,7 +284,13 @@ where
         )
     })?;
 
-    func(ResolverContext::new(rel_name.to_string(), info, args, parent, executor))
+    func(ResolverContext::new(
+        rel_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
 }
 
 pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(

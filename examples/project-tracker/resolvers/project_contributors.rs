@@ -1,28 +1,23 @@
-extern crate warpgrapher;
-use serde_json::{json, Value};
-use std::collections::HashMap;
-use self::warpgrapher::engine::context::GraphQLContext;
-use self::warpgrapher::engine::objects::{Node, Rel, Object};
-use self::warpgrapher::engine::schema::Info;
-use self::warpgrapher::juniper::{Arguments, ExecutionResult, Executor, FieldError};
-use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::resolvers::{ResolverContext};
-use std::fmt::Debug;
+use serde_json::json;
+use warpgrapher::engine::objects::Node;
+use warpgrapher::engine::resolvers::ResolverContext;
+use warpgrapher::juniper::ExecutionResult;
 
 pub fn resolver(
-    context: ResolverContext<crate::AppGlobalContext, crate::AppRequestContext>
+    context: ResolverContext<crate::AppGlobalContext, crate::AppRequestContext>,
 ) -> ExecutionResult {
-
     context.return_rel(
         "7747474747",
         None,
         Node::new(
-            "User".to_string(), 
+            "User".to_string(),
             json!({
                 "id": "566",
                 "name": "Joe"
-            }).as_object().unwrap().clone()
-        )
-    ) 
-
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        ),
+    )
 }

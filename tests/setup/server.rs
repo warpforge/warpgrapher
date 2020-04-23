@@ -2,15 +2,16 @@ use super::extension::{Metadata, MetadataExtension, MetadataExtensionCtx};
 use actix_web::dev;
 use futures::executor::block_on;
 use std::env::var_os;
+use std::fmt::Debug;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-use warpgrapher::{Error, ErrorKind};
-use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
-use warpgrapher::engine::config::{Config, Validators, Resolvers};
+use warpgrapher::engine::config::{Config, Validators};
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
-use warpgrapher::engine::context::{GraphQLContext, RequestContext};
-use warpgrapher::engine::schema::Info;
+use warpgrapher::engine::resolvers::{ResolverContext, Resolvers};
+use warpgrapher::juniper::ExecutionResult;
+use warpgrapher::{Error, ErrorKind};
 
 #[derive(Clone, Debug)]
 pub struct AppGlobalCtx {
@@ -18,13 +19,13 @@ pub struct AppGlobalCtx {
 }
 
 #[derive(Clone, Debug)]
-pub struct AppReqCtx {
+pub struct AppRequestCtx {
     metadata: Metadata,
 }
 
-impl RequestContext for AppReqCtx {
-    fn new() -> AppReqCtx {
-        AppReqCtx {
+impl RequestContext for AppRequestCtx {
+    fn new() -> AppRequestCtx {
+        AppRequestCtx {
             metadata: Metadata {
                 src_ip: "".to_string(),
                 src_useragent: "".to_string(),
@@ -33,7 +34,7 @@ impl RequestContext for AppReqCtx {
     }
 }
 
-impl MetadataExtensionCtx for AppReqCtx {
+impl MetadataExtensionCtx for AppRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
@@ -89,42 +90,28 @@ pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
 }
 
 #[allow(dead_code)]
-pub fn project_count<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
+pub fn project_count(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
     // get projects from database
-    let graph = executor.context().pool.get().unwrap();
+    let db = context.executor.context().pool.get().unwrap();
     let query = "MATCH (n:Project) RETURN (n);";
-    let results = graph.exec(query).unwrap();
+    let results = db.exec(query).unwrap();
 
     // return number of projects
     let count = results.data.len();
-    Ok(Value::scalar(count as i32))
+    context.return_scalar(count as i32)
 }
 
-pub fn project_points<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
-    Ok(Value::scalar(1_000_000 as i32))
+pub fn project_points(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.return_scalar(1_000_000)
 }
 
 pub struct Server {
     config: Config,
     db_url: String,
     global_ctx: AppGlobalCtx,
-    resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+    resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
     validators: Validators,
-    extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx>,
     server: Option<dev::Server>,
     handle: Option<JoinHandle<()>>,
 }
@@ -134,9 +121,9 @@ impl Server {
         config: Config,
         db_url: String,
         global_ctx: AppGlobalCtx,
-        resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+        resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
         validators: Validators,
-        extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+        extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx>,
     ) -> Server {
         Server {
             config,
@@ -227,9 +214,7 @@ impl Server {
 #[allow(dead_code)]
 pub fn test_server(config_path: &str) -> Server {
     // load config
-    //let config_path = "./tests/fixtures/config.yml".to_string();
-    let config =
-        Config::from_file(config_path.to_string()).expect("Failed to load config file");
+    let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
     let global_ctx = AppGlobalCtx {
@@ -237,23 +222,18 @@ pub fn test_server(config_path: &str) -> Server {
     };
 
     // load resolvers
-    let mut resolvers: Resolvers<AppGlobalCtx, AppReqCtx> = Resolvers::new();
-    resolvers.insert(
-        "ProjectCount".to_owned(),
-        Box::new(project_count::<AppGlobalCtx, AppReqCtx>),
-    );
+    let mut resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
+    resolvers.insert("ProjectCount".to_owned(), Box::new(project_count));
+    resolvers.insert("ProjectPoints".to_string(), Box::new(project_points));
 
-    resolvers.insert(
-        "ProjectPoints".to_string(),
-        Box::new(project_points::<AppGlobalCtx, AppReqCtx>),
-    );
-
+    // load validators
     let mut validators: Validators = Validators::new();
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    let metadata_extension: MetadataExtension<AppGlobalCtx, AppReqCtx> = MetadataExtension::new();
-    let extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx> =
+    let metadata_extension: MetadataExtension<AppGlobalCtx, AppRequestCtx> =
+        MetadataExtension::new();
+    let extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx> =
         vec![Arc::new(metadata_extension)];
 
     // configure server

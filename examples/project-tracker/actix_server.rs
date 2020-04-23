@@ -8,8 +8,8 @@ use actix_http::error::Error;
 use actix_web::middleware::Logger;
 use actix_web::web::{Data, Json};
 use actix_web::{web, App, HttpResponse, HttpServer, Responder};
-use juniper::http::GraphQLRequest;
 use juniper::http::playground::playground_source;
+use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
 use super::{AppGlobalContext, AppRequestContext};

@@ -2,7 +2,7 @@
 
 use super::error::{Error, ErrorKind};
 use inflector::Inflector;
-use log::{debug};
+use log::debug;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -44,7 +44,7 @@ impl Client {
             endpoint: endpoint.to_string(),
         }
     }
-    
+
     /// Executes a raw graphql query.
     ///
     /// [`Client`]: ./struct.Client.html
@@ -75,12 +75,7 @@ impl Client {
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
-    pub async fn graphql(
-        &mut self,
-        query: &str,
-        input: Option<&Value>
-    ) -> Result<Value, Error> {
-
+    pub async fn graphql(&mut self, query: &str, input: Option<&Value>) -> Result<Value, Error> {
         // format request body
         let req_body = json!({
             "query": query.to_string(),
@@ -91,26 +86,26 @@ impl Client {
 
         // send request
         let client = reqwest::Client::new();
-        let resp = client.post(self.endpoint.as_str())
+        let resp = client
+            .post(self.endpoint.as_str())
             .json(&req_body)
             .send()
             .await
             .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))))?;
 
         // parse result
-        let body = resp.json::<serde_json::Value>()
+        let body = resp
+            .json::<serde_json::Value>()
             .await
             .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
-        
+
         // extract data from result
         match body.get("data") {
             None => Err(Error::new(
                 ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
                 None,
             )),
-            Some(data) => {
-                Ok(data.to_owned())
-            }
+            Some(data) => Ok(data.to_owned()),
         }
     }
 
@@ -323,10 +318,10 @@ impl Client {
         if let Some(dst) = dst_input {
             m.insert("dst".to_owned(), dst);
         }
-        let value : serde_json::Value;
-        let input = if m.is_empty() { 
-            None 
-        } else { 
+        let value: serde_json::Value;
+        let input = if m.is_empty() {
+            None
+        } else {
             value = json!(m);
             Some(&value)
         };

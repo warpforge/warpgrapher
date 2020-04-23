@@ -1,10 +1,10 @@
 use super::context::GraphQLContext;
 use super::resolvers::{
-    resolve_custom_endpoint, resolve_custom_field, resolve_custom_rel, resolve_node_create_mutation,
-    resolve_node_delete_mutation, resolve_node_update_mutation, resolve_object_field,
-    resolve_rel_create_mutation, resolve_rel_delete_mutation, resolve_rel_field, resolve_rel_props,
-    resolve_rel_update_mutation, resolve_scalar_field, resolve_static_version_query,
-    resolve_union_field,
+    resolve_custom_endpoint, resolve_custom_field, resolve_custom_rel,
+    resolve_node_create_mutation, resolve_node_delete_mutation, resolve_node_update_mutation,
+    resolve_object_field, resolve_rel_create_mutation, resolve_rel_delete_mutation,
+    resolve_rel_field, resolve_rel_props, resolve_rel_update_mutation, resolve_scalar_field,
+    resolve_static_version_query, resolve_union_field,
 };
 use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
 use crate::engine::context::RequestContext;
@@ -23,7 +23,7 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub enum Object<'a, GlobalCtx: Debug, ReqCtx: Debug + RequestContext> {
     Node(&'a Node<GlobalCtx, ReqCtx>),
-    Rel(&'a Rel<GlobalCtx, ReqCtx>)
+    Rel(&'a Rel<GlobalCtx, ReqCtx>),
 }
 
 #[derive(Debug, Serialize)]
@@ -387,12 +387,22 @@ where
             PropertyKind::CustomResolver => {
                 resolve_custom_endpoint(info, field_name, Object::Node(self), args, executor)
             }
-            PropertyKind::DynamicScalar => {
-                resolve_custom_field(info, field_name, &p.resolver, Object::Node(self), args, executor)
-            }
-            PropertyKind::DynamicRel(rel_name) => {
-                resolve_custom_rel(info, rel_name, &p.resolver, Object::Node(self), args, executor)
-            }
+            PropertyKind::DynamicScalar => resolve_custom_field(
+                info,
+                field_name,
+                &p.resolver,
+                Object::Node(self),
+                args,
+                executor,
+            ),
+            PropertyKind::DynamicRel(rel_name) => resolve_custom_rel(
+                info,
+                rel_name,
+                &p.resolver,
+                Object::Node(self),
+                args,
+                executor,
+            ),
             PropertyKind::Input => Err(Error::new(
                 ErrorKind::InvalidPropertyType("PropertyKind::Input".to_owned()),
                 None,
@@ -619,9 +629,14 @@ where
         let p = td.get_prop(field_name)?;
 
         let r = match (&p.kind, &field_name) {
-            (PropertyKind::DynamicScalar, _) => {
-                resolve_custom_field(info, field_name, &p.resolver, Object::Rel(self), args, executor)
-            }
+            (PropertyKind::DynamicScalar, _) => resolve_custom_field(
+                info,
+                field_name,
+                &p.resolver,
+                Object::Rel(self),
+                args,
+                executor,
+            ),
             (PropertyKind::Object, &"props") => match &self.props {
                 Some(p) => resolve_rel_props(info, field_name, p, executor),
                 None => Err(Error::new(

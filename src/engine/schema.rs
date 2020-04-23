@@ -3,8 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, Config, Endpoint, Prop,
-    Relationship, Type, TypeDef,
+    Config, Endpoint, EndpointClass, GraphqlType, Prop, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
 use crate::engine::context::RequestContext;
@@ -272,7 +271,7 @@ fn generate_node_object(t: &Type) -> NodeType {
                 r.name.to_owned(),
                 match &r.resolver {
                     None => PropertyKind::Rel(r.name.to_owned()),
-                    Some(_) => PropertyKind::DynamicRel(r.name.to_owned())
+                    Some(_) => PropertyKind::DynamicRel(r.name.to_owned()),
                 },
                 fmt_rel_object_name(t, &r),
                 false,
@@ -2165,8 +2164,7 @@ mod tests {
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
     use crate::engine::config::{
-        EndpointClass, Config, Endpoint, EndpointType,
-        EndpointsFilter, Prop, Relationship, Type,
+        Config, Endpoint, EndpointClass, EndpointType, EndpointsFilter, Prop, Relationship, Type,
         TypeDef,
     };
     use std::collections::HashMap;
@@ -2219,7 +2217,7 @@ mod tests {
                         None,
                     )],
                     EndpointsFilter::all(),
-                    None
+                    None,
                 ),
                 Relationship::new(
                     "board".to_string(),
@@ -2227,7 +2225,7 @@ mod tests {
                     vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
                     vec![],
                     EndpointsFilter::all(),
-                    None
+                    None,
                 ),
                 Relationship::new(
                     "commits".to_string(),
@@ -2235,7 +2233,7 @@ mod tests {
                     vec!["Commit".to_string()],
                     vec![],
                     EndpointsFilter::all(),
-                    None
+                    None,
                 ),
                 Relationship::new(
                     "issues".to_string(),
@@ -2243,7 +2241,7 @@ mod tests {
                     vec!["Feature".to_string(), "Bug".to_string()],
                     vec![],
                     EndpointsFilter::all(),
-                    None
+                    None,
                 ),
             ],
             EndpointsFilter::all(),
@@ -2356,11 +2354,7 @@ mod tests {
                 true,
                 true,
             )),
-            EndpointType::new(
-                TypeDef::Existing("User".to_string()),
-                true,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), true, true),
         )
     }
 
@@ -2374,11 +2368,7 @@ mod tests {
                 false,
                 true,
             )),
-            EndpointType::new(
-                TypeDef::Existing("User".to_string()),
-                false,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), false, true),
         )
     }
 
