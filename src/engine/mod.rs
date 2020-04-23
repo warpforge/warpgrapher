@@ -5,7 +5,8 @@
 use actix_web::web::Json;
 
 use super::error::{Error, ErrorKind};
-use config::{Config, Prop, Resolvers, Validators};
+use config::{Config, Prop, Validators};
+use resolvers::{Resolvers};
 use context::{GraphQLContext, RequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;

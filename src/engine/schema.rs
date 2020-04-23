@@ -32,6 +32,7 @@ pub enum InputKind {
 pub enum PropertyKind {
     CustomResolver,
     DynamicScalar,
+    DynamicRel(String),
     Input,
     NodeCreateMutation,
     NodeUpdateMutation,
@@ -269,12 +270,15 @@ fn generate_node_object(t: &Type) -> NodeType {
             r.name.to_owned(),
             Property::new(
                 r.name.to_owned(),
-                PropertyKind::Rel(r.name.to_owned()),
+                match &r.resolver {
+                    None => PropertyKind::Rel(r.name.to_owned()),
+                    Some(_) => PropertyKind::DynamicRel(r.name.to_owned())
+                },
                 fmt_rel_object_name(t, &r),
                 false,
                 r.list,
                 Some((InputKind::Optional, fmt_rel_query_input_name(t, &r))),
-                None,
+                r.resolver,
                 None,
             ),
         );
@@ -2215,6 +2219,7 @@ mod tests {
                         None,
                     )],
                     EndpointsFilter::all(),
+                    None
                 ),
                 Relationship::new(
                     "board".to_string(),
@@ -2222,6 +2227,7 @@ mod tests {
                     vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
                     vec![],
                     EndpointsFilter::all(),
+                    None
                 ),
                 Relationship::new(
                     "commits".to_string(),
@@ -2229,6 +2235,7 @@ mod tests {
                     vec!["Commit".to_string()],
                     vec![],
                     EndpointsFilter::all(),
+                    None
                 ),
                 Relationship::new(
                     "issues".to_string(),
@@ -2236,6 +2243,7 @@ mod tests {
                     vec!["Feature".to_string(), "Bug".to_string()],
                     vec![],
                     EndpointsFilter::all(),
+                    None
                 ),
             ],
             EndpointsFilter::all(),
