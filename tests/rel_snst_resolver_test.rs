@@ -7,9 +7,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_snst_new_rel() {
+async fn create_snst_new_rel() {
     init();
     clear_db();
 
@@ -23,6 +23,7 @@ fn create_snst_new_rel() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -33,6 +34,7 @@ fn create_snst_new_rel() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
         )
+        .await
         .unwrap();
 
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
@@ -46,6 +48,7 @@ fn create_snst_new_rel() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -63,9 +66,9 @@ fn create_snst_new_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_snst_rel_existing_node() {
+async fn create_snst_rel_existing_node() {
     init();
     clear_db();
 
@@ -79,10 +82,12 @@ fn create_snst_rel_existing_node() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let _u0 = client
         .create_node("User", "__typename name", &json!({"name": "User Zero"}))
+        .await
         .unwrap();
 
     let o0 = client
@@ -96,6 +101,7 @@ fn create_snst_rel_existing_node() {
                 "dst": {"User": {"EXISTING": {"name": "User Zero"}}}
             }),
         )
+        .await
         .unwrap();
 
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
@@ -109,6 +115,7 @@ fn create_snst_rel_existing_node() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -124,9 +131,9 @@ fn create_snst_rel_existing_node() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snst_rel_by_rel_props() {
+async fn read_snst_rel_by_rel_props() {
     init();
     clear_db();
 
@@ -146,6 +153,7 @@ fn read_snst_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -155,6 +163,7 @@ fn read_snst_rel_by_rel_props() {
             "__typename props{since} dst{...on User{__typename name}}",
             Some(&json!({"props": {"since": "yesterday"}})),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -178,9 +187,9 @@ fn read_snst_rel_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snst_rel_by_src_props() {
+async fn read_snst_rel_by_src_props() {
     init();
     clear_db();
 
@@ -200,6 +209,7 @@ fn read_snst_rel_by_src_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -209,6 +219,7 @@ fn read_snst_rel_by_src_props() {
             "__typename props{since} dst{...on User{__typename name}}",
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -232,9 +243,9 @@ fn read_snst_rel_by_src_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snst_rel_by_dst_props() {
+async fn read_snst_rel_by_dst_props() {
     init();
     clear_db();
 
@@ -254,6 +265,7 @@ fn read_snst_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -263,6 +275,7 @@ fn read_snst_rel_by_dst_props() {
             "__typename props{since} dst{...on User{__typename name}}",
             Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -286,9 +299,9 @@ fn read_snst_rel_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snst_rel_by_rel_prop() {
+async fn update_snst_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -308,6 +321,7 @@ fn update_snst_rel_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -318,6 +332,7 @@ fn update_snst_rel_by_rel_prop() {
             Some(&json!({"props": {"since": "yesterday"}})),
             &json!({"props": {"since": "today"}}),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -346,6 +361,7 @@ fn update_snst_rel_by_rel_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -364,9 +380,9 @@ fn update_snst_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snst_rel_by_src_prop() {
+async fn update_snst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -386,6 +402,7 @@ fn update_snst_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -396,6 +413,7 @@ fn update_snst_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"since": "today"}}),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -424,6 +442,7 @@ fn update_snst_rel_by_src_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -442,9 +461,9 @@ fn update_snst_rel_by_src_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snst_rel_by_dst_prop() {
+async fn update_snst_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -464,6 +483,7 @@ fn update_snst_rel_by_dst_prop() {
                   }
             }),
         )
+        .await
         .unwrap();
 
     let o0 = client
@@ -474,6 +494,7 @@ fn update_snst_rel_by_dst_prop() {
             Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
             &json!({"props": {"since": "today"}}),
         )
+        .await
         .unwrap();
 
     let owner = o0.as_array().unwrap();
@@ -502,6 +523,7 @@ fn update_snst_rel_by_dst_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -520,9 +542,9 @@ fn update_snst_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_rel_by_rel_prop() {
+async fn delete_snst_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -542,6 +564,7 @@ fn delete_snst_rel_by_rel_prop() {
                     }
             }),
         )
+        .await
         .unwrap();
 
     let _o0 = client
@@ -552,6 +575,7 @@ fn delete_snst_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -560,6 +584,7 @@ fn delete_snst_rel_by_rel_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -576,9 +601,9 @@ fn delete_snst_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_rel_by_dst_prop() {
+async fn delete_snst_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -598,6 +623,7 @@ fn delete_snst_rel_by_dst_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _o0 = client
@@ -608,6 +634,7 @@ fn delete_snst_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -616,6 +643,7 @@ fn delete_snst_rel_by_dst_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -632,9 +660,9 @@ fn delete_snst_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -654,6 +682,7 @@ fn delete_mnst_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -668,6 +697,7 @@ fn delete_mnst_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _o0 = client
@@ -678,6 +708,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
@@ -686,6 +717,7 @@ fn delete_mnst_rel_by_src_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
@@ -694,6 +726,7 @@ fn delete_mnst_rel_by_src_prop() {
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects0.is_array());

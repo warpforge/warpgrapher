@@ -7,9 +7,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_mnst_new_rel() {
+async fn create_mnst_new_rel() {
     init();
     clear_db();
 
@@ -23,6 +23,7 @@ fn create_mnst_new_rel() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -34,6 +35,7 @@ fn create_mnst_new_rel() {
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -64,6 +66,7 @@ fn create_mnst_new_rel() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -95,9 +98,9 @@ fn create_mnst_new_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_mnst_rel_existing_node() {
+async fn create_mnst_rel_existing_node() {
     init();
     clear_db();
 
@@ -107,10 +110,12 @@ fn create_mnst_rel_existing_node() {
 
     let _p0 = client
         .create_node("Project", "name", &json!({"name": "Project Zero"}))
+        .await
         .unwrap();
 
     let c0 = client
         .create_node("Commit", "__typename hash", &json!({"hash": "00000"}))
+        .await
         .unwrap();
 
     assert!(c0.is_object());
@@ -119,6 +124,7 @@ fn create_mnst_rel_existing_node() {
 
     let c1 = client
         .create_node("Commit", "__typename hash", &json!({"hash": "11111"}))
+        .await
         .unwrap();
 
     assert!(c1.is_object());
@@ -134,6 +140,7 @@ fn create_mnst_rel_existing_node() {
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": "11111"}}}}])
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -161,6 +168,7 @@ fn create_mnst_rel_existing_node() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -192,9 +200,9 @@ fn create_mnst_rel_existing_node() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnst_rel_by_rel_props() {
+async fn read_mnst_rel_by_rel_props() {
     init();
     clear_db();
 
@@ -220,6 +228,7 @@ fn read_mnst_rel_by_rel_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -229,6 +238,7 @@ fn read_mnst_rel_by_rel_props() {
             "__typename props{repo} dst{...on Commit{__typename hash}}",
             Some(&json!({"props": {"repo": "Repo Zero"}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -252,9 +262,9 @@ fn read_mnst_rel_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnst_rel_by_src_props() {
+async fn read_mnst_rel_by_src_props() {
     init();
     clear_db();
 
@@ -280,6 +290,7 @@ fn read_mnst_rel_by_src_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -289,6 +300,7 @@ fn read_mnst_rel_by_src_props() {
             "__typename props{repo} dst{...on Commit{ __typename hash}}",
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -318,9 +330,9 @@ fn read_mnst_rel_by_src_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnst_rel_by_dst_props() {
+async fn read_mnst_rel_by_dst_props() {
     init();
     clear_db();
 
@@ -346,6 +358,7 @@ fn read_mnst_rel_by_dst_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -355,6 +368,7 @@ fn read_mnst_rel_by_dst_props() {
             "__typename props{repo} dst{...on Commit{__typename hash}}",
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -378,9 +392,9 @@ fn read_mnst_rel_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnst_rel_by_rel_prop() {
+async fn update_mnst_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -406,6 +420,7 @@ fn update_mnst_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -416,6 +431,7 @@ fn update_mnst_rel_by_rel_prop() {
             Some(&json!({"props": {"repo": "Repo Zero"}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -444,6 +460,7 @@ fn update_mnst_rel_by_rel_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -479,9 +496,9 @@ fn update_mnst_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnst_rel_by_src_prop() {
+async fn update_mnst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -507,6 +524,7 @@ fn update_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -517,6 +535,7 @@ fn update_mnst_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -549,9 +568,9 @@ fn update_mnst_rel_by_src_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnst_rel_by_dst_prop() {
+async fn update_mnst_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -577,6 +596,7 @@ fn update_mnst_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -587,6 +607,7 @@ fn update_mnst_rel_by_dst_prop() {
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -615,6 +636,7 @@ fn update_mnst_rel_by_dst_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -650,9 +672,9 @@ fn update_mnst_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_rel_prop() {
+async fn delete_mnst_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -678,6 +700,7 @@ fn delete_mnst_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -688,6 +711,7 @@ fn delete_mnst_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -696,6 +720,7 @@ fn delete_mnst_rel_by_rel_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -728,9 +753,9 @@ fn delete_mnst_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_dst_prop() {
+async fn delete_mnst_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -756,6 +781,7 @@ fn delete_mnst_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -766,6 +792,7 @@ fn delete_mnst_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -774,6 +801,7 @@ fn delete_mnst_rel_by_dst_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -806,9 +834,9 @@ fn delete_mnst_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -834,6 +862,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -854,6 +883,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -864,6 +894,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
@@ -872,6 +903,7 @@ fn delete_mnst_rel_by_src_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
@@ -880,6 +912,7 @@ fn delete_mnst_rel_by_src_prop() {
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects0.as_array().unwrap();

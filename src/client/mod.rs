@@ -1,64 +1,10 @@
 //! This module provides the Warpgrapher client.
 
 use super::error::{Error, ErrorKind};
-use actix_web::client::Client;
 use inflector::Inflector;
-use log::{debug, trace};
+use log::{debug};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-
-/// Takes and executes a raw GraphQL query. Takes an optional input which is inserted
-/// in the GraphQL request as "input" in the variables.
-///
-/// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use std::env::var_os;
-/// use warpgrapher::client::graphql;
-///
-/// let query = "query { Project { id name } }";
-/// let results = graphql("http://localhost:5000/graphql".to_owned(), query.to_owned(), None);
-/// let projects = results.unwrap().get("Project");
-/// ```
-#[actix_rt::main]
-pub async fn graphql(
-    endpoint: String,
-    query: String,
-    input: Option<Value>,
-) -> Result<Value, Error> {
-    // TODO: return a Future
-    let req_body = json!({
-        "query": query.to_string(),
-        "variables": {
-            "input": input
-        }
-    });
-    let mut res = Client::default()
-        .post(endpoint)
-        .header("Content-Type", "application/json")
-        .send_json(&req_body)
-        .await
-        .map_err(|e| Error::new(ErrorKind::ClientRequestFailed(format!("{:#?}", e)), None))?;
-
-    let body: Value = res
-        .json()
-        .await
-        .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
-
-    trace!("Response Body: {:#?}", body);
-    match body.get("data") {
-        None => Err(Error::new(
-            ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
-            None,
-        )),
-        Some(data) => {
-            debug!("Result Data: {:#?}", data);
-            Ok(data.to_owned())
-        }
-    }
-}
 
 /// A Warpgrapher GraphQL client
 ///
@@ -75,6 +21,7 @@ pub async fn graphql(
 ///
 /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
 /// ```
+#[derive(Clone, Hash, Debug, Default)]
 pub struct WarpgrapherClient {
     endpoint: String,
 }
@@ -97,11 +44,17 @@ impl WarpgrapherClient {
             endpoint: endpoint.to_string(),
         }
     }
-
-    /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
-    /// a query shape and the input of the node being created.
+    
+    /// Executes a raw graphql query.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
     /// # Examples
     ///
@@ -110,15 +63,89 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.create_node(
-    ///     "Project",
-    ///     "id name description",
-    ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
-    /// );
+    ///     let query = "query { Project { id name } }";
+    ///     let results = client.graphql(
+    ///         "query { Project { id name } }",
+    ///         None
+    ///     ).await;
+    /// }
     /// ```
-    pub fn create_node(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn graphql(
+        &mut self,
+        query: &str,
+        input: Option<&Value>
+    ) -> Result<Value, Error> {
+
+        // format request body
+        let req_body = json!({
+            "query": query.to_string(),
+            "variables": {
+                "input": input
+            }
+        });
+
+        // send request
+        let client = reqwest::Client::new();
+        let resp = client.post(self.endpoint.as_str())
+            .json(&req_body)
+            .send()
+            .await
+            .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))))?;
+
+        // parse result
+        let body = resp.json::<serde_json::Value>()
+            .await
+            .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
+        
+        // extract data from result
+        match body.get("data") {
+            None => Err(Error::new(
+                ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
+                None,
+            )),
+            Some(data) => {
+                Ok(data.to_owned())
+            }
+        }
+    }
+
+    /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
+    /// a query shape and the input of the node being created.
+    ///
+    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use serde_json::json;
+    /// use std::env::var_os;
+    /// use warpgrapher::WarpgrapherClient;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///
+    ///     let projects = client.create_node(
+    ///         "Project",
+    ///         "id name description",
+    ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
+    ///     ).await;
+    /// }
+    /// ```
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn create_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -129,7 +156,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input.to_owned()))?;
+        let result = self.graphql(&query, Some(input)).await?;
         self.strip(&result, &format!("{}Create", type_name))
     }
 
@@ -140,25 +167,36 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.create_rel(
-    ///     "Project",
-    ///     "issues",
-    ///     "id props { since } src { id name } dst { id name }",
-    ///     &json!({"name": "ProjectName"}),
-    ///     &json!({"props": {"since": "2000"},
-    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
-    /// );
+    ///     let proj_issues = client.create_rel(
+    ///         "Project",
+    ///         "issues",
+    ///         "id props { since } src { id name } dst { id name }",
+    ///         &json!({"name": "ProjectName"}),
+    ///         &json!({"props": {"since": "2000"},
+    ///                "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
+    ///     ).await;
+    /// }
     /// ```
-    pub fn create_rel(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn create_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -172,7 +210,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(
             &result,
             &format!("{}{}Create", type_name, rel_name.to_title_case()),
@@ -189,21 +227,33 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     /// use serde_json::json;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.delete_node(
-    ///     "Project",
-    ///     Some(&json!({"name": "MJOLNIR"})),
-    ///     None);
+    ///     let projects = client.delete_node(
+    ///         "Project",
+    ///         Some(&json!({"name": "MJOLNIR"})),
+    ///         None
+    ///     ).await;
+    /// }
     /// ```
-    pub fn delete_node(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn delete_node(
         &mut self,
         type_name: &str,
         match_input: Option<&Value>,
@@ -215,7 +265,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
@@ -228,22 +278,33 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.delete_rel("Project", "issues",
-    ///     Some(&json!({"props": {"since": "2000"}})),
-    ///     None,
-    ///     Some(&json!({"Bug": {"force": true}}))
-    /// );
+    ///     let proj_issues = client.delete_rel("Project", "issues",
+    ///        Some(&json!({"props": {"since": "2000"}})),
+    ///        None,
+    ///        Some(&json!({"Bug": {"force": true}}))
+    ///     ).await;
+    /// }
     /// ```
-    pub fn delete_rel(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn delete_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -262,12 +323,18 @@ impl WarpgrapherClient {
         if let Some(dst) = dst_input {
             m.insert("dst".to_owned(), dst);
         }
-        let input = if m.is_empty() { None } else { Some(json!(m)) };
+        let value : serde_json::Value;
+        let input = if m.is_empty() { 
+            None 
+        } else { 
+            value = json!(m);
+            Some(&value)
+        };
         debug!(
             "WarpgrapherClient delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input)?;
+        let result = self.graphql(&query, input).await?;
         self.strip(
             &result,
             &format!("{}{}Delete", type_name, rel_name.to_title_case()),
@@ -279,17 +346,28 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```no_run
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.read_node("Project", "id name description", None);
+    ///     let projects = client.read_node("Project", "id name description", None).await;
+    /// }
     /// ```
-    pub fn read_node(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn read_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -300,7 +378,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = self.graphql(&query, input).await?;
         self.strip(&result, type_name)
     }
 
@@ -310,6 +388,13 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
@@ -317,14 +402,18 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.read_rel("Project", "issues",
-    ///     "id props { since }",
-    ///     Some(&json!({"props": {"since": "2000"}}))
-    /// );
+    ///     let proj_issues = client.read_rel("Project", "issues",
+    ///         "id props { since }",
+    ///         Some(&json!({"props": {"since": "2000"}}))
+    ///     ).await;
+    /// }
     /// ```
-    pub fn read_rel(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn read_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -336,7 +425,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, input.cloned())?;
+        let result = self.graphql(&query, input).await?;
         self.strip(
             &result,
             &format!("{}{}", type_name, rel_name.to_title_case()),
@@ -349,6 +438,13 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
@@ -356,16 +452,20 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
     ///
-    /// let projects = client.update_node(
-    ///     "Project",
-    ///     "id name status",
-    ///     Some(&json!({"name": "TodoApp"})),
-    ///     &json!({"status": "ACTIVE"}),
-    /// );
+    ///     let projects = client.update_node(
+    ///         "Project",
+    ///         "id name status",
+    ///         Some(&json!({"name": "TodoApp"})),
+    ///         &json!({"status": "ACTIVE"}),
+    ///     ).await;
+    /// }
     /// ```
-    pub fn update_node(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn update_node(
         &mut self,
         type_name: &str,
         shape: &str,
@@ -378,7 +478,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &format!("{}Update", type_name))
     }
 
@@ -390,6 +490,13 @@ impl WarpgrapherClient {
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
+    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
+    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
@@ -397,15 +504,19 @@ impl WarpgrapherClient {
     /// use std::env::var_os;
     /// use warpgrapher::WarpgrapherClient;
     ///
-    /// let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
     ///
-    /// let proj_issues = client.update_rel("Project", "issues",
-    ///     "id props {since} src {id name} dst {id name}",
-    ///     Some(&json!({"props": {"since": "2000"}})),
-    ///     &json!({"props": {"since": "2010"}})
-    /// );
+    ///     let proj_issues = client.update_rel("Project", "issues",
+    ///         "id props {since} src {id name} dst {id name}",
+    ///         Some(&json!({"props": {"since": "2000"}})),
+    ///         &json!({"props": {"since": "2010"}})
+    ///     ).await;
+    /// }
     /// ```
-    pub fn update_rel(
+    #[allow(clippy::needless_doctest_main)]
+    pub async fn update_rel(
         &mut self,
         type_name: &str,
         rel_name: &str,
@@ -419,7 +530,7 @@ impl WarpgrapherClient {
             "WarpgrapherClient update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
-        let result = graphql(self.endpoint.to_owned(), query, Some(input))?;
+        let result = self.graphql(&query, Some(&input)).await?;
         self.strip(
             &result,
             &format!("{}{}Update", type_name, rel_name.to_title_case()),

@@ -8,7 +8,7 @@
 //! appropriate.
 
 #[macro_use]
-extern crate juniper;
+pub extern crate juniper;
 
 pub use juniper::{Arguments, ExecutionResult, Executor, Object, Value};
 

@@ -7,9 +7,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_mnmt_new_rel() {
+async fn create_mnmt_new_rel() {
     init();
     clear_db();
 
@@ -23,6 +23,7 @@ fn create_mnmt_new_rel() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let i0 = client
@@ -34,6 +35,7 @@ fn create_mnmt_new_rel() {
             &json!([{"props": {"since": "today"}, "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
                     {"props": {"since": "yesterday"}, "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
         )
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -67,6 +69,7 @@ fn create_mnmt_new_rel() {
             "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -101,9 +104,9 @@ fn create_mnmt_new_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_mnmt_rel_existing_node() {
+async fn create_mnmt_rel_existing_node() {
     init();
     clear_db();
 
@@ -117,10 +120,12 @@ fn create_mnmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let b0 = client
         .create_node("Bug", "__typename name", &json!({"name": "Bug Zero"}))
+        .await
         .unwrap();
 
     assert!(b0.is_object());
@@ -133,6 +138,7 @@ fn create_mnmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "Feature Zero"}),
         )
+        .await
         .unwrap();
 
     assert!(f0.is_object());
@@ -149,6 +155,7 @@ fn create_mnmt_rel_existing_node() {
                 {"props": {"since": "today"}, "dst": {"Feature": {"EXISTING": {"name": "Feature Zero"}}}},
                 {"props": {"since": "yesterday"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}},
             ]))
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -182,6 +189,7 @@ fn create_mnmt_rel_existing_node() {
             "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -216,9 +224,9 @@ fn create_mnmt_rel_existing_node() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnmt_rel_by_rel_props() {
+async fn read_mnmt_rel_by_rel_props() {
     init();
     clear_db();
 
@@ -244,6 +252,7 @@ fn read_mnmt_rel_by_rel_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let i0 = client
@@ -253,6 +262,7 @@ fn read_mnmt_rel_by_rel_props() {
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
             Some(&json!({"props": {"since": "yesterday"}})),
         )
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -276,9 +286,9 @@ fn read_mnmt_rel_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnmt_rel_by_src_props() {
+async fn read_mnmt_rel_by_src_props() {
     init();
     clear_db();
 
@@ -304,6 +314,7 @@ fn read_mnmt_rel_by_src_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let i0 = client
@@ -313,6 +324,7 @@ fn read_mnmt_rel_by_src_props() {
             "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -345,9 +357,9 @@ fn read_mnmt_rel_by_src_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_mnmt_rel_by_dst_props() {
+async fn read_mnmt_rel_by_dst_props() {
     init();
     clear_db();
 
@@ -381,6 +393,7 @@ fn read_mnmt_rel_by_dst_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let i0 = client
@@ -390,6 +403,7 @@ fn read_mnmt_rel_by_dst_props() {
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
         )
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -416,6 +430,7 @@ fn read_mnmt_rel_by_dst_props() {
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
             Some(&json!({"dst": {"Feature": {"name": "Feature Zero"}}})),
         )
+        .await
         .unwrap();
 
     let issues = i1.as_array().unwrap();
@@ -439,9 +454,9 @@ fn read_mnmt_rel_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnmt_rel_by_rel_prop() {
+async fn update_mnmt_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -475,6 +490,7 @@ fn update_mnmt_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let i0 = client
@@ -485,6 +501,7 @@ fn update_mnmt_rel_by_rel_prop() {
             Some(&json!({"props": {"since": "yesterday"}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
+        .await
         .unwrap();
 
     let issues = i0.as_array().unwrap();
@@ -513,6 +530,7 @@ fn update_mnmt_rel_by_rel_prop() {
             "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -563,9 +581,9 @@ fn update_mnmt_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnmt_rel_by_src_prop() {
+async fn update_mnmt_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -591,6 +609,7 @@ fn update_mnmt_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -601,6 +620,7 @@ fn update_mnmt_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
+        .await
         .unwrap();
 
     let issues = a0.as_array().unwrap();
@@ -636,9 +656,9 @@ fn update_mnmt_rel_by_src_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mnmt_rel_by_dst_prop() {
+async fn update_mnmt_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -672,6 +692,7 @@ fn update_mnmt_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -682,6 +703,7 @@ fn update_mnmt_rel_by_dst_prop() {
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
+        .await
         .unwrap();
 
     let issues = a0.as_array().unwrap();
@@ -710,6 +732,7 @@ fn update_mnmt_rel_by_dst_prop() {
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -760,9 +783,9 @@ fn update_mnmt_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnmt_rel_by_rel_prop() {
+async fn delete_mnmt_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -796,6 +819,7 @@ fn delete_mnmt_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -806,6 +830,7 @@ fn delete_mnmt_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -814,6 +839,7 @@ fn delete_mnmt_rel_by_rel_prop() {
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -861,9 +887,9 @@ fn delete_mnmt_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnmt_rel_by_dst_prop() {
+async fn delete_mnmt_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -897,6 +923,7 @@ fn delete_mnmt_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -907,6 +934,7 @@ fn delete_mnmt_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -915,6 +943,7 @@ fn delete_mnmt_rel_by_dst_prop() {
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -962,9 +991,9 @@ fn delete_mnmt_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -990,6 +1019,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -1010,6 +1040,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _i0 = client
@@ -1020,6 +1051,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
@@ -1028,6 +1060,7 @@ fn delete_mnst_rel_by_src_prop() {
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
@@ -1036,6 +1069,7 @@ fn delete_mnst_rel_by_src_prop() {
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects0.as_array().unwrap();

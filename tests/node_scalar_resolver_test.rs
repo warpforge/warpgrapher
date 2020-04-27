@@ -6,10 +6,10 @@ use setup::server::test_server;
 use setup::{clear_db, init, test_client};
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
 #[allow(clippy::float_cmp)]
-fn scalar_lists_test() {
+async fn scalar_lists_test() {
     init();
     clear_db();
 
@@ -32,6 +32,7 @@ fn scalar_lists_test() {
                 "float_list": [0.0, 1.1, 2.2, 3.3]
             }),
         )
+        .await
         .unwrap();
 
     let strings = result.get("string_list").unwrap();
@@ -66,10 +67,10 @@ fn scalar_lists_test() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
 #[allow(clippy::float_cmp)]
-fn scalar_lists_no_array_test() {
+async fn scalar_lists_no_array_test() {
     init();
     clear_db();
 
@@ -92,6 +93,7 @@ fn scalar_lists_no_array_test() {
                 "float_list": 0.0,
             }),
         )
+        .await
         .unwrap();
 
     assert_eq!(
@@ -109,9 +111,9 @@ fn scalar_lists_no_array_test() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
-fn scalar_no_lists_test() {
+async fn scalar_no_lists_test() {
     init();
     clear_db();
 
@@ -127,6 +129,7 @@ fn scalar_no_lists_test() {
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
         )
+        .await
         .is_err());
 
     assert!(client
@@ -137,6 +140,7 @@ fn scalar_no_lists_test() {
                 "bool_list": [true, false, true, false],
             }),
         )
+        .await
         .is_err());
 
     assert!(client
@@ -147,6 +151,7 @@ fn scalar_no_lists_test() {
                 "int_list": [0, 1, 2, 3],
             }),
         )
+        .await
         .is_err());
 
     assert!(client
@@ -157,16 +162,17 @@ fn scalar_no_lists_test() {
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
         )
+        .await
         .is_err());
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
 #[allow(clippy::float_cmp)]
-fn scalar_no_lists_no_array_test() {
+async fn scalar_no_lists_no_array_test() {
     init();
     clear_db();
 
@@ -189,6 +195,7 @@ fn scalar_no_lists_no_array_test() {
                 "float_list": 0.0,
             }),
         )
+        .await
         .unwrap();
 
     assert_eq!(
