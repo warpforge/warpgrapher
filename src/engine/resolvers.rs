@@ -15,6 +15,15 @@ use serde_json::Map;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
+use r2d2_cypher::CypherConnectionManager;
+
+#[derive(Clone, Debug)]
+pub struct GraphRel {
+    pub id: String,
+    pub props: Option<serde_json::map::Map<String, Value>>,
+    pub dst_type: String,
+    pub dst_props: serde_json::map::Map<String, Value>
+}
 
 pub type ResolverFunc<GlobalCtx, ReqCtx> =
     fn(ResolverContext<GlobalCtx, ReqCtx>) -> ExecutionResult;
@@ -56,18 +65,29 @@ where
 
     /*
 
+    // TODO
     fn parse_input()
 
-    fn get_db()
-
+    // TODO
     fn get_client()
-
-    fn return_scalar()
-
-    fn return_node()
 
     */
 
+    // TODO: add docs
+    pub fn get_db(&self) -> Result<r2d2::PooledConnection<CypherConnectionManager>, FieldError> {
+        self.executor.context().pool.get()
+        .map_err(|_| FieldError::new("Unable to access database driver pool.", juniper::Value::Null))
+    }
+
+    // TODO: add docs
+    pub fn get_parent_node(&self) -> Result<&Node<GlobalCtx, ReqCtx>, FieldError> {
+        match self.parent {
+            Object::Node(n) => Ok(n),
+            _ => return Err(FieldError::new("Unable to get parent node", juniper::Value::Null))
+        }
+    }
+
+    // TODO: add docs
     pub fn return_scalar<T>(&self, v: T) -> ExecutionResult
     where
         T: std::convert::Into<juniper::DefaultScalarValue>,
@@ -75,6 +95,19 @@ where
         Ok(juniper::Value::scalar::<T>(v))
     }
 
+    // TODO: add docs
+    pub fn return_node(
+        &self,
+        node_type: &str,
+        props: &serde_json::map::Map<String, Value>,
+    ) -> ExecutionResult {
+        self.executor.resolve(
+            &Info::new(node_type.to_string(), self.info.type_defs.clone()),
+            &Node::new(node_type.to_string(), (*props).clone())
+        )
+    }
+
+    // TODO: add docs
     pub fn return_rel(
         &self,
         id: &str,
@@ -90,7 +123,6 @@ where
         let props = match &props {
             None => None,
             Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
-            //Some(p) => Some(Node::new("props".to_string(), p.clone().to_owned())),
         };
 
         let parent_node = match self.parent {
@@ -120,21 +152,57 @@ where
             .resolve(&Info::new(object_name, self.info.type_defs.clone()), &rel)
     }
 
-    /*
     // TODO
     pub fn return_rel_list(
         &self,
-        id: &str,
-        props: Option<&serde_json::map::Map<String, Value>>,
-        dst: Node<GlobalCtx, ReqCtx>,
+        rels: Vec<GraphRel>
     ) -> ExecutionResult
     where
         GlobalCtx: Debug,
         ReqCtx: Debug + RequestContext,
     {
+        let object_name = format!(
+            "{}{}{}",
+            self.info.name.to_owned(),
+            self.field_name.to_owned().to_title_case(),
+            "Rel".to_string()
+        );
+        let parent_node = match self.parent {
+            Object::Node(n) => n.to_owned(),
+            _ => {
+                return Err(FieldError::new(
+                    "Invalid parent passed",
+                    juniper::Value::Null,
+                ))
+            }
+        };
 
+        let rel_list : Vec<Rel<GlobalCtx, ReqCtx>> = rels
+            .iter()
+            .map(|rel| {
+                Rel::new(
+                    serde_json::Value::String(rel.id.to_string()),
+                    match &rel.props {
+                        None => None,
+                        Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
+                    },
+                    Node::new(
+                        parent_node.concrete_typename.clone(),
+                        parent_node.fields.clone()
+                    ),
+                    Node::new(
+                        rel.dst_type.clone(),
+                        rel.dst_props.clone()
+                    )
+                )
+            })
+            .collect();
+
+        self.executor.resolve(
+            &Info::new(object_name, self.info.type_defs.clone()),
+            &rel_list
+        )
     }
-    */
 }
 
 pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
