@@ -1,10 +1,12 @@
 extern crate warpgrapher;
-use self::warpgrapher::{Arguments, ExecutionResult, Executor, GraphQLContext, Info, Value};
+use self::warpgrapher::engine::context::GraphQLContext;
+use self::warpgrapher::engine::schema::Info;
+use self::warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
 
 pub fn resolver(
     _info: &Info,
     _args: &Arguments,
-    executor: &Executor<GraphQLContext<crate::GlobalContext, crate::ReqContext>>,
+    executor: &Executor<GraphQLContext<crate::AppGlobalContext, crate::AppRequestContext>>,
 ) -> ExecutionResult {
     // extract global context
     let global_ctx = &executor.context().global_ctx;

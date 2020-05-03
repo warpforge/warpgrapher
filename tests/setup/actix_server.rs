@@ -14,10 +14,9 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use super::server::{AppGlobalCtx, AppReqCtx};
-use warpgrapher::Engine;
-use warpgrapher::{
-    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherResolvers, WarpgrapherValidators,
-};
+use warpgrapher::engine::Engine;
+use warpgrapher::engine::config::{Config, Validators, Resolvers};
+use warpgrapher::engine::extensions::WarpgrapherExtensions;
 
 #[derive(Clone)]
 struct AppData {
@@ -47,11 +46,11 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
 
 #[allow(clippy::ptr_arg)]
 pub fn start(
-    config: &WarpgrapherConfig,
+    config: &Config,
     db_url: &str,
     global_ctx: &AppGlobalCtx,
-    resolvers: &WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-    validators: &WarpgrapherValidators,
+    resolvers: &Resolvers<AppGlobalCtx, AppReqCtx>,
+    validators: &Validators,
     extensions: &WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     tx: Sender<Result<dev::Server, warpgrapher::Error>>,
 ) {

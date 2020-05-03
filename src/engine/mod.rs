@@ -5,8 +5,8 @@
 use actix_web::web::Json;
 
 use super::error::{Error, ErrorKind};
-use config::{WarpgrapherConfig, WarpgrapherProp, WarpgrapherResolvers, WarpgrapherValidators};
-use context::{GraphQLContext, WarpgrapherRequestContext};
+use config::{Config, Prop, Resolvers, Validators};
+use context::{GraphQLContext, RequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
@@ -24,11 +24,11 @@ pub mod context;
 pub mod extensions;
 pub mod neo4j;
 pub mod objects;
-mod resolvers;
+pub mod resolvers;
 pub mod schema;
-mod visitors;
+pub mod visitors;
 
-impl WarpgrapherRequestContext for () {
+impl RequestContext for () {
     fn new() {}
 }
 
@@ -36,13 +36,13 @@ impl WarpgrapherRequestContext for () {
 pub struct EngineBuilder<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
-    pub config: WarpgrapherConfig,
+    pub config: Config,
     pub database: String,
     pub global_ctx: Option<GlobalCtx>,
-    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-    pub validators: WarpgrapherValidators,
+    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    pub validators: Validators,
     pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
     pub version: Option<String>,
 }
@@ -50,7 +50,7 @@ where
 impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     /// Adds a global context to the engine
     ///
@@ -58,8 +58,9 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::Config;
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct AppGlobalCtx {
@@ -68,7 +69,7 @@ where
     ///
     /// let global_ctx = AppGlobalCtx { global_var: "Hello World".to_owned() };
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<AppGlobalCtx, ()>::new(config, db)
@@ -86,12 +87,13 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherResolvers};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{Config, Resolvers};
     ///
-    /// let resolvers = WarpgrapherResolvers::<(), ()>::new();
+    /// let resolvers = Resolvers::<(), ()>::new();
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<(), ()>::new(config, db)
@@ -100,7 +102,7 @@ where
     /// ```
     pub fn with_resolvers(
         mut self,
-        resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
+        resolvers: Resolvers<GlobalCtx, ReqCtx>,
     ) -> EngineBuilder<GlobalCtx, ReqCtx> {
         self.resolvers = resolvers;
         self
@@ -112,12 +114,13 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherValidators};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{Config, Validators};
     ///
-    /// let validators = WarpgrapherValidators::new();
+    /// let validators = Validators::new();
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<(), ()>::new(config, db)
@@ -126,7 +129,7 @@ where
     /// ```
     pub fn with_validators(
         mut self,
-        validators: WarpgrapherValidators,
+        validators: Validators,
     ) -> EngineBuilder<GlobalCtx, ReqCtx> {
         self.validators = validators;
         self
@@ -138,12 +141,14 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint, WarpgrapherExtensions};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::{Config, Validators};
+    /// use warpgrapher::engine::extensions::WarpgrapherExtensions;
     ///
     /// let extensions = WarpgrapherExtensions::<(), ()>::new();
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<(), ()>::new(config, db)
@@ -164,10 +169,11 @@ where
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::Config;
     ///
-    /// let config = WarpgrapherConfig::default();
+    /// let config = Config::default();
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<(), ()>::new(config, db)
@@ -180,29 +186,30 @@ where
     }
 
     /// Builds a configured [`Engine`] including generateing the data model, CRUD operations,
-    /// and custom endpoints from the [`WarpgrapherConfiguration`] `c`.
+    /// and custom endpoints from the [`Configuration`] `c`.
     /// Returns the [`Engine`].
     ///
     /// [`Engine`]: ./struct.Engine.html
-    /// [`WarpgrapherConfiguration`]: ./config/struct.WarpgrapherConfiguration.html
+    /// [`Configuration`]: ./config/struct.Configuration.html
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] of kind [`CouldNotResolveWarpgrapherType`] if
+    /// Returns an [`Error`] of kind [`CouldNotResolveType`] if
     /// there is an error in the configuration, specifically if the
     /// configuration of type A references type B, but type B cannot be found.
     ///
     /// [`Error`]: ../error/struct.Error.html
-    /// [`CouldNotResolveWarpgrapherType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveWarpgrapherType
+    /// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
     ///
     /// # Examples
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::Config;
     ///
-    /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+    /// let config = Config::new(1, Vec::new(), Vec::new());
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<()>::new(config, db)
@@ -242,9 +249,9 @@ where
     }
 
     fn validate_engine(
-        resolvers: &WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-        validators: &WarpgrapherValidators,
-        config: &WarpgrapherConfig,
+        resolvers: &Resolvers<GlobalCtx, ReqCtx>,
+        validators: &Validators,
+        config: &Config,
     ) -> Result<(), Error> {
         match config.validate() {
             Ok(_) => (),
@@ -254,7 +261,7 @@ where
             }
         };
 
-        //Validate Custom Endpoint defined in WarpgrapherConfig exists as a WarpgrapherResolver
+        //Validate Custom Endpoint defined in Config exists as a Resolver
         for e in config.endpoints.iter() {
             if !resolvers.contains_key(&e.name) {
                 return Err(Error::new(
@@ -267,9 +274,9 @@ where
             }
         }
 
-        //Validate Custom Prop defined in WarpgrapherConfig exists as a WarpgrapherResolver
-        let mut dyn_scalar_props: Vec<WarpgrapherProp> = Vec::new();
-        let mut props_with_validator: Vec<WarpgrapherProp> = Vec::new();
+        //Validate Custom Prop defined in Config exists as a Resolver
+        let mut dyn_scalar_props: Vec<Prop> = Vec::new();
+        let mut props_with_validator: Vec<Prop> = Vec::new();
 
         for m in config.model.iter() {
             for p in m.props.iter() {
@@ -308,7 +315,7 @@ where
             }
         }
 
-        //Validate Custom Input Validator defined in WarpgrapherConfig exists as WarpgrapherValidator
+        //Validate Custom Input Validator defined in Config exists as Validator
         for pwv in props_with_validator.iter() {
             let validator_name = pwv.validator.as_ref().ok_or_else(|| {
                 Error::new(
@@ -354,10 +361,11 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::{Engine, Neo4jEndpoint};
-/// use warpgrapher::engine::config::WarpgrapherConfig;
+/// use warpgrapher::engine::Engine;
+/// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+/// use warpgrapher::engine::config::Config;
 ///
-/// let config = WarpgrapherConfig::default();
+/// let config = Config::default();
 /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
 ///
 /// let mut engine = Engine::<(), ()>::new(config, db)
@@ -368,14 +376,14 @@ where
 pub struct Engine<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
-    pub config: WarpgrapherConfig,
+    pub config: Config,
     pub database: String,
     pub pool: Pool<CypherConnectionManager>,
     pub global_ctx: Option<GlobalCtx>,
-    pub resolvers: WarpgrapherResolvers<GlobalCtx, ReqCtx>,
-    pub validators: WarpgrapherValidators,
+    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    pub validators: Validators,
     pub extensions: WarpgrapherExtensions<GlobalCtx, ReqCtx>,
     pub version: Option<String>,
     root_node: RootRef<GlobalCtx, ReqCtx>,
@@ -384,21 +392,22 @@ where
 impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     /// Creates a new [`Engine`], with required parameters config and database
     /// and allows optional parameters to be added using a builder pattern.
     ///
     /// [`Engine`]: ./struct.Engine.html
-    /// [`WarpgrapherConfiguration`]: ./config/struct.WarpgrapherConfiguration.html
+    /// [`Configuration`]: ./config/struct.Configuration.html
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::{Engine, Neo4jEndpoint};
-    /// use warpgrapher::engine::config::WarpgrapherConfig;
+    /// use warpgrapher::engine::Engine;
+    /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
+    /// use warpgrapher::engine::config::Config;
     ///
-    /// let config = WarpgrapherConfig::new(1, Vec::new(), Vec::new());
+    /// let config = Config::new(1, Vec::new(), Vec::new());
     /// let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
     ///
     /// let mut engine = Engine::<()>::new(config, db)
@@ -406,7 +415,7 @@ where
     /// ```
 
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(config: WarpgrapherConfig, database: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
+    pub fn new(config: Config, database: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
         EngineBuilder::<GlobalCtx, ReqCtx> {
             config,
             database,
@@ -495,7 +504,7 @@ where
 /// reachable, so most of the coverage is provided by integration tests.
 #[cfg(test)]
 mod tests {
-    use super::config::{WarpgrapherConfig, WarpgrapherResolvers, WarpgrapherValidators};
+    use super::config::{Config, Resolvers, Validators};
     use super::context::GraphQLContext;
     use super::schema::Info;
     use super::Engine;
@@ -511,7 +520,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    pub fn test_config() -> WarpgrapherConfig {
+    pub fn test_config() -> Config {
         let cf = File::open("tests/fixtures/config.yml")
             .expect("Could not open test model config file.");
         let cr = BufReader::new(cf);
@@ -519,7 +528,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    pub fn load_config(config: &str) -> WarpgrapherConfig {
+    pub fn load_config(config: &str) -> Config {
         let cf = File::open(config).expect("Could not open test model config file.");
         let cr = BufReader::new(cf);
         serde_yaml::from_reader(cr).expect("Could not deserialize configuration file.")
@@ -551,8 +560,8 @@ mod tests {
         //No validator defined
         //is_ok
         let config = load_config("tests/fixtures/test_config_ok.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let validators = Validators::new();
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
     }
 
@@ -563,8 +572,8 @@ mod tests {
         //No validator in config
         //is_ok
         let config = load_config("tests/fixtures/config_minimal.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let mut validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
@@ -573,8 +582,8 @@ mod tests {
         //Validator in config
         //is_ok
         let config = load_config("tests/fixtures/test_config_with_custom_validator.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let mut validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
@@ -583,8 +592,8 @@ mod tests {
         //validator in config
         //is_err
         let config = load_config("tests/fixtures/test_config_with_custom_validator.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
@@ -596,8 +605,8 @@ mod tests {
         //No resolver defined
         //is_ok
         let config = load_config("tests/fixtures/test_config_ok.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
@@ -605,8 +614,8 @@ mod tests {
         //No resolver defined
         //is_err
         let config = load_config("tests/fixtures/test_config_with_custom_resolver.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
 
@@ -614,9 +623,9 @@ mod tests {
         //Resolver defined
         //is_ok
         let config = load_config("tests/fixtures/test_config_with_custom_resolver.yml");
-        let mut resolvers = WarpgrapherResolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<(), ()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        let validators = WarpgrapherValidators::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
     }
@@ -628,9 +637,9 @@ mod tests {
         //Resolver defined
         //is_ok
         let config = load_config("tests/fixtures/test_config_with_custom_prop_resolver.yml");
-        let mut resolvers = WarpgrapherResolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<(), ()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        let validators = WarpgrapherValidators::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
@@ -638,9 +647,9 @@ mod tests {
         //Resolver defined
         //is_ok
         let config = load_config("tests/fixtures/config_minimal.yml");
-        let mut resolvers = WarpgrapherResolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<(), ()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        let validators = WarpgrapherValidators::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_ok());
 
@@ -648,8 +657,8 @@ mod tests {
         //No resolver defined
         //is_err
         let config = load_config("tests/fixtures/test_config_with_custom_prop_resolver.yml");
-        let resolvers = WarpgrapherResolvers::<(), ()>::new();
-        let validators = WarpgrapherValidators::new();
+        let resolvers = Resolvers::<(), ()>::new();
+        let validators = Validators::new();
 
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }

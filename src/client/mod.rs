@@ -8,46 +8,46 @@ use std::collections::BTreeMap;
 
 /// A Warpgrapher GraphQL client
 ///
-/// The [`WarpgrapherClient`] provides a set of CRUD operations that will
+/// The [`Client`] provides a set of CRUD operations that will
 /// automatically generate GraphQL queries that conform to the wargrapher API
 ///
-/// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+/// [`Client`]: ./struct.Client.html
 ///
 /// # Examples
 ///
 /// ```rust
 /// use std::env::var_os;
-/// use warpgrapher::WarpgrapherClient;
+/// use warpgrapher::client::Client;;
 ///
-/// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+/// let mut client = Client::new("http://localhost:5000/graphql");
 /// ```
 #[derive(Clone, Hash, Debug, Default)]
-pub struct WarpgrapherClient {
+pub struct Client {
     endpoint: String,
 }
 
-impl WarpgrapherClient {
-    /// Takes an endpoint string and creates a new [`WarpgrapherClient`].
+impl Client {
+    /// Takes an endpoint string and creates a new [`Client`].
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Examples
     ///
     /// ```rust
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;
     ///
-    /// let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    /// let mut client = Client::new("http://localhost:5000/graphql");
     /// ```
-    pub fn new(endpoint: &str) -> WarpgrapherClient {
-        WarpgrapherClient {
+    pub fn new(endpoint: &str) -> Client {
+        Client {
             endpoint: endpoint.to_string(),
         }
     }
     
     /// Executes a raw graphql query.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -61,11 +61,11 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let query = "query { Project { id name } }";
     ///     let results = client.graphql(
@@ -114,10 +114,10 @@ impl WarpgrapherClient {
         }
     }
 
-    /// Takes the name of a WarpgrapherType and executes a NodeCreate operation. Requires
+    /// Takes the name of a Type and executes a NodeCreate operation. Requires
     /// a query shape and the input of the node being created.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -131,11 +131,11 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let projects = client.create_node(
     ///         "Project",
@@ -153,19 +153,19 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_create_node_query(type_name, shape);
         debug!(
-            "WarpgrapherClient create_node -- query: {:#?}, input: {:#?}",
+            "Client create_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(input)).await?;
         self.strip(&result, &format!("{}Create", type_name))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelCreate operation. Requires also a query shape,
     /// an input to match the source node(s) for which the rel(s) will be created,
     /// and an input of the relationship being created.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -179,11 +179,11 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.create_rel(
     ///         "Project",
@@ -207,7 +207,7 @@ impl WarpgrapherClient {
         let query = self.fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         debug!(
-            "WarpgrapherClient create_rel -- query: {:#?}, input: {:#?}",
+            "Client create_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
@@ -217,15 +217,15 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes a Delete operation.
+    /// Takes the name of a Type and executes a Delete operation.
     /// Takes two optional inputs.  The first selects the node(s) for deletion.  
     /// The second contains options for forcing the delete, meaning deleting
     /// node along with any relationships to and from it -- without the force flag,
     /// deleting a node with relationships will fail.  Also contains options for
     /// deleting additional nodes and rels connected to the target node. Returns
-    /// the number of nodes of the WarpgrapherType deleted.
+    /// the number of nodes of the Type deleted.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -238,12 +238,12 @@ impl WarpgrapherClient {
     ///
     /// ```no_run
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     /// use serde_json::json;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let projects = client.delete_node(
     ///         "Project",
@@ -262,21 +262,21 @@ impl WarpgrapherClient {
         let query = self.fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         debug!(
-            "WarpgrapherClient delete_node -- query: {:#?}, input: {:#?}",
+            "Client delete_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &(type_name.to_string() + "Delete"))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelDelete operation. Takes three optional inputs.  The
     /// first selects the relationship(s) for deletion. The second and third,
     /// if present, request the deletion of the src and dst nodes associated with the
     /// relationship, and potentially additional nodes and rels as well. Returns
     /// the number of matched relationships deleted.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -290,11 +290,11 @@ impl WarpgrapherClient {
     /// ```no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.delete_rel("Project", "issues",
     ///        Some(&json!({"props": {"since": "2000"}})),
@@ -331,7 +331,7 @@ impl WarpgrapherClient {
             Some(&value)
         };
         debug!(
-            "WarpgrapherClient delete_rel -- query: {:#?}, input: {:#?}",
+            "Client delete_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
@@ -341,10 +341,10 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes a Read operation. Requires
+    /// Takes the name of a Type and executes a Read operation. Requires
     /// a query shape and takes an optional input which filters the results.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -357,11 +357,11 @@ impl WarpgrapherClient {
     ///
     /// ```no_run
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let projects = client.read_node("Project", "id name description", None).await;
     /// }
@@ -375,18 +375,18 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_node_query(type_name, shape);
         debug!(
-            "WarpgrapherClient read_node -- query: {:#?}, input: {:#?}",
+            "Client read_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
         self.strip(&result, type_name)
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a read operation. Also takes an option input with match
     /// criteria for selecting the relationship to read.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -400,11 +400,11 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.read_rel("Project", "issues",
     ///         "id props { since }",
@@ -422,7 +422,7 @@ impl WarpgrapherClient {
     ) -> Result<Value, Error> {
         let query = self.fmt_read_rel_query(type_name, rel_name, shape);
         debug!(
-            "WarpgrapherClient read_rel -- query: {:#?}, input: {:#?}",
+            "Client read_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, input).await?;
@@ -432,11 +432,11 @@ impl WarpgrapherClient {
         )
     }
 
-    /// Takes the name of a WarpgrapherType and executes an Update operation.
+    /// Takes the name of a Type and executes an Update operation.
     /// Requires a query shape, an optional match component of the input, and a
     /// mandatory update component of the input.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -450,11 +450,11 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let projects = client.update_node(
     ///         "Project",
@@ -475,20 +475,20 @@ impl WarpgrapherClient {
         let query = self.fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         debug!(
-            "WarpgrapherClient update_node -- query: {:#?}, input: {:#?}",
+            "Client update_node -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
         self.strip(&result, &format!("{}Update", type_name))
     }
 
-    /// Takes the name of a WarpgrapherType and a relationship property on that
+    /// Takes the name of a Type and a relationship property on that
     /// types and executes a RelUpdate operation.  Requires a shape of result to
     /// be returned.  Takes an optional input that selects the relationship for
     /// update, and a mandatory input describing the update to be performed.  
     /// Returns the number of matched relationships deleted.
     ///
-    /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
+    /// [`Client`]: ./struct.Client.html
     ///
     /// # Errors
     ///
@@ -502,11 +502,11 @@ impl WarpgrapherClient {
     /// ```rust,no_run
     /// use serde_json::json;
     /// use std::env::var_os;
-    /// use warpgrapher::WarpgrapherClient;
+    /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = WarpgrapherClient::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.update_rel("Project", "issues",
     ///         "id props {since} src {id name} dst {id name}",
@@ -527,7 +527,7 @@ impl WarpgrapherClient {
         let query = self.fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         debug!(
-            "WarpgrapherClient update_rel -- query: {:#?}, input: {:#?}",
+            "Client update_rel -- query: {:#?}, input: {:#?}",
             query, input
         );
         let result = self.graphql(&query, Some(&input)).await?;
@@ -633,19 +633,19 @@ impl WarpgrapherClient {
 #[cfg(test)]
 mod tests {
 
-    use super::WarpgrapherClient;
+    use super::Client;
 
     #[test]
     fn new() {
         let endpoint = "http://localhost:5000/graphql";
-        let client = WarpgrapherClient::new(&endpoint);
+        let client = Client::new(&endpoint);
         assert_eq!(client.endpoint, endpoint);
     }
 
     #[test]
     fn fmt_read_node_query() {
         let endpoint = "http://localhost:5000/graphql";
-        let client = WarpgrapherClient::new(&endpoint);
+        let client = Client::new(&endpoint);
 
         let actual = client.fmt_read_node_query("Project", "id");
         let expected = r#"query Read($input: ProjectQueryInput) { 
@@ -657,7 +657,7 @@ mod tests {
     #[test]
     fn fmt_create_node_query() {
         let endpoint = "http://localhost:5000/graphql";
-        let client = WarpgrapherClient::new(&endpoint);
+        let client = Client::new(&endpoint);
 
         let actual = client.fmt_create_node_query("Project", "id");
         let expected = r#"mutation Create($input: ProjectCreateMutationInput!) { 

@@ -5,13 +5,12 @@ use std::env::var_os;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-use warpgrapher::{
-    Arguments, Error, ErrorKind, ExecutionResult, Executor, GraphQLContext, Info, Value,
-};
-use warpgrapher::{
-    WarpgrapherConfig, WarpgrapherExtensions, WarpgrapherRequestContext, WarpgrapherResolvers,
-    WarpgrapherValidators,
-};
+use warpgrapher::{Error, ErrorKind};
+use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::engine::config::{Config, Validators, Resolvers};
+use warpgrapher::engine::extensions::WarpgrapherExtensions;
+use warpgrapher::engine::context::{GraphQLContext, RequestContext};
+use warpgrapher::engine::schema::Info;
 
 #[derive(Clone, Debug)]
 pub struct AppGlobalCtx {
@@ -23,7 +22,7 @@ pub struct AppReqCtx {
     metadata: Metadata,
 }
 
-impl WarpgrapherRequestContext for AppReqCtx {
+impl RequestContext for AppReqCtx {
     fn new() -> AppReqCtx {
         AppReqCtx {
             metadata: Metadata {
@@ -96,7 +95,7 @@ pub fn project_count<AppGlobalCtx, AppReqCtx>(
     executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
 ) -> ExecutionResult
 where
-    AppReqCtx: WarpgrapherRequestContext,
+    AppReqCtx: RequestContext,
 {
     // get projects from database
     let graph = executor.context().pool.get().unwrap();
@@ -114,17 +113,17 @@ pub fn project_points<AppGlobalCtx, AppReqCtx>(
     _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
 ) -> ExecutionResult
 where
-    AppReqCtx: WarpgrapherRequestContext,
+    AppReqCtx: RequestContext,
 {
     Ok(Value::scalar(1_000_000 as i32))
 }
 
 pub struct Server {
-    config: WarpgrapherConfig,
+    config: Config,
     db_url: String,
     global_ctx: AppGlobalCtx,
-    resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-    validators: WarpgrapherValidators,
+    resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+    validators: Validators,
     extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     server: Option<dev::Server>,
     handle: Option<JoinHandle<()>>,
@@ -132,11 +131,11 @@ pub struct Server {
 
 impl Server {
     fn new(
-        config: WarpgrapherConfig,
+        config: Config,
         db_url: String,
         global_ctx: AppGlobalCtx,
-        resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx>,
-        validators: WarpgrapherValidators,
+        resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+        validators: Validators,
         extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
     ) -> Server {
         Server {
@@ -230,7 +229,7 @@ pub fn test_server(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config =
-        WarpgrapherConfig::from_file(config_path.to_string()).expect("Failed to load config file");
+        Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
     let global_ctx = AppGlobalCtx {
@@ -238,7 +237,7 @@ pub fn test_server(config_path: &str) -> Server {
     };
 
     // load resolvers
-    let mut resolvers: WarpgrapherResolvers<AppGlobalCtx, AppReqCtx> = WarpgrapherResolvers::new();
+    let mut resolvers: Resolvers<AppGlobalCtx, AppReqCtx> = Resolvers::new();
     resolvers.insert(
         "ProjectCount".to_owned(),
         Box::new(project_count::<AppGlobalCtx, AppReqCtx>),
@@ -249,7 +248,7 @@ pub fn test_server(config_path: &str) -> Server {
         Box::new(project_points::<AppGlobalCtx, AppReqCtx>),
     );
 
-    let mut validators: WarpgrapherValidators = WarpgrapherValidators::new();
+    let mut validators: Validators = Validators::new();
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions

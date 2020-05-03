@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use warpgrapher::{Extension, WarpgrapherRequestContext};
+use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
@@ -20,7 +21,7 @@ pub trait MetadataExtensionCtx {
 pub struct MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<ReqCtx>,
@@ -30,7 +31,7 @@ impl<GlobalCtx, ReqCtx> MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx:
-        'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext + MetadataExtensionCtx,
+        'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     pub fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
         MetadataExtension {
@@ -44,7 +45,7 @@ impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for MetadataExtension<Globa
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx:
-        'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext + MetadataExtensionCtx,
+        'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     /// Request hook that executes prior to a request being handled by the GraphQL executor.
     /// This hook will add metadata into the request context.
