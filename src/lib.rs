@@ -13,8 +13,9 @@ pub extern crate juniper;
 pub use error::Error;
 pub use error::ErrorKind;
 pub use engine::Engine;
-pub use config::Config;
+pub use engine::config::Config;
 
 pub mod client;
 pub mod engine;
 pub mod error;
+
