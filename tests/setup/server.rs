@@ -5,12 +5,12 @@ use std::env::var_os;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-use warpgrapher::{Error, ErrorKind};
-use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
-use warpgrapher::engine::config::{Config, Validators, Resolvers};
-use warpgrapher::engine::extensions::WarpgrapherExtensions;
+use warpgrapher::engine::config::{Config, Resolvers, Validators};
 use warpgrapher::engine::context::{GraphQLContext, RequestContext};
+use warpgrapher::engine::extensions::WarpgrapherExtensions;
 use warpgrapher::engine::schema::Info;
+use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::{Error, ErrorKind};
 
 #[derive(Clone, Debug)]
 pub struct AppGlobalCtx {
@@ -228,8 +228,7 @@ impl Server {
 pub fn test_server(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
-    let config =
-        Config::from_file(config_path.to_string()).expect("Failed to load config file");
+    let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
     let global_ctx = AppGlobalCtx {

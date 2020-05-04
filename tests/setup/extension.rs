@@ -30,8 +30,7 @@ where
 impl<GlobalCtx, ReqCtx> MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx:
-        'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     pub fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
         MetadataExtension {
@@ -44,8 +43,7 @@ where
 impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx:
-        'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     /// Request hook that executes prior to a request being handled by the GraphQL executor.
     /// This hook will add metadata into the request context.

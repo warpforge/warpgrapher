@@ -1630,11 +1630,7 @@ fn visit_rel_update_mutation_input(
     }
 }
 
-fn validate_input(
-    validators: &Validators,
-    v: &str,
-    input: &Value,
-) -> Result<(), FieldError> {
+fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(), FieldError> {
     let func = validators.get(v).ok_or_else(|| {
         Error::new(
             ErrorKind::ValidatorNotFound(

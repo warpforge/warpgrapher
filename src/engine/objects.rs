@@ -157,6 +157,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::union_meta called - nt.type_name: {}", nt.type_name);
         let types = match &nt.union_types {
             None => panic!("Missing union_types on NodeType of type Union"),
             Some(union_types) => union_types
@@ -178,6 +179,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::object_meta called - nt.type_name: {}", nt.type_name);
         let mut props = nt.props.values().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| &p.name);
 
@@ -464,6 +466,17 @@ where
             type_name,
             self.concrete_typename
         );
+
+        // this mismatch can occur when query fragments are used. correct
+        // behavior is to not resolve it
+        if info.name != type_name {
+            trace!(
+                "info.name {} != type_name {}, returning NULL",
+                info.name,
+                type_name
+            );
+            return Ok(juniper::Value::Null);
+        }
 
         executor.resolve(
             &Info::new(self.concrete_typename.to_owned(), info.type_defs.clone()),

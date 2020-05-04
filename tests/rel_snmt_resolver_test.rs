@@ -959,13 +959,15 @@ async fn delete_snmt_rel_by_rel_prop() {
         .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some(&json!({"props": {"public": false}})),
-        None,
-        None,
-    ).await;
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some(&json!({"props": {"public": false}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(
@@ -1056,13 +1058,15 @@ async fn delete_snmt_rel_by_dst_prop() {
         .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
-        None,
-        None,
-    ).await;
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(
