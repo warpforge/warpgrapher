@@ -303,8 +303,12 @@ async fn read_multiple_nodes_with_multiple_rels() {
             board { 
                 __typename 
                 dst { 
+                    __typename 
                     ... on ScrumBoard {
-                        __typename 
+                        id
+                        name
+                    }
+                    ... on KanbanBoard {
                         id
                         name
                     }
@@ -671,6 +675,10 @@ async fn update_existing_node_with_rel_to_new_node() {
                  __typename
                  dst {
                     ... on ScrumBoard {
+                        id
+                        name
+                    }
+                    ... on KanbanBoard {
                         id
                         name
                     }

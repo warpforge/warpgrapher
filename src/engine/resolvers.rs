@@ -1227,9 +1227,11 @@ pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
 ) -> ExecutionResult {
     trace!(
-        "resolve_union_field called -- info.name: {}, field_name: {}",
+        "resolve_union_field called -- info.name: {}, field_name: {}, src: {}, dst: {}",
         info.name,
         field_name,
+        src.concrete_typename,
+        dst.concrete_typename
     );
 
     match field_name {

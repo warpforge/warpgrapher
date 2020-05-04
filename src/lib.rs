@@ -10,12 +10,11 @@
 #[macro_use]
 pub extern crate juniper;
 
+pub use engine::config::Config;
+pub use engine::Engine;
 pub use error::Error;
 pub use error::ErrorKind;
-pub use engine::Engine;
-pub use engine::config::Config;
 
 pub mod client;
 pub mod engine;
 pub mod error;
-
