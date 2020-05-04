@@ -14,9 +14,9 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 use super::server::{AppGlobalCtx, AppReqCtx};
-use warpgrapher::engine::Engine;
-use warpgrapher::engine::config::{Config, Validators, Resolvers};
+use warpgrapher::engine::config::{Config, Resolvers, Validators};
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
+use warpgrapher::engine::Engine;
 
 #[derive(Clone)]
 struct AppData {

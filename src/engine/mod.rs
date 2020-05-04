@@ -127,10 +127,7 @@ where
     ///     .with_validators(validators)
     ///     .build().unwrap();
     /// ```
-    pub fn with_validators(
-        mut self,
-        validators: Validators,
-    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+    pub fn with_validators(mut self, validators: Validators) -> EngineBuilder<GlobalCtx, ReqCtx> {
         self.validators = validators;
         self
     }

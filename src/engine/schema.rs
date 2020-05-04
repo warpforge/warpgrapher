@@ -3,8 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, Config, Endpoint, Prop,
-    Relationship, Type, TypeDef,
+    Config, Endpoint, EndpointClass, GraphqlType, Prop, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
 use crate::engine::context::RequestContext;
@@ -2161,8 +2160,7 @@ mod tests {
         InputKind, NodeType, Property, PropertyKind, TypeKind,
     };
     use crate::engine::config::{
-        EndpointClass, Config, Endpoint, EndpointType,
-        EndpointsFilter, Prop, Relationship, Type,
+        Config, Endpoint, EndpointClass, EndpointType, EndpointsFilter, Prop, Relationship, Type,
         TypeDef,
     };
     use std::collections::HashMap;
@@ -2348,11 +2346,7 @@ mod tests {
                 true,
                 true,
             )),
-            EndpointType::new(
-                TypeDef::Existing("User".to_string()),
-                true,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), true, true),
         )
     }
 
@@ -2366,11 +2360,7 @@ mod tests {
                 false,
                 true,
             )),
-            EndpointType::new(
-                TypeDef::Existing("User".to_string()),
-                false,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), false, true),
         )
     }
 

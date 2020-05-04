@@ -1,10 +1,10 @@
 use resolvers::{project_count, project_points};
 use validators::name_validator;
-use warpgrapher::Error;
-use warpgrapher::engine::Engine;
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::config::{Config, Resolvers, Validators};
 use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::Engine;
+use warpgrapher::Error;
 
 extern crate env_logger;
 extern crate frank_jwt;
