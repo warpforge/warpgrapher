@@ -454,6 +454,17 @@ fn read_mnmt_by_dst_props() {
     assert_eq!(p0.get("__typename").unwrap(), "Project");
     assert_eq!(p0.get("name").unwrap(), "Project Zero");
 
+    let p1 = client
+        .create_node(
+            "Project",
+            "__typename id name", Some("1234".to_string()),
+            &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+        .unwrap();
+
+    assert!(p1.is_object());
+    assert_eq!(p1.get("__typename").unwrap(), "Project");
+    assert_eq!(p1.get("name").unwrap(), "Project One");
+
     let projects = client
         .read_node(
             "Project", 
@@ -466,31 +477,31 @@ fn read_mnmt_by_dst_props() {
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 1);
 
-    let p1 = &projects_a[0];
-    assert!(p1.is_object());
-    assert_eq!(p1.get("__typename").unwrap(), "Project");
-    assert_eq!(p1.get("id").unwrap(), p0.get("id").unwrap());
-    assert_eq!(p1.get("name").unwrap(), "Project Zero");
+    let p2 = &projects_a[0];
+    assert!(p2.is_object());
+    assert_eq!(p2.get("__typename").unwrap(), "Project");
+    assert_eq!(p2.get("id").unwrap(), p0.get("id").unwrap());
+    assert_eq!(p2.get("name").unwrap(), "Project Zero");
 
-    trace!("Issues: {:#?}", p1.get("issues").unwrap());
-    let issues = p1.get("issues").unwrap().as_array().unwrap();
+    trace!("Issues: {:#?}", p2.get("issues").unwrap());
+    let issues = p2.get("issues").unwrap().as_array().unwrap();
     assert_eq!(issues.len(), 2);
 
-    assert!(p1
+    assert!(p2
         .get("issues")
         .unwrap()
         .as_array()
         .unwrap()
         .iter()
         .any(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
-    assert!(p1
+    assert!(p2
         .get("issues")
         .unwrap()
         .as_array()
         .unwrap()
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
-    assert!(p1
+    assert!(p2
         .get("issues")
         .unwrap()
         .as_array()
@@ -1158,14 +1169,14 @@ fn delete_node_by_mnmt_rel_property() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn delete_node_with_forced_flag_graphson2() {
+fn delete_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_forced_flag();
+    delete_node();
 
     assert!(server.shutdown().is_ok());
 }
@@ -1173,21 +1184,21 @@ fn delete_node_with_forced_flag_graphson2() {
 #[cfg(feature = "neo4j")]
 #[serial(neo4j)]
 #[test]
-fn delete_node_with_forced_flag_neo4j() {
+fn delete_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_forced_flag();
+    delete_node();
 
     assert!(server.shutdown().is_ok());
 }
 
-/// Passes if warpgrapher can delete a node with a forced delete in spite of rels.
+/// Passes if warpgrapher can delete a node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_with_forced_flag() {
+fn delete_node() {
     let mut client = test_client();
 
     client
@@ -1214,7 +1225,7 @@ fn delete_node_with_forced_flag() {
             "Project",
             Some("1234".to_string()),
             Some(&json!({"name": "Project Zero"})),
-            Some(&json!({"force": true})),
+            Some(&json!({})),
         )
         .unwrap();
 

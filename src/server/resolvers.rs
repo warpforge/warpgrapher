@@ -259,7 +259,7 @@ where
         &var_suffix,
         false,
         true,
-        "",
+        // "",
         &mut params,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
@@ -533,11 +533,12 @@ where
     T: Transaction,
 {
     trace!(
-        "resolve_rel_field called -- info.name: {}, field_name: {}, id_opt: {:#?}, rel_name: {}, input_opt: {:#?}",
+        "resolve_rel_field called -- info.name: {}, field_name: {}, id_opt: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name,
         field_name,
         id_opt,
         rel_name,
+        partition_key_opt,
         input_opt
     );
 
@@ -599,11 +600,12 @@ where
     T: Transaction,
 {
     trace!(
-        "resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, input_opt: {:#?}",
+        "resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name,
         field_name,
         src_ids_opt,
         rel_name,
+        partition_key_opt,
         input_opt
     );
 
@@ -629,7 +631,7 @@ where
         &dst_prop.type_name,
         &dst_suffix,
         true,
-        "",
+        // "",
         &mut params,
         &mut sg,
         &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
@@ -643,7 +645,7 @@ where
         query, params
     );
     let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
-    debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
+    // debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
     if raw_results.is_ok() {
         transaction.commit()?;
@@ -652,7 +654,7 @@ where
     }
 
     let results = raw_results?;
-    trace!("resolve_rel_read_query Results: {:#?}", results);
+    // trace!("resolve_rel_read_query Results: {:#?}", results);
 
     trace!("resolve_rel_read_query calling get_rels.");
     if p.list {

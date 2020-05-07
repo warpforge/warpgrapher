@@ -8,7 +8,6 @@ use crate::server::value::Value;
 use juniper::FieldError;
 use log::{debug, trace};
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
@@ -165,7 +164,7 @@ where
             var_suffix,
             false,
             true,
-            "",
+            // "",
             &mut params,
             sg,
             &Info::new(
@@ -227,18 +226,12 @@ where
     );
 
     let itd = info.get_type_def()?;
-    let mut force = false;
 
     if let Some(Value::Map(m)) = input {
         for (k, v) in m.into_iter() {
             let p = itd.get_prop(&k)?;
 
             match p.kind {
-                PropertyKind::Scalar => {
-                    if k == "force" && v == Value::Bool(true) {
-                        force = true
-                    }
-                }
                 PropertyKind::Input => {
                     if let Value::Array(input_array) = v {
                         for val in input_array {
@@ -275,7 +268,7 @@ where
         }
     }
 
-    transaction.delete_nodes(label, force, ids, partition_key_opt)
+    transaction.delete_nodes(label, ids, partition_key_opt)
 }
 
 fn visit_node_input<T>(
@@ -327,7 +320,7 @@ where
                     &var_suffix,
                     false,
                     true,
-                    "",
+                    // "",
                     &mut params,
                     &mut sg,
                     &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
@@ -362,7 +355,7 @@ pub fn visit_node_query_input<T>(
     var_suffix: &str,
     union_type: bool,
     return_node: bool,
-    query: &str,
+    // query: &str,
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
@@ -377,10 +370,11 @@ where
              "visit_node_query_input called -- label: {}, var_suffix: {}, union_type: {}, return_node: {}, info.name: {}, input: {:#?}",
              label, var_suffix, union_type, return_node, info.name, input,
          );
-    let mut qs = String::from(query);
+    // let mut qs = String::from(query);
     let itd = info.get_type_def()?;
     let param_suffix = sg.get_suffix();
 
+    let mut rel_query_fragments = Vec::new();
     let mut props = HashMap::new();
     if let Some(Value::Map(m)) = input {
         for (k, v) in m.into_iter() {
@@ -391,7 +385,7 @@ where
                     props.insert(k, v);
                 }
                 PropertyKind::Input => {
-                    qs.push_str(&visit_rel_query_input(
+                    rel_query_fragments.push(visit_rel_query_input(
                         label,
                         var_suffix,
                         None,
@@ -399,7 +393,7 @@ where
                         "dst",
                         &sg.get_suffix(),
                         false,
-                        &qs,
+                        // &qs,
                         params,
                         sg,
                         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
@@ -420,7 +414,8 @@ where
     }
 
     transaction.node_query_string(
-        &qs,
+        // &qs,
+        rel_query_fragments,
         params,
         label,
         var_suffix,
@@ -461,7 +456,7 @@ where
             &var_suffix,
             false,
             true,
-            "",
+            // "",
             &mut params,
             &mut sg,
             &Info::new(
@@ -566,28 +561,7 @@ where
             }
         }
 
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("ids".to_owned(), ids);
-        params.insert("props".to_owned(), props.into());
-
-        let query = String::from("MATCH (n:")
-            + label
-            + ")\n"
-            + "WHERE n.id IN $ids\n"
-            + "SET n += $props\n"
-            + "RETURN n\n";
-
-        debug!(
-            "visit_node_update_mutation_input query, params: {:#?}, {:#?}",
-            query, params
-        );
-        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
-        debug!(
-            "visit_node_update_mutation_input Query results: {:#?}",
-            raw_results
-        );
-
-        let results = raw_results?;
+        let results = transaction.update_nodes(label, ids, props, partition_key_opt)?;
 
         for (k, v) in inputs.into_iter() {
             let p = itd.get_prop(&k)?;
@@ -751,7 +725,7 @@ where
             &var_suffix,
             false,
             true,
-            "",
+            // "",
             &mut params,
             &mut sg,
             &Info::new(
@@ -865,57 +839,15 @@ where
             transaction,
         )?;
 
-        let mut props = HashMap::new();
-        if let Some(Value::Map(pm)) = m.remove("props") {
-            // remove rather than get to take ownership
-            for (k, v) in pm.into_iter() {
-                props.insert(k.to_owned(), v);
-            }
-        }
-
-        let query = String::from("MATCH (")
-            + src_label
-            + ":"
-            + src_label
-            + "),(dst:"
-            + &dst_label
-            + ")"
-            + "\n"
-            + "WHERE "
-            + src_label
-            + ".id IN $aid AND dst.id IN $bid\n"
-            + "CREATE ("
-            + src_label
-            + ")-["
-            + rel_name
-            + ":"
-            + String::from(rel_name).as_str()
-            + " { id: randomUUID() }]->(dst)\n"
-            + "SET "
-            + rel_name
-            + " += $props\n"
-            + "RETURN "
-            + src_label
-            + ", "
-            + rel_name
-            + ", dst, labels(dst) as dst_label\n";
-
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("aid".to_owned(), src_ids);
-        params.insert("bid".to_owned(), dst_ids);
-        params.insert("props".to_owned(), Value::Map(props));
-
-        debug!(
-            "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
-            query, params
-        );
-        let results = transaction.exec(&query, partition_key_opt, Some(params))?;
-        debug!(
-            "visit_rel_create_mutation_input Query results: {:#?}",
-            results
-        );
-
-        Ok(results)
+        transaction.create_rels(
+            src_label,
+            src_ids,
+            &dst_label,
+            dst_ids,
+            rel_name,
+            &mut m,
+            partition_key_opt,
+        )
     } else {
         Err(Error::new(ErrorKind::InputTypeMismatch(info.name.to_owned()), None).into())
     }
@@ -957,7 +889,7 @@ where
             "dst",
             &dst_suffix,
             true,
-            "",
+            // "",
             &mut params,
             &mut sg,
             &Info::new(
@@ -1086,14 +1018,14 @@ where
 fn visit_rel_dst_query_input<T>(
     label: &str,
     var_suffix: &str,
-    query: &str,
+    // query: &str,
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<String, FieldError>
+) -> Result<Option<String>, FieldError>
 where
     T: Transaction,
 {
@@ -1111,24 +1043,24 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = itd.get_prop(&k)?;
 
-            visit_node_query_input(
+            Ok(Some(visit_node_query_input(
                 label,
                 var_suffix,
                 true,
                 false,
-                query,
+                // query,
                 params,
                 sg,
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(v),
                 transaction,
-            )
+            )?))
         } else {
-            Ok(query.to_owned())
+            Ok(None)
         }
     } else {
-        Ok(query.to_owned())
+        Ok(None)
     }
 }
 
@@ -1222,7 +1154,7 @@ pub fn visit_rel_query_input<T>(
     dst_var: &str,
     dst_suffix: &str,
     return_rel: bool,
-    query: &str,
+    // query: &str,
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
@@ -1234,19 +1166,17 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_rel_query_input called -- src_label: {}, src_suffix: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_rel: {:#?}, query: {}, info.name: {}, input: {:#?}",
+        "visit_rel_query_input called -- src_label: {}, src_suffix: {}, src_ids_opt: {:#?}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_rel: {:#?}, info.name: {}, input: {:#?}",
         src_label,
         src_suffix,
+        src_ids_opt,
         rel_name,
         dst_var,
         dst_suffix,
         return_rel,
-        query,
         info.name,
         input_opt,
     );
-
-    let mut qs = query.to_string();
 
     let itd = info.get_type_def()?;
     let src_prop = itd.get_prop("src")?;
@@ -1266,270 +1196,70 @@ where
             }
         }
 
-        qs.push_str(
-            &(String::from("MATCH (")
-                + src_label
-                + src_suffix
-                + ":"
-                + src_label
-                + ")-["
-                + rel_name
-                + src_suffix
-                + dst_suffix
-                + ":"
-                + String::from(rel_name).as_str()
-                + "]->("
-                + dst_var
-                + dst_suffix
-                + ")\n"),
-        );
-
-        let mut wc = None;
-        for k in props.keys() {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-            }
-        }
-
-        if let Some(src_ids) = src_ids_opt {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-            }
-            let mut id_map = HashMap::new();
-            id_map.insert("ids".to_string(), src_ids);
-
-            params.insert(
-                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
-                id_map.try_into()?,
-            );
-        }
-
-        if let Some(wcs) = wc {
-            qs.push_str(&(String::from(&wcs) + "\n"));
-        }
-        params.insert(
-            String::from(rel_name) + src_suffix + dst_suffix,
-            props.into(),
-        );
-
         // Remove used to take ownership
-        if let Some(src) = m.remove("src") {
-            qs.push_str(&visit_rel_src_query_input(
+        let src_query_opt = if let Some(src) = m.remove("src") {
+            visit_rel_src_query_input(
                 src_label,
                 src_suffix,
-                &query,
+                // &query,
                 params,
                 sg,
                 &Info::new(src_prop.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(src),
                 transaction,
-            )?);
-        }
+            )?
+        } else {
+            None
+        };
 
         // Remove used to take ownership
-        if let Some(dst) = m.remove("dst") {
-            qs.push_str(&visit_rel_dst_query_input(
+        let dst_query_opt = if let Some(dst) = m.remove("dst") {
+            visit_rel_dst_query_input(
                 dst_var,
                 dst_suffix,
-                &query,
+                // &query,
                 params,
                 sg,
                 &Info::new(dst_prop.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(dst),
                 transaction,
-            )?);
-        }
+            )?
+        } else {
+            None
+        };
+
+        transaction.rel_query_string(
+            // query,
+            src_label,
+            src_suffix,
+            src_ids_opt,
+            src_query_opt,
+            rel_name,
+            dst_var,
+            dst_suffix,
+            dst_query_opt,
+            return_rel,
+            props,
+            params,
+        )
     } else {
-        qs.push_str(
-            &(String::from("MATCH (")
-                + src_label
-                + src_suffix
-                + ":"
-                + src_label
-                + ")-["
-                + rel_name
-                + src_suffix
-                + dst_suffix
-                + ":"
-                + String::from(rel_name).as_str()
-                + "]->("
-                + dst_var
-                + dst_suffix
-                + ")\n"),
-        );
-
-        let mut wc = None;
-        for k in props.keys() {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-            }
-        }
-
-        if let Some(src_ids) = src_ids_opt {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-            }
-            let mut id_map = HashMap::new();
-            id_map.insert("ids".to_string(), src_ids);
-
-            params.insert(
-                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
-                id_map.try_into()?,
-            );
-        }
-
-        if let Some(wcs) = wc {
-            qs.push_str(&(String::from(&wcs) + "\n"));
-        }
-        params.insert(
-            String::from(rel_name) + src_suffix + dst_suffix,
-            props.into(),
-        );
+        transaction.rel_query_string(
+            // query,
+            src_label,
+            src_suffix,
+            src_ids_opt,
+            None,
+            rel_name,
+            dst_var,
+            dst_suffix,
+            None,
+            return_rel,
+            props,
+            params,
+        )
     }
-
-    if return_rel {
-        qs.push_str(
-            &(String::from("RETURN ")
-                + src_label
-                + src_suffix
-                + ", "
-                + rel_name
-                + src_suffix
-                + dst_suffix
-                + ", "
-                + dst_var
-                + dst_suffix
-                + ", "
-                + "labels("
-                + dst_var
-                + dst_suffix
-                + ") as "
-                + dst_var
-                + dst_suffix
-                + "_label\n"),
-        );
-    }
-
-    trace!("visit_rel_query_input -- query_string: {}", qs);
-    Ok(qs)
 }
 
 pub fn visit_rel_src_delete_mutation_input<T>(
@@ -1619,14 +1349,14 @@ where
 fn visit_rel_src_query_input<T>(
     label: &str,
     label_suffix: &str,
-    query: &str,
+    // query: &str,
     params: &mut HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<String, FieldError>
+) -> Result<Option<String>, FieldError>
 where
     T: Transaction,
 {
@@ -1644,24 +1374,24 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = itd.get_prop(&k)?;
 
-            visit_node_query_input(
+            Ok(Some(visit_node_query_input(
                 label,
                 label_suffix,
                 false,
                 false,
-                query,
+                // query,
                 params,
                 sg,
                 &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
                 partition_key_opt,
                 Some(v),
                 transaction,
-            )
+            )?))
         } else {
-            Ok(query.to_owned())
+            Ok(None)
         }
     } else {
-        Ok(query.to_owned())
+        Ok(None)
     }
 }
 
@@ -1703,7 +1433,7 @@ where
             "dst",
             &dst_suffix,
             true,
-            "",
+            // "",
             &mut params,
             &mut sg,
             &Info::new(

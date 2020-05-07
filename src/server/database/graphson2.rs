@@ -8,7 +8,7 @@ use crate::{Error, ErrorKind};
 #[cfg(feature = "graphson2")]
 // use gremlin_client::process::traversal::traversal;
 #[cfg(feature = "graphson2")]
-use gremlin_client::{ConnectionOptions, GValue, GraphSON, GremlinClient, ToGValue, GID};
+use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, ToGValue, GID};
 use juniper::FieldError;
 use log::trace;
 use std::collections::HashMap;
@@ -92,30 +92,130 @@ impl Transaction for Graphson2Transaction {
         self.exec(&query, partition_key_opt, Some(props))
     }
 
-    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Graphson2QueryResult, FieldError> {
-    let query = String::from("MATCH (n:")
-        + label
-        + ")\n"
-        + "WHERE n.id IN $ids\n"
-        + if force { "DETACH " } else { "" }
-        + "DELETE n\n"
-        + "RETURN count(*) as count\n";
-    let mut params = HashMap::new();
-    params.insert("ids".to_owned(), ids);
+    fn create_rels(
+        &mut self,
+        src_label: &str,
+        src_ids: Value,
+        dst_label: &str,
+        dst_ids: Value,
+        rel_name: &str,
+        params: &mut HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError> {
+        let mut props = HashMap::new();
+        if let Some(Value::Map(pm)) = params.remove("props") {
+            // remove rather than get to take ownership
+            for (k, v) in pm.into_iter() {
+                props.insert(k.to_owned(), v);
+            }
+        }
 
-    trace!(
-        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
-        query, params
-    );
-    let results = self.exec(&query, partition_key_opt, Some(params))?;
-    trace!(
-        "visit_node_delete_mutation_input Query results: {:#?}",
-        results
-    );
+        if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) = (src_ids, dst_ids) {
+            let mut query = String::from("g.V()");
+            query.push_str(".has('partitionKey', partitionKey)");
+            query.push_str(&(String::from(".hasLabel('") + dst_label + "')"));
+            query.push_str(&String::from(".has('id', within("));
 
-    Ok(results)
+            for (i, id) in dst_id_vec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        query.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        query.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            query.push_str(&(String::from(")).as('dst')")));
+            query.push_str(&(String::from(".V()")));
+            query.push_str(&(String::from(".has('partitionKey', partitionKey)")));
+            query.push_str(&(String::from(".hasLabel('") + src_label + "')"));
+            query.push_str(&(String::from(".has('id', within(")));
+
+            for (i, id) in src_id_vec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        query.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        query.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            query.push_str(&String::from("))"));
+            query.push_str(&(String::from(".addE('") + rel_name + "').to('dst')"));
+            query.push_str(".property('partitionKey', partitionKey)");
+            for (k, _v) in props.iter() {
+                query.push_str(".property('");
+                query.push_str(k);
+                query.push_str("', ");
+                query.push_str(k);
+                query.push_str(")");
+            }
+
+            self.exec(&query, partition_key_opt, Some(props))
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidType("Expected ID array".to_string()),
+                None,
+            )
+            .into())
+        }
     }
 
+    fn delete_nodes(
+        &mut self,
+        _label: &str,
+        ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Graphson2QueryResult, FieldError> {
+        if let Value::Array(idvec) = ids {
+            let mut qs = String::from("g.V().has('id', within(");
+            let length = idvec.len();
+
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            qs.push_str(")).drop()");
+
+            self.exec(&qs, partition_key_opt, None)?;
+
+            let mut v: Vec<GValue> = Vec::new();
+            v.push(GValue::Int32(length as i32));
+            Ok(Graphson2QueryResult::new(v))
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidType("Expected ID array".to_string()),
+                None,
+            )
+            .into())
+        }
+    }
 
     fn exec(
         &mut self,
@@ -155,12 +255,13 @@ impl Transaction for Graphson2Transaction {
     #[allow(clippy::too_many_arguments)]
     fn node_query_string(
         &mut self,
-        query_string: &str,
+        // query_string: &str,
+        rel_query_fragments: Vec<String>,
         params: &mut HashMap<String, Value>,
         label: &str,
         _var_suffix: &str,
         union_type: bool,
-        _return_node: bool,
+        return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<String, FieldError> {
@@ -169,12 +270,14 @@ impl Transaction for Graphson2Transaction {
             union_type
         );
 
-        let mut qs = query_string.to_string();
+        let mut qs = String::new();
 
-        if union_type {
-            qs.push_str(&(String::from("g.V()")));
-        } else {
-            qs.push_str(&(String::from("g.V().hasLabel('") + label + "')"));
+        if return_node {
+            qs.push_str("g.V()");
+        }
+
+        if !union_type {
+            qs.push_str(&(String::from(".hasLabel('") + label + "')"));
         }
 
         qs.push_str(".has('partitionKey', partitionKey)");
@@ -184,11 +287,158 @@ impl Transaction for Graphson2Transaction {
             params.insert(k + param_suffix, v);
         }
 
+        if !rel_query_fragments.is_empty() {
+            qs.push_str(".where(");
+
+            if rel_query_fragments.len() > 1 {
+                qs.push_str("and(");
+            }
+
+            for (i, rqf) in rel_query_fragments.iter().enumerate() {
+                if i == 0 {
+                    qs.push_str(&(String::from("outE()") + rqf));
+                } else {
+                    qs.push_str(&(String::from(", outE()") + rqf));
+                }
+            }
+
+            if rel_query_fragments.len() > 1 {
+                qs.push_str(")");
+            }
+
+            qs.push_str(")");
+        }
+
+        trace!("node_query_string -- query_string: {}", qs);
+        Ok(qs)
+    }
+
+    fn rel_query_string(
+        &mut self,
+        // query: &str,
+        src_label: &str,
+        src_suffix: &str,
+        src_ids_opt: Option<Value>,
+        src_query_opt: Option<String>,
+        rel_name: &str,
+        _dst_var: &str,
+        dst_suffix: &str,
+        dst_query_opt: Option<String>,
+        return_rel: bool,
+        props: HashMap<String, Value>,
+        params: &mut HashMap<String, Value>,
+    ) -> Result<String, FieldError> {
+        let mut qs = String::new();
+
+        if return_rel {
+            qs.push_str("g.E()");
+        }
+
+        qs.push_str(&(String::from(".hasLabel('") + rel_name + "')"));
+        qs.push_str(".has('partitionKey', partitionKey)");
+
+        for (k, v) in props.into_iter() {
+            qs.push_str(&(String::from(".has('") + &k + ", " + &k + src_suffix + dst_suffix + ")"));
+            params.insert(k + src_suffix + dst_suffix, v);
+        }
+        qs.push_str(".where(");
+
+        if dst_query_opt.is_some() {
+            qs.push_str("and(");
+        }
+
+        if let Some(src_query) = src_query_opt {
+            qs.push_str(&(String::from("outV()") + &src_query));
+        } else {
+            qs.push_str(&(String::from("outV().hasLabel('") + src_label + "')"));
+        }
+
+        if let Some(Value::String(id)) = src_ids_opt {
+            qs.push_str(&(String::from(".has('id', '") + &id + "')"));
+        } else if let Some(Value::Array(idvec)) = src_ids_opt {
+            qs.push_str(".has('id', within(");
+
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            qs.push_str("))");
+        }
+
+        if let Some(dst_query) = dst_query_opt {
+            qs.push_str(", ");
+            qs.push_str(&(String::from("inV()") + &dst_query));
+            qs.push_str(")");
+        }
+
+        qs.push_str(")");
+
+        if return_rel {
+            qs.push_str(".project('r', 'src', 'dst').by(__).by(outV()).by(inV())")
+        }
+
+        trace!("rel_query_string -- query_string: {}", qs);
         Ok(qs)
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {
         Ok(())
+    }
+
+    fn update_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        props: HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Graphson2QueryResult, FieldError> {
+        trace!("transaction::update_nodes called, label: {}, ids: {:#?}, props: {:#?}, partition_key_opt: {:#?}", label, ids, props, partition_key_opt);
+
+        if let Value::Array(idvec) = ids {
+            let mut qs = String::from("g.V().has('id', within(");
+
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            qs.push_str("))");
+
+            for k in props.keys() {
+                qs.push_str(&(String::from(".property('") + k + "', " + k + ")"));
+            }
+
+            self.exec(&qs, partition_key_opt, Some(props))
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidType("Expected ID array".to_string()),
+                None,
+            )
+            .into())
+        }
     }
 }
 
@@ -268,17 +518,137 @@ impl QueryResult for Graphson2QueryResult {
         _rel_name: &str,
         _dst_name: &str,
         _dst_suffix: &str,
-        _props_type_name: Option<&str>,
+        props_type_name: Option<&str>,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
+        /*
         trace!(
             "Graphson2QueryResult::get_rels self.results: {:#?}",
             self.results
         );
-        Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
+        */
+
+        let mut v = Vec::new();
+        for result in self.results {
+            if let GValue::Map(m) = result {
+                let mut hm = HashMap::new();
+                for (k, v) in m.into_iter() {
+                    hm.insert(k, v);
+                }
+
+                if let (
+                    Some(GValue::Edge(edge)),
+                    Some(GValue::Vertex(out_vertex)),
+                    Some(GValue::Vertex(in_vertex)),
+                ) = (
+                    hm.remove(&GKey::String("r".to_string())),
+                    hm.remove(&GKey::String("src".to_string())),
+                    hm.remove(&GKey::String("dst".to_string())),
+                ) {
+                    let mut src_fields = HashMap::new();
+                    src_fields.insert(
+                        "id".to_string(),
+                        Value::String(match out_vertex.id() {
+                            GID::Int32(i) => i.to_string(),
+                            GID::Int64(i) => i.to_string(),
+                            GID::String(s) => s.to_string(),
+                        }),
+                    );
+
+                    let src_label = out_vertex.label().to_string();
+
+                    for (key, vertex_property_list) in out_vertex.into_iter() {
+                        src_fields.insert(
+                            key.to_owned(),
+                            vertex_property_list
+                                .into_iter()
+                                .next()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorKind::MissingResultElement(
+                                            "Vertex Property".to_string(),
+                                        ),
+                                        None,
+                                    )
+                                })?
+                                .try_into()?,
+                        );
+                    }
+
+                    let mut dst_fields = HashMap::new();
+                    dst_fields.insert(
+                        "id".to_string(),
+                        Value::String(match in_vertex.id() {
+                            GID::Int32(i) => i.to_string(),
+                            GID::Int64(i) => i.to_string(),
+                            GID::String(s) => s.to_string(),
+                        }),
+                    );
+
+                    let dst_label = in_vertex.label().to_string();
+
+                    for (key, vertex_property_list) in in_vertex.into_iter() {
+                        dst_fields.insert(
+                            key.to_owned(),
+                            vertex_property_list
+                                .into_iter()
+                                .next()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorKind::MissingResultElement(
+                                            "Vertex Property".to_string(),
+                                        ),
+                                        None,
+                                    )
+                                })?
+                                .try_into()?,
+                        );
+                    }
+
+                    let rel_id = Value::String(match edge.id() {
+                        GID::Int32(i) => i.to_string(),
+                        GID::Int64(i) => i.to_string(),
+                        GID::String(s) => s.to_string(),
+                    });
+
+                    let _rel_label = edge.label().to_string();
+
+                    let mut rel_fields = HashMap::new();
+                    for (key, property) in edge.into_iter() {
+                        rel_fields.insert(key.to_owned(), property.take::<GValue>()?.try_into()?);
+                    }
+
+                    v.push(Rel::new(
+                        rel_id,
+                        match props_type_name {
+                            Some(p_type_name) => {
+                                Some(Node::new(p_type_name.to_string(), rel_fields))
+                            }
+                            None => None,
+                        },
+                        Node::new(src_label, src_fields),
+                        Node::new(dst_label, dst_fields),
+                    ));
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::MissingResultElement("Rel, src, or dst".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            } else {
+                return Err(
+                    Error::new(ErrorKind::InvalidType(format!("{:#?}", result)), None).into(),
+                );
+            }
+        }
+
+        trace!("Graphson2QueryResult::get_rels returning {:#?}", v);
+
+        Ok(v)
     }
 
     fn get_ids(&self, _type_name: &str) -> Result<Value, FieldError> {
@@ -308,7 +678,16 @@ impl QueryResult for Graphson2QueryResult {
             "Graphson2QueryResult::get_count self.results: {:#?}",
             self.results
         );
-        Err(Error::new(ErrorKind::UnsupportedDatabase("test mock".to_owned()), None).into())
+
+        if let Some(GValue::Int32(i)) = self.results.get(0) {
+            Ok(*i)
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidType("Expected int32 for count".to_string()),
+                None,
+            )
+            .into())
+        }
     }
 
     fn len(&self) -> i32 {

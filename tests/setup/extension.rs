@@ -15,7 +15,7 @@ pub struct Metadata {
 
 /// Trait that must be implemented by app's request context struct
 pub trait MetadataExtensionCtx {
-    fn set_metadata(&mut self, metadata: Metadata) -> ();
+    fn set_metadata(&mut self, metadata: Metadata);
 }
 
 /// Extension that adds metadata to request

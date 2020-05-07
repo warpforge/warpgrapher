@@ -357,9 +357,21 @@ where
         let td = info.get_type_def()?;
         let p = td.get_prop(field_name)?;
         let input_opt: Option<Input<GlobalCtx, ReqCtx>> = args.get("input");
-        let partition_key_opt: &Option<String> = &args.get("partitionKey");
+        // The partition key is only in the arguments for the outermost query or mutation.
+        // For lower-level field resolution, the partition key is read from the field of the parent.
+        // An alternate design would've been to carry the partitionKey in context, but this way
+        // recursive resovle calls from custom resolvers that execute cross-partition queries will
+        // work correctly, as each node carries its own partition, for any recursion to fill out the
+        // other rels and nodes loaded by the shape.
+        let partition_key_opt: &Option<String> = &(args.get("partitionKey").or_else(|| {
+            if let Some(Value::String(s)) = self.fields.get("partitionKey") {
+                Some(s.to_owned())
+            } else {
+                None
+            }
+        }));
 
-        let r = match &p.kind {
+        match &p.kind {
             PropertyKind::CustomResolver => {
                 resolve_custom_endpoint(info, field_name, args, executor)
             }
@@ -482,9 +494,7 @@ where
             )
             .into()),
             PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
-        };
-        trace!("Node::resolve_field_with_transaction Response: {:#?}", r);
-        r
+        }
     }
 }
 
@@ -555,7 +565,7 @@ where
         trace!(
             "Node::resolve_field called -- sn: {}, field_name: {}",
             sn,
-            field_name,
+            field_name
         );
 
         match &executor.context().pool {
@@ -744,9 +754,11 @@ where
             Error::new(ErrorKind::MissingSchemaElement(info.name.to_owned()), None)
         })?;
         trace!(
-            "Rel::resolve_field called -- sn: {}, field_name: {}",
+            "Rel::resolve_field called -- sn: {}, field_name: {}, args: {:#?}, props: {:#?}",
             sn,
             field_name,
+            args,
+            self.props
         );
 
         let td = info.get_type_def()?;

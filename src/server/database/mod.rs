@@ -69,18 +69,41 @@ pub trait Transaction {
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
-    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Self::ImplQueryResult, FieldError>;
+    #[allow(clippy::too_many_arguments)]
+    fn create_rels(
+        &mut self,
+        src_label: &str,
+        src_ids: Value,
+        dst_label: &str,
+        dst_ids: Value,
+        rel_name: &str,
+        params: &mut HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError>;
+    fn delete_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError>;
     fn exec(
         &mut self,
         query: &str,
         partition_key_opt: &Option<String>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
+    fn update_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        props: HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError>;
 
     #[allow(clippy::too_many_arguments)]
     fn node_query_string(
         &mut self,
-        query_string: &str,
+        rel_query_fragments: Vec<String>,
         params: &mut HashMap<String, Value>,
         label: &str,
         var_suffix: &str,
@@ -89,6 +112,24 @@ pub trait Transaction {
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<String, FieldError>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn rel_query_string(
+        &mut self,
+        // query: &str,
+        src_label: &str,
+        src_suffix: &str,
+        src_ids_opt: Option<Value>,
+        src_query: Option<String>,
+        rel_name: &str,
+        dst_var: &str,
+        dst_suffix: &str,
+        dst_query: Option<String>,
+        return_rel: bool,
+        props: HashMap<String, Value>,
+        params: &mut HashMap<String, Value>,
+    ) -> Result<String, FieldError>;
+
     fn rollback(&mut self) -> Result<(), FieldError>;
 }
 

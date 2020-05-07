@@ -1,8 +1,6 @@
 use crate::{Error, ErrorKind};
 #[cfg(feature = "graphson2")]
 use gremlin_client::{GValue, ToGValue, VertexProperty};
-#[cfg(feature = "graphson2")]
-use log::trace;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
@@ -231,8 +229,6 @@ impl TryFrom<VertexProperty> for Value {
     type Error = Error;
 
     fn try_from(vp: VertexProperty) -> Result<Value, Error> {
-        trace!("Value::try_from vp: {:#?}", vp);
-
         Ok(vp
             .take::<GValue>()
             .map_err(|_e| {

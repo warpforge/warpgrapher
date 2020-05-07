@@ -551,26 +551,16 @@ fn fmt_node_delete_mutation_input_name(t: &WarpgrapherType) -> String {
 ///
 /// Format:
 /// input GqlNodeDeleteMutationInput {
-///     force: Boolean
 ///     rel[n]: GqlRelDeleteInput
 /// }
 ///
 /// Ex:
 /// input ProjectDeleteMutationInput {
-///     force: Boolean
 ///     owner: ProjectOwnerDeleteInput
 ///     issues: ProjectIssuesDeleteInput
 /// }
 fn generate_node_delete_mutation_input(t: &WarpgrapherType) -> NodeType {
     let mut props = HashMap::new();
-    props.insert(
-        "force".to_owned(),
-        Property::new(
-            "force".to_string(),
-            PropertyKind::Scalar,
-            "Boolean".to_string(),
-        ),
-    );
     for r in &t.rels {
         props.insert(
             r.name.to_owned(),
@@ -2914,7 +2904,6 @@ mod tests {
     fn test_generate_node_delete_mutation_input() {
         /*
         input ProjectDeleteMutationInput {
-            force: Boolean
             owner: ProjectOwnerDeleteInput
             board: ProjectBoardDeleteInput
             commits: ProjectCommitsDeleteInput
@@ -2924,14 +2913,7 @@ mod tests {
         let project_type = mock_project_type();
         let project_delete_mutation_input = generate_node_delete_mutation_input(&project_type);
         assert!(project_delete_mutation_input.type_name == "ProjectDeleteMutationInput");
-        assert!(project_delete_mutation_input.props.len() == 5);
-        let force = project_delete_mutation_input.props.get("force").unwrap();
-        assert!(force.name == "force");
-        assert!(force.kind == PropertyKind::Scalar);
-        assert!(force.type_name == "Boolean");
-        assert!(!force.required);
-        assert!(!force.list);
-        assert!(force.arguments.is_empty());
+        assert!(project_delete_mutation_input.props.len() == 4);
         let owner = project_delete_mutation_input.props.get("owner").unwrap();
         assert!(owner.name == "owner");
         assert!(owner.kind == PropertyKind::Input);

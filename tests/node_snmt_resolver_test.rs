@@ -1044,14 +1044,14 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
 #[cfg(feature = "neo4j")]
 #[serial(neo4j)]
 #[test]
-fn delete_node_with_force_detach_of_rels_neo4j() {
+fn delete_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_force_detach_of_rels();
+    delete_node();
 
     assert!(server.shutdown().is_ok());
 }
@@ -1059,20 +1059,20 @@ fn delete_node_with_force_detach_of_rels_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn delete_node_with_force_detach_of_rels_graphson2() {
+fn delete_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_force_detach_of_rels();
+    delete_node();
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_with_force_detach_of_rels() {
+fn delete_node() {
     let mut client = test_client();
 
     // create project nodes
@@ -1102,7 +1102,7 @@ fn delete_node_with_force_detach_of_rels() {
             "Project",
             Some("1234".to_string()),
             Some(&json!({"name": "ORION"})),
-            Some(&json!({"force": true})),
+            Some(&json!({})),
         )
         .unwrap();
 

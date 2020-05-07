@@ -655,23 +655,9 @@ fn error_on_node_missing_id_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
-#[serial(graphson2)]
-#[test]
-fn error_on_node_missing_id_graphson2() {
-    init();
-    clear_db();
-
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    error_on_node_missing_id();
-
-    assert!(server.shutdown().is_ok());
-}
-
 /// Passes if creating a node manually without an id throws an error upon access
-/// to that node.
+/// to that node.  There is no GraphSON variant of this test, because GraphSON
+/// data stores automatically assign a UUID id.
 #[allow(dead_code)]
 fn error_on_node_missing_id() {
     let mut client = test_client();

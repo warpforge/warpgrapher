@@ -1566,9 +1566,7 @@ fn detach_snst_rel_by_dst_delete() {
             Some(&json!({
                 "name": "User Zero"
             })),
-            Some(&json!({
-                "force": true
-            })),
+            Some(&json!({})),
         )
         .unwrap();
 

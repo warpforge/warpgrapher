@@ -96,28 +96,96 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         raw_results
     }
 
-    fn delete_nodes(&mut self, label: &str, force: bool, ids: Value, partition_key_opt: &Option<String>) -> Result<Neo4jQueryResult, FieldError> {
-    let query = String::from("MATCH (n:")
-        + label
-        + ")\n"
-        + "WHERE n.id IN $ids\n"
-        + if force { "DETACH " } else { "" }
-        + "DELETE n\n"
-        + "RETURN count(*) as count\n";
-    let mut params = HashMap::new();
-    params.insert("ids".to_owned(), ids);
+    fn create_rels(
+        &mut self,
+        src_label: &str,
+        src_ids: Value,
+        dst_label: &str,
+        dst_ids: Value,
+        rel_name: &str,
+        params: &mut HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError> {
+        let mut props = HashMap::new();
+        if let Some(Value::Map(pm)) = params.remove("props") {
+            // remove rather than get to take ownership
+            for (k, v) in pm.into_iter() {
+                props.insert(k.to_owned(), v);
+            }
+        }
 
-    trace!(
-        "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
-        query, params
-    );
-    let results = self.exec(&query, partition_key_opt, Some(params))?;
-    trace!(
-        "visit_node_delete_mutation_input Query results: {:#?}",
-        results
-    );
+        let query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + "),(dst:"
+            + dst_label
+            + ")"
+            + "\n"
+            + "WHERE "
+            + src_label
+            + ".id IN $aid AND dst.id IN $bid\n"
+            + "CREATE ("
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + String::from(rel_name).as_str()
+            + " { id: randomUUID() }]->(dst)\n"
+            + "SET "
+            + rel_name
+            + " += $props\n"
+            + "RETURN "
+            + src_label
+            + ", "
+            + rel_name
+            + ", dst, labels(dst) as dst_label\n";
 
-    Ok(results)
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("aid".to_owned(), src_ids);
+        params.insert("bid".to_owned(), dst_ids);
+        params.insert("props".to_owned(), Value::Map(props));
+
+        debug!(
+            "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
+            query, params
+        );
+        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        debug!(
+            "visit_rel_create_mutation_input Query results: {:#?}",
+            results
+        );
+
+        Ok(results)
+    }
+
+    fn delete_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        let query = String::from("MATCH (n:")
+            + label
+            + ")\n"
+            + "WHERE n.id IN $ids\n"
+            + "DETACH DELETE n\n"
+            + "RETURN count(*) as count\n";
+        let mut params = HashMap::new();
+        params.insert("ids".to_owned(), ids);
+
+        trace!(
+            "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
+            query,
+            params
+        );
+        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        trace!(
+            "visit_node_delete_mutation_input Query results: {:#?}",
+            results
+        );
+
+        Ok(results)
     }
 
     fn exec(
@@ -148,7 +216,8 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     #[allow(clippy::too_many_arguments)]
     fn node_query_string(
         &mut self,
-        query_string: &str,
+        // query_string: &str,
+        rel_query_fragments: Vec<String>,
         params: &mut HashMap<String, Value>,
         label: &str,
         var_suffix: &str,
@@ -162,7 +231,11 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             union_type
         );
 
-        let mut qs = query_string.to_string();
+        let mut qs = String::new();
+
+        for rqf in rel_query_fragments {
+            qs.push_str(&rqf);
+        }
 
         if union_type {
             qs.push_str(&(String::from("MATCH (") + label + var_suffix + ")\n"));
@@ -207,6 +280,162 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         Ok(qs)
     }
 
+    fn rel_query_string(
+        &mut self,
+        // query: &str,
+        src_label: &str,
+        src_suffix: &str,
+        src_ids_opt: Option<Value>,
+        src_query_opt: Option<String>,
+        rel_name: &str,
+        dst_var: &str,
+        dst_suffix: &str,
+        dst_query_opt: Option<String>,
+        return_rel: bool,
+        props: HashMap<String, Value>,
+        params: &mut HashMap<String, Value>,
+    ) -> Result<String, FieldError> {
+        let mut qs = String::new();
+
+        qs.push_str(
+            &(String::from("MATCH (")
+                + src_label
+                + src_suffix
+                + ":"
+                + src_label
+                + ")-["
+                + rel_name
+                + src_suffix
+                + dst_suffix
+                + ":"
+                + String::from(rel_name).as_str()
+                + "]->("
+                + dst_var
+                + dst_suffix
+                + ")\n"),
+        );
+
+        let mut wc = None;
+        for k in props.keys() {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k
+                            + " = $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "."
+                            + &k,
+                    )
+                }
+            }
+        }
+
+        if let Some(src_ids) = src_ids_opt {
+            match wc {
+                None => {
+                    wc = Some(
+                        String::from("WHERE ")
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+                Some(wcs) => {
+                    wc = Some(
+                        wcs + " AND "
+                            + src_label
+                            + src_suffix
+                            + ".id IN $"
+                            + rel_name
+                            + src_suffix
+                            + dst_suffix
+                            + "_srcids"
+                            + "."
+                            + "ids",
+                    )
+                }
+            }
+            let mut id_map = HashMap::new();
+            id_map.insert("ids".to_string(), src_ids);
+
+            params.insert(
+                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
+                id_map.try_into()?,
+            );
+        }
+
+        if let Some(wcs) = wc {
+            qs.push_str(&(String::from(&wcs) + "\n"));
+        }
+        params.insert(
+            String::from(rel_name) + src_suffix + dst_suffix,
+            props.into(),
+        );
+
+        if let Some(src_query) = src_query_opt {
+            qs.push_str(&src_query);
+        }
+
+        if let Some(dst_query) = dst_query_opt {
+            qs.push_str(&dst_query);
+        }
+
+        if return_rel {
+            qs.push_str(
+                &(String::from("RETURN ")
+                    + src_label
+                    + src_suffix
+                    + ", "
+                    + rel_name
+                    + src_suffix
+                    + dst_suffix
+                    + ", "
+                    + dst_var
+                    + dst_suffix
+                    + ", "
+                    + "labels("
+                    + dst_var
+                    + dst_suffix
+                    + ") as "
+                    + dst_var
+                    + dst_suffix
+                    + "_label\n"),
+            );
+        }
+
+        trace!("visit_rel_query_input -- query_string: {}", qs);
+        Ok(qs)
+    }
+
     fn rollback(&mut self) -> Result<(), FieldError> {
         debug!("transaction::rollback called");
         if let Some(t) = self.transaction.take() {
@@ -214,6 +443,38 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         } else {
             Err(Error::new(ErrorKind::TransactionFinished, None).into())
         }
+    }
+
+    fn update_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        props: HashMap<String, Value>,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("ids".to_owned(), ids);
+        params.insert("props".to_owned(), props.into());
+
+        let query = String::from("MATCH (n:")
+            + label
+            + ")\n"
+            + "WHERE n.id IN $ids\n"
+            + "SET n += $props\n"
+            + "RETURN n\n";
+
+        trace!(
+            "visit_node_update_mutation_input query, params: {:#?}, {:#?}",
+            query,
+            params
+        );
+        let results = self.exec(&query, partition_key_opt, Some(params));
+        trace!(
+            "visit_node_update_mutation_input Query results: {:#?}",
+            results
+        );
+
+        results
     }
 }
 

@@ -21,8 +21,6 @@ use juniper::http::playground::playground_source;
 use juniper::http::GraphQLRequest;
 use log::{debug, error, trace};
 use schema::{create_root_node, RootRef};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use serde_json;
 use serde_json::json;
 use std::collections::HashMap;
 use std::env::var_os;

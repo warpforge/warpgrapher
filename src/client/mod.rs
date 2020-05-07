@@ -192,12 +192,10 @@ impl WarpgrapherClient {
     }
 
     /// Takes the name of a WarpgrapherType and executes a Delete operation.
-    /// Takes two optional inputs.  The first selects the node(s) for deletion.  
-    /// The second contains options for forcing the delete, meaning deleting
-    /// node along with any relationships to and from it -- without the force flag,
-    /// deleting a node with relationships will fail.  Also contains options for
-    /// deleting additional nodes and rels connected to the target node. Returns
-    /// the number of nodes of the WarpgrapherType deleted.
+    /// Takes one optional inputs, which selects the node(s) for deletion.
+    /// Also contains options for deleting additional nodes and rels connected
+    /// to the target node. Returns the number of nodes of the WarpgrapherType
+    /// deleted.
     ///
     /// [`WarpgrapherClient`]: ./struct.WarpgrapherClient.html
     ///
@@ -253,7 +251,7 @@ impl WarpgrapherClient {
     /// let proj_issues = client.delete_rel("Project", "issues", Some("1234".to_string()),
     ///     Some(&json!({"props": {"since": "2000"}})),
     ///     None,
-    ///     Some(&json!({"Bug": {"force": true}}))
+    ///     Some(&json!({"Bug": {}}))
     /// );
     /// ```
     pub fn delete_rel(
