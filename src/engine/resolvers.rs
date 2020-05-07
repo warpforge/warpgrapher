@@ -87,6 +87,10 @@ where
         }
     }
 
+    pub fn resolve_null(&self) -> ExecutionResult {
+        Ok(juniper::Value::Null)
+    }
+
     // TODO: add docs
     pub fn return_scalar<T>(&self, v: T) -> ExecutionResult
     where
