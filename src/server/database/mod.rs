@@ -77,7 +77,7 @@ pub trait Transaction {
         dst_label: &str,
         dst_ids: Value,
         rel_name: &str,
-        params: &mut HashMap<String, Value>,
+        params: &mut HashMap<String, Value>, // TODO Pass props instead of params
         partition_key_opt: &Option<String>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
     fn delete_nodes(
@@ -98,6 +98,14 @@ pub trait Transaction {
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError>;
+    fn update_rels(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: &Option<String>,
+        props: HashMap<String, Value>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
 
     #[allow(clippy::too_many_arguments)]

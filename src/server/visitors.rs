@@ -1517,39 +1517,10 @@ where
             }
         }
 
-        let query = String::from("MATCH (")
-            + src_label
-            + ":"
-            + src_label
-            + ")-["
-            + rel_name
-            + ":"
-            + String::from(rel_name).as_str()
-            + "]->(dst)\n"
-            + "WHERE "
-            + rel_name
-            + ".id IN $rids\n"
-            + "SET "
-            + rel_name
-            + " += $props\n"
-            + "RETURN "
-            + src_label
-            + ", "
-            + rel_name
-            + ", dst, labels(dst) as dst_label\n";
+        let results =
+            transaction.update_rels(src_label, rel_name, rel_ids, partition_key_opt, props)?;
 
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("rids".to_owned(), rel_ids);
-        params.insert("props".to_owned(), props.into());
-        debug!(
-            "visit_rel_update_mutation_input query, params: {:#?}, {:#?}",
-            query, params
-        );
-        let results = transaction.exec(&query, partition_key_opt, Some(params))?;
-        debug!(
-            "visit_rel_update_mutation_input Query results: {:#?}",
-            results
-        );
+        trace!("visit_rel_update_mutation_input results: {:#?}", results);
 
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership

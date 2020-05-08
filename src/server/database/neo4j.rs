@@ -476,6 +476,52 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
 
         results
     }
+
+    fn update_rels(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: &Option<String>,
+        props: HashMap<String, Value>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        let query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + String::from(rel_name).as_str()
+            + "]->(dst)\n"
+            + "WHERE "
+            + rel_name
+            + ".id IN $rids\n"
+            + "SET "
+            + rel_name
+            + " += $props\n"
+            + "RETURN "
+            + src_label
+            + ", "
+            + rel_name
+            + ", dst, labels(dst) as dst_label\n";
+
+        let mut params: HashMap<String, Value> = HashMap::new();
+        params.insert("rids".to_owned(), rel_ids);
+        params.insert("props".to_owned(), props.into());
+        debug!(
+            "visit_rel_update_mutation_input query, params: {:#?}, {:#?}",
+            query, params
+        );
+
+        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        debug!(
+            "visit_rel_update_mutation_input Query results: {:#?}",
+            results
+        );
+
+        Ok(results)
+    }
 }
 
 #[derive(Debug)]
