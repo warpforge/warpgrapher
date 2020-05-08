@@ -241,12 +241,6 @@ pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>
     // TODO:
     // pluginHooks
 
-    // execute resolver
-    // let results = func(info, args, executor);
-
-    // TODO:
-    // pluginHooks
-
     // results
     func(ResolverContext::new(
         field_name.to_string(),
