@@ -183,9 +183,56 @@ impl Transaction for Graphson2Transaction {
         partition_key_opt: &Option<String>,
     ) -> Result<Graphson2QueryResult, FieldError> {
         if let Value::Array(idvec) = ids {
-            let mut qs = String::from("g.V().hasLabel('") + label + "').hasId(";
-            let length = idvec.len();
+            let mut qs = String::from("g.V().hasLabel('") + label + "')";
+            qs.push_str(".has('partitionKey', partitionKey)");
 
+            let length = idvec.len();
+            qs.push_str(".hasId(");
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::new(
+                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                        None,
+                    )
+                    .into());
+                }
+            }
+
+            qs.push_str(").drop()");
+
+            self.exec(&qs, partition_key_opt, None)?;
+
+            let mut v: Vec<GValue> = Vec::new();
+            v.push(GValue::Int32(length as i32));
+            Ok(Graphson2QueryResult::new(v))
+        } else {
+            Err(Error::new(
+                ErrorKind::InvalidType("Expected ID array".to_string()),
+                None,
+            )
+            .into())
+        }
+    }
+
+    fn delete_rels(
+        &mut self,
+        _src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Graphson2QueryResult, FieldError> {
+        if let Value::Array(idvec) = rel_ids {
+            let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
+            qs.push_str(".has('partitionKey', partitionKey)");
+
+            let length = idvec.len();
+            qs.push_str(".hasId(");
             for (i, id) in idvec.iter().enumerate() {
                 if let Value::String(id_str) = id {
                     if i == 0 {
@@ -493,7 +540,7 @@ impl Transaction for Graphson2Transaction {
             qs.push_str(".by(id()).by(label()).by(valueMap())");
             qs.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
             qs.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
- 
+
             self.exec(&qs, partition_key_opt, Some(props))
         } else {
             Err(Error::new(

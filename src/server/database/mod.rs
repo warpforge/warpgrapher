@@ -86,6 +86,13 @@ pub trait Transaction {
         ids: Value,
         partition_key_opt: &Option<String>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
+    fn delete_rels(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Self::ImplQueryResult, FieldError>;
     fn exec(
         &mut self,
         query: &str,

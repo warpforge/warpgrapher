@@ -901,45 +901,12 @@ where
             transaction,
         )?;
 
-        debug!(
-            "visit_rel_delete_input query, params: {:#?}, {:#?}",
-            read_query, params
-        );
-        let raw_read_results = transaction.exec(&read_query, partition_key_opt, Some(params));
-        debug!("visit_rel_delete_input Raw result: {:#?}", raw_read_results);
+        let read_results = transaction.exec(&read_query, partition_key_opt, Some(params))?;
+        let rel_ids =
+            read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?;
 
-        let read_results = raw_read_results?;
-
-        let del_query = String::from("MATCH (")
-            + src_label
-            + ":"
-            + src_label
-            + ")-["
-            + rel_name
-            + ":"
-            + rel_name
-            + "]->()\n"
-            + "WHERE "
-            + rel_name
-            + ".id IN $rids\n"
-            + "DELETE "
-            + rel_name
-            + "\n"
-            + "RETURN count(*) as count\n";
-
-        let mut del_params = HashMap::new();
-        del_params.insert(
-            "rids".to_owned(),
-            read_results.get_ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-        );
-        debug!(
-            "visit_rel_delete_input query, params: {:#?}, {:#?}",
-            del_query, del_params
-        );
-        let raw_del_results = transaction.exec(&del_query, partition_key_opt, Some(del_params));
-        debug!("visit_rel_delete_input Raw result: {:#?}", raw_del_results);
-
-        let del_results = raw_del_results?;
+        let del_results =
+            transaction.delete_rels(src_label, rel_name, rel_ids, partition_key_opt)?;
 
         if let Some(src) = m.remove("src") {
             // Uses remove to take ownership

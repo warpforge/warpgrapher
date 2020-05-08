@@ -188,6 +188,39 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         Ok(results)
     }
 
+    fn delete_rels(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: &Option<String>,
+    ) -> Result<Neo4jQueryResult, FieldError> {
+        let del_query = String::from("MATCH (")
+            + src_label
+            + ":"
+            + src_label
+            + ")-["
+            + rel_name
+            + ":"
+            + rel_name
+            + "]->()\n"
+            + "WHERE "
+            + rel_name
+            + ".id IN $rids\n"
+            + "DELETE "
+            + rel_name
+            + "\n"
+            + "RETURN count(*) as count\n";
+
+        let mut del_params = HashMap::new();
+        del_params.insert("rids".to_owned(), rel_ids);
+        debug!(
+            "visit_rel_delete_input query, params: {:#?}, {:#?}",
+            del_query, del_params
+        );
+        self.exec(&del_query, partition_key_opt, Some(del_params))
+    }
+
     fn exec(
         &mut self,
         query: &str,
