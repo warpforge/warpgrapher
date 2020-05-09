@@ -14,7 +14,6 @@ use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
 use resolvers::Resolvers;
 use schema::{create_root_node, RootRef};
-use serde_json;
 use std::collections::HashMap;
 use std::env::var_os;
 use std::fmt::Debug;
