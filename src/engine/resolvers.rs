@@ -8,28 +8,39 @@ use super::visitors::{
 };
 use crate::error::{Error, ErrorKind};
 use inflector::Inflector;
-use juniper::{Arguments, ExecutionResult, Executor, FieldError};
+use juniper::{Arguments, Executor, FieldError};
 use log::{debug, trace};
+use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::Statement;
 use serde_json::Map;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
-use r2d2_cypher::CypherConnectionManager;
 
-#[derive(Clone, Debug)]
-pub struct GraphRel {
-    pub id: String,
-    pub props: Option<serde_json::map::Map<String, Value>>,
-    pub dst_type: String,
-    pub dst_props: serde_json::map::Map<String, Value>
-}
+pub use juniper::ExecutionResult;
 
 pub type ResolverFunc<GlobalCtx, ReqCtx> =
     fn(ResolverContext<GlobalCtx, ReqCtx>) -> ExecutionResult;
 
 pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
 
+#[derive(Clone, Debug)]
+pub struct GraphNode<'a> {
+    pub typename: &'a str,
+    pub props: &'a serde_json::map::Map<String, Value>,
+}
+
+#[derive(Clone, Debug)]
+pub struct GraphRel<'a> {
+    pub id: &'a str,
+    pub props: Option<&'a serde_json::map::Map<String, Value>>,
+    pub dst: GraphNode<'a>,
+}
+
+/// A Warpgrapher ResolverContext.
+///
+/// The [`ResolverContext`] struct is a collection of arguments and context
+/// structs that are passed as input to a custom resolver.
 pub struct ResolverContext<'a, GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
@@ -63,68 +74,259 @@ where
         }
     }
 
-    /*
-
-    // TODO
-    fn parse_input()
-
-    // TODO
-    fn get_client()
-
-    */
-
-    // TODO: add docs
+    /// Returns a handle to the database from the connection pool.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let db = context.get_db()?;
+    ///     // execute db queries
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
     pub fn get_db(&self) -> Result<r2d2::PooledConnection<CypherConnectionManager>, FieldError> {
-        self.executor.context().pool.get()
-        .map_err(|_| FieldError::new("Unable to access database driver pool.", juniper::Value::Null))
+        self.executor.context().pool.get().map_err(|_| {
+            FieldError::new(
+                "Unable to access database driver pool.",
+                juniper::Value::Null,
+            )
+        })
     }
 
-    // TODO: add docs
+    /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let parent_node = context.get_parent_node()?;
+    ///     println!("Parent type: {:#?}", parent_node.concrete_typename);
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
     pub fn get_parent_node(&self) -> Result<&Node<GlobalCtx, ReqCtx>, FieldError> {
         match self.parent {
             Object::Node(n) => Ok(n),
-            _ => return Err(FieldError::new("Unable to get parent node", juniper::Value::Null))
+            _ => {
+                Err(FieldError::new(
+                    "Unable to get parent node",
+                    juniper::Value::Null,
+                ))
+            }
         }
     }
 
+    /// Returns a GraphQL Null
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return null
+    ///     context.resolve_null()
+    /// }
+    /// ```
     pub fn resolve_null(&self) -> ExecutionResult {
         Ok(juniper::Value::Null)
     }
 
-    // TODO: add docs
-    pub fn return_scalar<T>(&self, v: T) -> ExecutionResult
+    /// Returns a GraphQL Scalar
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return string
+    ///     context.resolve_scalar("Hello")
+    /// }
+    /// ```
+    pub fn resolve_scalar<T>(&self, v: T) -> ExecutionResult
     where
         T: std::convert::Into<juniper::DefaultScalarValue>,
     {
         Ok(juniper::Value::scalar::<T>(v))
     }
 
-    // TODO: add docs
-    pub fn return_node(
-        &self,
-        node_type: &str,
-        props: &serde_json::map::Map<String, Value>,
-    ) -> ExecutionResult {
+    /// Returns a GraphQL Scalar list
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return string
+    ///     context.resolve_scalar_list(vec![1, 2, 3])
+    /// }
+    /// ```
+    pub fn resolve_scalar_list<T>(&self, v: Vec<T>) -> ExecutionResult
+    where
+        T: std::convert::Into<juniper::DefaultScalarValue> + Clone,
+    {
+        /*
+        //Ok(juniper::Value::scalar::<T>(v))
+        let list : Vec<juniper::Value::Scalar> = v
+            .iter()
+            .map(|v| juniper::Value::Scalar::<T>(v));
+        list
+        */
+        let x = v
+            .iter()
+            .map(|i| juniper::Value::scalar::<T>((*i).clone()))
+            .collect();
+        let list = juniper::Value::List(x);
+        Ok(list)
+        //Ok(juniper::Value::list(v))
+    }
+
+    /// Returns a GraphQL Object representing a graph node defined by
+    /// a type and a map of props.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return node
+    ///     context.resolve_node(
+    ///         GraphNode {
+    ///             typename: "User",
+    ///             props: json!({
+    ///                 "name": "John Doe",
+    ///                 "age": 21
+    ///             })
+    ///             .as_object()
+    ///             .unwrap()
+    ///         }
+    ///     )
+    /// }
+    /// ```
+    pub fn resolve_node(&self, node: GraphNode) -> ExecutionResult {
         self.executor.resolve(
-            &Info::new(node_type.to_string(), self.info.type_defs.clone()),
-            &Node::new(node_type.to_string(), (*props).clone())
+            &Info::new(node.typename.to_string(), self.info.type_defs.clone()),
+            &Node::new(node.typename.to_string(), node.props.clone()),
         )
     }
 
-    // TODO: add docs
-    pub fn return_rel(
+    /*
+    /// Returns a GraphQL Object array representing graph nodes defined by
+    /// a type and a map of props.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return node list
+    ///     context.resolve_node_list(
+    ///         vec![
+    ///             GraphNode::new(
+    ///                 "User",
+    ///                 json!({
+    ///                     "name": "John Doe",
+    ///                     "age": 21
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             ),
+    ///             GraphNode::new(
+    ///                 "User",
+    ///                 json!({
+    ///                     "name": "Jane Smith",
+    ///                     "age": 22
+    ///                 })
+    ///                 .as_object
+    ///                 .unwrap()
+    ///             )
+    ///         ]
+    ///     })
+    /// }
+    /// ```
+    pub fn resolve_node_list(
         &self,
-        id: &str,
-        props: Option<&serde_json::map::Map<String, Value>>,
-        dst: Node<GlobalCtx, ReqCtx>,
-    ) -> ExecutionResult
+        nodes: Vec<GraphNode>
+    ) -> ExecutionResult {
+
+        let node_list : Vec<Node<GlobalCtx, ReqCtx>> = nodes
+            .iter()
+            .map(|node| {
+                Node::new(
+                    node.typename,
+                    node.props
+                )
+            })
+            .collect();
+
+        // TODO: investigate the effect of returning a list of variable node types
+
+        self.executor.resolve(
+            &Info::new(object_name, self.info.type_defs.clone()),
+            &node_list
+        )
+    }
+    */
+
+    /// Returns a GraphQL Object representing a graph relationship defined by
+    /// an ID, props, and a destination Warpgrapher Node.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return rel
+    ///     context.resolve_rel(
+    ///         GraphRel {
+    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
+    ///             props: Some(
+    ///                 json!({
+    ///                     "role": "member",
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             ),
+    ///             dst: GraphNode {
+    ///                 typename: "User",
+    ///                 props: json!({
+    ///                     "name": "Jane Smith",
+    ///                      "age": 24
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             }
+    ///         }
+    ///     )
+    /// }
+    /// ```
+    pub fn resolve_rel(&self, rel: GraphRel) -> ExecutionResult
     where
         GlobalCtx: Debug,
         ReqCtx: Debug + RequestContext,
     {
-        let id = serde_json::Value::String(id.to_string());
+        let id = serde_json::Value::String(rel.id.to_string());
 
-        let props = match &props {
+        let props = match &rel.props {
             None => None,
             Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
         };
@@ -144,7 +346,9 @@ where
             parent_node.fields.clone(),
         );
 
-        let rel = Rel::new(id, props, src, dst);
+        let dst = Node::new(rel.dst.typename.to_string(), rel.dst.props.clone());
+
+        let r = Rel::new(id, props, src, dst);
 
         let object_name = format!(
             "{}{}{}",
@@ -153,14 +357,64 @@ where
             "Rel".to_string()
         );
         self.executor
-            .resolve(&Info::new(object_name, self.info.type_defs.clone()), &rel)
+            .resolve(&Info::new(object_name, self.info.type_defs.clone()), &r)
     }
 
-    // TODO
-    pub fn return_rel_list(
-        &self,
-        rels: Vec<GraphRel>
-    ) -> ExecutionResult
+    /// Returns a GraphQL Object array representing Warpgrapher Rels defined by
+    /// an ID, props, and a destination Warpgrapher Node.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return rel list
+    ///     context.resolve_rel_list(vec![
+    ///         GraphRel {
+    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
+    ///             props: Some(
+    ///                 json!({
+    ///                     "role": "member",
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             ),
+    ///             dst: GraphNode {
+    ///                 typename: "User",
+    ///                 props: json!({
+    ///                     "name": "John Does",
+    ///                     "age": 21
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             }
+    ///         },
+    ///         GraphRel {
+    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
+    ///             props: Some(
+    ///                 json!({
+    ///                     "role": "leader",
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             ),
+    ///             dst: GraphNode {
+    ///                 typename: "User",
+    ///                 props: json!({
+    ///                     "name": "Jane Smith",
+    ///                     "age": 24
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             }
+    ///         }
+    ///     ])
+    /// }
+    /// ```
+    pub fn resolve_rel_list(&self, rels: Vec<GraphRel>) -> ExecutionResult
     where
         GlobalCtx: Debug,
         ReqCtx: Debug + RequestContext,
@@ -181,7 +435,7 @@ where
             }
         };
 
-        let rel_list : Vec<Rel<GlobalCtx, ReqCtx>> = rels
+        let rel_list: Vec<Rel<GlobalCtx, ReqCtx>> = rels
             .iter()
             .map(|rel| {
                 Rel::new(
@@ -192,19 +446,16 @@ where
                     },
                     Node::new(
                         parent_node.concrete_typename.clone(),
-                        parent_node.fields.clone()
+                        parent_node.fields.clone(),
                     ),
-                    Node::new(
-                        rel.dst_type.clone(),
-                        rel.dst_props.clone()
-                    )
+                    Node::new(rel.dst.typename.to_string(), rel.dst.props.clone()),
                 )
             })
             .collect();
 
         self.executor.resolve(
             &Info::new(object_name, self.info.type_defs.clone()),
-            &rel_list
+            &rel_list,
         )
     }
 }

@@ -1,11 +1,6 @@
 //! models and custom GraphQL endpoints.
 
-//use std::fmt;
-//use super::context::GraphQLContext;
-//use super::schema::Info;
 use crate::error::{Error, ErrorKind};
-//use crate::engine::objects::{Object};
-//use juniper::{Arguments, ExecutionResult, Executor};
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 use std::collections::HashMap;
@@ -103,6 +98,13 @@ impl Config {
             model: vec![],
             endpoints: vec![],
         }
+    }
+
+    /// Creates a new [`Config`] data structure from a yaml formatted
+    /// config string.
+    pub fn from_string(data: String) -> Result<Config, Error> {
+        serde_yaml::from_str(&data)
+            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
     }
 
     /// Creates a new [`Config`] data structure from

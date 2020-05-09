@@ -4,5 +4,5 @@ use warpgrapher::juniper::ExecutionResult; // TODO: consider re-exporting from w
 pub fn resolver(
     context: ResolverContext<crate::AppGlobalContext, crate::AppRequestContext>,
 ) -> ExecutionResult {
-    context.return_scalar(1)
+    context.resolve_scalar(1)
 }

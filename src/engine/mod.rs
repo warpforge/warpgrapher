@@ -662,7 +662,7 @@ mod tests {
     }
 
     pub fn my_resolver(context: ResolverContext<(), ()>) -> ExecutionResult {
-        context.return_scalar(1 as i32)
+        context.resolve_scalar(1 as i32)
     }
 
     pub fn my_validator(_value: &serde_json::Value) -> Result<(), Error> {
