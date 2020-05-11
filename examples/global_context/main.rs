@@ -14,7 +14,7 @@ fn resolve_get_tenant(context: ResolverContext<AppGlobalContext, ()>) -> Executi
     context.resolve_scalar(global_ctx.tenant_id.clone())
 }
 
-static CONFIG : &'static str = "
+static CONFIG : &str = "
 version: 1
 model: []
 endpoints:

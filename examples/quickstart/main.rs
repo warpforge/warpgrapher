@@ -30,7 +30,7 @@ async fn graphql(data: Data<ActixServerAppData>, req: Json<GraphQLRequest>) -> R
 #[allow(clippy::ptr_arg)]
 pub fn run_actix_server(engine: Engine<(), ()>) {
     let sys = System::new("warpgrapher-quickstart");
-    let app_data = ActixServerAppData { engine: engine };
+    let app_data = ActixServerAppData { engine };
     HttpServer::new(move || {
         App::new()
             .data(app_data.clone())

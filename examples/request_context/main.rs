@@ -27,7 +27,7 @@ fn resolve_request_debug(context: ResolverContext<(), AppRequestContext>) -> Exe
     context.resolve_scalar(request_ctx.request_id.clone())
 }
 
-static CONFIG : &'static str = "
+static CONFIG : &str = "
 version: 1
 model: []
 endpoints:
