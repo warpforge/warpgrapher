@@ -1,0 +1,647 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Warpgrapher Book (v0.1.0)</title>
+        
+        <meta name="robots" content="noindex" />
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded "><a href="warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li></ol></li><li class="expanded "><a href="api/intro.html"><strong aria-hidden="true">2.</strong> API</a></li><li><ol class="section"><li class="expanded "><a href="api/crud_nodes.html"><strong aria-hidden="true">2.1.</strong> CRUD: Nodes</a></li><li class="expanded "><a href="api/curd_rels.html"><strong aria-hidden="true">2.2.</strong> CRUD: Relationships</a></li><li class="expanded "><a href="api/endpoints_defined.html"><strong aria-hidden="true">2.3.</strong> Endpoints: Defined</a></li><li class="expanded "><a href="api/endpoints_static.html"><strong aria-hidden="true">2.4.</strong> Endpoints: Static</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
+
+                        <h1 class="menu-title">Warpgrapher Book (v0.1.0)</h1>
+
+                        <div class="right-buttons">
+                            <a href="print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#warpgrapher" id="warpgrapher">Warpgrapher</a></h1>
+<h1><a class="header" href="#quickstart" id="quickstart">Quickstart</a></h1>
+<h2><a class="header" href="#dependencies" id="dependencies">Dependencies</a></h2>
+<p>Add warpgrapher to your project config:</p>
+<p><code>cargo.toml</code></p>
+<pre><code class="language-toml">[dependencies]
+warpgrapher = &quot;0.1.0&quot;
+</code></pre>
+<h2><a class="header" href="#config" id="config">Config</a></h2>
+<p>Create a warpgrapher config containing your application's data model. The next section explains the model in more details. </p>
+<p><code>src/config.yml</code></p>
+<pre><code class="language-yml">version: 1
+model:
+
+  # User
+  - name: User
+    props:
+      - name: email
+        type: String
+
+  # Team
+  - name: Team
+    props:
+      - name: name
+        type: String
+    rels:
+      - name: users
+        nodes: [User]
+</code></pre>
+<h2><a class="header" href="#code" id="code">Code</a></h2>
+<p>Add the follow code to your project:</p>
+<p><code>src/main.rs</code></p>
+<pre><pre class="playpen"><code class="language-rust">extern crate warpgrapher;
+
+use warpgrapher::{Error, WarpgrapherConfig, Server, Neo4jEndpoint};
+
+fn main() -&gt; Result&lt;(), Error&gt; {
+
+    // define database
+    let db = Neo4jEndpoint::from_env(&quot;DB_URL&quot;)?;
+
+    // load config
+    let config = WarpgrapherConfig::from_file(&quot;./src/config.yml&quot;.to_string())
+        .expect(&quot;Could not load config file&quot;);
+
+    // build server
+    let mut server: Server&lt;(), ()&gt; = Server::new(config, db)
+        .with_bind_port(&quot;5001&quot;.to_string())
+        .with_playground_endpoint(&quot;/graphiql&quot;.to_owned())
+        .build()
+        .expect(&quot;Failed to build server&quot;);
+
+    // run server
+    println!(&quot;Warpgrapher Sample App: http://localhost:5001/graphiql&quot;);
+    match server.serve(true) {
+        Ok(_) =&gt; {},
+        Err(_) =&gt; println!(&quot;Failed to start server&quot;),
+    };
+
+    Ok(())
+}
+</code></pre></pre>
+<h2><a class="header" href="#run" id="run">Run</a></h2>
+<p>Configure database settings:</p>
+<pre><code class="language-bash">export DB_USERNAME=neo4j
+export DB_PASSWORD=password123
+export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
+</code></pre>
+<p>Start a 3.5 Neo4j database:</p>
+<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${DB_USERNAME}:${DB_PASSWORD}&quot; neo4j:3.5
+</code></pre>
+<p>Run warpgrapher app: </p>
+<pre><code class="language-bash">cargo run
+</code></pre>
+<p>You should see the following output:</p>
+<pre><code>Warpgrapher Sample App: https://localhost:5001/graphiql
+</code></pre>
+<p>Congrats! Now you have a running warpgrapher app. </p>
+<h2><a class="header" href="#explore" id="explore">Explore</a></h2>
+<p>Navigate to the displayed URL. You should see the GraphQL Playground which allows you to interact directly with the API. </p>
+<h4><a class="header" href="#list-all-users" id="list-all-users">List all <code>Users</code></a></h4>
+<p>First, list all <code>User</code> nodes in the database:</p>
+<pre><code class="language-graphql">query {
+  User {
+    id
+    email
+  }
+}
+</code></pre>
+<p>You should expect to see an empty list since the database is empty:</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;User&quot;: []
+  }
+}
+</code></pre>
+<h4><a class="header" href="#create-a-new-user" id="create-a-new-user">Create a new <code>User</code></a></h4>
+<p>Next, create a new user:</p>
+<pre><code>mutation {
+  UserCreate(input: {
+    email: &quot;user@example.com&quot;
+  }) {
+    id
+    email
+  }
+}
+</code></pre>
+<p>The response should display the newly created user:</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;UserCreate&quot;: {
+      &quot;email&quot;: &quot;user@example.com&quot;,
+      &quot;id&quot;: &quot;0b2a6753-a5cf-46ea-b046-4935ea208950&quot;
+    }
+  }
+}
+</code></pre>
+<p>(Your <code>id</code> will of course differ). </p>
+<h4><a class="header" href="#create-a-new-team" id="create-a-new-team">Create a new <code>Team</code></a></h4>
+<p>Now, create a <code>Team</code> node:</p>
+<pre><code>mutation {
+  TeamCreate(input: {
+    name: &quot;Blue Team&quot;
+  }) {
+    id
+    name
+  }
+}
+</code></pre>
+<p>Like before, you should see the newly created <code>Team</code> node:</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;TeamCreate&quot;: {
+      &quot;id&quot;: &quot;d381a0f7-8a01-49e3-80ff-15ba01f3604f&quot;,
+      &quot;name&quot;: &quot;Blue Team&quot;
+    }
+  }
+}
+</code></pre>
+<h4><a class="header" href="#add-user-to-team" id="add-user-to-team">Add <code>User</code> to <code>Team</code></a></h4>
+<p>GraphQL and Neo4j are all about relationships. Finally, create a relationship between the <code>Team</code> and <code>User</code> nodes:</p>
+<pre><code>mutation {
+  TeamUsersCreate(input: {
+    match: {
+      name: &quot;Blue Team&quot;
+    },
+    create: {
+      dst: {
+        User: {
+          EXISTING: {
+            email: &quot;user@example.com&quot;
+          }
+        }
+      }
+    }
+  }) {
+    id
+  }
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;Team&quot;: [
+      {
+        &quot;id&quot;: &quot;e5d5e19a-70bf-4d04-b32f-e61407100914&quot;,
+        &quot;name&quot;: &quot;Blue Team&quot;,
+        &quot;users&quot;: {
+          &quot;dst&quot;: {
+            &quot;email&quot;: &quot;user@example.com&quot;,
+            &quot;id&quot;: &quot;0b2a6753-a5cf-46ea-b046-4935ea208950&quot;
+          }
+        }
+      }
+    ]
+  }
+}
+</code></pre>
+<h1><a class="header" href="#warpgrapher-api" id="warpgrapher-api">Warpgrapher API</a></h1>
+<h1><a class="header" href="#node-operations" id="node-operations">Node Operations</a></h1>
+<p><strong><a href="api/crud_nodes.html#node-read">Node Read</a></strong></p>
+<ul>
+<li><a href="api/crud_nodes.html#read-all-nodes">Read All Nodes</a></li>
+<li><a href="api/crud_nodes.html#read-nodes-with-matching-props">Read nodes with matching props</a></li>
+<li><a href="api/crud_nodes.html#return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></li>
+</ul>
+<p><strong><a href="api/crud_nodes.html#node-create">Node Create</a></strong></p>
+<ul>
+<li><a href="api/crud_nodes.html#create-node-with-no-relationships">Create node with no relationships</a></li>
+<li><a href="api/crud_nodes.html#create-node-with-relationship-to-a-new-node">Create node with relationship to a NEW node</a></li>
+<li><a href="api/crud_nodes.html#create-node-with-relationship-to-an-existing-node">Create node with relationship to an EXISTING node</a></li>
+</ul>
+<p><strong><a href="api/crud_nodes.html#node-update">Node Update</a></strong></p>
+<ul>
+<li><a href="api/crud_nodes.html#update-props-on-node-with-matching-props">Update props on node with matching props</a></li>
+<li><a href="api/crud_nodes.html#update-props-on-node-with-a-relationship-to-a-node-containing-matching-props">Update props on node with a relationship to a node containing matching props</a></li>
+<li><a href="api/crud_nodes.html#update-node-to-add-multi-node-relationships">Update node to add (multi-node) relationships</a></li>
+</ul>
+<p><strong><a href="api/crud_nodes.html#node-delete">Node Delete</a></strong></p>
+<ul>
+<li><a href="api/crud_nodes.html#delete-node-with-matching-props">Delete node with matching props</a></li>
+</ul>
+<h1><a class="header" href="#node-read" id="node-read"><code>Node Read</code></a></h1>
+<h4><a class="header" href="#return-all-nodes" id="return-all-nodes">Return all nodes</a></h4>
+<p>To return all <code>Project</code> nodes:</p>
+<pre><code>query {
+    Project {
+        id
+        name
+        status
+    }
+}
+</code></pre>
+<h4><a class="header" href="#return-nodes-with-matching-props" id="return-nodes-with-matching-props">Return nodes with matching props</a></h4>
+<p>To return all <code>Project</code> nodes with <code>status == &quot;ACTIVE&quot;</code>:</p>
+<pre><code>query {
+    Project(
+        input: {
+            status: &quot;ACTIVE&quot;
+        }
+    )
+    {
+        id
+        name
+    }
+}
+</code></pre>
+<h4><a class="header" href="#return-nodes-with-relationships-to-other-nodes-with-matching-props" id="return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></h4>
+<p>To returns all <code>Project</code> nodes containing an <code>owner</code> relationship to a <code>User</code> node with <code>name=&quot;Halsey&quot;</code>:</p>
+<pre><code>query {
+    Project(
+        input: {
+            owner: {
+                dst: {
+                    User: {
+                        name: &quot;Halsey&quot;
+                    }
+                }
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h1><a class="header" href="#node-create" id="node-create"><code>Node Create</code></a></h1>
+<h4><a class="header" href="#create-node-with-no-relationships" id="create-node-with-no-relationships">Create node with no relationships</a></h4>
+<p>To create a new <code>Project</code> node by itself:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 1&quot;,
+            status: &quot;ACTIVE&quot;
+        }
+    )
+    {
+        id
+        name
+    }
+}
+</code></pre>
+<p>Output:</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;ProjectCreate&quot;: {
+      &quot;id&quot;: &quot;a55e1dae-a87f-4ca1-8724-b967a678b942&quot;,
+      &quot;name&quot;: &quot;Project 1&quot;
+    }
+  }
+}
+</code></pre>
+<h4><a class="header" href="#create-node-with-relationship-to-a-new-node" id="create-node-with-relationship-to-a-new-node">Create node with relationship to a <code>NEW</code> node</a></h4>
+<p>To create a new <code>Project</code> node with an <code>owner</code> relationship to a new <code>User</code> node:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 2&quot;,
+            status: &quot;ACTIVE&quot;,
+            owner: {
+                dst: {
+                    User: {
+                        $NEW: {
+                            name: &quot;Smith&quot;
+                        }
+                    }
+                }
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h4><a class="header" href="#create-node-with-relationship-to-an-existing-node" id="create-node-with-relationship-to-an-existing-node">Create node with relationship to an <code>EXISTING</code> node</a></h4>
+<p>To create a new <code>Project</code> node with an <code>owner</code> relationship to an existing <code>User</code> node:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 3&quot;,
+            status: &quot;ACTIVE&quot;,
+            owner: {
+                dst: {
+                    User: {
+                        $EXISTING: {
+                            name: &quot;Oneill&quot;
+                        }
+                    }
+                }
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h1><a class="header" href="#node-update" id="node-update"><code>Node Update</code></a></h1>
+<h4><a class="header" href="#update-props-on-node-with-matching-props" id="update-props-on-node-with-matching-props">Update props on node with matching props</a></h4>
+<p>To update the <code>status</code> of the <code>Project</code> node with <code>name == &quot;Project 2&quot;</code>:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            $MATCH: {
+                name: &quot;Project 2&quot;
+            },
+            $SET: {
+                status: &quot;INACTIVE&quot;
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h4><a class="header" href="#update-props-on-node-with-a-relationship-to-a-node-containing-matching-props" id="update-props-on-node-with-a-relationship-to-a-node-containing-matching-props">Update props on node with a relationship to a node containing matching props</a></h4>
+<p>To update the status of any <code>Project</code> nodes containing an <code>owner</code> relationship to the <code>User</code> with <code>name  == &quot;Smith&quot;</code>:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            $MATCH: {
+                owner: {
+                    dst: {
+                        User: {
+                            name: &quot;Smith&quot;
+                        }
+                    }
+                }
+            },
+            $SET: {
+                status: &quot;INACTIVE&quot;
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h4><a class="header" href="#update-node-to-add-multi-node-relationships" id="update-node-to-add-multi-node-relationships">Update node to add <code>(multi-node)</code> relationships</a></h4>
+<p>To update a specific <code>Project</code> node to add several <code>issue</code> relationships to new <code>Feature</code> and <code>Bug</code> nodes, call <code>ProjectUpdate</code> with:</p>
+<pre><code>mutation {
+    ProjectUpdate(
+        input: {
+            $MATCH: {
+                id: &quot;&lt;ID&gt;&quot;
+            },
+            $SET: {
+                issues: [
+                    {
+                        $ADD: {
+                            dst: {
+                                Feature: {
+                                    $NEW: {
+                                        name: &quot;Add login page&quot;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        $ADD: {
+                            dst: {
+                                Bug: {
+                                    $NEW: {
+                                        name: &quot;Fix auth bug&quot;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            }
+        }
+    ) 
+    { ... }
+}
+</code></pre>
+<h1><a class="header" href="#node-delete" id="node-delete"><code>Node Delete</code></a></h1>
+<h4><a class="header" href="#delete-node-with-matching-props" id="delete-node-with-matching-props">Delete node with matching props</a></h4>
+<p>To delete <code>Project</code> nodes with status &quot;INACTIVE&quot;, call <code>ProjectDelete</code> with: </p>
+<pre><code>mutation {
+    ProjectDelete(
+        input: {
+            $MATCH: {
+                status: &quot;INACTIVE&quot;
+            },
+            $DELETE: {
+                force: true
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<p>The <code>force</code> flag will delete nodes even if they have existing relationships. </p>
+<h1><a class="header" href="#crud-relationships" id="crud-relationships">CRUD: Relationships</a></h1>
+<h1><a class="header" href="#defined-endpoints" id="defined-endpoints">Defined Endpoints</a></h1>
+<p>TODO</p>
+<h1><a class="header" href="#static-endpoints" id="static-endpoints">Static Endpoints</a></h1>
+<p>Warpgrapher includes built-in static endpoints that provide useful information or functionality. </p>
+<h3><a class="header" href="#version" id="version">Version</a></h3>
+<p>If the Server is built with an explicit version:</p>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>let mut server: Server&lt;(), ()&gt; = Server::new(config, db)
+    .with_version(&quot;0.1.0&quot;.to_string())
+    .build();
+<span class="boring">}
+</span></code></pre></pre>
+<p>the version value can be accessed via the <code>_version</code> endpoint:</p>
+<pre><code>query {
+    _version
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;_version&quot;: &quot;0.1.0&quot;
+  }
+}
+</code></pre>
+<p>If the server is not configured with an explicit version, the <code>_version</code> endpoint will return <code>null</code>. </p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+        
+        
+        <script type="text/javascript">
+            window.playpen_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
+        
+
+    </body>
+</html>

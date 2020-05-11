@@ -9,7 +9,7 @@ use super::visitors::{
 use crate::error::{Error, ErrorKind};
 use inflector::Inflector;
 use juniper::{Arguments, Executor, FieldError};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::Statement;
 use serde_json::Map;
@@ -94,6 +94,34 @@ where
                 juniper::Value::Null,
             )
         })
+    }
+    
+    pub fn get_global_context(&self) -> Result<&GlobalCtx, FieldError> {
+    // TODO: make mutable
+        match &self.executor.context().global_ctx {
+            None => {
+                error!("Attempted to access non-existing global context");
+                return Err(FieldError::new(
+                    "Unable to access global context.",
+                    juniper::Value::Null,
+                ))
+            },
+            Some(ctx) => Ok(ctx)
+        }
+    }
+    
+    pub fn get_request_context(&self) -> Result<&ReqCtx, FieldError> {
+    // TODO: make mutable
+        match &self.executor.context().req_ctx {
+            None => {
+                error!("Attempted to access non-existing request context");
+                return Err(FieldError::new(
+                    "Unable to access request context.",
+                    juniper::Value::Null,
+                ))
+            },
+            Some(ctx) => Ok(ctx)
+        }
     }
 
     /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
