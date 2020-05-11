@@ -29,7 +29,7 @@ impl AppData {
 async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
 
-    let resp = &data.engine.execute(req, metadata);
+    let resp = &data.engine.execute(req.into_inner(), metadata);
 
     match resp {
         Ok(body) => Ok(HttpResponse::Ok()

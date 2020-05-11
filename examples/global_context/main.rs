@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::include_str;
 use warpgrapher::{Engine, Config};
 use warpgrapher::engine::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::resolvers::{Resolvers, ResolverContext, ExecutionResult};
@@ -10,9 +9,9 @@ struct AppGlobalContext {
     tenant_id: String
 }
 
-fn resolve_get_environment(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
-    let request_ctx = context.get_request_context()?;
-    context.resolve_scalar(request_ctx.tenant_id.clone())
+fn resolve_get_tenant(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
+    let global_ctx = context.get_global_context()?;
+    context.resolve_scalar(global_ctx.tenant_id.clone())
 }
 
 static CONFIG : &'static str = "
@@ -42,7 +41,7 @@ fn main() {
 
     // define resolvers
     let mut resolvers = Resolvers::<AppGlobalContext, ()>::new();
-    resolvers.insert("GetEnvironment".to_string(), Box::new(resolve_get_environment));
+    resolvers.insert("GetTenant".to_string(), Box::new(resolve_get_tenant));
 
     // create warpgrapher engine
     let engine: Engine<AppGlobalContext, ()> = Engine::new(config, db)
