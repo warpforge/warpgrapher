@@ -2,8 +2,6 @@
 //! configuration, GraphQL schema generation, resolvers, and interface to the
 //! database.
 
-use actix_web::web::Json;
-
 use super::error::{Error, ErrorKind};
 use config::{Config, Prop, Validators};
 use context::{GraphQLContext, RequestContext};
@@ -427,9 +425,9 @@ where
 
     pub fn execute(
         &self,
-        req: Json<GraphQLRequest>, //TODO make generic
+        req: GraphQLRequest,
         metadata: HashMap<String, String>,
-    ) -> Result<String, Error> {
+    ) -> Result<serde_json::Value, Error> {
         debug!("\nRequest: {:#?}\n", req);
 
         // initialize empty request context
@@ -487,13 +485,17 @@ where
             }
         }
 
+        Ok(res_value)
+
         // convert graphql response to string
+        /*
         let body = match serde_json::to_string(&res_value) {
             Ok(s) => s,
             Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
         };
 
         Ok(body)
+        */
     }
 }
 

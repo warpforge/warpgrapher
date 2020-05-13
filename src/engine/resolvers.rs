@@ -9,7 +9,7 @@ use super::visitors::{
 use crate::error::{Error, ErrorKind};
 use inflector::Inflector;
 use juniper::{Arguments, Executor, FieldError};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::Statement;
 use serde_json::Map;
@@ -94,6 +94,64 @@ where
                 juniper::Value::Null,
             )
         })
+    }
+    
+    /// Returns the global context, if the global context does not exist,
+    /// it returns a FieldError. 
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let global_context = context.get_global_context()?;
+    ///
+    ///     // use global_context
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn get_global_context(&self) -> Result<&GlobalCtx, FieldError> {
+    // TODO: make mutable
+        match &self.executor.context().global_ctx {
+            None => {
+                error!("Attempted to access non-existing global context");
+                Err(FieldError::new(
+                    "Unable to access global context.",
+                    juniper::Value::Null,
+                ))
+            },
+            Some(ctx) => Ok(ctx)
+        }
+    }
+    
+    /// Returns the request context, if the request context does not exist,
+    /// it returns a FieldError. 
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let request_context = context.get_request_context()?;
+    ///
+    ///     // use request_context
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn get_request_context(&self) -> Result<&ReqCtx, FieldError> {
+    // TODO: make mutable
+        match &self.executor.context().req_ctx {
+            None => {
+                error!("Attempted to access non-existing request context");
+                Err(FieldError::new(
+                    "Unable to access request context.",
+                    juniper::Value::Null,
+                ))
+            },
+            Some(ctx) => Ok(ctx)
+        }
     }
 
     /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
