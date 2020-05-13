@@ -1,5 +1,4 @@
 //! This module provides error handling for WarpGrapher.
-use serde_yaml;
 use std::error;
 use std::fmt::{Display, Formatter, Result};
 use std::sync::mpsc::RecvError;

@@ -5,15 +5,15 @@
 use actix_web::web::Json;
 
 use super::error::{Error, ErrorKind};
-use config::{Config, Prop, Resolvers, Validators};
+use config::{Config, Prop, Validators};
 use context::{GraphQLContext, RequestContext};
 use extensions::WarpgrapherExtensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
 use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
+use resolvers::Resolvers;
 use schema::{create_root_node, RootRef};
-use serde_json;
 use std::collections::HashMap;
 use std::env::var_os;
 use std::fmt::Debug;
@@ -89,7 +89,8 @@ where
     /// use std::env::var_os;
     /// use warpgrapher::engine::Engine;
     /// use warpgrapher::engine::neo4j::Neo4jEndpoint;
-    /// use warpgrapher::engine::config::{Config, Resolvers};
+    /// use warpgrapher::engine::config::{Config};
+    /// use warpgrapher::engine::resolvers::{Resolvers};
     ///
     /// let resolvers = Resolvers::<(), ()>::new();
     ///
@@ -501,13 +502,12 @@ where
 /// reachable, so most of the coverage is provided by integration tests.
 #[cfg(test)]
 mod tests {
-    use super::config::{Config, Resolvers, Validators};
-    use super::context::GraphQLContext;
-    use super::schema::Info;
+    use super::config::{Config, Validators};
+    use super::resolvers::{ResolverContext, Resolvers};
     use super::Engine;
     use super::EngineBuilder;
     use crate::error::Error;
-    use juniper::{Arguments, ExecutionResult, Executor, Value};
+    use juniper::ExecutionResult;
     use std::env::var_os;
     use std::fs::File;
     use std::io::BufReader;
@@ -660,12 +660,8 @@ mod tests {
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
 
-    pub fn my_resolver(
-        _info: &Info,
-        _args: &Arguments,
-        _executor: &Executor<GraphQLContext<(), ()>>,
-    ) -> ExecutionResult {
-        Ok(Value::scalar(100 as i32))
+    pub fn my_resolver(context: ResolverContext<(), ()>) -> ExecutionResult {
+        context.resolve_scalar(1 as i32)
     }
 
     pub fn my_validator(_value: &serde_json::Value) -> Result<(), Error> {

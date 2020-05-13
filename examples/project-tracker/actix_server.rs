@@ -7,7 +7,8 @@ use actix_cors::Cors;
 use actix_http::error::Error;
 use actix_web::middleware::Logger;
 use actix_web::web::{Data, Json};
-use actix_web::{web, App, HttpResponse, HttpServer};
+use actix_web::{web, App, HttpResponse, HttpServer, Responder};
+use juniper::http::playground::playground_source;
 use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 
@@ -40,6 +41,13 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
     }
 }
 
+async fn graphiql(_data: Data<AppData>) -> impl Responder {
+    let html = playground_source(&"/graphql");
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(html)
+}
+
 #[allow(clippy::ptr_arg)]
 pub fn start(engine: Engine<AppGlobalContext, AppRequestContext>) {
     let graphql_endpoint = "/graphql";
@@ -57,6 +65,7 @@ pub fn start(engine: Engine<AppGlobalContext, AppRequestContext>) {
             .wrap(Logger::default())
             .wrap(Cors::default())
             .route(graphql_endpoint, web::post().to(graphql))
+            .route("/graphiql", web::get().to(graphiql))
     })
     .bind(&addr)
     .expect("Failed to start server")

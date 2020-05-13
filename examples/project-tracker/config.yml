@@ -34,6 +34,10 @@ model:
       - name: issues
         nodes: [Feature, Bug]
         list: true
+      - name: contributors
+        nodes: [User]
+        list: true
+        resolver: ProjectContributors
   
   # Feature
   - name: Feature
@@ -65,14 +69,20 @@ model:
       - name: hash
         type: String
 
-endpoints:
+  # Metric
+  - name: Metric
+    props:
+      - name: desc
+        type: String
+
+endpoints: []
 
   #ProjectCount
-  - name: ProjectCount
-    class: Query
-    input:
-      list: false
-      type: ProjectQueryInput
-    output:
-      list: false
-      type: Int
+  #- name: ProjectCount
+  #  class: Query
+  #  input:
+  #    list: false
+  #    type: ProjectQueryInput
+  #  output:
+  #    list: false
+  #    type: Int

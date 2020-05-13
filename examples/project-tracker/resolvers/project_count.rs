@@ -1,37 +1,15 @@
-extern crate warpgrapher;
-use self::warpgrapher::engine::context::GraphQLContext;
-use self::warpgrapher::engine::schema::Info;
-use self::warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::engine::resolvers::ResolverContext;
+use warpgrapher::juniper::ExecutionResult;
 
 pub fn resolver(
-    _info: &Info,
-    _args: &Arguments,
-    executor: &Executor<GraphQLContext<crate::AppGlobalContext, crate::AppRequestContext>>,
+    context: ResolverContext<crate::AppGlobalContext, crate::AppRequestContext>,
 ) -> ExecutionResult {
-    // extract global context
-    let global_ctx = &executor.context().global_ctx;
-    match global_ctx {
-        Some(gctx) => {
-            println!("gctx: {:#?}", gctx);
-        }
-        None => {}
-    }
-
-    // extract request context
-    let req_ctx = &executor.context().req_ctx;
-    match req_ctx {
-        Some(rctx) => {
-            println!("rctx: {:#?}", rctx);
-        }
-        None => {}
-    }
-
     // get projects from database
-    let graph = executor.context().pool.get().unwrap();
+    let db = context.get_db()?;
     let query = "MATCH (n:Project) RETURN (n);";
-    let results = graph.exec(query).unwrap();
+    let results = db.exec(query).unwrap(); // TODO: extract correctly
 
     // return number of projects
     let count = results.data.len();
-    Ok(Value::scalar(count as i32))
+    context.resolve_scalar(count as i32)
 }
