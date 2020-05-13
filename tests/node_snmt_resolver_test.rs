@@ -472,7 +472,7 @@ fn read_node_with_matching_props_on_rel() {
                 "name": "ORION",
                 "board": {
                     "props": {
-                        "public": false
+                        "publicized": false
                     },
                     "dst": {
                         "ScrumBoard": {
@@ -495,7 +495,7 @@ fn read_node_with_matching_props_on_rel() {
                 "name": "SPARTAN",
                 "board": {
                     "props": {
-                        "public": true
+                        "publicized": true
                     },
                     "dst": {
                         "ScrumBoard": {
@@ -520,7 +520,7 @@ fn read_node_with_matching_props_on_rel() {
             board { 
                 __typename 
                 props {
-                    public
+                    publicized
                 }
                 dst { 
                     ... on ScrumBoard {
@@ -534,7 +534,7 @@ fn read_node_with_matching_props_on_rel() {
             Some(json!({
                 "board": {
                     "props": {
-                        "public": true
+                        "publicized": true
                     }
                 }
             })),
@@ -573,7 +573,7 @@ fn read_node_with_matching_props_on_rel() {
             Some(json!({
                 "board": {
                     "props": {
-                        "public": false
+                        "publicized": false
                     }
                 }
             })),
@@ -638,7 +638,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 "name": "ORION",
                 "board": {
                     "props": {
-                        "public": false
+                        "publicized": false
                     },
                     "dst": {
                         "ScrumBoard": {
@@ -660,7 +660,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 "name": "SPARTAN",
                 "board": {
                     "props": {
-                        "public": false
+                        "publicized": false
                     },
                     "dst": {
                         "ScrumBoard": {

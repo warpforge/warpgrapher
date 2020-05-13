@@ -279,7 +279,11 @@ impl TryFrom<Value> for f64 {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<f64, Self::Error> {
-        if let Value::Float64(f) = value {
+        if let Value::Int64(i) = value {
+            Ok(i as f64)
+        } else if let Value::UInt64(i) = value {
+            Ok(i as f64)
+        } else if let Value::Float64(f) = value {
             Ok(f)
         } else {
             Err(Error::new(

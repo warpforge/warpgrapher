@@ -29,7 +29,7 @@ fn create_snmt_new_rel_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn create_smnt_new_rel_graphson2() {
+fn create_snmt_new_rel_graphson2() {
     init();
     clear_db();
 
@@ -68,36 +68,36 @@ fn create_snmt_new_rel() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
+            &json!({"props": {"publicized": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
         .unwrap();
 
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("public").unwrap() == true);
+    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
     let b1 = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project One"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("public").unwrap() == false);
+    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
@@ -111,12 +111,12 @@ fn create_snmt_new_rel() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project One"})),
         )
         .unwrap();
@@ -130,7 +130,7 @@ fn create_snmt_new_rel() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
 }
 
 #[cfg(feature = "neo4j")]
@@ -151,7 +151,7 @@ fn create_snmt_new_existing_node_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn create_smnt_rel_existing_node_graphson2() {
+fn create_snmt_rel_existing_node_graphson2() {
     init();
     clear_db();
 
@@ -207,10 +207,10 @@ fn create_snmt_rel_existing_node() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
             &json!({
-                "props": {"public": true}, 
+                "props": {"publicized": true}, 
                 "dst": {"KanbanBoard": {"EXISTING": {"name": "KanbanBoard Zero"}}}
             }))
         .unwrap();
@@ -218,16 +218,16 @@ fn create_snmt_rel_existing_node() {
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("public").unwrap() == true);
+    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
     let b1 = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project One"}),
             &json!({
-                "props": {"public": false}, 
+                "props": {"publicized": false}, 
                 "dst": {"ScrumBoard": {"EXISTING": {"name": "ScrumBoard Zero"}}}
             }))
         .unwrap();
@@ -235,12 +235,12 @@ fn create_snmt_rel_existing_node() {
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("public").unwrap() == false);
+    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
@@ -252,12 +252,12 @@ fn create_snmt_rel_existing_node() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project One"})),
         )
         .unwrap();
@@ -269,7 +269,7 @@ fn create_snmt_rel_existing_node() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
 }
 
 #[cfg(feature = "neo4j")]
@@ -290,7 +290,7 @@ fn read_snmt_rel_by_rel_props_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn read_smnt_rel_by_rel_props_graphson2() {
+fn read_snmt_rel_by_rel_props_graphson2() {
     init();
     clear_db();
 
@@ -314,7 +314,7 @@ fn read_snmt_rel_by_rel_props() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -329,7 +329,7 @@ fn read_snmt_rel_by_rel_props() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -340,8 +340,8 @@ fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"props": {"public": true}})),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            Some(json!({"props": {"publicized": true}})),
         )
         .unwrap();
 
@@ -354,7 +354,7 @@ fn read_snmt_rel_by_rel_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -366,8 +366,8 @@ fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234".to_string()),
-            Some(json!({"props": {"public": false}})),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234".to_string()),
+            Some(json!({"props": {"publicized": false}})),
         )
         .unwrap();
 
@@ -380,7 +380,7 @@ fn read_snmt_rel_by_rel_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -407,7 +407,7 @@ fn read_snmt_rel_by_src_props_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn read_smnt_rel_by_src_props_graphson2() {
+fn read_snmt_rel_by_src_props_graphson2() {
     init();
     clear_db();
 
@@ -431,7 +431,7 @@ fn read_snmt_rel_by_src_props() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -446,7 +446,7 @@ fn read_snmt_rel_by_src_props() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -457,7 +457,7 @@ fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .unwrap();
@@ -471,7 +471,7 @@ fn read_snmt_rel_by_src_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -483,7 +483,7 @@ fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(json!({"src": {"Project": {"name": "Project One"}}})),
         )
         .unwrap();
@@ -497,7 +497,7 @@ fn read_snmt_rel_by_src_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -524,7 +524,7 @@ fn read_snmt_rel_by_dst_props_neo4j() {
 #[cfg(feature = "graphson2")]
 #[serial(graphson2)]
 #[test]
-fn read_smnt_rel_by_dst_props_graphson2() {
+fn read_snmt_rel_by_dst_props_graphson2() {
     init();
     clear_db();
 
@@ -548,7 +548,7 @@ fn read_snmt_rel_by_dst_props() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -563,7 +563,7 @@ fn read_snmt_rel_by_dst_props() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -574,7 +574,7 @@ fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             Some(json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         )
         .unwrap();
@@ -588,7 +588,7 @@ fn read_snmt_rel_by_dst_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -600,7 +600,7 @@ fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             Some(json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
         )
         .unwrap();
@@ -614,7 +614,7 @@ fn read_snmt_rel_by_dst_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -665,7 +665,7 @@ fn update_snmt_rel_by_rel_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                  "props": {"public": true},
+                  "props": {"publicized": true},
                   "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -680,7 +680,7 @@ fn update_snmt_rel_by_rel_prop() {
             &json!({
                 "name": "Project One",
                 "board": {
-                  "props": {"public": false},
+                  "props": {"publicized": false},
                   "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -691,9 +691,9 @@ fn update_snmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
-            Some(&json!({"props": {"public": true}})),
-            &json!({"props": {"public": false}}),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            Some(&json!({"props": {"publicized": true}})),
+            &json!({"props": {"publicized": false}}),
         )
         .unwrap();
 
@@ -709,10 +709,10 @@ fn update_snmt_rel_by_rel_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -720,7 +720,7 @@ fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
@@ -733,17 +733,17 @@ fn update_snmt_rel_by_rel_prop() {
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() != true);
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
 
     let b1 = client
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
-            Some(&json!({"props": {"public": false}})),
-            &json!({"props": {"public": true}}),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            Some(&json!({"props": {"publicized": false}})),
+            &json!({"props": {"publicized": true}}),
         )
         .unwrap();
 
@@ -762,10 +762,10 @@ fn update_snmt_rel_by_rel_prop() {
         .any(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -776,7 +776,7 @@ fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project One"})),
         )
         .unwrap();
@@ -789,8 +789,8 @@ fn update_snmt_rel_by_rel_prop() {
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() != false);
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
 }
 
@@ -836,7 +836,7 @@ fn update_snmt_rel_by_src_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -851,7 +851,7 @@ fn update_snmt_rel_by_src_prop() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -862,9 +862,9 @@ fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
-            &json!({"props": {"public": false}}),
+            &json!({"props": {"publicized": false}}),
         )
         .unwrap();
 
@@ -880,10 +880,10 @@ fn update_snmt_rel_by_src_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
@@ -892,9 +892,9 @@ fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
-            &json!({"props": {"public": true}}),
+            &json!({"props": {"publicized": true}}),
         )
         .unwrap();
 
@@ -910,10 +910,10 @@ fn update_snmt_rel_by_src_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -961,7 +961,7 @@ fn update_snmt_rel_by_dst_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                   }
             }),
@@ -976,7 +976,7 @@ fn update_snmt_rel_by_dst_prop() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                   }
             }),
@@ -987,9 +987,9 @@ fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
-            &json!({"props": {"public": true}}),
+            &json!({"props": {"publicized": true}}),
         )
         .unwrap();
 
@@ -1005,10 +1005,10 @@ fn update_snmt_rel_by_dst_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -1017,9 +1017,9 @@ fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
-            &json!({"props": {"public": false}}),
+            &json!({"props": {"publicized": false}}),
         )
         .unwrap();
 
@@ -1035,10 +1035,10 @@ fn update_snmt_rel_by_dst_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
@@ -1086,7 +1086,7 @@ fn delete_snmt_rel_by_rel_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                      "props": {"public": true},
+                      "props": {"publicized": true},
                       "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                     }
             }),
@@ -1098,7 +1098,7 @@ fn delete_snmt_rel_by_rel_prop() {
             "Project",
             "board",
             Some("1234".to_string()),
-            Some(&json!({"props": {"public": true}})),
+            Some(&json!({"props": {"publicized": true}})),
             None,
             None,
         )
@@ -1107,7 +1107,7 @@ fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1126,9 +1126,9 @@ fn delete_snmt_rel_by_rel_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .unwrap();
 
@@ -1136,7 +1136,7 @@ fn delete_snmt_rel_by_rel_prop() {
         "Project",
         "board",
         Some("1234".to_string()),
-        Some(&json!({"props": {"public": false}})),
+        Some(&json!({"props": {"publicized": false}})),
         None,
         None,
     );
@@ -1144,7 +1144,7 @@ fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1202,7 +1202,7 @@ fn delete_snmt_rel_by_dst_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -1223,7 +1223,7 @@ fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1242,9 +1242,9 @@ fn delete_snmt_rel_by_dst_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .unwrap();
 
@@ -1260,7 +1260,7 @@ fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
         .unwrap();
@@ -1318,7 +1318,7 @@ fn delete_snmt_rel_by_src_prop() {
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -1333,7 +1333,7 @@ fn delete_snmt_rel_by_src_prop() {
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard One"}}}
                 }
             }),
@@ -1354,7 +1354,7 @@ fn delete_snmt_rel_by_src_prop() {
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project Zero"})),
         )
         .unwrap();
@@ -1362,7 +1362,7 @@ fn delete_snmt_rel_by_src_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project One"})),
         )
         .unwrap();
@@ -1388,8 +1388,8 @@ fn delete_snmt_rel_by_src_prop() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() != "KanbanBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
-    assert!(board.get("props").unwrap().get("public").unwrap() != true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard One");
     assert!(board.get("dst").unwrap().get("name").unwrap() != "KanbanBoard One");
 
@@ -1407,7 +1407,7 @@ fn delete_snmt_rel_by_src_prop() {
     let projects2 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             Some(json!({"name": "Project One"})),
         )
         .unwrap();

@@ -1,6 +1,7 @@
 use super::{get_env_string, DatabaseEndpoint, DatabasePool, QueryResult};
 use crate::server::context::WarpgrapherRequestContext;
 use crate::server::objects::{Node, Rel};
+use crate::server::schema::Info;
 use crate::server::value::Value;
 use crate::{Error, ErrorKind};
 use juniper::FieldError;
@@ -79,7 +80,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             + label
             + " { id: randomUUID() })\n"
             + "SET n += $props\n"
-            + "RETURN n\n";
+            + "RETURN n, labels(n) as n_label\n";
         let mut params = HashMap::new();
         params.insert("props".to_owned(), props.into());
 
@@ -105,12 +106,48 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         rel_name: &str,
         params: &mut HashMap<String, Value>,
         partition_key_opt: &Option<String>,
+        info: &Info,
     ) -> Result<Self::ImplQueryResult, FieldError> {
         let mut props = HashMap::new();
         if let Some(Value::Map(pm)) = params.remove("props") {
             // remove rather than get to take ownership
             for (k, v) in pm.into_iter() {
                 props.insert(k.to_owned(), v);
+            }
+        }
+
+        if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) =
+            (src_ids.clone(), dst_ids.clone())
+        {
+            // TODO remove clone
+            let src_td = info.get_type_def_by_name(src_label)?;
+            let src_prop = src_td.get_prop(rel_name)?;
+
+            if !src_prop.list {
+                let check_query = String::from("MATCH (")
+                    + src_label
+                    + ":"
+                    + src_label
+                    + ")-["
+                    + rel_name
+                    + ":"
+                    + rel_name
+                    + "]->() WHERE "
+                    + src_label
+                    + ".id IN $aid RETURN COUNT("
+                    + rel_name
+                    + ") as count";
+                let mut check_params: HashMap<String, Value> = HashMap::new();
+                check_params.insert("aid".to_owned(), Value::Array(src_id_vec)); // TODO -- remove cloning
+                let check_results =
+                    self.exec(&check_query, partition_key_opt, Some(check_params))?;
+                if check_results.get_count()? > 0 || dst_id_vec.len() > 1 {
+                    return Err(Error::new(
+                        ErrorKind::RelAlreadyExists(rel_name.to_string()),
+                        None,
+                    )
+                    .into()); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
+                }
             }
         }
 
@@ -137,8 +174,12 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             + " += $props\n"
             + "RETURN "
             + src_label
-            + ", "
+            + " as src, "
+            + "labels("
+            + src_label
+            + ") as src_label,"
             + rel_name
+            + " as r"
             + ", dst, labels(dst) as dst_label\n";
 
         let mut params: HashMap<String, Value> = HashMap::new();
@@ -307,7 +348,15 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         params.insert(String::from(label) + param_suffix, props.into());
 
         if return_node {
-            qs.push_str(&(String::from("RETURN ") + label + var_suffix + "\n"));
+            qs.push_str(
+                &(String::from("RETURN ")
+                    + label
+                    + var_suffix
+                    + " as n, labels("
+                    + label
+                    + var_suffix
+                    + ") as n_label\n"),
+            );
         }
 
         Ok(qs)
@@ -447,21 +496,22 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
                 &(String::from("RETURN ")
                     + src_label
                     + src_suffix
-                    + ", "
+                    + " as src, "
+                    + "labels("
+                    + src_label
+                    + src_suffix
+                    + ") as src_label, "
                     + rel_name
                     + src_suffix
                     + dst_suffix
-                    + ", "
+                    + " as r, "
                     + dst_var
                     + dst_suffix
-                    + ", "
+                    + " as dst, "
                     + "labels("
                     + dst_var
                     + dst_suffix
-                    + ") as "
-                    + dst_var
-                    + dst_suffix
-                    + "_label\n"),
+                    + ") as dst_label\n"),
             );
         }
 
@@ -494,18 +544,11 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             + ")\n"
             + "WHERE n.id IN $ids\n"
             + "SET n += $props\n"
-            + "RETURN n\n";
+            + "RETURN n, labels(n) as n_label\n";
 
-        trace!(
-            "visit_node_update_mutation_input query, params: {:#?}, {:#?}",
-            query,
-            params
-        );
+        trace!("update_nodes query, params: {:#?}, {:#?}", query, params);
         let results = self.exec(&query, partition_key_opt, Some(params));
-        trace!(
-            "visit_node_update_mutation_input Query results: {:#?}",
-            results
-        );
+        trace!("update_nodes Query results: {:#?}", results);
 
         results
     }
@@ -535,8 +578,11 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             + " += $props\n"
             + "RETURN "
             + src_label
-            + ", "
+            + " as src, labels("
+            + src_label
+            + ") as src_label, "
             + rel_name
+            + " as r"
             + ", dst, labels(dst) as dst_label\n";
 
         let mut params: HashMap<String, Value> = HashMap::new();
@@ -571,22 +617,42 @@ impl Neo4jQueryResult {
 impl QueryResult for Neo4jQueryResult {
     fn get_nodes<GlobalCtx, ReqCtx>(
         self,
-        name: &str,
+        _name: &str,
+        info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
-        trace!("Neo4jQueryResult::get_nodes called");
+        trace!(
+            "Neo4jQueryResult::get_nodes called, result: {:#?}",
+            self.result
+        );
 
         let mut v = Vec::new();
         for row in self.result.rows() {
-            let m: HashMap<String, serde_json::Value> = row.get(name)?;
+            let m: HashMap<String, serde_json::Value> = row.get("n")?;
+            let mut label_list: Vec<String> = row.get("n_label")?;
+            let label = label_list.pop().ok_or_else(|| {
+                Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
+            })?;
             let mut fields = HashMap::new();
+            let type_def = info.get_type_def_by_name(&label)?;
             for (k, v) in m.into_iter() {
-                fields.insert(k, v.try_into()?);
+                let prop_def = type_def.get_prop(&k)?;
+                if prop_def.list {
+                    if let serde_json::Value::Array(_) = v {
+                        fields.insert(k, v.try_into()?);
+                    } else {
+                        let mut val = Vec::new();
+                        val.push(v.try_into()?);
+                        fields.insert(k, Value::Array(val));
+                    }
+                } else {
+                    fields.insert(k, v.try_into()?);
+                }
             }
-            v.push(Node::new(name.to_owned(), fields));
+            v.push(Node::new(label.to_owned(), fields));
         }
         trace!("Neo4jQueryResults::get_nodes results: {:#?}", v);
         Ok(v)
@@ -600,6 +666,7 @@ impl QueryResult for Neo4jQueryResult {
         dst_name: &str,
         dst_suffix: &str,
         props_type_name: Option<&str>,
+        info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
@@ -610,60 +677,106 @@ impl QueryResult for Neo4jQueryResult {
         let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
 
         for row in self.result.rows() {
-            if let serde_json::Value::Array(labels) =
-                row.get(&(String::from(dst_name) + dst_suffix + "_label"))?
-            {
-                if let serde_json::Value::String(dst_type) = &labels[0] {
-                    let src_map: HashMap<String, serde_json::Value> =
-                        row.get::<HashMap<String, serde_json::Value>>(
-                            &(String::from(src_name) + src_suffix),
-                        )?;
-                    let mut src_wg_map = HashMap::new();
+            if let serde_json::Value::Array(src_labels) = row.get("src_label")? {
+                if let serde_json::Value::String(src_type) = &src_labels[0] {
+                    let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
+                    let mut src_label_list: Vec<String> = row.get("src_label")?;
+                    let src_label = src_label_list.pop().ok_or_else(|| {
+                        Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
+                    })?;
+                    let mut src_fields = HashMap::new();
+                    let type_def = info.get_type_def_by_name(&src_label)?;
                     for (k, v) in src_map.into_iter() {
-                        src_wg_map.insert(k, v.try_into()?);
-                    }
-
-                    let dst_map: HashMap<String, serde_json::Value> =
-                        row.get::<HashMap<String, serde_json::Value>>(
-                            &(String::from(dst_name) + dst_suffix),
-                        )?;
-                    let mut dst_wg_map = HashMap::new();
-                    for (k, v) in dst_map.into_iter() {
-                        dst_wg_map.insert(k, v.try_into()?);
-                    }
-
-                    v.push(Rel::new(
-                        row.get::<serde_json::Value>(
-                            &(String::from(rel_name) + src_suffix + dst_suffix),
-                        )?
-                        .get("id")
-                        .ok_or_else(|| {
-                            Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
-                        })?
-                        .clone()
-                        .try_into()?,
-                        match props_type_name {
-                            Some(p_type_name) => {
-                                let map: HashMap<String, serde_json::Value> =
-                                    row.get::<HashMap<String, serde_json::Value>>(
-                                        &(String::from(rel_name) + src_suffix + dst_suffix),
-                                    )?;
-                                let mut wg_map = HashMap::new();
-                                for (k, v) in map.into_iter() {
-                                    wg_map.insert(k, v.try_into()?);
-                                }
-
-                                Some(Node::new(p_type_name.to_string(), wg_map))
+                        let prop_def = type_def.get_prop(&k)?;
+                        if prop_def.list {
+                            if let serde_json::Value::Array(_) = v {
+                                src_fields.insert(k, v.try_into()?);
+                            } else {
+                                let mut val = Vec::new();
+                                val.push(v.try_into()?);
+                                src_fields.insert(k, Value::Array(val));
                             }
-                            None => None,
-                        },
-                        Node::new(src_name.to_owned(), src_wg_map),
-                        Node::new(dst_type.to_owned(), dst_wg_map),
-                    ))
+                        } else {
+                            src_fields.insert(k, v.try_into()?);
+                        }
+                    }
+
+                    if let serde_json::Value::Array(dst_labels) = row.get("dst_label")? {
+                        if let serde_json::Value::String(dst_type) = &dst_labels[0] {
+                            let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
+                            let mut dst_label_list: Vec<String> = row.get("dst_label")?;
+                            let dst_label = dst_label_list.pop().ok_or_else(|| {
+                                Error::new(
+                                    ErrorKind::MissingProperty("label".to_string(), None),
+                                    None,
+                                )
+                            })?;
+                            let mut dst_fields = HashMap::new();
+                            let type_def = info.get_type_def_by_name(&dst_label)?;
+                            for (k, v) in dst_map.into_iter() {
+                                let prop_def = type_def.get_prop(&k)?;
+                                if prop_def.list {
+                                    if let serde_json::Value::Array(_) = v {
+                                        dst_fields.insert(k, v.try_into()?);
+                                    } else {
+                                        let mut val = Vec::new();
+                                        val.push(v.try_into()?);
+                                        dst_fields.insert(k, Value::Array(val));
+                                    }
+                                } else {
+                                    dst_fields.insert(k, v.try_into()?);
+                                }
+                            }
+
+                            v.push(Rel::new(
+                                row.get::<serde_json::Value>("r")?
+                                    .get("id")
+                                    .ok_or_else(|| {
+                                        Error::new(
+                                            ErrorKind::MissingResultElement("id".to_string()),
+                                            None,
+                                        )
+                                    })?
+                                    .clone()
+                                    .try_into()?,
+                                match props_type_name {
+                                    Some(p_type_name) => {
+                                        let map: HashMap<String, serde_json::Value> =
+                                            row.get::<HashMap<String, serde_json::Value>>("r")?;
+                                        let mut wg_map = HashMap::new();
+                                        for (k, v) in map.into_iter() {
+                                            wg_map.insert(k, v.try_into()?);
+                                        }
+
+                                        Some(Node::new(p_type_name.to_string(), wg_map))
+                                    }
+                                    None => None,
+                                },
+                                Node::new(src_type.to_owned(), src_fields),
+                                Node::new(dst_type.to_owned(), dst_fields),
+                            ))
+                        } else {
+                            return Err(Error::new(
+                                ErrorKind::InvalidPropertyType(
+                                    String::from(dst_name) + dst_suffix + "_label",
+                                ),
+                                None,
+                            )
+                            .into());
+                        }
+                    } else {
+                        return Err(Error::new(
+                            ErrorKind::InvalidPropertyType(
+                                String::from(dst_name) + dst_suffix + "_label",
+                            ),
+                            None,
+                        )
+                        .into());
+                    }
                 } else {
                     return Err(Error::new(
                         ErrorKind::InvalidPropertyType(
-                            String::from(dst_name) + dst_suffix + "_label",
+                            String::from(src_name) + src_suffix + "_label",
                         ),
                         None,
                     )
@@ -671,7 +784,7 @@ impl QueryResult for Neo4jQueryResult {
                 }
             } else {
                 return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(String::from(dst_name) + dst_suffix + "_label"),
+                    ErrorKind::InvalidPropertyType(String::from(src_name) + src_suffix + "_label"),
                     None,
                 )
                 .into());
@@ -681,17 +794,29 @@ impl QueryResult for Neo4jQueryResult {
         Ok(v)
     }
 
-    fn get_ids(&self, name: &str) -> Result<Value, FieldError> {
+    fn get_ids(&self, _name: &str) -> Result<Value, FieldError> {
         trace!("Neo4jQueryResult::get_ids called");
 
         let mut v = Vec::new();
         for row in self.result.rows() {
-            let n: serde_json::Value = row.get(name)?;
-
-            if let serde_json::Value::String(id) = n.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
+            if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
+                if let serde_json::Value::String(id) = n.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
                 v.push(Value::String(id.to_owned()));
             } else {
                 return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
+            }
+            } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
+                if let serde_json::Value::String(id) = r.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
+                v.push(Value::String(id.to_owned()));
+            } else {
+                return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
+            }
+            } else {
+                return Err(Error::new(
+                    ErrorKind::MissingProperty("n or r".to_string(), None),
+                    None,
+                )
+                .into());
             }
         }
 

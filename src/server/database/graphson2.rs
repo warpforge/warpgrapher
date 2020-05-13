@@ -3,6 +3,7 @@ use super::{
 };
 use crate::server::context::WarpgrapherRequestContext;
 use crate::server::objects::{Node, Rel};
+use crate::server::schema::Info;
 use crate::server::value::Value;
 use crate::{Error, ErrorKind};
 #[cfg(feature = "graphson2")]
@@ -79,18 +80,35 @@ impl Transaction for Graphson2Transaction {
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
     ) -> Result<Graphson2QueryResult, FieldError> {
+        let mut params = HashMap::new();
         let mut query = String::from("g.addV('") + label + "')";
         query.push_str(".property('partitionKey', partitionKey)");
-        for (k, _v) in props.iter() {
-            query.push_str(".property('");
-            query.push_str(k);
-            query.push_str("', ");
-            query.push_str(k);
-            query.push_str(")");
+        for (k, v) in props.into_iter() {
+            if let Value::Array(a) = v {
+                for (i, val) in a.into_iter().enumerate() {
+                    query.push_str(
+                        &(String::from(".property(list, '")
+                            + &k
+                            + "', "
+                            + &k
+                            + &i.to_string()
+                            + ")"),
+                    );
+                    params.insert(k.to_owned() + &i.to_string(), val);
+                }
+            } else {
+                query.push_str(".property(");
+                query.push_str("'");
+                query.push_str(&k);
+                query.push_str("', ");
+                query.push_str(&k);
+                query.push_str(")");
+                params.insert(k, v);
+            }
         }
         query.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-        self.exec(&query, partition_key_opt, Some(props))
+        self.exec(&query, partition_key_opt, Some(params))
     }
 
     fn create_rels(
@@ -102,7 +120,10 @@ impl Transaction for Graphson2Transaction {
         rel_name: &str,
         params: &mut HashMap<String, Value>,
         partition_key_opt: &Option<String>,
+        info: &Info,
     ) -> Result<Self::ImplQueryResult, FieldError> {
+        trace!("Graphson2Transaction::create_rels called.");
+
         let mut props = HashMap::new();
         if let Some(Value::Map(pm)) = params.remove("props") {
             // remove rather than get to take ownership
@@ -112,6 +133,41 @@ impl Transaction for Graphson2Transaction {
         }
 
         if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) = (src_ids, dst_ids) {
+            let src_td = info.get_type_def_by_name(src_label)?;
+            let src_prop = src_td.get_prop(rel_name)?;
+
+            if !src_prop.list {
+                let mut check_query = String::from("g.V()");
+                check_query.push_str(&(String::from(".has('partitionKey', partitionKey)")));
+                check_query.push_str(&(String::from(".has('label', '") + src_label + "')"));
+                check_query.push_str(".hasId(");
+                for (i, id) in src_id_vec.iter().enumerate() {
+                    if let Value::String(id_str) = id {
+                        if i == 0 {
+                            check_query.push_str(&(String::from("'") + &id_str + "'"));
+                        } else {
+                            check_query.push_str(&(String::from(", '") + &id_str + "'"));
+                        }
+                    } else {
+                        return Err(Error::new(
+                            ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
+                            None,
+                        )
+                        .into());
+                    }
+                }
+                check_query.push_str(&(String::from(").outE('") + rel_name + "').count()"));
+                let check_results =
+                    self.exec(&check_query, partition_key_opt, Some(props.clone()))?; // TODO -- remove cloning
+                if check_results.get_count()? > 0 || dst_id_vec.len() > 1 {
+                    return Err(Error::new(
+                        ErrorKind::RelAlreadyExists(rel_name.to_string()),
+                        None,
+                    )
+                    .into()); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
+                }
+            }
+
             let mut query = String::from("g.V()");
             query.push_str(".has('partitionKey', partitionKey)");
             query.push_str(&(String::from(".hasLabel('") + dst_label + "')"));
@@ -165,6 +221,10 @@ impl Transaction for Graphson2Transaction {
                 query.push_str(k);
                 query.push_str(")");
             }
+            query.push_str(".project('rID', 'rLabel', 'rProps', 'srcID', 'srcLabel', 'srcProps', 'dstID', 'dstLabel', 'dstProps')");
+            query.push_str(".by(id()).by(label()).by(valueMap())");
+            query.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
+            query.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
 
             self.exec(&query, partition_key_opt, Some(props))
         } else {
@@ -486,12 +546,33 @@ impl Transaction for Graphson2Transaction {
 
             qs.push_str(")");
 
-            for k in props.keys() {
-                qs.push_str(&(String::from(".property('") + k + "', " + k + ")"));
+            let mut params = HashMap::new();
+            for (k, v) in props.into_iter() {
+                if let Value::Array(a) = v {
+                    for (i, val) in a.into_iter().enumerate() {
+                        qs.push_str(
+                            &(String::from(".property(list, '")
+                                + &k
+                                + "', "
+                                + &k
+                                + &i.to_string()
+                                + ")"),
+                        );
+                        params.insert(k.to_owned() + &i.to_string(), val);
+                    }
+                } else {
+                    qs.push_str(".property(");
+                    qs.push_str("'");
+                    qs.push_str(&k);
+                    qs.push_str("', ");
+                    qs.push_str(&k);
+                    qs.push_str(")");
+                    params.insert(k, v);
+                }
             }
             qs.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-            self.exec(&qs, partition_key_opt, Some(props))
+            self.exec(&qs, partition_key_opt, Some(params))
         } else {
             Err(Error::new(
                 ErrorKind::InvalidType("Expected ID array".to_string()),
@@ -567,15 +648,18 @@ impl QueryResult for Graphson2QueryResult {
     fn get_nodes<GlobalCtx, ReqCtx>(
         self,
         _name: &str,
+        info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
+        /*
         trace!(
             "Graphson2QueryResult::get_nodes self.results: {:#?}",
             self.results
         );
+        */
 
         let mut v = Vec::new();
         for result in self.results {
@@ -597,26 +681,36 @@ impl QueryResult for Graphson2QueryResult {
                     Some(GValue::Map(props)),
                 ) = (hm.remove("nID"), hm.remove("nLabel"), hm.remove("nProps"))
                 {
+                    let type_def = info.get_type_def_by_name(&label)?;
+
                     let mut fields = HashMap::new();
                     fields.insert("id".to_string(), Value::String(id.to_owned()));
 
                     for (key, property_list) in props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            fields.insert(
-                                k.to_owned(),
-                                plist
-                                    .into_iter()
-                                    .next()
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::MissingResultElement(
-                                                "Vertex Property".to_string(),
-                                            ),
-                                            None,
-                                        )
-                                    })?
-                                    .try_into()?,
-                            );
+                            if k == "partitionKey" || !type_def.get_prop(&k)?.list {
+                                fields.insert(
+                                    k.to_owned(),
+                                    plist
+                                        .into_iter()
+                                        .next()
+                                        .ok_or_else(|| {
+                                            Error::new(
+                                                ErrorKind::MissingResultElement(
+                                                    "Vertex Property".to_string(),
+                                                ),
+                                                None,
+                                            )
+                                        })?
+                                        .try_into()?,
+                                );
+                            } else {
+                                let mut prop_vals = Vec::new();
+                                for val in plist.into_iter() {
+                                    prop_vals.push(val.try_into()?);
+                                }
+                                fields.insert(k.to_owned(), Value::Array(prop_vals));
+                            }
                         } else {
                             return Err(Error::new(
                                 ErrorKind::InvalidType("Result Set".to_string()),
@@ -650,15 +744,18 @@ impl QueryResult for Graphson2QueryResult {
         _dst_name: &str,
         _dst_suffix: &str,
         props_type_name: Option<&str>,
+        info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug,
     {
+        /*
         trace!(
             "Graphson2QueryResult::get_rels self.results: {:#?}",
             self.results
         );
+        */
 
         let mut v = Vec::new();
         for result in self.results {
@@ -695,25 +792,36 @@ impl QueryResult for Graphson2QueryResult {
                     hm.remove("dstLabel"),
                     hm.remove("dstProps"),
                 ) {
+                    let src_type_def = info.get_type_def_by_name(&src_label)?;
+
                     let mut src_fields = HashMap::new();
                     src_fields.insert("id".to_string(), Value::String(src_id.to_owned()));
+
                     for (key, property_list) in src_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            src_fields.insert(
-                                k.to_owned(),
-                                plist
-                                    .into_iter()
-                                    .next()
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::MissingResultElement(
-                                                "Vertex Property".to_string(),
-                                            ),
-                                            None,
-                                        )
-                                    })?
-                                    .try_into()?,
-                            );
+                            if k == "partitionKey" || !src_type_def.get_prop(&k)?.list {
+                                src_fields.insert(
+                                    k.to_owned(),
+                                    plist
+                                        .into_iter()
+                                        .next()
+                                        .ok_or_else(|| {
+                                            Error::new(
+                                                ErrorKind::MissingResultElement(
+                                                    "Vertex Property".to_string(),
+                                                ),
+                                                None,
+                                            )
+                                        })?
+                                        .try_into()?,
+                                );
+                            } else {
+                                let mut prop_vals = Vec::new();
+                                for val in plist.into_iter() {
+                                    prop_vals.push(val.try_into()?);
+                                }
+                                src_fields.insert(k.to_owned(), Value::Array(prop_vals));
+                            }
                         } else {
                             return Err(Error::new(
                                 ErrorKind::InvalidType("Result Set".to_string()),
@@ -723,25 +831,36 @@ impl QueryResult for Graphson2QueryResult {
                         }
                     }
 
+                    let dst_type_def = info.get_type_def_by_name(&dst_label)?;
+
                     let mut dst_fields = HashMap::new();
                     dst_fields.insert("id".to_string(), Value::String(dst_id.to_owned()));
+
                     for (key, property_list) in dst_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            dst_fields.insert(
-                                k.to_owned(),
-                                plist
-                                    .into_iter()
-                                    .next()
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::MissingResultElement(
-                                                "Vertex Property".to_string(),
-                                            ),
-                                            None,
-                                        )
-                                    })?
-                                    .try_into()?,
-                            );
+                            if k == "partitionKey" || !dst_type_def.get_prop(&k)?.list {
+                                dst_fields.insert(
+                                    k.to_owned(),
+                                    plist
+                                        .into_iter()
+                                        .next()
+                                        .ok_or_else(|| {
+                                            Error::new(
+                                                ErrorKind::MissingResultElement(
+                                                    "Vertex Property".to_string(),
+                                                ),
+                                                None,
+                                            )
+                                        })?
+                                        .try_into()?,
+                                );
+                            } else {
+                                let mut prop_vals = Vec::new();
+                                for val in plist.into_iter() {
+                                    prop_vals.push(val.try_into()?);
+                                }
+                                dst_fields.insert(k.to_owned(), Value::Array(prop_vals));
+                            }
                         } else {
                             return Err(Error::new(
                                 ErrorKind::InvalidType("Result Set".to_string()),
@@ -796,10 +915,12 @@ impl QueryResult for Graphson2QueryResult {
     }
 
     fn get_ids(&self, _type_name: &str) -> Result<Value, FieldError> {
+        /*
         trace!(
             "Graphson2QueryResult::get_ids self.results: {:#?}",
             self.results
         );
+        */
         let mut v = Vec::new();
         for result in &self.results {
             if let GValue::Map(map) = result {
@@ -831,9 +952,11 @@ impl QueryResult for Graphson2QueryResult {
 
         if let Some(GValue::Int32(i)) = self.results.get(0) {
             Ok(*i)
+        } else if let Some(GValue::Int64(i)) = self.results.get(0) {
+            Ok(*i as i32)
         } else {
             Err(Error::new(
-                ErrorKind::InvalidType("Expected int32 for count".to_string()),
+                ErrorKind::InvalidType("Expected int64 for count".to_string()),
                 None,
             )
             .into())

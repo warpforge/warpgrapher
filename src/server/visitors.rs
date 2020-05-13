@@ -38,10 +38,9 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_node_create_mutation_input called -- label: {}, info.name: {}, input: {:#?}",
+        "visit_node_create_mutation_input called -- label: {}, info.name: {}",
         label,
         info.name,
-        input
     );
 
     let itd = info.get_type_def()?;
@@ -767,7 +766,7 @@ where
                 validators,
                 transaction,
             )?
-            .get_rels(&src_label, "", rel_name, "dst", "", props_type_name),
+            .get_rels(&src_label, "", rel_name, "dst", "", props_type_name, info),
             Value::Array(create_input_array) => {
                 let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
                 for create_input_value in create_input_array {
@@ -785,9 +784,15 @@ where
                         transaction,
                     )?;
 
-                    for rel in
-                        result.get_rels(src_label, "", rel_name, "dst", "", props_type_name)?
-                    {
+                    for rel in result.get_rels(
+                        src_label,
+                        "",
+                        rel_name,
+                        "dst",
+                        "",
+                        props_type_name,
+                        info,
+                    )? {
                         v.push(rel)
                     }
                 }
@@ -847,6 +852,7 @@ where
             rel_name,
             &mut m,
             partition_key_opt,
+            info,
         )
     } else {
         Err(Error::new(ErrorKind::InputTypeMismatch(info.name.to_owned()), None).into())

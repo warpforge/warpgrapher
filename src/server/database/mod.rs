@@ -8,6 +8,7 @@ use crate::error::Error;
 use crate::error::ErrorKind;
 use crate::server::context::WarpgrapherRequestContext;
 use crate::server::objects::{Node, Rel};
+use crate::server::schema::Info;
 use crate::server::value::Value;
 #[cfg(feature = "graphson2")]
 use gremlin_client::GremlinClient;
@@ -79,6 +80,7 @@ pub trait Transaction {
         rel_name: &str,
         params: &mut HashMap<String, Value>, // TODO Pass props instead of params
         partition_key_opt: &Option<String>,
+        info: &Info,
     ) -> Result<Self::ImplQueryResult, FieldError>;
     fn delete_nodes(
         &mut self,
@@ -152,10 +154,13 @@ pub trait QueryResult: Debug {
     fn get_nodes<GlobalCtx, ReqCtx>(
         self,
         name: &str,
+        info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
         ReqCtx: WarpgrapherRequestContext + Debug;
+
+    #[allow(clippy::too_many_arguments)]
     fn get_rels<GlobalCtx, ReqCtx>(
         self,
         src_name: &str,
@@ -164,6 +169,7 @@ pub trait QueryResult: Debug {
         dst_name: &str,
         dst_suffix: &str,
         props_type_name: Option<&str>,
+        info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,

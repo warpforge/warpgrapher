@@ -160,6 +160,8 @@ pub enum ErrorKind {
     /// a regex match fails
     RegexError,
 
+    RelAlreadyExists(String),
+
     /// Returned when a custom endpoint is defined or a resolver is
     /// defined for a field, but the corresponding resolver is not provided.
     ResolverNotFound(String, String),

@@ -764,21 +764,8 @@ fn update_snst_node_with_new_rel() {
         )
         .unwrap();
 
-    let projects_a = projects.as_array().unwrap();
-    let project = &projects_a[0];
-
-    assert!(project.get("__typename").unwrap() == "Project");
-    assert!(project.get("name").unwrap() == "Project Zero");
-
-    let owner = project.get("owner").unwrap();
-
-    assert!(owner.is_object());
-    assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
-    assert!(owner.get("props").unwrap().get("since").unwrap() != "yesterday");
-    assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("dst").unwrap().get("name").unwrap() == "User One");
-    assert!(owner.get("dst").unwrap().get("name").unwrap() != "User Zero");
+    // Cannot add a rel to a single-node rel slot that's already filled.
+    assert_eq!(projects, serde_json::value::Value::Null);
 
     let users = client
         .read_node(
@@ -879,7 +866,7 @@ fn update_snst_node_with_existing_rel() {
         )
         .unwrap();
 
-    let projects = client
+    let pu = client
         .update_node(
             "Project",
             "__typename 
@@ -919,21 +906,7 @@ fn update_snst_node_with_existing_rel() {
         )
         .unwrap();
 
-    let projects_a = projects.as_array().unwrap();
-    let project = &projects_a[0];
-
-    assert!(project.get("__typename").unwrap() == "Project");
-    assert!(project.get("name").unwrap() == "Project Zero");
-
-    let owner = project.get("owner").unwrap();
-
-    assert!(owner.is_object());
-    assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
-    assert!(owner.get("props").unwrap().get("since").unwrap() != "yesterday");
-    assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("dst").unwrap().get("name").unwrap() == "User One");
-    assert!(owner.get("dst").unwrap().get("name").unwrap() != "User Zero");
+    assert_eq!(pu, serde_json::value::Value::Null);
 
     let users = client
         .read_node(

@@ -32,7 +32,7 @@ model:
       - name: board
         nodes: [KanbanBoard, ScrumBoard]
         props:
-          - name: public
+          - name: publicized
             type: Boolean
       - name: activity
         nodes: [Commit]

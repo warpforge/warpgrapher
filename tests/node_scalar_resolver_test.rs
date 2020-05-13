@@ -146,16 +146,21 @@ fn scalar_lists_no_array_test() {
         )
         .unwrap();
 
-    assert_eq!(
-        result.get("string_list").unwrap().as_str().unwrap(),
-        "string0"
-    );
+    let strings = result.get("string_list").unwrap();
+    assert!(strings.is_array());
+    assert_eq!(strings.get(0).unwrap().as_str().unwrap(), "string0");
 
-    assert_eq!(result.get("bool_list").unwrap().as_bool().unwrap(), false);
+    let bools = result.get("bool_list").unwrap();
+    assert!(bools.is_array());
+    assert_eq!(bools.get(0).unwrap().as_bool().unwrap(), false);
 
-    assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
+    let ints = result.get("int_list").unwrap();
+    assert!(ints.is_array());
+    assert_eq!(ints.get(0).unwrap().as_i64().unwrap(), 0);
 
-    assert_eq!(result.get("float_list").unwrap().as_f64().unwrap(), 0.0_f64);
+    let floats = result.get("float_list").unwrap();
+    assert!(floats.is_array());
+    assert_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0_f64);
 }
 
 #[cfg(feature = "graphson2")]

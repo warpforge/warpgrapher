@@ -165,7 +165,7 @@ where
 
     executor.resolve(
         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &results.get_nodes("n")?.first(),
+        &results.get_nodes("n", info)?.first(),
     )
 }
 
@@ -219,7 +219,7 @@ where
 
     let results = raw_results?;
 
-    executor.resolve_with_ctx(&(), &results.get_count()?)
+    executor.resolve_with_ctx(&(), &(results.get_count()? as i32))
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
@@ -286,13 +286,13 @@ where
     if p.list {
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &results.get_nodes(&(p.type_name.to_owned() + &var_suffix))?,
+            &results.get_nodes(&(p.type_name.to_owned() + &var_suffix), info)?,
         )
     } else {
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
             &results
-                .get_nodes(&(p.type_name.to_owned() + &var_suffix))?
+                .get_nodes(&(p.type_name.to_owned() + &var_suffix), info)?
                 .first(),
         )
     }
@@ -347,7 +347,7 @@ where
 
     executor.resolve(
         &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &results.get_nodes("n")?,
+        &results.get_nodes("n", info)?,
     )
 }
 
@@ -512,7 +512,7 @@ where
 
     let results = raw_results?;
 
-    executor.resolve_with_ctx(&(), &results.get_count()?)
+    executor.resolve_with_ctx(&(), &(results.get_count()? as i32))
 }
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
@@ -667,21 +667,33 @@ where
                 &dst_prop.type_name,
                 &dst_suffix,
                 props_prop.map(|_| p.type_name.as_str()).ok(),
+                info,
             )?,
         )
     } else {
+        let v = results.get_rels(
+            &src_prop.type_name,
+            &src_suffix,
+            rel_name,
+            &dst_prop.type_name,
+            &dst_suffix,
+            props_prop.map(|_| p.type_name.as_str()).ok(),
+            info,
+        )?;
+
+        if v.len() > 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidType(
+                    "Multiple results for a sinlge-node relationship.".to_string(),
+                ),
+                None,
+            )
+            .into());
+        }
+
         executor.resolve(
             &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &results
-                .get_rels(
-                    &src_prop.type_name,
-                    &src_suffix,
-                    rel_name,
-                    &dst_prop.type_name,
-                    &dst_suffix,
-                    props_prop.map(|_| p.type_name.as_str()).ok(),
-                )?
-                .first(),
+            &v.first(),
         )
     }
 }
@@ -750,6 +762,7 @@ where
             "dst",
             "",
             props_prop.map(|_| p.type_name.as_str()).ok(),
+            info,
         )?,
     )
 }
@@ -787,8 +800,14 @@ where
             Value::Array(a) => match a.get(0) {
                 Some(Value::Null) | Some(Value::String(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
                 Some(Value::Bool(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
-                Some(Value::Int64(_)) | Some(Value::UInt64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<i32>>::try_into(v.clone())?),
-                Some(Value::Float64(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?),
+                Some(Value::Int64(_)) | Some(Value::UInt64(_)) | Some(Value::Float64(_)) => {
+                    let r = TryInto::<Vec<i32>>::try_into(v.clone());
+                    if r.is_ok() {
+                        executor.resolve_with_ctx(&(), &r?)
+                    } else {
+                        executor.resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?)
+                    }
+                }
                 Some(Value::Array(_)) | Some(Value::Map(_)) | None => Err(Error::new(ErrorKind::InvalidPropertyType(String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array."), None).into()),
             },
             Value::Map(_) => Err(Error::new(
