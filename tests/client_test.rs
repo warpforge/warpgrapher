@@ -5,9 +5,9 @@ use serial_test::serial;
 use setup::server::test_server;
 use setup::{clear_db, init, test_client};
 
-#[test]
+#[tokio::test]
 #[serial]
-fn client_node_crud() {
+async fn client_node_crud() {
     init();
     clear_db();
     let mut client = test_client();
@@ -20,6 +20,7 @@ fn client_node_crud() {
             "id name description status",
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -27,7 +28,10 @@ fn client_node_crud() {
     assert_eq!(p0.get("description").unwrap(), "Advanced armor");
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
-    let projects = client.read_node("Project", "id status", None).unwrap();
+    let projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
@@ -41,6 +45,7 @@ fn client_node_crud() {
             Some(&json!({"name": "MJOLNIR"})),
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -50,7 +55,10 @@ fn client_node_crud() {
     assert_eq!(pu_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
-    let u_projects = client.read_node("Project", "id status", None).unwrap();
+    let u_projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(u_projects.is_array());
     let u_projects_a = u_projects.as_array().unwrap();
@@ -59,11 +67,15 @@ fn client_node_crud() {
 
     let pd = client
         .delete_node("Project", Some(&json!({"name": "MJOLNIR"})), None)
+        .await
         .unwrap();
 
     assert_eq!(pd, 1);
 
-    let d_projects = client.read_node("Project", "id status", None).unwrap();
+    let d_projects = client
+        .read_node("Project", "id status", None)
+        .await
+        .unwrap();
 
     assert!(d_projects.is_array());
     let d_projects_a = d_projects.as_array().unwrap();
@@ -72,9 +84,9 @@ fn client_node_crud() {
     assert!(server.shutdown().is_ok());
 }
 
-#[test]
+#[tokio::test]
 #[serial]
-fn client_rel_crud() {
+async fn client_rel_crud() {
     init();
     clear_db();
     let mut client = test_client();
@@ -83,13 +95,15 @@ fn client_rel_crud() {
 
     client
         .create_node("Project", "id name", &json!({"name": "Project Zero"}))
+        .await
         .unwrap();
     client
         .create_node("Bug", "id name", &json!({"name": "Bug Zero"}))
+        .await
         .unwrap();
 
     let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }",
-    &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}}])).unwrap();
+    &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}}])).await.unwrap();
 
     assert!(results.is_array());
     let r0 = &results[0];
@@ -100,6 +114,7 @@ fn client_rel_crud() {
 
     let rels = client
         .read_rel("Project", "issues", "id props { since }", None)
+        .await
         .unwrap();
 
     assert!(rels.is_array());
@@ -118,6 +133,7 @@ fn client_rel_crud() {
             Some(&json!({"props": {"since": "2000"}})),
             &json!({"props": {"since": "2010"}}),
         )
+        .await
         .unwrap();
 
     assert!(ru.is_array());
@@ -127,6 +143,7 @@ fn client_rel_crud() {
 
     let u_rels = client
         .read_rel("Project", "issues", "id props { since }", None)
+        .await
         .unwrap();
 
     assert!(u_rels.is_array());
@@ -145,11 +162,15 @@ fn client_rel_crud() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     assert_eq!(rd, 1);
 
-    let d_rels = client.read_rel("Project", "issues", "id", None).unwrap();
+    let d_rels = client
+        .read_rel("Project", "issues", "id", None)
+        .await
+        .unwrap();
 
     assert!(d_rels.is_array());
     let d_rels_a = d_rels.as_array().unwrap();

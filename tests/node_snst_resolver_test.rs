@@ -7,9 +7,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_snst_new_node() {
+async fn create_snst_new_node() {
     init();
     clear_db();
 
@@ -45,6 +45,7 @@ fn create_snst_new_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -85,6 +86,7 @@ fn create_snst_new_node() {
             }",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -102,9 +104,9 @@ fn create_snst_new_node() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_node_with_rel_to_existing() {
+async fn create_node_with_rel_to_existing() {
     init();
     clear_db();
     let mut client = test_client();
@@ -121,6 +123,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let p0 = client
@@ -151,6 +154,7 @@ fn create_node_with_rel_to_existing() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(p0.get("__typename").unwrap() == "Project");
@@ -180,6 +184,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "Project Zero"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -198,9 +203,9 @@ fn create_node_with_rel_to_existing() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_multiple_snst_node_with_rel() {
+async fn read_multiple_snst_node_with_rel() {
     init();
     clear_db();
     let mut client = test_client();
@@ -217,6 +222,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _u1 = client
@@ -229,6 +235,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "User One"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -259,6 +266,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -289,6 +297,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -308,6 +317,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "Project Zero"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -336,6 +346,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "Project One"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -351,9 +362,9 @@ fn read_multiple_snst_node_with_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snst_node_by_rel_props() {
+async fn read_snst_node_by_rel_props() {
     init();
     clear_db();
     let mut client = test_client();
@@ -368,6 +379,7 @@ fn read_snst_node_by_rel_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -390,6 +402,7 @@ fn read_snst_node_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -417,6 +430,7 @@ fn read_snst_node_by_rel_props() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -437,9 +451,9 @@ fn read_snst_node_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snst_node_by_dst_props() {
+async fn read_snst_node_by_dst_props() {
     init();
     clear_db();
     let mut client = test_client();
@@ -454,6 +468,7 @@ fn read_snst_node_by_dst_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -476,6 +491,7 @@ fn read_snst_node_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -505,6 +521,7 @@ fn read_snst_node_by_dst_props() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -525,9 +542,9 @@ fn read_snst_node_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snst_node_with_new_rel() {
+async fn update_snst_node_with_new_rel() {
     init();
     clear_db();
     let mut client = test_client();
@@ -542,6 +559,7 @@ fn update_snst_node_with_new_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -564,6 +582,7 @@ fn update_snst_node_with_new_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -603,6 +622,7 @@ fn update_snst_node_with_new_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -632,6 +652,7 @@ fn update_snst_node_with_new_rel() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -643,9 +664,9 @@ fn update_snst_node_with_new_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snst_node_with_existing_rel() {
+async fn update_snst_node_with_existing_rel() {
     init();
     clear_db();
     let mut client = test_client();
@@ -660,6 +681,7 @@ fn update_snst_node_with_existing_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _u1 = client
@@ -670,6 +692,7 @@ fn update_snst_node_with_existing_rel() {
                 "name": "User One"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -692,6 +715,7 @@ fn update_snst_node_with_existing_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -731,6 +755,7 @@ fn update_snst_node_with_existing_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -760,6 +785,7 @@ fn update_snst_node_with_existing_rel() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -771,9 +797,9 @@ fn update_snst_node_with_existing_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_rel_by_dst_props() {
+async fn delete_snst_rel_by_dst_props() {
     init();
     clear_db();
     let mut client = test_client();
@@ -788,6 +814,7 @@ fn delete_snst_rel_by_dst_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -810,6 +837,7 @@ fn delete_snst_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -846,6 +874,7 @@ fn delete_snst_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -870,6 +899,7 @@ fn delete_snst_rel_by_dst_props() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -881,9 +911,9 @@ fn delete_snst_rel_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_rel_by_rel_props() {
+async fn delete_snst_rel_by_rel_props() {
     init();
     clear_db();
     let mut client = test_client();
@@ -898,6 +928,7 @@ fn delete_snst_rel_by_rel_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -920,6 +951,7 @@ fn delete_snst_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -954,6 +986,7 @@ fn delete_snst_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -978,6 +1011,7 @@ fn delete_snst_rel_by_rel_props() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -989,9 +1023,9 @@ fn delete_snst_rel_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_node_by_dst_prop() {
+async fn delete_snst_node_by_dst_prop() {
     init();
     clear_db();
     let mut client = test_client();
@@ -1006,6 +1040,7 @@ fn delete_snst_node_by_dst_prop() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1028,6 +1063,7 @@ fn delete_snst_node_by_dst_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1048,6 +1084,7 @@ fn delete_snst_node_by_dst_prop() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1069,6 +1106,7 @@ fn delete_snst_node_by_dst_prop() {
             }",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1085,6 +1123,7 @@ fn delete_snst_node_by_dst_prop() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1096,9 +1135,9 @@ fn delete_snst_node_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snst_node_by_rel_prop() {
+async fn delete_snst_node_by_rel_prop() {
     init();
     clear_db();
     let mut client = test_client();
@@ -1113,6 +1152,7 @@ fn delete_snst_node_by_rel_prop() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1135,6 +1175,7 @@ fn delete_snst_node_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1153,6 +1194,7 @@ fn delete_snst_node_by_rel_prop() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1174,6 +1216,7 @@ fn delete_snst_node_by_rel_prop() {
             }",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1190,6 +1233,7 @@ fn delete_snst_node_by_rel_prop() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1201,9 +1245,9 @@ fn delete_snst_node_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn detach_snst_rel_by_dst_delete() {
+async fn detach_snst_rel_by_dst_delete() {
     init();
     clear_db();
     let mut client = test_client();
@@ -1218,6 +1262,7 @@ fn detach_snst_rel_by_dst_delete() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1240,6 +1285,7 @@ fn detach_snst_rel_by_dst_delete() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1252,6 +1298,7 @@ fn detach_snst_rel_by_dst_delete() {
                 "force": true
             })),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1273,6 +1320,7 @@ fn detach_snst_rel_by_dst_delete() {
             }",
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1295,6 +1343,7 @@ fn detach_snst_rel_by_dst_delete() {
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();

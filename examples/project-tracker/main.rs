@@ -1,31 +1,33 @@
 use resolvers::{project_count, project_points};
 use validators::name_validator;
-use warpgrapher::server::bind_port_from_env;
-use warpgrapher::{
-    Error, Neo4jEndpoint, Server, WarpgrapherConfig, WarpgrapherRequestContext,
-    WarpgrapherResolvers, WarpgrapherValidators,
-};
+use warpgrapher::engine::config::{Config, Resolvers, Validators};
+use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::Engine;
+use warpgrapher::Error;
+
 extern crate env_logger;
 extern crate frank_jwt;
 extern crate log;
 extern crate warpgrapher;
 
+mod actix_server;
 mod resolvers;
 mod validators;
 
 #[derive(Clone, Debug)]
-pub struct GlobalContext {
+pub struct AppGlobalContext {
     s3_client: String,
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct ReqContext {
+pub struct AppRequestContext {
     //pub user: Option<UserProfile>,
 }
 
-impl ReqContext {
-    pub fn new() -> ReqContext {
-        ReqContext { /*user: None*/ }
+impl AppRequestContext {
+    pub fn new() -> AppRequestContext {
+        AppRequestContext { /*user: None*/ }
     }
 }
 
@@ -37,9 +39,9 @@ impl JwtAuthReqContext for ReqContext {
 }
 */
 
-impl WarpgrapherRequestContext for ReqContext {
-    fn new() -> ReqContext {
-        ReqContext::new()
+impl RequestContext for AppRequestContext {
+    fn new() -> AppRequestContext {
+        AppRequestContext::new()
     }
 }
 
@@ -48,12 +50,12 @@ fn main() -> Result<(), Error> {
     env_logger::init();
 
     // context
-    let global_ctx = GlobalContext {
+    let global_ctx = AppGlobalContext {
         s3_client: "https://s3.aws.com".to_string(),
     };
 
     // resolvers
-    let mut resolvers = WarpgrapherResolvers::<GlobalContext, ReqContext>::new();
+    let mut resolvers = Resolvers::<AppGlobalContext, AppRequestContext>::new();
     resolvers.insert(
         "ProjectCount".to_string(),
         Box::new(project_count::resolver),
@@ -63,7 +65,7 @@ fn main() -> Result<(), Error> {
         Box::new(project_points::resolver),
     );
 
-    let mut validators = WarpgrapherValidators::new();
+    let mut validators = Validators::new();
 
     validators.insert(
         "NameValidator".to_string(),
@@ -80,30 +82,21 @@ fn main() -> Result<(), Error> {
     */
 
     // config
-    let config = WarpgrapherConfig::from_file("./examples/project-tracker/config.yml".to_string())
+    let config = Config::from_file("./examples/project-tracker/config.yml".to_string())
         .expect("Failed to load config file");
 
     // define database endpoint
     let db = Neo4jEndpoint::from_env("DB_URL")?;
 
-    // server
-    let mut server: Server<GlobalContext, ReqContext> = Server::new(config, db)
-        .with_bind_port(bind_port_from_env("WG_SAMPLE_PORT"))
+    // engine
+    let engine: Engine<AppGlobalContext, AppRequestContext> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .with_validators(validators)
         .with_global_ctx(global_ctx)
         .build()
-        .expect("Failed to build server");
+        .expect("Failed to build engine");
 
-    // start server
-    println!(
-        "Starting server: http://{}:{}/graphiql",
-        &server.bind_addr, &server.bind_port,
-    );
-    match server.serve(true) {
-        Ok(()) => (),
-        Err(_e) => println!("Failed to start server"),
-    }
+    actix_server::start(engine);
 
     Ok(())
 }

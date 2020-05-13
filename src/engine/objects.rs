@@ -7,8 +7,8 @@ use super::resolvers::{
     resolve_union_field,
 };
 use super::schema::{Info, InputKind, NodeType, Property, PropertyKind, TypeKind};
+use crate::engine::context::RequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,
@@ -40,7 +40,7 @@ impl<GlobalCtx, ReqCtx> Input<GlobalCtx, ReqCtx> {
 
 impl<GlobalCtx, ReqCtx> FromInputValue for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
         serde_json::to_value(v).ok().map(Input::new)
@@ -49,7 +49,7 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLType for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -131,7 +131,7 @@ where
 pub struct Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub concrete_typename: String,
     fields: Map<String, Value>,
@@ -142,7 +142,7 @@ where
 impl<GlobalCtx: Debug, ReqCtx> Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub fn new(concrete_typename: String, fields: Map<String, Value>) -> Node<GlobalCtx, ReqCtx> {
         Node {
@@ -157,6 +157,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::union_meta called - nt.type_name: {}", nt.type_name);
         let types = match &nt.union_types {
             None => panic!("Missing union_types on NodeType of type Union"),
             Some(union_types) => union_types
@@ -178,6 +179,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::object_meta called - nt.type_name: {}", nt.type_name);
         let mut props = nt.props.values().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| &p.name);
 
@@ -305,7 +307,7 @@ where
 
 impl<GlobalCtx: Debug, ReqCtx: Debug> GraphQLType for Node<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -465,6 +467,17 @@ where
             self.concrete_typename
         );
 
+        // this mismatch can occur when query fragments are used. correct
+        // behavior is to not resolve it
+        if info.name != type_name {
+            trace!(
+                "info.name {} != type_name {}, returning NULL",
+                info.name,
+                type_name
+            );
+            return Ok(juniper::Value::Null);
+        }
+
         executor.resolve(
             &Info::new(self.concrete_typename.to_owned(), info.type_defs.clone()),
             &Some(self),
@@ -476,7 +489,7 @@ where
 pub struct Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     id: Value,
     props: Option<Node<GlobalCtx, ReqCtx>>,
@@ -489,7 +502,7 @@ where
 impl<GlobalCtx: Debug, ReqCtx> Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub fn new(
         id: Value,
@@ -510,7 +523,7 @@ where
 
 impl<GlobalCtx: Debug, ReqCtx: Debug> GraphQLType for Rel<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;

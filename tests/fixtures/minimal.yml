@@ -52,12 +52,16 @@ model:
     props:
       - name: name
         type: String
+      - name: points
+        type: Int
   
   # Bug
   - name: Bug
     props:
       - name: name
         type: String
+      - name: critical
+        type: Boolean
   
   # KanbanBoard
   - name: KanbanBoard

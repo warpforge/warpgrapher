@@ -8,9 +8,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if a node is created with an SNMT rel to a new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_node_with_rel_to_new() {
+async fn create_node_with_rel_to_new() {
     init();
     clear_db();
     let mut client = test_client();
@@ -47,6 +47,7 @@ fn create_node_with_rel_to_new() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(results0.is_object());
@@ -69,6 +70,7 @@ fn create_node_with_rel_to_new() {
                 "name": "SPARTAN-V Board"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results1.is_array());
@@ -98,6 +100,7 @@ fn create_node_with_rel_to_new() {
                 "name": "SPARTAN-V"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results2.is_array());
@@ -117,9 +120,9 @@ fn create_node_with_rel_to_new() {
 
 /// Passes if a node is created with an SNMT rel to existing node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_node_with_rel_to_existing() {
+async fn create_node_with_rel_to_existing() {
     init();
     clear_db();
     let mut client = test_client();
@@ -138,6 +141,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "SPARTAN-VI Board"
             }),
         )
+        .await
         .unwrap();
     assert!(results0.is_object());
     assert_eq!(results0.get("__typename").unwrap(), "ScrumBoard");
@@ -172,6 +176,7 @@ fn create_node_with_rel_to_existing() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(results1.is_object());
@@ -197,6 +202,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "SPARTAN-VI"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results2.is_array());
@@ -213,9 +219,9 @@ fn create_node_with_rel_to_existing() {
 /// Passes if multiple nodes with multiple rels are read and
 /// the relationships associate correctly
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_multiple_nodes_with_multiple_rels() {
+async fn read_multiple_nodes_with_multiple_rels() {
     init();
     clear_db();
     let mut client = test_client();
@@ -242,6 +248,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
     let results1 = client
         .create_node(
@@ -262,6 +269,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
     let results2 = client
         .create_node(
@@ -282,6 +290,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes
@@ -294,8 +303,12 @@ fn read_multiple_nodes_with_multiple_rels() {
             board { 
                 __typename 
                 dst { 
+                    __typename 
                     ... on ScrumBoard {
-                        __typename 
+                        id
+                        name
+                    }
+                    ... on KanbanBoard {
                         id
                         name
                     }
@@ -303,6 +316,7 @@ fn read_multiple_nodes_with_multiple_rels() {
             }",
             None,
         )
+        .await
         .unwrap();
 
     assert!(results3.is_array());
@@ -345,9 +359,9 @@ fn read_multiple_nodes_with_multiple_rels() {
 
 /// Passes if nodes matching props on a relationship are returned
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_node_with_matching_props_on_rel() {
+async fn read_node_with_matching_props_on_rel() {
     init();
     clear_db();
     let mut client = test_client();
@@ -375,6 +389,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
     assert!(results0.is_object());
     let results1 = client
@@ -397,6 +412,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
     assert!(results1.is_object());
 
@@ -428,6 +444,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     let projects0 = results3.as_array().unwrap();
@@ -466,6 +483,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results4.is_array());
     let projects1 = results4.as_array().unwrap();
@@ -484,9 +502,9 @@ fn read_node_with_matching_props_on_rel() {
 /// Passes if it returns nodes with relationship dst nodes
 /// with matching props
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_node_with_matching_props_on_rel_dst_node() {
+async fn read_node_with_matching_props_on_rel_dst_node() {
     init();
     clear_db();
     let mut client = test_client();
@@ -514,6 +532,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             }),
         )
+        .await
         .unwrap();
     let _results1 = client
         .create_node(
@@ -535,6 +554,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -570,6 +590,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -585,9 +606,9 @@ fn read_node_with_matching_props_on_rel_dst_node() {
 /// Passes if a relationship to a new node is created
 /// for an existing node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_existing_node_with_rel_to_new_node() {
+async fn update_existing_node_with_rel_to_new_node() {
     init();
     clear_db();
     let mut client = test_client();
@@ -603,6 +624,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
 
     // update project node to create a rel to a new node
@@ -639,6 +661,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -655,11 +678,16 @@ fn update_existing_node_with_rel_to_new_node() {
                         id
                         name
                     }
+                    ... on KanbanBoard {
+                        id
+                        name
+                    }
                 }
              }
             ",
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -680,9 +708,9 @@ fn update_existing_node_with_rel_to_new_node() {
 
 ///
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_existing_node_with_rel_to_existing_node() {
+async fn update_existing_node_with_rel_to_existing_node() {
     init();
     clear_db();
     let mut client = test_client();
@@ -698,16 +726,19 @@ fn update_existing_node_with_rel_to_existing_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
 
     // create board node
-    let _results1 = client.create_node(
-        "ScrumBoard",
-        "id",
-        &json!({
-            "name": "ORION Board"
-        }),
-    );
+    let _results1 = client
+        .create_node(
+            "ScrumBoard",
+            "id",
+            &json!({
+                "name": "ORION Board"
+            }),
+        )
+        .await;
 
     // update project node to create a rel to a new node
     let _results2 = client
@@ -734,6 +765,7 @@ fn update_existing_node_with_rel_to_existing_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -755,6 +787,7 @@ fn update_existing_node_with_rel_to_existing_node() {
             ",
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -775,9 +808,9 @@ fn update_existing_node_with_rel_to_existing_node() {
 
 ///
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_node_with_matching_props_on_rel_dst_node() {
+async fn delete_node_with_matching_props_on_rel_dst_node() {
     init();
     clear_db();
     let mut client = test_client();
@@ -793,6 +826,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
     let _results1 = client
         .create_node(
@@ -802,11 +836,13 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
                 "name": "SPARTAN-II",
             }),
         )
+        .await
         .unwrap();
 
     // delete node with matching props
     let _results2 = client
         .delete_node("Project", Some(&json!({"name": "ORION"})), None)
+        .await
         .unwrap();
 
     // read projects
@@ -819,6 +855,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
             ",
             None,
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);
@@ -829,9 +866,9 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
 
 ///
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_node_with_force_detach_of_rels() {
+async fn delete_node_with_force_detach_of_rels() {
     init();
     clear_db();
     let mut client = test_client();
@@ -856,6 +893,7 @@ fn delete_node_with_force_detach_of_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // delete node with matching props
@@ -865,6 +903,7 @@ fn delete_node_with_force_detach_of_rels() {
             Some(&json!({"name": "ORION"})),
             Some(&json!({"force": true})),
         )
+        .await
         .unwrap();
 
     // read projects
@@ -877,6 +916,7 @@ fn delete_node_with_force_detach_of_rels() {
             ",
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     assert_eq!(results2.as_array().unwrap().len(), 0);
@@ -891,6 +931,7 @@ fn delete_node_with_force_detach_of_rels() {
             ",
             None,
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);

@@ -8,9 +8,9 @@ use setup::server::test_server;
 use setup::{clear_db, db_url, init, test_client};
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
-fn create_single_node() {
+async fn create_single_node() {
     init();
     clear_db();
 
@@ -24,6 +24,7 @@ fn create_single_node() {
             "__typename id name description status priority estimate active",
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -41,6 +42,7 @@ fn create_single_node() {
             "__typename id name description status priority estimate active",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -62,9 +64,9 @@ fn create_single_node() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[test]
+#[tokio::test]
 #[serial]
-fn read_query() {
+async fn read_query() {
     init();
     clear_db();
 
@@ -78,6 +80,7 @@ fn read_query() {
             "__typename id name",
             &json!({"name": "Project1"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -89,6 +92,7 @@ fn read_query() {
             "__typename id name",
             &json!({"name": "Project2"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -99,6 +103,7 @@ fn read_query() {
             "__typename id name description status priority estimate active",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -113,9 +118,9 @@ fn read_query() {
 
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
-#[test]
+#[tokio::test]
 #[serial]
-fn handle_missing_properties() {
+async fn handle_missing_properties() {
     init();
     clear_db();
 
@@ -129,6 +134,7 @@ fn handle_missing_properties() {
             "__typename id name description",
             &json!({"name": "MJOLNIR"}),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -138,6 +144,7 @@ fn handle_missing_properties() {
 
     let projects = client
         .read_node("Project", "__typename id name description", None)
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -152,9 +159,9 @@ fn handle_missing_properties() {
 }
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mutation() {
+async fn update_mutation() {
     init();
     clear_db();
 
@@ -168,6 +175,7 @@ fn update_mutation() {
             "__typename id name status",
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -180,6 +188,7 @@ fn update_mutation() {
             "__typename id name status",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -200,6 +209,7 @@ fn update_mutation() {
             Some(&json!({"name": "Project1"})),
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -213,6 +223,7 @@ fn update_mutation() {
             "__typename id name status",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -231,9 +242,9 @@ fn update_mutation() {
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_mutation_null_query() {
+async fn update_mutation_null_query() {
     init();
     clear_db();
 
@@ -247,6 +258,7 @@ fn update_mutation_null_query() {
             "__typename id name status",
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -259,6 +271,7 @@ fn update_mutation_null_query() {
             "__typename id name status",
             &json!({"name": "Project2", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -267,6 +280,7 @@ fn update_mutation_null_query() {
 
     let before_projects = client
         .read_node("Project", "__typename id name status", None)
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -280,6 +294,7 @@ fn update_mutation_null_query() {
             None,
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -290,6 +305,7 @@ fn update_mutation_null_query() {
     assert_eq!(pu_a[1].get("status").unwrap(), "ACTIVE");
     let after_projects = client
         .read_node("Project", "__typename id name status", None)
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -302,9 +318,9 @@ fn update_mutation_null_query() {
 }
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mutation() {
+async fn delete_mutation() {
     init();
     clear_db();
 
@@ -318,6 +334,7 @@ fn delete_mutation() {
             "__typename id name status",
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -330,6 +347,7 @@ fn delete_mutation() {
             "__typename id name status",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -345,6 +363,7 @@ fn delete_mutation() {
 
     let pd = client
         .delete_node("Project", Some(&json!({"name": "Project1"})), None)
+        .await
         .unwrap();
 
     assert_eq!(pd, 1);
@@ -354,6 +373,7 @@ fn delete_mutation() {
             "__typename id name status",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -365,9 +385,9 @@ fn delete_mutation() {
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mutation_null_query() {
+async fn delete_mutation_null_query() {
     init();
     clear_db();
 
@@ -381,6 +401,7 @@ fn delete_mutation_null_query() {
             "__typename id name status",
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -393,6 +414,7 @@ fn delete_mutation_null_query() {
             "__typename id name status",
             &json!({"name": "Project2", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -401,13 +423,14 @@ fn delete_mutation_null_query() {
 
     let before_projects = client
         .read_node("Project", "__typename id name status", None)
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
     let before_projects_a = before_projects.as_array().unwrap();
     assert_eq!(before_projects_a.len(), 2);
 
-    let pd = client.delete_node("Project", None, None).unwrap();
+    let pd = client.delete_node("Project", None, None).await.unwrap();
 
     assert_eq!(pd, 2);
 
@@ -417,6 +440,7 @@ fn delete_mutation_null_query() {
             "__typename id name status",
             Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -428,9 +452,9 @@ fn delete_mutation_null_query() {
 
 /// Passes if creating a node manually without an id throws an error upon access
 /// to that node.
-#[test]
+#[tokio::test]
 #[serial]
-fn error_on_node_missing_id() {
+async fn error_on_node_missing_id() {
     init();
     clear_db();
 
@@ -449,6 +473,7 @@ fn error_on_node_missing_id() {
             "__typename id name",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects.is_null());
@@ -460,12 +485,14 @@ fn error_on_node_missing_id() {
             Some(&json!({"name": "Project One"})),
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_null());
 
     let pd = client
         .delete_node("Project", Some(&json!({"name": "Project One"})), None)
+        .await
         .unwrap();
 
     assert!(pd.is_null());

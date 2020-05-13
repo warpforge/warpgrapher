@@ -7,9 +7,9 @@ use setup::server::test_server;
 use setup::{clear_db, init, test_client};
 
 /// Passes if the custom validator executes correctly on create mutation
-#[test]
+#[tokio::test]
 #[serial]
-fn custom_input_validator_create() {
+async fn custom_input_validator_create() {
     init();
     clear_db();
     let mut client = test_client();
@@ -20,6 +20,7 @@ fn custom_input_validator_create() {
     // Validator pass
     let result = client
         .create_node("User", "id name", &json!({"name": "ORION"}))
+        .await
         .unwrap();
 
     let name = result.get("name").unwrap();
@@ -29,6 +30,7 @@ fn custom_input_validator_create() {
     // Validator fail
     let result = client
         .create_node("User", "id name", &json!({"name": "KENOBI"}))
+        .await
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
@@ -44,9 +46,9 @@ fn custom_input_validator_create() {
 }
 
 /// Passes if the custom validator executes correctly on update mutation
-#[test]
+#[tokio::test]
 #[serial]
-fn custom_input_validator_update() {
+async fn custom_input_validator_update() {
     init();
     clear_db();
     let mut client = test_client();
@@ -55,6 +57,7 @@ fn custom_input_validator_update() {
 
     let _ = client
         .create_node("User", "id name", &json!({"name": "ORION"}))
+        .await
         .unwrap();
 
     // Test validator on update
@@ -66,6 +69,7 @@ fn custom_input_validator_update() {
             Some(&json!({"name": "ORION"})),
             &json!({"name": "SKYWALKER"}),
         )
+        .await
         .unwrap();
 
     let name = result[0].get("name").unwrap();
@@ -80,6 +84,7 @@ fn custom_input_validator_update() {
             Some(&json!({"name": "SKYWALKER"})),
             &json!({"name": "KENOBI"}),
         )
+        .await
         .unwrap();
 
     trace!("RESULT: {:#?}", result);

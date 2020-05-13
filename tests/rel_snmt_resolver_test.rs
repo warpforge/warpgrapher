@@ -7,9 +7,9 @@ use setup::{clear_db, init, test_client};
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_snmt_new_rel() {
+async fn create_snmt_new_rel() {
     init();
     clear_db();
 
@@ -23,6 +23,7 @@ fn create_snmt_new_rel() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -31,6 +32,7 @@ fn create_snmt_new_rel() {
             "__typename name",
             &json!({"name": "Project One"}),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -41,6 +43,7 @@ fn create_snmt_new_rel() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
@@ -56,6 +59,7 @@ fn create_snmt_new_rel() {
             &json!({"name": "Project One"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
@@ -69,6 +73,7 @@ fn create_snmt_new_rel() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -88,6 +93,7 @@ fn create_snmt_new_rel() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -105,9 +111,9 @@ fn create_snmt_new_rel() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn create_snmt_rel_existing_node() {
+async fn create_snmt_rel_existing_node() {
     init();
     clear_db();
 
@@ -121,6 +127,7 @@ fn create_snmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -129,6 +136,7 @@ fn create_snmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "Project One"}),
         )
+        .await
         .unwrap();
 
     let _s0 = client
@@ -137,6 +145,7 @@ fn create_snmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "ScrumBoard Zero"}),
         )
+        .await
         .unwrap();
 
     let _k0 = client
@@ -145,6 +154,7 @@ fn create_snmt_rel_existing_node() {
             "__typename name",
             &json!({"name": "KanbanBoard Zero"}),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -157,6 +167,7 @@ fn create_snmt_rel_existing_node() {
                 "props": {"public": true}, 
                 "dst": {"KanbanBoard": {"EXISTING": {"name": "KanbanBoard Zero"}}}
             }))
+        .await
         .unwrap();
 
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
@@ -174,6 +185,7 @@ fn create_snmt_rel_existing_node() {
                 "props": {"public": false}, 
                 "dst": {"ScrumBoard": {"EXISTING": {"name": "ScrumBoard Zero"}}}
             }))
+        .await
         .unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
@@ -187,6 +199,7 @@ fn create_snmt_rel_existing_node() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -204,6 +217,7 @@ fn create_snmt_rel_existing_node() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -219,9 +233,9 @@ fn create_snmt_rel_existing_node() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snmt_rel_by_rel_props() {
+async fn read_snmt_rel_by_rel_props() {
     init();
     clear_db();
 
@@ -241,6 +255,7 @@ fn read_snmt_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -255,6 +270,7 @@ fn read_snmt_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -264,6 +280,7 @@ fn read_snmt_rel_by_rel_props() {
             "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
             Some(&json!({"props": {"public": true}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -290,6 +307,7 @@ fn read_snmt_rel_by_rel_props() {
             "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}",
             Some(&json!({"props": {"public": false}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -313,9 +331,9 @@ fn read_snmt_rel_by_rel_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snmt_rel_by_src_props() {
+async fn read_snmt_rel_by_src_props() {
     init();
     clear_db();
 
@@ -335,6 +353,7 @@ fn read_snmt_rel_by_src_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -349,6 +368,7 @@ fn read_snmt_rel_by_src_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -358,6 +378,7 @@ fn read_snmt_rel_by_src_props() {
             "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -384,6 +405,7 @@ fn read_snmt_rel_by_src_props() {
             "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -407,9 +429,9 @@ fn read_snmt_rel_by_src_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn read_snmt_rel_by_dst_props() {
+async fn read_snmt_rel_by_dst_props() {
     init();
     clear_db();
 
@@ -429,6 +451,7 @@ fn read_snmt_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -443,6 +466,7 @@ fn read_snmt_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -452,6 +476,7 @@ fn read_snmt_rel_by_dst_props() {
             "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -478,6 +503,7 @@ fn read_snmt_rel_by_dst_props() {
             "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -501,9 +527,9 @@ fn read_snmt_rel_by_dst_props() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snmt_rel_by_rel_prop() {
+async fn update_snmt_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -523,6 +549,7 @@ fn update_snmt_rel_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -537,6 +564,7 @@ fn update_snmt_rel_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -547,6 +575,7 @@ fn update_snmt_rel_by_rel_prop() {
             Some(&json!({"props": {"public": true}})),
             &json!({"props": {"public": false}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -575,6 +604,7 @@ fn update_snmt_rel_by_rel_prop() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -597,6 +627,7 @@ fn update_snmt_rel_by_rel_prop() {
             Some(&json!({"props": {"public": false}})),
             &json!({"props": {"public": true}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -631,6 +662,7 @@ fn update_snmt_rel_by_rel_prop() {
             "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -649,9 +681,9 @@ fn update_snmt_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snmt_rel_by_src_prop() {
+async fn update_snmt_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -671,6 +703,7 @@ fn update_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -685,6 +718,7 @@ fn update_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -695,6 +729,7 @@ fn update_snmt_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"public": false}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -725,6 +760,7 @@ fn update_snmt_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
             &json!({"props": {"public": true}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -751,9 +787,9 @@ fn update_snmt_rel_by_src_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn update_snmt_rel_by_dst_prop() {
+async fn update_snmt_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -773,6 +809,7 @@ fn update_snmt_rel_by_dst_prop() {
                   }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -787,6 +824,7 @@ fn update_snmt_rel_by_dst_prop() {
                   }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -797,6 +835,7 @@ fn update_snmt_rel_by_dst_prop() {
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
             &json!({"props": {"public": true}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -827,6 +866,7 @@ fn update_snmt_rel_by_dst_prop() {
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
             &json!({"props": {"public": false}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -853,9 +893,9 @@ fn update_snmt_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snmt_rel_by_rel_prop() {
+async fn delete_snmt_rel_by_rel_prop() {
     init();
     clear_db();
 
@@ -875,6 +915,7 @@ fn delete_snmt_rel_by_rel_prop() {
                     }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -885,6 +926,7 @@ fn delete_snmt_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -893,6 +935,7 @@ fn delete_snmt_rel_by_rel_prop() {
             "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -913,15 +956,18 @@ fn delete_snmt_rel_by_rel_prop() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some(&json!({"props": {"public": false}})),
-        None,
-        None,
-    );
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some(&json!({"props": {"public": false}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(
@@ -929,6 +975,7 @@ fn delete_snmt_rel_by_rel_prop() {
             "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -945,9 +992,9 @@ fn delete_snmt_rel_by_rel_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_snmt_rel_by_dst_prop() {
+async fn delete_snmt_rel_by_dst_prop() {
     init();
     clear_db();
 
@@ -967,6 +1014,7 @@ fn delete_snmt_rel_by_dst_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -977,6 +1025,7 @@ fn delete_snmt_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -985,6 +1034,7 @@ fn delete_snmt_rel_by_dst_prop() {
             "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1005,15 +1055,18 @@ fn delete_snmt_rel_by_dst_prop() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
-        None,
-        None,
-    );
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(
@@ -1021,6 +1074,7 @@ fn delete_snmt_rel_by_dst_prop() {
             "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1037,9 +1091,9 @@ fn delete_snmt_rel_by_dst_prop() {
 }
 
 #[allow(clippy::cognitive_complexity)]
-#[test]
+#[tokio::test]
 #[serial]
-fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop() {
     init();
     clear_db();
 
@@ -1059,6 +1113,7 @@ fn delete_mnst_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -1073,6 +1128,7 @@ fn delete_mnst_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -1083,6 +1139,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
@@ -1091,6 +1148,7 @@ fn delete_mnst_rel_by_src_prop() {
             "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
@@ -1099,6 +1157,7 @@ fn delete_mnst_rel_by_src_prop() {
             "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects0.is_array());
@@ -1135,6 +1194,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects2 = client
@@ -1143,6 +1203,7 @@ fn delete_mnst_rel_by_src_prop() {
             "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
             Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects2.is_array());
