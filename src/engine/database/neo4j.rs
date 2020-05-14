@@ -1,8 +1,8 @@
 use super::{get_env_string, DatabaseEndpoint, DatabasePool, QueryResult};
-use crate::server::context::WarpgrapherRequestContext;
-use crate::server::objects::{Node, Rel};
-use crate::server::schema::Info;
-use crate::server::value::Value;
+use crate::engine::context::RequestContext;
+use crate::engine::objects::{Node, Rel};
+use crate::engine::schema::Info;
+use crate::engine::value::Value;
 use crate::{Error, ErrorKind};
 use juniper::FieldError;
 use log::{debug, trace};
@@ -622,7 +622,7 @@ impl QueryResult for Neo4jQueryResult {
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug,
+        ReqCtx: RequestContext,
     {
         trace!(
             "Neo4jQueryResult::get_nodes called, result: {:#?}",
@@ -670,7 +670,7 @@ impl QueryResult for Neo4jQueryResult {
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug,
+        ReqCtx: RequestContext,
     {
         trace!("Neo4jQueryResult::get_rels called, src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name: {:#?}, {:#?}, {:#?}, {:#?}, {:#?}, {:#?}", src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name);
 

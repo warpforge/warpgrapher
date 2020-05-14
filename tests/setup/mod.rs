@@ -1,4 +1,7 @@
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub mod actix_server;
 pub mod extension;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
 pub mod server;
 
 #[cfg(feature = "graphson2")]
@@ -10,7 +13,8 @@ use rusted_cypher::GraphClient;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
-use warpgrapher::{WarpgrapherClient, WarpgrapherConfig};
+use warpgrapher::client::Client;
+use warpgrapher::engine::config::Config;
 
 #[allow(dead_code)]
 pub fn init() {
@@ -84,15 +88,15 @@ pub fn gql_endpoint() -> String {
 }
 
 #[allow(dead_code)]
-pub fn load_config(config: &str) -> WarpgrapherConfig {
+pub fn load_config(config: &str) -> Config {
     let cf = File::open(config).expect("Could not open test model config file.");
     let cr = BufReader::new(cf);
     serde_yaml::from_reader(cr).expect("Could not deserialize configuration file.")
 }
 
 #[allow(dead_code)]
-pub fn test_client() -> WarpgrapherClient {
-    WarpgrapherClient::new(&gql_endpoint())
+pub fn test_client() -> Client {
+    Client::new(&gql_endpoint())
 }
 
 #[cfg(feature = "graphson2")]

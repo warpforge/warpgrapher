@@ -4,7 +4,9 @@ use std::fmt::Debug;
 #[cfg(feature = "neo4j")]
 use std::marker::PhantomData;
 #[cfg(feature = "neo4j")]
-use warpgrapher::{Extension, WarpgrapherRequestContext};
+use warpgrapher::engine::context::RequestContext;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
@@ -24,7 +26,7 @@ pub trait MetadataExtensionCtx {
 pub struct MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<ReqCtx>,
@@ -34,8 +36,7 @@ where
 impl<GlobalCtx, ReqCtx> MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx:
-        'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext + MetadataExtensionCtx,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     pub fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
         MetadataExtension {
@@ -49,8 +50,7 @@ where
 impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx:
-        'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext + MetadataExtensionCtx,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
     /// Request hook that executes prior to a request being handled by the GraphQL executor.
     /// This hook will add metadata into the request context.

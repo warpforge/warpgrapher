@@ -6,10 +6,10 @@ pub mod neo4j;
 use crate::error::Error;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use crate::error::ErrorKind;
-use crate::server::context::WarpgrapherRequestContext;
-use crate::server::objects::{Node, Rel};
-use crate::server::schema::Info;
-use crate::server::value::Value;
+use crate::engine::context::RequestContext;
+use crate::engine::objects::{Node, Rel};
+use crate::engine::schema::Info;
+use crate::engine::value::Value;
 #[cfg(feature = "graphson2")]
 use gremlin_client::GremlinClient;
 use juniper::FieldError;
@@ -158,7 +158,7 @@ pub trait QueryResult: Debug {
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug;
+        ReqCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
     fn get_rels<GlobalCtx, ReqCtx>(
@@ -173,7 +173,7 @@ pub trait QueryResult: Debug {
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug;
+        ReqCtx: RequestContext;
     fn get_ids(&self, column_name: &str) -> Result<Value, FieldError>;
     fn get_count(&self) -> Result<i32, FieldError>;
     fn len(&self) -> i32;

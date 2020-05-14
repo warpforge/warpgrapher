@@ -12,38 +12,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnst_new_nodes_graphson2() {
+async fn create_mnst_new_nodes_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_new_nodes();
+    create_mnst_new_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnst_new_nodes_neo4j() {
+async fn create_mnst_new_nodes_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_new_nodes();
+    create_mnst_new_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnst_new_nodes() {
+async fn create_mnst_new_nodes() {
     let mut client = test_client();
 
     let p0 = client
@@ -52,6 +52,7 @@ fn create_mnst_new_nodes() {
             "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "dst": { "Commit": { "NEW": { "hash": "11111" } } } } ] })
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -81,6 +82,7 @@ fn create_mnst_new_nodes() {
             "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project One", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "22222" } } } }, { "dst": { "Commit": { "NEW": { "hash": "33333" } } } } ] })
         )
+        .await
         .unwrap();
 
     assert!(p1.is_object());
@@ -110,6 +112,7 @@ fn create_mnst_new_nodes() {
             "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -161,38 +164,38 @@ fn create_mnst_new_nodes() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnst_existing_nodes_graphson2() {
+async fn create_mnst_existing_nodes_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_existing_nodes();
+    create_mnst_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnst_existing_nodes_neo4j() {
+async fn create_mnst_existing_nodes_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_existing_nodes();
+    create_mnst_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnst_existing_nodes() {
+async fn create_mnst_existing_nodes() {
     let mut client = test_client();
 
     let c0 = client
@@ -201,7 +204,7 @@ fn create_mnst_existing_nodes() {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "00000"}),
-        )
+        ).await
         .unwrap();
     assert!(c0.is_object());
     assert_eq!(c0.get("__typename").unwrap(), "Commit");
@@ -213,7 +216,7 @@ fn create_mnst_existing_nodes() {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "11111"}),
-        )
+        ).await
         .unwrap();
     assert!(c1.is_object());
     assert_eq!(c1.get("__typename").unwrap(), "Commit");
@@ -224,6 +227,7 @@ fn create_mnst_existing_nodes() {
             "Project",
             "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "EXISTING": { "hash": "00000" } } } }, { "dst": { "Commit": {"EXISTING": { "hash": "11111" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -253,6 +257,7 @@ fn create_mnst_existing_nodes() {
             "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -283,38 +288,38 @@ fn create_mnst_existing_nodes() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnst_by_rel_props_graphson2() {
+async fn read_mnst_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_by_rel_props();
+    read_mnst_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnst_by_rel_props_neo4j() {
+async fn read_mnst_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_by_rel_props();
+    read_mnst_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnst_by_rel_props() {
+async fn read_mnst_by_rel_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -322,6 +327,7 @@ fn read_mnst_by_rel_props() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -332,8 +338,9 @@ fn read_mnst_by_rel_props() {
         .read_node(
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
-            Some(json!({"activity": {"props": {"repo": "Repo Zero"}}}))
+            Some(&json!({"activity": {"props": {"repo": "Repo Zero"}}}))
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -365,38 +372,38 @@ fn read_mnst_by_rel_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnst_by_dst_props_graphson2() {
+async fn read_mnst_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_by_dst_props();
+    read_mnst_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnst_by_dst_props_neo4j() {
+async fn read_mnst_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_by_dst_props();
+    read_mnst_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnst_by_dst_props() {
+async fn read_mnst_by_dst_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -404,7 +411,8 @@ fn read_mnst_by_dst_props() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -414,8 +422,9 @@ fn read_mnst_by_dst_props() {
         .read_node(
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
-            Some(json!({"activity": {"dst": {"Commit": {"hash": "11111"}}}}))
+            Some(&json!({"activity": {"dst": {"Commit": {"hash": "11111"}}}}))
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -447,38 +456,38 @@ fn read_mnst_by_dst_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_new_node_graphson2() {
+async fn update_mnst_new_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_new_node();
+    update_mnst_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_new_node_neo4j() {
+async fn update_mnst_new_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_new_node();
+    update_mnst_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_new_node() {
+async fn update_mnst_new_node() {
     let mut client = test_client();
 
     let _p0 = client
@@ -486,7 +495,8 @@ fn update_mnst_new_node() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     let pu = client
         .update_node(
@@ -495,6 +505,7 @@ fn update_mnst_new_node() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"NEW": {"hash": "22222"}}}}}})
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -528,38 +539,38 @@ fn update_mnst_new_node() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_existing_node_graphson2() {
+async fn update_mnst_existing_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_existing_node();
+    update_mnst_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_existing_node_neo4j() {
+async fn update_mnst_existing_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_existing_node();
+    update_mnst_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_existing_node() {
+async fn update_mnst_existing_node() {
     let mut client = test_client();
 
     let _p0 = client
@@ -567,7 +578,8 @@ fn update_mnst_existing_node() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     let _c0 = client
         .create_node(
@@ -575,7 +587,7 @@ fn update_mnst_existing_node() {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "22222"}),
-        )
+        ).await
         .unwrap();
 
     let pu = client
@@ -585,6 +597,7 @@ fn update_mnst_existing_node() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"EXISTING": {"hash": "22222"}}}}}})
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -618,38 +631,38 @@ fn update_mnst_existing_node() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_relationship_graphson2() {
+async fn update_mnst_relationship_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_relationship();
+    update_mnst_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_relationship_neo4j() {
+async fn update_mnst_relationship_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_relationship();
+    update_mnst_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_relationship() {
+async fn update_mnst_relationship() {
     let mut client = test_client();
 
     let _p0 = client
@@ -657,7 +670,8 @@ fn update_mnst_relationship() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     let pu = client
         .update_node(
@@ -666,6 +680,7 @@ fn update_mnst_relationship() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"UPDATE": {"match": {"dst": {"Commit": {"hash": "00000"}}}, "update": {"props": {"repo": "Repo 0"}}}}})
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -702,38 +717,38 @@ fn update_mnst_relationship() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnst_relationship_by_rel_props_graphson2() {
+async fn delete_mnst_relationship_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_relationship_by_rel_props();
+    delete_mnst_relationship_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnst_relationship_by_rel_props_neo4j() {
+async fn delete_mnst_relationship_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_relationship_by_rel_props();
+    delete_mnst_relationship_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a relationship by its properties
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnst_relationship_by_rel_props() {
+async fn delete_mnst_relationship_by_rel_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -741,7 +756,8 @@ fn delete_mnst_relationship_by_rel_props() {
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -758,6 +774,7 @@ fn delete_mnst_relationship_by_rel_props() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"props": {"repo": "Repo Zero"}}}}})
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -794,38 +811,38 @@ fn delete_mnst_relationship_by_rel_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnst_relationship_by_dst_props_graphson2() {
+async fn delete_mnst_relationship_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_relationship_by_dst_props();
+    delete_mnst_relationship_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnst_relationship_by_dst_props_neo4j() {
+async fn delete_mnst_relationship_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_relationship_by_dst_props();
+    delete_mnst_relationship_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnst_relationship_by_dst_props() {
+async fn delete_mnst_relationship_by_dst_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -833,7 +850,8 @@ fn delete_mnst_relationship_by_dst_props() {
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -850,6 +868,7 @@ fn delete_mnst_relationship_by_dst_props() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"dst": {"Commit": {"hash": "00000"}}}}}})
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -886,38 +905,38 @@ fn delete_mnst_relationship_by_dst_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_by_mnst_rel_property_graphson2() {
+async fn delete_node_by_mnst_rel_property_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnst_rel_property();
+    delete_node_by_mnst_rel_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_by_mnst_rel_property_neo4j() {
+async fn delete_node_by_mnst_rel_property_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnst_rel_property();
+    delete_node_by_mnst_rel_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_by_mnst_rel_property() {
+async fn delete_node_by_mnst_rel_property() {
     let mut client = test_client();
 
     let p0 = client
@@ -925,7 +944,8 @@ fn delete_node_by_mnst_rel_property() {
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -942,6 +962,7 @@ fn delete_node_by_mnst_rel_property() {
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -950,6 +971,7 @@ fn delete_node_by_mnst_rel_property() {
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -958,38 +980,38 @@ fn delete_node_by_mnst_rel_property() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_by_mnst_dst_property_graphson2() {
+async fn delete_node_by_mnst_dst_property_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnst_dst_property();
+    delete_node_by_mnst_dst_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_by_mnst_dst_property_neo4j() {
+async fn delete_node_by_mnst_dst_property_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnst_dst_property();
+    delete_node_by_mnst_dst_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node by the properties of the dst object at a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_by_mnst_dst_property() {
+async fn delete_node_by_mnst_dst_property() {
     let mut client = test_client();
 
     let p0 = client
@@ -997,7 +1019,8 @@ fn delete_node_by_mnst_dst_property() {
             "Project",
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234".to_string()),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
-    .unwrap();
+        .await
+        .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -1014,6 +1037,7 @@ fn delete_node_by_mnst_dst_property() {
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1022,6 +1046,7 @@ fn delete_node_by_mnst_dst_property() {
             "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());

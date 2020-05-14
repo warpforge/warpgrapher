@@ -12,38 +12,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_snst_new_node_neo4j() {
+async fn create_snst_new_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snst_new_node();
+    create_snst_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_snst_new_node_graphson2() {
+async fn create_snst_new_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snst_new_node();
+    create_snst_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_snst_new_node() {
+async fn create_snst_new_node() {
     let mut client = test_client();
 
     let p0 = client
@@ -75,6 +75,7 @@ fn create_snst_new_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -116,6 +117,7 @@ fn create_snst_new_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -131,37 +133,37 @@ fn create_snst_new_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_node_with_rel_to_existing_neo4j() {
+async fn create_node_with_rel_to_existing_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_existing();
+    create_node_with_rel_to_existing().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_node_with_rel_to_existing_graphson2() {
+async fn create_node_with_rel_to_existing_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_existing();
+    create_node_with_rel_to_existing().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_node_with_rel_to_existing() {
+async fn create_node_with_rel_to_existing() {
     let mut client = test_client();
 
     let _u0 = client
@@ -175,6 +177,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let p0 = client
@@ -206,6 +209,7 @@ fn create_node_with_rel_to_existing() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(p0.get("__typename").unwrap() == "Project");
@@ -232,10 +236,11 @@ fn create_node_with_rel_to_existing() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "Project Zero"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -252,37 +257,37 @@ fn create_node_with_rel_to_existing() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_multiple_snst_node_with_rel_neo4j() {
+async fn read_multiple_snst_node_with_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_multiple_snst_node_with_rel();
+    read_multiple_snst_node_with_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_multiple_snst_node_with_rel_graphson2() {
+async fn read_multiple_snst_node_with_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_multiple_snst_node_with_rel();
+    read_multiple_snst_node_with_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_multiple_snst_node_with_rel() {
+async fn read_multiple_snst_node_with_rel() {
     let mut client = test_client();
 
     let _u0 = client
@@ -296,6 +301,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _u1 = client
@@ -309,6 +315,7 @@ fn read_multiple_snst_node_with_rel() {
                 "name": "User One"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -340,6 +347,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -371,6 +379,7 @@ fn read_multiple_snst_node_with_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -387,10 +396,11 @@ fn read_multiple_snst_node_with_rel() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "Project Zero"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -416,10 +426,11 @@ fn read_multiple_snst_node_with_rel() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "Project One"
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -433,37 +444,37 @@ fn read_multiple_snst_node_with_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_snst_node_by_rel_props_neo4j() {
+async fn read_snst_node_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snst_node_by_rel_props();
+    read_snst_node_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_snst_node_by_rel_props_graphson2() {
+async fn read_snst_node_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snst_node_by_rel_props();
+    read_snst_node_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_snst_node_by_rel_props() {
+async fn read_snst_node_by_rel_props() {
     let mut client = test_client();
 
     let _u0 = client
@@ -475,6 +486,7 @@ fn read_snst_node_by_rel_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -498,6 +510,7 @@ fn read_snst_node_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -518,7 +531,7 @@ fn read_snst_node_by_rel_props() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "owner": {
                     "props": {
                         "since": "yesterday"
@@ -526,6 +539,7 @@ fn read_snst_node_by_rel_props() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -544,37 +558,37 @@ fn read_snst_node_by_rel_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_snst_node_by_dst_props_neo4j() {
+async fn read_snst_node_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snst_node_by_dst_props();
+    read_snst_node_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_snst_node_by_dst_props_graphson2() {
+async fn read_snst_node_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snst_node_by_dst_props();
+    read_snst_node_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_snst_node_by_dst_props() {
+async fn read_snst_node_by_dst_props() {
     let mut client = test_client();
 
     let _u0 = client
@@ -586,6 +600,7 @@ fn read_snst_node_by_dst_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -609,6 +624,7 @@ fn read_snst_node_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -629,7 +645,7 @@ fn read_snst_node_by_dst_props() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "owner": {
                     "dst": {
                         "User": {
@@ -639,6 +655,7 @@ fn read_snst_node_by_dst_props() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -657,37 +674,37 @@ fn read_snst_node_by_dst_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_snst_node_with_new_rel_neo4j() {
+async fn update_snst_node_with_new_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snst_node_with_new_rel();
+    update_snst_node_with_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_snst_node_with_new_rel_graphson2() {
+async fn update_snst_node_with_new_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snst_node_with_new_rel();
+    update_snst_node_with_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_snst_node_with_new_rel() {
+async fn update_snst_node_with_new_rel() {
     let mut client = test_client();
 
     let _u0 = client
@@ -699,6 +716,7 @@ fn update_snst_node_with_new_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -722,6 +740,7 @@ fn update_snst_node_with_new_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -762,6 +781,7 @@ fn update_snst_node_with_new_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // Cannot add a rel to a single-node rel slot that's already filled.
@@ -774,11 +794,12 @@ fn update_snst_node_with_new_rel() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -788,37 +809,37 @@ fn update_snst_node_with_new_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_snst_node_with_existing_rel_neo4j() {
+async fn update_snst_node_with_existing_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snst_node_with_existing_rel();
+    update_snst_node_with_existing_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_snst_node_with_existing_rel_graphson2() {
+async fn update_snst_node_with_existing_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snst_node_with_existing_rel();
+    update_snst_node_with_existing_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_snst_node_with_existing_rel() {
+async fn update_snst_node_with_existing_rel() {
     let mut client = test_client();
 
     let _u0 = client
@@ -830,6 +851,7 @@ fn update_snst_node_with_existing_rel() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _u1 = client
@@ -841,6 +863,7 @@ fn update_snst_node_with_existing_rel() {
                 "name": "User One"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -864,6 +887,7 @@ fn update_snst_node_with_existing_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let pu = client
@@ -904,6 +928,7 @@ fn update_snst_node_with_existing_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert_eq!(pu, serde_json::value::Value::Null);
@@ -915,11 +940,12 @@ fn update_snst_node_with_existing_rel() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -929,37 +955,37 @@ fn update_snst_node_with_existing_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snst_rel_by_dst_props_neo4j() {
+async fn delete_snst_rel_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_rel_by_dst_props();
+    delete_snst_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snst_rel_by_dst_props_graphson2() {
+async fn delete_snst_rel_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_rel_by_dst_props();
+    delete_snst_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snst_rel_by_dst_props() {
+async fn delete_snst_rel_by_dst_props() {
     let mut client = test_client();
 
     let _u0 = client
@@ -971,6 +997,7 @@ fn delete_snst_rel_by_dst_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -994,6 +1021,7 @@ fn delete_snst_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1031,6 +1059,7 @@ fn delete_snst_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1051,11 +1080,12 @@ fn delete_snst_rel_by_dst_props() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1065,37 +1095,37 @@ fn delete_snst_rel_by_dst_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snst_rel_by_rel_props_neo4j() {
+async fn delete_snst_rel_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_rel_by_rel_props();
+    delete_snst_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snst_rel_by_rel_props_graphson2() {
+async fn delete_snst_rel_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_rel_by_rel_props();
+    delete_snst_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snst_rel_by_rel_props() {
+async fn delete_snst_rel_by_rel_props() {
     let mut client = test_client();
 
     let _u0 = client
@@ -1107,6 +1137,7 @@ fn delete_snst_rel_by_rel_props() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1130,6 +1161,7 @@ fn delete_snst_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1165,6 +1197,7 @@ fn delete_snst_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1185,11 +1218,12 @@ fn delete_snst_rel_by_rel_props() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1199,37 +1233,37 @@ fn delete_snst_rel_by_rel_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snst_node_by_dst_props_neo4j() {
+async fn delete_snst_node_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_node_by_dst_prop();
+    delete_snst_node_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snst_node_by_dst_prop_graphson2() {
+async fn delete_snst_node_by_dst_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_node_by_dst_prop();
+    delete_snst_node_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snst_node_by_dst_prop() {
+async fn delete_snst_node_by_dst_prop() {
     let mut client = test_client();
 
     let _u0 = client
@@ -1241,6 +1275,7 @@ fn delete_snst_node_by_dst_prop() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1264,6 +1299,7 @@ fn delete_snst_node_by_dst_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1285,6 +1321,7 @@ fn delete_snst_node_by_dst_prop() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1307,6 +1344,7 @@ fn delete_snst_node_by_dst_prop() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1319,11 +1357,12 @@ fn delete_snst_node_by_dst_prop() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1333,37 +1372,37 @@ fn delete_snst_node_by_dst_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snst_node_by_rel_props_neo4j() {
+async fn delete_snst_node_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_node_by_rel_prop();
+    delete_snst_node_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snst_node_by_rel_prop_graphson2() {
+async fn delete_snst_node_by_rel_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snst_node_by_rel_prop();
+    delete_snst_node_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snst_node_by_rel_prop() {
+async fn delete_snst_node_by_rel_prop() {
     let mut client = test_client();
 
     let _u0 = client
@@ -1375,6 +1414,7 @@ fn delete_snst_node_by_rel_prop() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1398,6 +1438,7 @@ fn delete_snst_node_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1417,6 +1458,7 @@ fn delete_snst_node_by_rel_prop() {
                 }
             })),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1439,6 +1481,7 @@ fn delete_snst_node_by_rel_prop() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1451,11 +1494,12 @@ fn delete_snst_node_by_rel_prop() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();
@@ -1465,37 +1509,37 @@ fn delete_snst_node_by_rel_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn detach_snst_rel_by_dst_delete_neo4j() {
+async fn detach_snst_rel_by_dst_delete_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    detach_snst_rel_by_dst_delete();
+    detach_snst_rel_by_dst_delete().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn detach_snst_rel_by_dst_delete_graphson2() {
+async fn detach_snst_rel_by_dst_delete_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    detach_snst_rel_by_dst_delete();
+    detach_snst_rel_by_dst_delete().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn detach_snst_rel_by_dst_delete() {
+async fn detach_snst_rel_by_dst_delete() {
     let mut client = test_client();
 
     let _u0 = client
@@ -1507,6 +1551,7 @@ fn detach_snst_rel_by_dst_delete() {
                 "name": "User Zero"
             }),
         )
+        .await
         .unwrap();
 
     let _p0 = client
@@ -1530,6 +1575,7 @@ fn detach_snst_rel_by_dst_delete() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _projects = client
@@ -1541,6 +1587,7 @@ fn detach_snst_rel_by_dst_delete() {
             })),
             Some(&json!({})),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1563,6 +1610,7 @@ fn detach_snst_rel_by_dst_delete() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1581,11 +1629,12 @@ fn detach_snst_rel_by_dst_delete() {
             name
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "User Zero"
                 }
             )),
         )
+        .await
         .unwrap();
 
     let users_a = users.as_array().unwrap();

@@ -1,10 +1,10 @@
 use super::{
     get_env_string, get_env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction,
 };
-use crate::server::context::WarpgrapherRequestContext;
-use crate::server::objects::{Node, Rel};
-use crate::server::schema::Info;
-use crate::server::value::Value;
+use crate::engine::context::RequestContext;
+use crate::engine::objects::{Node, Rel};
+use crate::engine::schema::Info;
+use crate::engine::value::Value;
 use crate::{Error, ErrorKind};
 #[cfg(feature = "graphson2")]
 // use gremlin_client::process::traversal::traversal;
@@ -652,7 +652,7 @@ impl QueryResult for Graphson2QueryResult {
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug,
+        ReqCtx: RequestContext,
     {
         /*
         trace!(
@@ -748,7 +748,7 @@ impl QueryResult for Graphson2QueryResult {
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: Debug,
-        ReqCtx: WarpgrapherRequestContext + Debug,
+        ReqCtx: RequestContext,
     {
         /*
         trace!(

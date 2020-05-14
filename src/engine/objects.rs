@@ -10,16 +10,16 @@ use super::resolvers::{
     resolve_custom_field, resolve_rel_props, resolve_scalar_field, resolve_union_field,
 };
 use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
+use crate::engine::context::RequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 #[cfg(feature = "graphson2")]
-use crate::server::database::graphson2::Graphson2Transaction;
+use crate::engine::database::graphson2::Graphson2Transaction;
 #[cfg(feature = "neo4j")]
-use crate::server::database::neo4j::Neo4jTransaction;
-use crate::server::database::DatabasePool;
+use crate::engine::database::neo4j::Neo4jTransaction;
+use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use crate::server::database::Transaction;
-use crate::server::value::Value;
+use crate::engine::database::Transaction;
+use crate::engine::value::Value;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,
@@ -50,7 +50,7 @@ impl<GlobalCtx, ReqCtx> Input<GlobalCtx, ReqCtx> {
 
 impl<GlobalCtx, ReqCtx> FromInputValue for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
         serde_json::to_value(v)
@@ -62,7 +62,7 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLType for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -144,7 +144,7 @@ where
 pub struct Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub concrete_typename: String,
     fields: HashMap<String, Value>,
@@ -155,7 +155,7 @@ where
 impl<GlobalCtx, ReqCtx> Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub fn new(
         concrete_typename: String,
@@ -173,6 +173,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
+        trace!("Node::union_meta called - nt.type_name: {}", nt.type_name);
         let types = match &nt.union_types {
             None => panic!("Missing union_types on NodeType of type Union"),
             Some(union_types) => union_types
@@ -194,7 +195,7 @@ where
     where
         DefaultScalarValue: 'r,
     {
-        trace!("Node::object_meta called for {}.", nt.type_name);
+        trace!("Node::object_meta -- nt.type_name: {}", nt.type_name);
         let mut props = nt.props.values().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| &p.name);
 
@@ -501,7 +502,7 @@ where
 impl<GlobalCtx, ReqCtx> GraphQLType for Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -619,6 +620,17 @@ where
             self.concrete_typename
         );
 
+        // this mismatch can occur when query fragments are used. correct
+        // behavior is to not resolve it
+        if info.name != type_name {
+            trace!(
+                "info.name {} != type_name {}, returning NULL",
+                info.name,
+                type_name
+            );
+            return Ok(juniper::Value::Null);
+        }
+
         executor.resolve(
             &Info::new(self.concrete_typename.to_owned(), info.type_defs.clone()),
             &Some(self),
@@ -630,7 +642,7 @@ where
 pub struct Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     id: Value,
     props: Option<Node<GlobalCtx, ReqCtx>>,
@@ -643,7 +655,7 @@ where
 impl<GlobalCtx: Debug, ReqCtx> Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: Debug + RequestContext,
 {
     pub fn new(
         id: Value,
@@ -665,7 +677,7 @@ where
 impl<GlobalCtx, ReqCtx> GraphQLType for Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;

@@ -7,15 +7,13 @@ use serial_test::serial;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
 #[cfg(feature = "neo4j")]
-use setup::{clear_db, gql_endpoint, init, test_client};
-#[cfg(feature = "neo4j")]
-use warpgrapher::client::graphql;
+use setup::{clear_db, init, test_client};
 
 /// Passes if the custom resolvers executes correctly
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn custom_endpoint_resolver() {
+async fn custom_endpoint_resolver() {
     init();
     clear_db();
     let mut client = test_client();
@@ -30,6 +28,7 @@ fn custom_endpoint_resolver() {
             Some("1234".to_string()),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
+        .await
         .unwrap();
     let _ = client
         .create_node(
@@ -38,15 +37,15 @@ fn custom_endpoint_resolver() {
             Some("1234".to_string()),
             &json!({"name": "SPARTANII", "description": "Cue MC music"}),
         )
+        .await
         .unwrap();
 
     // count projects via custom resolver
-    let result = graphql(
-        gql_endpoint(),
-        "query { ProjectCount }".to_owned(),
+    let result = client.graphql(
+        "query { ProjectCount }",
         Some("1234".to_string()),
         None,
-    )
+    ).await
     .unwrap();
     let count = result.get("ProjectCount").unwrap();
 
@@ -59,9 +58,9 @@ fn custom_endpoint_resolver() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn custom_prop_resolver() {
+async fn custom_prop_resolver() {
     init();
     clear_db();
     let mut client = test_client();
@@ -76,14 +75,14 @@ fn custom_prop_resolver() {
             Some("1234".to_string()),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
+        .await
         .unwrap();
 
-    let result = graphql(
-        gql_endpoint(),
-        "query { Project{id, points}}".to_owned(),
+    let result = client.graphql(
+        "query { Project{id, points}}",
         Some("1234".to_string()),
         None,
-    )
+    ).await
     .unwrap();
     let project = result.get("Project").unwrap();
     let points = project[0].get("points").unwrap();

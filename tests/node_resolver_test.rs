@@ -18,39 +18,39 @@ use setup::{clear_db, init};
 
 /// Passes if the create mutation and the read query both succeed.
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_single_node_neo4j() {
+async fn create_single_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_single_node();
+    create_single_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_single_node_graphson2() {
+async fn create_single_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_single_node();
+    create_single_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-fn create_single_node() {
+async fn create_single_node() {
     let mut client = test_client();
 
     let p0 = client
@@ -60,6 +60,7 @@ fn create_single_node() {
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
             // &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN"}),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -78,6 +79,7 @@ fn create_single_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -97,38 +99,38 @@ fn create_single_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_query_neo4j() {
+async fn read_query_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_query();
+    read_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_query_graphson2() {
+async fn read_query_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_query();
+    read_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-fn read_query() {
+async fn read_query() {
     let mut client = test_client();
 
     let p0 = client
@@ -138,6 +140,7 @@ fn read_query() {
             Some("1234".to_string()),
             &json!({"name": "Project1"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -150,6 +153,7 @@ fn read_query() {
             Some("1234".to_string()),
             &json!({"name": "Project2"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -159,8 +163,9 @@ fn read_query() {
             "Project",
             "__typename id name description status priority estimate active",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -172,31 +177,31 @@ fn read_query() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn handle_missing_properties_neo4j() {
+async fn handle_missing_properties_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    handle_missing_properties();
+    handle_missing_properties().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn handle_missing_properties_graphson2() {
+async fn handle_missing_properties_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    handle_missing_properties();
+    handle_missing_properties().await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -204,7 +209,7 @@ fn handle_missing_properties_graphson2() {
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
 #[allow(dead_code)]
-fn handle_missing_properties() {
+async fn handle_missing_properties() {
     let mut client = test_client();
 
     let p0 = client
@@ -214,6 +219,7 @@ fn handle_missing_properties() {
             Some("1234".to_string()),
             &json!({"name": "MJOLNIR"}),
         )
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -227,7 +233,7 @@ fn handle_missing_properties() {
             "__typename id name description",
             Some("1234".to_string()),
             None,
-        )
+        ).await
         .unwrap();
 
     assert!(projects.is_array());
@@ -240,38 +246,38 @@ fn handle_missing_properties() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mutation_neo4j() {
+async fn update_mutation_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation();
+    update_mutation().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mutation_graphson2() {
+async fn update_mutation_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation();
+    update_mutation().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-fn update_mutation() {
+async fn update_mutation() {
     let mut client = test_client();
 
     let p0 = client
@@ -281,6 +287,7 @@ fn update_mutation() {
             Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -292,8 +299,9 @@ fn update_mutation() {
             "Project",
             "__typename id name status",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -315,6 +323,7 @@ fn update_mutation() {
             Some(&json!({"name": "Project1"})),
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -327,8 +336,9 @@ fn update_mutation() {
             "Project",
             "__typename id name status",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -344,38 +354,38 @@ fn update_mutation() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mutation_null_query_neo4j() {
+async fn update_mutation_null_query_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation_null_query();
+    update_mutation_null_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mutation_null_query_graphson2() {
+async fn update_mutation_null_query_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation_null_query();
+    update_mutation_null_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mutation_null_query() {
+async fn update_mutation_null_query() {
     let mut client = test_client();
 
     let p0 = client
@@ -385,6 +395,7 @@ fn update_mutation_null_query() {
             Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -398,6 +409,7 @@ fn update_mutation_null_query() {
             Some("1234".to_string()),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -410,7 +422,7 @@ fn update_mutation_null_query() {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        )
+        ).await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -425,6 +437,7 @@ fn update_mutation_null_query() {
             None,
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -439,7 +452,7 @@ fn update_mutation_null_query() {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        )
+        ).await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -450,38 +463,38 @@ fn update_mutation_null_query() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mutation_neo4j() {
+async fn delete_mutation_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation();
+    delete_mutation().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mutation_graphson2() {
+async fn delete_mutation_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation();
+    delete_mutation().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-fn delete_mutation() {
+async fn delete_mutation() {
     let mut client = test_client();
 
     let p0 = client
@@ -491,6 +504,7 @@ fn delete_mutation() {
             Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -502,8 +516,9 @@ fn delete_mutation() {
             "Project",
             "__typename id name status",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -523,7 +538,7 @@ fn delete_mutation() {
             Some("1234".to_string()),
             Some(&json!({"name": "Project1"})),
             None,
-        )
+        ).await
         .unwrap();
 
     assert_eq!(pd, 1);
@@ -532,8 +547,9 @@ fn delete_mutation() {
             "Project",
             "__typename id name status",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -542,38 +558,38 @@ fn delete_mutation() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mutation_null_query_neo4j() {
+async fn delete_mutation_null_query_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation_null_query();
+    delete_mutation_null_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mutation_null_query_graphson2() {
+async fn delete_mutation_null_query_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation_null_query();
+    delete_mutation_null_query().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mutation_null_query() {
+async fn delete_mutation_null_query() {
     let mut client = test_client();
 
     let p0 = client
@@ -583,6 +599,7 @@ fn delete_mutation_null_query() {
             Some("1234".to_string()),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -596,6 +613,7 @@ fn delete_mutation_null_query() {
             Some("1234".to_string()),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
+        .await
         .unwrap();
     assert!(p1.is_object());
     assert_eq!(p1.get("__typename").unwrap(), "Project");
@@ -608,7 +626,7 @@ fn delete_mutation_null_query() {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        )
+        ).await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -616,7 +634,7 @@ fn delete_mutation_null_query() {
     assert_eq!(before_projects_a.len(), 2);
 
     let pd = client
-        .delete_node("Project", Some("1234".to_string()), None, None)
+        .delete_node("Project", Some("1234".to_string()), None, None).await
         .unwrap();
 
     assert_eq!(pd, 2);
@@ -626,8 +644,9 @@ fn delete_mutation_null_query() {
             "Project",
             "__typename id name status",
             Some("1234".to_string()),
-            Some(json!({"name": "Project1"})),
+            Some(&json!({"name": "Project1"})),
         )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -636,9 +655,9 @@ fn delete_mutation_null_query() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn error_on_node_missing_id_neo4j() {
+async fn error_on_node_missing_id_neo4j() {
     init();
     clear_db();
 
@@ -650,7 +669,7 @@ fn error_on_node_missing_id_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    error_on_node_missing_id();
+    error_on_node_missing_id().await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -659,7 +678,7 @@ fn error_on_node_missing_id_neo4j() {
 /// to that node.  There is no GraphSON variant of this test, because GraphSON
 /// data stores automatically assign a UUID id.
 #[allow(dead_code)]
-fn error_on_node_missing_id() {
+async fn error_on_node_missing_id() {
     let mut client = test_client();
 
     let projects = client
@@ -667,8 +686,9 @@ fn error_on_node_missing_id() {
             "Project",
             "__typename id name",
             Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects.is_null());
@@ -681,6 +701,7 @@ fn error_on_node_missing_id() {
             Some(&json!({"name": "Project One"})),
             &json!({"status": "ACTIVE"}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_null());
@@ -691,7 +712,7 @@ fn error_on_node_missing_id() {
             Some("1234".to_string()),
             Some(&json!({"name": "Project One"})),
             None,
-        )
+        ).await
         .unwrap();
 
     assert!(pd.is_null());

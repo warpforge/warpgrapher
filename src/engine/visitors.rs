@@ -1,16 +1,17 @@
-use super::config::WarpgrapherValidators;
+use super::config::Validators;
 use super::schema::{Info, PropertyKind};
+use crate::engine::context::RequestContext;
+use crate::engine::database::{QueryResult, Transaction};
+use crate::engine::objects::Rel;
+use crate::engine::value::Value;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
-use crate::server::database::{QueryResult, Transaction};
-use crate::server::objects::Rel;
-use crate::server::value::Value;
 use juniper::FieldError;
 use log::{debug, trace};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
+#[derive(Default)]
 pub struct SuffixGenerator {
     seed: i32,
 }
@@ -31,7 +32,7 @@ pub fn visit_node_create_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -275,7 +276,7 @@ fn visit_node_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<Value, FieldError>
 where
@@ -348,7 +349,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
 pub fn visit_node_query_input<T>(
     label: &str,
     var_suffix: &str,
@@ -430,7 +431,7 @@ pub fn visit_node_update_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -506,7 +507,7 @@ pub fn visit_node_update_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -612,7 +613,7 @@ pub fn visit_rel_change_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -697,13 +698,13 @@ pub fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
 where
     T: Transaction,
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
         "visit_rel_create_input called -- info.name: {}, rel_name {}, input: {:#?}",
@@ -813,7 +814,7 @@ pub fn visit_rel_create_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1042,7 +1043,7 @@ pub fn visit_rel_dst_update_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1082,7 +1083,7 @@ fn visit_rel_nodes_mutation_input_union<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<(String, Value), FieldError>
 where
@@ -1118,7 +1119,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
 pub fn visit_rel_query_input<T>(
     src_label: &str,
     src_suffix: &str,
@@ -1281,7 +1282,7 @@ pub fn visit_rel_src_update_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1376,7 +1377,7 @@ pub fn visit_rel_update_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1462,7 +1463,7 @@ fn visit_rel_update_mutation_input<T>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
-    validators: &WarpgrapherValidators,
+    validators: &Validators,
     transaction: &mut T,
 ) -> Result<T::ImplQueryResult, FieldError>
 where
@@ -1532,11 +1533,7 @@ where
     }
 }
 
-fn validate_input(
-    validators: &WarpgrapherValidators,
-    v: &str,
-    input: &Value,
-) -> Result<(), FieldError> {
+fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(), FieldError> {
     let func = validators.get(v).ok_or_else(|| {
         Error::new(
             ErrorKind::ValidatorNotFound(

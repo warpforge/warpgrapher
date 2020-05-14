@@ -7,13 +7,14 @@ use super::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input,
 };
+use crate::engine::context::{GraphQLContext, RequestContext};
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::engine::database::{QueryResult, Transaction};
+use crate::engine::value::Value;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::engine::visitors::{visit_rel_query_input, visit_rel_update_input, SuffixGenerator};
 use crate::error::{Error, ErrorKind};
-use crate::server::context::{GraphQLContext, WarpgrapherRequestContext};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use crate::server::database::{QueryResult, Transaction};
-use crate::server::value::Value;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use crate::server::visitors::{visit_rel_query_input, visit_rel_update_input, SuffixGenerator};
+use core::hash::BuildHasher;
 use juniper::{Arguments, ExecutionResult, Executor};
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use log::debug;
@@ -30,7 +31,7 @@ pub fn resolve_custom_endpoint<GlobalCtx, ReqCtx>(
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
 ) -> ExecutionResult
 where
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
         "resolve_custom_endpoint called -- field_name: {}, info.name: {:#?}",
@@ -75,7 +76,7 @@ pub fn resolve_custom_field<GlobalCtx, ReqCtx>(
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
 ) -> ExecutionResult
 where
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
         "resolve_custom_field called -- field_name: {:#?}, info.name: {:#?}",
@@ -126,7 +127,7 @@ pub fn resolve_node_create_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -181,7 +182,7 @@ pub fn resolve_node_delete_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -233,7 +234,7 @@ pub fn resolve_node_read_query<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -309,7 +310,7 @@ pub fn resolve_node_update_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -363,7 +364,7 @@ pub fn resolve_object_field<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -408,7 +409,7 @@ pub fn resolve_rel_create_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -479,7 +480,7 @@ pub fn resolve_rel_delete_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -529,7 +530,7 @@ pub fn resolve_rel_field<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -565,7 +566,7 @@ pub fn resolve_rel_props<GlobalCtx, ReqCtx>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
         "resolve_rel_props called -- info.name: {:#?}, field_name: {}",
@@ -596,7 +597,7 @@ pub fn resolve_rel_read_query<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -684,7 +685,7 @@ where
         if v.len() > 1 {
             return Err(Error::new(
                 ErrorKind::InvalidType(
-                    "Multiple results for a sinlge-node relationship.".to_string(),
+                    "Multiple results for a single-node relationship.".to_string(),
                 ),
                 None,
             )
@@ -712,7 +713,7 @@ pub fn resolve_rel_update_mutation<GlobalCtx, ReqCtx, T>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
     T: Transaction,
 {
     trace!(
@@ -767,15 +768,15 @@ where
     )
 }
 
-pub fn resolve_scalar_field<GlobalCtx, ReqCtx>(
+pub fn resolve_scalar_field<GlobalCtx, ReqCtx, S: BuildHasher>(
     info: &Info,
     field_name: &str,
-    fields: &HashMap<String, Value>,
+    fields: &HashMap<String, Value, S>,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
         "resolve_scalar_field called -- info.name: {}, field_name: {}",
@@ -829,7 +830,7 @@ pub fn resolve_static_version_query<GlobalCtx, ReqCtx>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     match &executor.context().version {
         Some(v) => Ok(juniper::Value::scalar(v.clone())),
@@ -846,12 +847,14 @@ pub fn resolve_union_field<GlobalCtx, ReqCtx>(
 ) -> ExecutionResult
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     trace!(
-        "resolve_union_field called -- info.name: {}, field_name: {}",
+        "resolve_union_field called -- info.name: {}, field_name: {}, src: {}, dst: {}",
         info.name,
         field_name,
+        src.concrete_typename,
+        dst.concrete_typename
     );
 
     match field_name {

@@ -13,38 +13,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnmt_new_nodes_graphson2() {
+async fn create_mnmt_new_nodes_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_new_nodes();
+    create_mnmt_new_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnmt_new_nodes_neo4j() {
+async fn create_mnmt_new_nodes_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_new_nodes();
+    create_mnmt_new_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnmt_new_nodes() {
+async fn create_mnmt_new_nodes() {
     let mut client = test_client();
 
     let p0 = client
@@ -52,6 +52,7 @@ fn create_mnmt_new_nodes() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -83,6 +84,7 @@ fn create_mnmt_new_nodes() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234".to_string()),
             &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p1.is_object());
@@ -115,6 +117,7 @@ fn create_mnmt_new_nodes() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -189,38 +192,38 @@ fn create_mnmt_new_nodes() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnmt_existing_nodes_graphson2() {
+async fn create_mnmt_existing_nodes_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_existing_nodes();
+    create_mnmt_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnmt_existing_nodes_neo4j() {
+async fn create_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_existing_nodes();
+    create_mnmt_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnmt_existing_nodes() {
+async fn create_mnmt_existing_nodes() {
     let mut client = test_client();
 
     let b0 = client
@@ -229,7 +232,7 @@ fn create_mnmt_existing_nodes() {
             "__typename id name",
             Some("1234".to_string()),
             &json!({"name": "Bug Zero"}),
-        )
+        ).await
         .unwrap();
     assert!(b0.is_object());
     assert_eq!(b0.get("__typename").unwrap(), "Bug");
@@ -242,6 +245,7 @@ fn create_mnmt_existing_nodes() {
             Some("1234".to_string()),
             &json!({"name": "Feature Zero"}),
         )
+        .await
         .unwrap();
     assert!(f0.is_object());
     assert_eq!(f0.get("__typename").unwrap(), "Feature");
@@ -252,6 +256,7 @@ fn create_mnmt_existing_nodes() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "EXISTING": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"EXISTING": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
@@ -283,6 +288,7 @@ fn create_mnmt_existing_nodes() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -318,38 +324,38 @@ fn create_mnmt_existing_nodes() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnmt_by_rel_props_graphson2() {
+async fn read_mnmt_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_rel_props();
+    read_mnmt_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnmt_by_rel_props_neo4j() {
+async fn read_mnmt_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_rel_props();
+    read_mnmt_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnmt_by_rel_props() {
+async fn read_mnmt_by_rel_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -357,6 +363,7 @@ fn read_mnmt_by_rel_props() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -367,8 +374,9 @@ fn read_mnmt_by_rel_props() {
         .read_node(
             "Project",             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
 
-            Some(json!({"issues": {"props": {"since": "today"}}}))
+            Some(&json!({"issues": {"props": {"since": "today"}}}))
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -409,38 +417,38 @@ fn read_mnmt_by_rel_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnmt_by_dst_props_graphson2() {
+async fn read_mnmt_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_dst_props();
+    read_mnmt_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnmt_by_dst_props_neo4j() {
+async fn read_mnmt_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_dst_props();
+    read_mnmt_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a destination node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnmt_by_dst_props() {
+async fn read_mnmt_by_dst_props() {
     let mut client = test_client();
 
     let p0 = client
@@ -448,6 +456,7 @@ fn read_mnmt_by_dst_props() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -459,6 +468,7 @@ fn read_mnmt_by_dst_props() {
             "Project",
             "__typename id name", Some("1234".to_string()),
             &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p1.is_object());
@@ -469,8 +479,9 @@ fn read_mnmt_by_dst_props() {
         .read_node(
             "Project", 
             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
-            Some(json!({"issues": {"dst": {"Bug": {"name": "Bug Zero"}}}}))
+            Some(&json!({"issues": {"dst": {"Bug": {"name": "Bug Zero"}}}}))
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -511,38 +522,38 @@ fn read_mnmt_by_dst_props() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnmt_new_node_graphson2() {
+async fn update_mnmt_new_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_new_node();
+    update_mnmt_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnmt_new_node_neo4j() {
+async fn update_mnmt_new_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_new_node();
+    update_mnmt_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnmt_new_node() {
+async fn update_mnmt_new_node() {
     let mut client = test_client();
 
     let p0 = client
@@ -552,6 +563,7 @@ fn update_mnmt_new_node() {
             Some("1234".to_string()),
             &json!({"name": "Project Zero", "description": "Powered armor"}),
         )
+        .await
         .unwrap();
 
     let pu = client
@@ -561,6 +573,7 @@ fn update_mnmt_new_node() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"ADD": {"dst": { "Bug": { "NEW": {"name": "Bug Zero"}}}}}}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -588,6 +601,7 @@ fn update_mnmt_new_node() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -607,38 +621,38 @@ fn update_mnmt_new_node() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnmt_existing_nodes_graphson2() {
+async fn update_mnmt_existing_nodes_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_existing_nodes();
+    update_mnmt_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnmt_existing_nodes_neo4j() {
+async fn update_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_existing_nodes();
+    update_mnmt_existing_nodes().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnmt_existing_nodes() {
+async fn update_mnmt_existing_nodes() {
     let mut client = test_client();
 
     let b0 = client
@@ -647,7 +661,7 @@ fn update_mnmt_existing_nodes() {
             "__typename id name",
             Some("1234".to_string()),
             &json!({"name": "Bug Zero"}),
-        )
+        ).await
         .unwrap();
     assert!(b0.is_object());
     assert_eq!(b0.get("__typename").unwrap(), "Bug");
@@ -659,6 +673,7 @@ fn update_mnmt_existing_nodes() {
             "__typename id name description status priority estimate active", Some("1234".to_string()),
             &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
+        .await
         .unwrap();
 
     let pu = client
@@ -668,6 +683,7 @@ fn update_mnmt_existing_nodes() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"ADD": {"dst": { "Bug": { "EXISTING": {"name": "Bug Zero"}}}}}}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -695,6 +711,7 @@ fn update_mnmt_existing_nodes() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -714,38 +731,38 @@ fn update_mnmt_existing_nodes() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnmt_relationship_graphson2() {
+async fn update_mnmt_relationship_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_relationship();
+    update_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnmt_relationship_neo4j() {
+async fn update_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_relationship();
+    update_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnmt_relationship() {
+async fn update_mnmt_relationship() {
     let mut client = test_client();
 
     let p0 = client
@@ -753,6 +770,7 @@ fn update_mnmt_relationship() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -786,6 +804,7 @@ fn update_mnmt_relationship() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -812,6 +831,7 @@ fn update_mnmt_relationship() {
             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -854,38 +874,38 @@ fn update_mnmt_relationship() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_only_correct_mnmt_relationship_graphson2() {
+async fn update_only_correct_mnmt_relationship_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_only_correct_mnmt_relationship();
+    update_only_correct_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_only_correct_mnmt_relationship_neo4j() {
+async fn update_only_correct_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_only_correct_mnmt_relationship();
+    update_only_correct_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher only updates the correct matching relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_only_correct_mnmt_relationship() {
+async fn update_only_correct_mnmt_relationship() {
     let mut client = test_client();
 
     client
@@ -893,6 +913,7 @@ fn update_only_correct_mnmt_relationship() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()), 
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     client
@@ -900,6 +921,7 @@ fn update_only_correct_mnmt_relationship() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }",Some("1234".to_string()), 
             &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     client
@@ -909,14 +931,16 @@ fn update_only_correct_mnmt_relationship() {
             Some(&json!({"name": "Project One"})),
             &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
         )
+        .await
         .unwrap();
 
     let p_zero = client
         .read_node(
             "Project",
             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     assert!(p_zero.is_array());
@@ -940,8 +964,9 @@ fn update_only_correct_mnmt_relationship() {
         .read_node(
             "Project",
             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(p_one.is_array());
@@ -963,38 +988,38 @@ fn update_only_correct_mnmt_relationship() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnmt_relationship_graphson2() {
+async fn delete_mnmt_relationship_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnmt_relationship();
+    delete_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnmt_relationship_neo4j() {
+async fn delete_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnmt_relationship();
+    delete_mnmt_relationship().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to delete a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnmt_relationship() {
+async fn delete_mnmt_relationship() {
     let mut client = test_client();
 
     let p0 = client
@@ -1002,6 +1027,7 @@ fn delete_mnmt_relationship() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -1035,6 +1061,7 @@ fn delete_mnmt_relationship() {
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"DELETE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}}}}),
         )
+        .await
         .unwrap();
 
     assert!(pu.is_array());
@@ -1062,6 +1089,7 @@ fn delete_mnmt_relationship() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1085,38 +1113,38 @@ fn delete_mnmt_relationship() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_by_mnmt_rel_property_graphson2() {
+async fn delete_node_by_mnmt_rel_property_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnmt_rel_property();
+    delete_node_by_mnmt_rel_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_by_mnmt_rel_property_neo4j() {
+async fn delete_node_by_mnmt_rel_property_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnmt_rel_property();
+    delete_node_by_mnmt_rel_property().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node based on matching a property on a rel.
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_by_mnmt_rel_property() {
+async fn delete_node_by_mnmt_rel_property() {
     let mut client = test_client();
 
     let p0 = client
@@ -1124,6 +1152,7 @@ fn delete_node_by_mnmt_rel_property() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+        .await
         .unwrap();
 
     assert!(p0.is_object());
@@ -1151,6 +1180,7 @@ fn delete_node_by_mnmt_rel_property() {
             Some(&json!({"issues": {"props": {"since": "never"}}})),
             Some(&json!({"issues": [{"match": {}}]})),
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1159,6 +1189,7 @@ fn delete_node_by_mnmt_rel_property() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1167,38 +1198,38 @@ fn delete_node_by_mnmt_rel_property() {
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_graphson2() {
+async fn delete_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node();
+    delete_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_neo4j() {
+async fn delete_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node();
+    delete_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node() {
+async fn delete_node() {
     let mut client = test_client();
 
     client
@@ -1206,16 +1237,17 @@ fn delete_node() {
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+        .await
         .unwrap();
 
     let projects_pre = client
-        .read_node("Project", "id", Some("1234".to_string()), None)
+        .read_node("Project", "id", Some("1234".to_string()), None).await
         .unwrap();
     assert!(projects_pre.is_array());
     assert_eq!(projects_pre.as_array().unwrap().len(), 1);
 
     let bugs_pre = client
-        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .read_node("Bug", "id", Some("1234".to_string()), None).await
         .unwrap();
     assert!(bugs_pre.is_array());
     assert_eq!(bugs_pre.as_array().unwrap().len(), 1);
@@ -1227,6 +1259,7 @@ fn delete_node() {
             Some(&json!({"name": "Project Zero"})),
             Some(&json!({})),
         )
+        .await
         .unwrap();
 
     let projects_post = client
@@ -1235,13 +1268,14 @@ fn delete_node() {
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects_post.is_array());
     assert_eq!(projects_post.as_array().unwrap().len(), 0);
 
     let bugs_post = client
-        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .read_node("Bug", "id", Some("1234".to_string()), None).await
         .unwrap();
     assert!(bugs_post.is_array());
     assert_eq!(bugs_post.as_array().unwrap().len(), 1);

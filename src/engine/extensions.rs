@@ -1,4 +1,4 @@
-use crate::server::context::WarpgrapherRequestContext;
+use crate::engine::context::RequestContext;
 use std::collections::hash_map::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 pub trait Extension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
     fn pre_request_hook(
         &self,
@@ -34,5 +34,4 @@ where
 }
 
 /// Type alias for a thread-safe Extension container.
-pub type WarpgrapherExtensions<GlobalCtx, ReqCtx> =
-    Vec<Arc<dyn Extension<GlobalCtx, ReqCtx> + Send + Sync>>;
+pub type Extensions<GlobalCtx, ReqCtx> = Vec<Arc<dyn Extension<GlobalCtx, ReqCtx> + Send + Sync>>;

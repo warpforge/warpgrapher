@@ -12,38 +12,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnst_new_rel_neo4j() {
+async fn create_mnst_new_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_new_rel();
+    create_mnst_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnst_new_rel_graphson2() {
+async fn create_mnst_new_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_new_rel();
+    create_mnst_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnst_new_rel() {
+async fn create_mnst_new_rel() {
     let mut client = test_client();
 
     let _p0 = client
@@ -53,6 +53,7 @@ fn create_mnst_new_rel() {
             Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -64,6 +65,7 @@ fn create_mnst_new_rel() {
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -95,6 +97,7 @@ fn create_mnst_new_rel() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -124,37 +127,37 @@ fn create_mnst_new_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_mnst_rel_existing_node_neo4j() {
+async fn create_mnst_rel_existing_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_rel_existing_node();
+    create_mnst_rel_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_mnst_rel_existing_node_graphson2() {
+async fn create_mnst_rel_existing_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnst_rel_existing_node();
+    create_mnst_rel_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_mnst_rel_existing_node() {
+async fn create_mnst_rel_existing_node() {
     let mut client = test_client();
 
     let _p0 = client
@@ -163,7 +166,7 @@ fn create_mnst_rel_existing_node() {
             "name",
             Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
-        )
+        ).await
         .unwrap();
 
     let c0 = client
@@ -172,7 +175,7 @@ fn create_mnst_rel_existing_node() {
             "__typename hash",
             Some("1234".to_string()),
             &json!({"hash": "00000"}),
-        )
+        ).await
         .unwrap();
 
     assert!(c0.is_object());
@@ -185,7 +188,7 @@ fn create_mnst_rel_existing_node() {
             "__typename hash",
             Some("1234".to_string()),
             &json!({"hash": "11111"}),
-        )
+        ).await
         .unwrap();
 
     assert!(c1.is_object());
@@ -201,6 +204,7 @@ fn create_mnst_rel_existing_node() {
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": "11111"}}}}])
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -229,6 +233,7 @@ fn create_mnst_rel_existing_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -258,37 +263,37 @@ fn create_mnst_rel_existing_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnst_rel_by_rel_props_neo4j() {
+async fn read_mnst_rel_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_rel_props();
+    read_mnst_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnst_rel_by_rel_props_graphson2() {
+async fn read_mnst_rel_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_rel_props();
+    read_mnst_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnst_rel_by_rel_props() {
+async fn read_mnst_rel_by_rel_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -310,6 +315,7 @@ fn read_mnst_rel_by_rel_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -318,8 +324,9 @@ fn read_mnst_rel_by_rel_props() {
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
             Some("1234".to_string()),
-            Some(json!({"props": {"repo": "Repo Zero"}})),
+            Some(&json!({"props": {"repo": "Repo Zero"}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -341,37 +348,37 @@ fn read_mnst_rel_by_rel_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnst_rel_by_src_props_neo4j() {
+async fn read_mnst_rel_by_src_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_src_props();
+    read_mnst_rel_by_src_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnst_rel_by_src_props_graphson2() {
+async fn read_mnst_rel_by_src_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_src_props();
+    read_mnst_rel_by_src_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnst_rel_by_src_props() {
+async fn read_mnst_rel_by_src_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -393,6 +400,7 @@ fn read_mnst_rel_by_src_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -401,8 +409,9 @@ fn read_mnst_rel_by_src_props() {
             "activity",
             "__typename props{repo} dst{...on Commit{ __typename hash}}",
             Some("1234".to_string()),
-            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -430,37 +439,37 @@ fn read_mnst_rel_by_src_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_mnst_rel_by_dst_props_neo4j() {
+async fn read_mnst_rel_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_dst_props();
+    read_mnst_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_mnst_rel_by_dst_props_graphson2() {
+async fn read_mnst_rel_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnst_rel_by_dst_props();
+    read_mnst_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_mnst_rel_by_dst_props() {
+async fn read_mnst_rel_by_dst_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -482,6 +491,7 @@ fn read_mnst_rel_by_dst_props() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -490,8 +500,9 @@ fn read_mnst_rel_by_dst_props() {
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
             Some("1234".to_string()),
-            Some(json!({"dst": {"Commit": {"hash": "00000"}}})),
+            Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -513,37 +524,37 @@ fn read_mnst_rel_by_dst_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_rel_by_rel_prop_neo4j() {
+async fn update_mnst_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_rel_prop();
+    update_mnst_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_rel_by_rel_prop_graphson2() {
+async fn update_mnst_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_rel_prop();
+    update_mnst_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_rel_by_rel_prop() {
+async fn update_mnst_rel_by_rel_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -565,6 +576,7 @@ fn update_mnst_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -576,6 +588,7 @@ fn update_mnst_rel_by_rel_prop() {
             Some(&json!({"props": {"repo": "Repo Zero"}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -603,8 +616,9 @@ fn update_mnst_rel_by_rel_prop() {
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -638,37 +652,37 @@ fn update_mnst_rel_by_rel_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_rel_by_src_prop_neo4j() {
+async fn update_mnst_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_src_prop();
+    update_mnst_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_rel_by_src_prop_graphson2() {
+async fn update_mnst_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_src_prop();
+    update_mnst_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_rel_by_src_prop() {
+async fn update_mnst_rel_by_src_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -690,6 +704,7 @@ fn update_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -701,6 +716,7 @@ fn update_mnst_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -731,37 +747,37 @@ fn update_mnst_rel_by_src_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_mnst_rel_by_dst_prop_neo4j() {
+async fn update_mnst_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_dst_prop();
+    update_mnst_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_mnst_rel_by_dst_prop_graphson2() {
+async fn update_mnst_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnst_rel_by_dst_prop();
+    update_mnst_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_mnst_rel_by_dst_prop() {
+async fn update_mnst_rel_by_dst_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -783,6 +799,7 @@ fn update_mnst_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let a0 = client
@@ -794,6 +811,7 @@ fn update_mnst_rel_by_dst_prop() {
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
+        .await
         .unwrap();
 
     let activity = a0.as_array().unwrap();
@@ -821,8 +839,9 @@ fn update_mnst_rel_by_dst_prop() {
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -856,37 +875,37 @@ fn update_mnst_rel_by_dst_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnst_rel_by_rel_prop_neo4j() {
+async fn delete_mnst_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_rel_prop();
+    delete_mnst_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnst_rel_by_rel_prop_graphson2() {
+async fn delete_mnst_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_rel_prop();
+    delete_mnst_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnst_rel_by_rel_prop() {
+async fn delete_mnst_rel_by_rel_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -908,6 +927,7 @@ fn delete_mnst_rel_by_rel_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -919,6 +939,7 @@ fn delete_mnst_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -928,6 +949,7 @@ fn delete_mnst_rel_by_rel_prop() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -958,37 +980,37 @@ fn delete_mnst_rel_by_rel_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnst_rel_by_dst_prop_neo4j() {
+async fn delete_mnst_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_dst_prop();
+    delete_mnst_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnst_rel_by_dst_prop_graphson2() {
+async fn delete_mnst_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_dst_prop();
+    delete_mnst_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnst_rel_by_dst_prop() {
+async fn delete_mnst_rel_by_dst_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -1010,6 +1032,7 @@ fn delete_mnst_rel_by_dst_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -1021,6 +1044,7 @@ fn delete_mnst_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1030,6 +1054,7 @@ fn delete_mnst_rel_by_dst_prop() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -1060,37 +1085,37 @@ fn delete_mnst_rel_by_dst_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_mnst_rel_by_src_prop_neo4j() {
+async fn delete_mnst_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_src_prop();
+    delete_mnst_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_mnst_rel_by_src_prop_graphson2() {
+async fn delete_mnst_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnst_rel_by_src_prop();
+    delete_mnst_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -1112,6 +1137,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -1133,6 +1159,7 @@ fn delete_mnst_rel_by_src_prop() {
                 ]
             }),
         )
+        .await
         .unwrap();
 
     let _a0 = client
@@ -1144,6 +1171,7 @@ fn delete_mnst_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
@@ -1151,8 +1179,9 @@ fn delete_mnst_rel_by_src_prop() {
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
@@ -1160,8 +1189,9 @@ fn delete_mnst_rel_by_src_prop() {
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
             Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects0.as_array().unwrap();

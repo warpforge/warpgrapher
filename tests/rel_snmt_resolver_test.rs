@@ -12,38 +12,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_snmt_new_rel_neo4j() {
+async fn create_snmt_new_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snmt_new_rel();
+    create_snmt_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_snmt_new_rel_graphson2() {
+async fn create_snmt_new_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snmt_new_rel();
+    create_snmt_new_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_snmt_new_rel() {
+async fn create_snmt_new_rel() {
     let mut client = test_client();
 
     let _p0 = client
@@ -53,6 +53,7 @@ fn create_snmt_new_rel() {
             Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -62,6 +63,7 @@ fn create_snmt_new_rel() {
             Some("1234".to_string()),
             &json!({"name": "Project One"}),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -72,6 +74,7 @@ fn create_snmt_new_rel() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"publicized": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
@@ -87,6 +90,7 @@ fn create_snmt_new_rel() {
             &json!({"name": "Project One"}),
             &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
@@ -98,8 +102,9 @@ fn create_snmt_new_rel() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -117,8 +122,9 @@ fn create_snmt_new_rel() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -134,37 +140,37 @@ fn create_snmt_new_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_snmt_new_existing_node_neo4j() {
+async fn create_snmt_new_existing_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snmt_rel_existing_node();
+    create_snmt_rel_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_snmt_rel_existing_node_graphson2() {
+async fn create_snmt_rel_existing_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_snmt_rel_existing_node();
+    create_snmt_rel_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_snmt_rel_existing_node() {
+async fn create_snmt_rel_existing_node() {
     let mut client = test_client();
 
     let _p0 = client
@@ -174,6 +180,7 @@ fn create_snmt_rel_existing_node() {
             Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -183,6 +190,7 @@ fn create_snmt_rel_existing_node() {
             Some("1234".to_string()),
             &json!({"name": "Project One"}),
         )
+        .await
         .unwrap();
 
     let _s0 = client
@@ -192,6 +200,7 @@ fn create_snmt_rel_existing_node() {
             Some("1234".to_string()),
             &json!({"name": "ScrumBoard Zero"}),
         )
+        .await
         .unwrap();
 
     let _k0 = client
@@ -201,6 +210,7 @@ fn create_snmt_rel_existing_node() {
             Some("1234".to_string()),
             &json!({"name": "KanbanBoard Zero"}),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -213,6 +223,7 @@ fn create_snmt_rel_existing_node() {
                 "props": {"publicized": true}, 
                 "dst": {"KanbanBoard": {"EXISTING": {"name": "KanbanBoard Zero"}}}
             }))
+        .await
         .unwrap();
 
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
@@ -230,6 +241,7 @@ fn create_snmt_rel_existing_node() {
                 "props": {"publicized": false}, 
                 "dst": {"ScrumBoard": {"EXISTING": {"name": "ScrumBoard Zero"}}}
             }))
+        .await
         .unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
@@ -241,8 +253,9 @@ fn create_snmt_rel_existing_node() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -258,8 +271,9 @@ fn create_snmt_rel_existing_node() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects.as_array().unwrap();
@@ -273,37 +287,37 @@ fn create_snmt_rel_existing_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_snmt_rel_by_rel_props_neo4j() {
+async fn read_snmt_rel_by_rel_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_rel_props();
+    read_snmt_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_snmt_rel_by_rel_props_graphson2() {
+async fn read_snmt_rel_by_rel_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_rel_props();
+    read_snmt_rel_by_rel_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_snmt_rel_by_rel_props() {
+async fn read_snmt_rel_by_rel_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -319,6 +333,7 @@ fn read_snmt_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -334,6 +349,7 @@ fn read_snmt_rel_by_rel_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -341,8 +357,9 @@ fn read_snmt_rel_by_rel_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"props": {"publicized": true}})),
+            Some(&json!({"props": {"publicized": true}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -367,8 +384,9 @@ fn read_snmt_rel_by_rel_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234".to_string()),
-            Some(json!({"props": {"publicized": false}})),
+            Some(&json!({"props": {"publicized": false}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -390,37 +408,37 @@ fn read_snmt_rel_by_rel_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_snmt_rel_by_src_props_neo4j() {
+async fn read_snmt_rel_by_src_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_src_props();
+    read_snmt_rel_by_src_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_snmt_rel_by_src_props_graphson2() {
+async fn read_snmt_rel_by_src_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_src_props();
+    read_snmt_rel_by_src_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_snmt_rel_by_src_props() {
+async fn read_snmt_rel_by_src_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -436,6 +454,7 @@ fn read_snmt_rel_by_src_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -451,6 +470,7 @@ fn read_snmt_rel_by_src_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -458,8 +478,9 @@ fn read_snmt_rel_by_src_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -484,8 +505,9 @@ fn read_snmt_rel_by_src_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"src": {"Project": {"name": "Project One"}}})),
+            Some(&json!({"src": {"Project": {"name": "Project One"}}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -507,37 +529,37 @@ fn read_snmt_rel_by_src_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_snmt_rel_by_dst_props_neo4j() {
+async fn read_snmt_rel_by_dst_props_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_dst_props();
+    read_snmt_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_snmt_rel_by_dst_props_graphson2() {
+async fn read_snmt_rel_by_dst_props_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_snmt_rel_by_dst_props();
+    read_snmt_rel_by_dst_props().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_snmt_rel_by_dst_props() {
+async fn read_snmt_rel_by_dst_props() {
     let mut client = test_client();
 
     let _p0 = client
@@ -553,6 +575,7 @@ fn read_snmt_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -568,6 +591,7 @@ fn read_snmt_rel_by_dst_props() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -575,8 +599,9 @@ fn read_snmt_rel_by_dst_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
+            Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -601,8 +626,9 @@ fn read_snmt_rel_by_dst_props() {
             "Project",
             "board",
             "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234".to_string()),
-            Some(json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
+            Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -624,37 +650,37 @@ fn read_snmt_rel_by_dst_props() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_snmt_rel_by_rel_prop_neo4j() {
+async fn update_snmt_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_rel_prop();
+    update_snmt_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_snmt_rel_by_rel_prop_graphson2() {
+async fn update_snmt_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_rel_prop();
+    update_snmt_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_snmt_rel_by_rel_prop() {
+async fn update_snmt_rel_by_rel_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -670,6 +696,7 @@ fn update_snmt_rel_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -685,6 +712,7 @@ fn update_snmt_rel_by_rel_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -695,6 +723,7 @@ fn update_snmt_rel_by_rel_prop() {
             Some(&json!({"props": {"publicized": true}})),
             &json!({"props": {"publicized": false}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -721,8 +750,9 @@ fn update_snmt_rel_by_rel_prop() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -745,6 +775,7 @@ fn update_snmt_rel_by_rel_prop() {
             Some(&json!({"props": {"publicized": false}})),
             &json!({"props": {"publicized": true}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -777,8 +808,9 @@ fn update_snmt_rel_by_rel_prop() {
         .read_node(
             "Project",
             "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     let projects_a = projects1.as_array().unwrap();
@@ -795,37 +827,37 @@ fn update_snmt_rel_by_rel_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_snmt_rel_by_src_prop_neo4j() {
+async fn update_snmt_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_src_prop();
+    update_snmt_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_snmt_rel_by_src_prop_graphson2() {
+async fn update_snmt_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_src_prop();
+    update_snmt_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_snmt_rel_by_src_prop() {
+async fn update_snmt_rel_by_src_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -841,6 +873,7 @@ fn update_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -856,6 +889,7 @@ fn update_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -866,6 +900,7 @@ fn update_snmt_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"publicized": false}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -896,6 +931,7 @@ fn update_snmt_rel_by_src_prop() {
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
             &json!({"props": {"publicized": true}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -920,37 +956,37 @@ fn update_snmt_rel_by_src_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_snmt_rel_by_dst_prop_neo4j() {
+async fn update_snmt_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_dst_prop();
+    update_snmt_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_snmt_rel_by_dst_prop_graphson2() {
+async fn update_snmt_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_snmt_rel_by_dst_prop();
+    update_snmt_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_snmt_rel_by_dst_prop() {
+async fn update_snmt_rel_by_dst_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -966,6 +1002,7 @@ fn update_snmt_rel_by_dst_prop() {
                   }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -981,6 +1018,7 @@ fn update_snmt_rel_by_dst_prop() {
                   }
             }),
         )
+        .await
         .unwrap();
 
     let b0 = client
@@ -991,6 +1029,7 @@ fn update_snmt_rel_by_dst_prop() {
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
             &json!({"props": {"publicized": true}}),
         )
+        .await
         .unwrap();
 
     let board = b0.as_array().unwrap();
@@ -1021,6 +1060,7 @@ fn update_snmt_rel_by_dst_prop() {
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
             &json!({"props": {"publicized": false}}),
         )
+        .await
         .unwrap();
 
     let board = b1.as_array().unwrap();
@@ -1045,37 +1085,37 @@ fn update_snmt_rel_by_dst_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snmt_rel_by_rel_prop_neo4j() {
+async fn delete_snmt_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_rel_prop();
+    delete_snmt_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snmt_rel_by_rel_prop_graphson2() {
+async fn delete_snmt_rel_by_rel_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_rel_prop();
+    delete_snmt_rel_by_rel_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snmt_rel_by_rel_prop() {
+async fn delete_snmt_rel_by_rel_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -1091,6 +1131,7 @@ fn delete_snmt_rel_by_rel_prop() {
                     }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -1102,6 +1143,7 @@ fn delete_snmt_rel_by_rel_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1110,6 +1152,7 @@ fn delete_snmt_rel_by_rel_prop() {
             "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1130,6 +1173,7 @@ fn delete_snmt_rel_by_rel_prop() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     let _b2 = client.delete_rel(
@@ -1139,7 +1183,7 @@ fn delete_snmt_rel_by_rel_prop() {
         Some(&json!({"props": {"publicized": false}})),
         None,
         None,
-    );
+    ).await;
 
     let projects = client
         .read_node(
@@ -1147,6 +1191,7 @@ fn delete_snmt_rel_by_rel_prop() {
             "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1161,37 +1206,37 @@ fn delete_snmt_rel_by_rel_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snmt_rel_by_dst_prop_neo4j() {
+async fn delete_snmt_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_dst_prop();
+    delete_snmt_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snmt_rel_by_dst_prop_graphson2() {
+async fn delete_snmt_rel_by_dst_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_dst_prop();
+    delete_snmt_rel_by_dst_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snmt_rel_by_dst_prop() {
+async fn delete_snmt_rel_by_dst_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -1207,6 +1252,7 @@ fn delete_snmt_rel_by_dst_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -1218,6 +1264,7 @@ fn delete_snmt_rel_by_dst_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects = client
@@ -1226,6 +1273,7 @@ fn delete_snmt_rel_by_dst_prop() {
             "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1246,6 +1294,7 @@ fn delete_snmt_rel_by_dst_prop() {
             &json!({"name": "Project Zero"}),
             &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
+        .await
         .unwrap();
 
     let _b2 = client.delete_rel(
@@ -1255,7 +1304,7 @@ fn delete_snmt_rel_by_dst_prop() {
         Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         None,
         None,
-    );
+    ).await;
 
     let projects = client
         .read_node(
@@ -1263,6 +1312,7 @@ fn delete_snmt_rel_by_dst_prop() {
             "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -1277,37 +1327,37 @@ fn delete_snmt_rel_by_dst_prop() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_snmt_rel_by_src_prop_neo4j() {
+async fn delete_snmt_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_src_prop();
+    delete_snmt_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_snmt_rel_by_src_prop_graphson2() {
+async fn delete_snmt_rel_by_src_prop_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_snmt_rel_by_src_prop();
+    delete_snmt_rel_by_src_prop().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_snmt_rel_by_src_prop() {
+async fn delete_snmt_rel_by_src_prop() {
     let mut client = test_client();
 
     let _p0 = client
@@ -1323,6 +1373,7 @@ fn delete_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _p1 = client
@@ -1338,6 +1389,7 @@ fn delete_snmt_rel_by_src_prop() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     let _b0 = client
@@ -1349,22 +1401,25 @@ fn delete_snmt_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects0 = client
         .read_node(
             "Project",
             "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project Zero"})),
+            Some(&json!({"name": "Project Zero"})),
         )
+        .await
         .unwrap();
 
     let projects1 = client
         .read_node(
             "Project",
             "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects0.is_array());
@@ -1402,14 +1457,16 @@ fn delete_snmt_rel_by_src_prop() {
             None,
             None,
         )
+        .await
         .unwrap();
 
     let projects2 = client
         .read_node(
             "Project",
             "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234".to_string()),
-            Some(json!({"name": "Project One"})),
+            Some(&json!({"name": "Project One"})),
         )
+        .await
         .unwrap();
 
     assert!(projects2.is_array());

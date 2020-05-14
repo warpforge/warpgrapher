@@ -13,38 +13,38 @@ use setup::test_client;
 use setup::{clear_db, init};
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_node_with_rel_to_new_neo4j() {
+async fn create_node_with_rel_to_new_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_new();
+    create_node_with_rel_to_new().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_node_with_rel_to_new_graphson2() {
+async fn create_node_with_rel_to_new_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_new();
+    create_node_with_rel_to_new().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if a node is created with an SNMT rel to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_node_with_rel_to_new() {
+async fn create_node_with_rel_to_new() {
     let mut client = test_client();
 
     // create new Project with rel to new KanbanBoard
@@ -78,6 +78,7 @@ fn create_node_with_rel_to_new() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(results0.is_object());
@@ -97,10 +98,11 @@ fn create_node_with_rel_to_new() {
             id
             name",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "SPARTAN-V Board"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results1.is_array());
@@ -127,10 +129,11 @@ fn create_node_with_rel_to_new() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "SPARTAN-V"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results2.is_array());
@@ -147,38 +150,38 @@ fn create_node_with_rel_to_new() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn create_node_with_rel_to_existing_neo4j() {
+async fn create_node_with_rel_to_existing_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_existing();
+    create_node_with_rel_to_existing().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn create_node_with_rel_to_existing_graphson2() {
+async fn create_node_with_rel_to_existing_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_node_with_rel_to_existing();
+    create_node_with_rel_to_existing().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if a node is created with an SNMT rel to existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn create_node_with_rel_to_existing() {
+async fn create_node_with_rel_to_existing() {
     let mut client = test_client();
 
     // create new ScrumBoard
@@ -194,6 +197,7 @@ fn create_node_with_rel_to_existing() {
                 "name": "SPARTAN-VI Board"
             }),
         )
+        .await
         .unwrap();
     assert!(results0.is_object());
     assert_eq!(results0.get("__typename").unwrap(), "ScrumBoard");
@@ -229,6 +233,7 @@ fn create_node_with_rel_to_existing() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     assert!(results1.is_object());
@@ -251,10 +256,11 @@ fn create_node_with_rel_to_existing() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "name": "SPARTAN-VI"
             })),
         )
+        .await
         .unwrap();
 
     assert!(results2.is_array());
@@ -268,31 +274,31 @@ fn create_node_with_rel_to_existing() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_multiple_nodes_with_multiple_rels_neo4j() {
+async fn read_multiple_nodes_with_multiple_rels_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_multiple_nodes_with_multiple_rels();
+    read_multiple_nodes_with_multiple_rels().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_multiple_nodes_with_multiple_rels_graphson2() {
+async fn read_multiple_nodes_with_multiple_rels_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_multiple_nodes_with_multiple_rels();
+    read_multiple_nodes_with_multiple_rels().await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -300,7 +306,7 @@ fn read_multiple_nodes_with_multiple_rels_graphson2() {
 /// Passes if multiple nodes with multiple rels are read and
 /// the relationships associate correctly
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_multiple_nodes_with_multiple_rels() {
+async fn read_multiple_nodes_with_multiple_rels() {
     let mut client = test_client();
 
     // create multiple nodes with multiple rels
@@ -324,6 +330,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
     let results1 = client
         .create_node(
@@ -345,6 +352,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
     let results2 = client
         .create_node(
@@ -366,6 +374,7 @@ fn read_multiple_nodes_with_multiple_rels() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes
@@ -378,8 +387,12 @@ fn read_multiple_nodes_with_multiple_rels() {
             board { 
                 __typename 
                 dst { 
+                    __typename 
                     ... on ScrumBoard {
-                        __typename 
+                        id
+                        name
+                    }
+                    ... on KanbanBoard {
                         id
                         name
                     }
@@ -388,6 +401,7 @@ fn read_multiple_nodes_with_multiple_rels() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
 
     assert!(results3.is_array());
@@ -428,38 +442,38 @@ fn read_multiple_nodes_with_multiple_rels() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_node_with_matching_props_on_rel_neo4j() {
+async fn read_node_with_matching_props_on_rel_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_node_with_matching_props_on_rel();
+    read_node_with_matching_props_on_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_node_with_matching_props_on_rel_graphson2() {
+async fn read_node_with_matching_props_on_rel_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_node_with_matching_props_on_rel();
+    read_node_with_matching_props_on_rel().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if nodes matching props on a relationship are returned
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_node_with_matching_props_on_rel() {
+async fn read_node_with_matching_props_on_rel() {
     let mut client = test_client();
 
     // create nodes with rel with props
@@ -484,6 +498,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
     assert!(results0.is_object());
     let results1 = client
@@ -507,6 +522,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             }),
         )
+        .await
         .unwrap();
     assert!(results1.is_object());
 
@@ -531,7 +547,7 @@ fn read_node_with_matching_props_on_rel() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "board": {
                     "props": {
                         "publicized": true
@@ -539,6 +555,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     let projects0 = results3.as_array().unwrap();
@@ -570,7 +587,7 @@ fn read_node_with_matching_props_on_rel() {
                 } 
             }",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "board": {
                     "props": {
                         "publicized": false
@@ -578,6 +595,7 @@ fn read_node_with_matching_props_on_rel() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results4.is_array());
     let projects1 = results4.as_array().unwrap();
@@ -593,31 +611,31 @@ fn read_node_with_matching_props_on_rel() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
+async fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_node_with_matching_props_on_rel_dst_node();
+    read_node_with_matching_props_on_rel_dst_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn read_node_with_matching_props_on_rel_dst_node_graphson2() {
+async fn read_node_with_matching_props_on_rel_dst_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_node_with_matching_props_on_rel_dst_node();
+    read_node_with_matching_props_on_rel_dst_node().await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -625,7 +643,7 @@ fn read_node_with_matching_props_on_rel_dst_node_graphson2() {
 /// Passes if it returns nodes with relationship dst nodes
 /// with matching props
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn read_node_with_matching_props_on_rel_dst_node() {
+async fn read_node_with_matching_props_on_rel_dst_node() {
     let mut client = test_client();
 
     // create nodes with rel with props
@@ -650,6 +668,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             }),
         )
+        .await
         .unwrap();
     let _results1 = client
         .create_node(
@@ -672,6 +691,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -698,7 +718,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
              }
             ",
             Some("1234".to_string()),
-            Some(json!({
+            Some(&json!({
                 "board": {
                     "dst": {
                         "ScrumBoard": {
@@ -708,6 +728,7 @@ fn read_node_with_matching_props_on_rel_dst_node() {
                 }
             })),
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -719,38 +740,37 @@ fn read_node_with_matching_props_on_rel_dst_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_existing_node_with_rel_to_new_node_neo4j() {
+async fn update_existing_node_with_rel_to_new_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_existing_node_with_rel_to_new_node();
+    update_existing_node_with_rel_to_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_existing_node_with_rel_to_new_node_graphson2() {
+async fn update_existing_node_with_rel_to_new_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_existing_node_with_rel_to_new_node();
+    update_existing_node_with_rel_to_new_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
-/// for an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_existing_node_with_rel_to_new_node() {
+async fn update_existing_node_with_rel_to_new_node() {
     let mut client = test_client();
 
     // create project node
@@ -763,6 +783,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
 
     // update project node to create a rel to a new node
@@ -800,6 +821,7 @@ fn update_existing_node_with_rel_to_new_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -816,12 +838,17 @@ fn update_existing_node_with_rel_to_new_node() {
                         id
                         name
                     }
+                    ... on KanbanBoard {
+                        id
+                        name
+                    }
                 }
              }
             ",
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -839,37 +866,37 @@ fn update_existing_node_with_rel_to_new_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn update_existing_node_with_rel_to_existing_node_neo4j() {
+async fn update_existing_node_with_rel_to_existing_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_existing_node_with_rel_to_existing_node();
+    update_existing_node_with_rel_to_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn update_existing_node_with_rel_to_existing_node_graphson2() {
+async fn update_existing_node_with_rel_to_existing_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_existing_node_with_rel_to_existing_node();
+    update_existing_node_with_rel_to_existing_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn update_existing_node_with_rel_to_existing_node() {
+async fn update_existing_node_with_rel_to_existing_node() {
     let mut client = test_client();
 
     // create project node
@@ -882,17 +909,20 @@ fn update_existing_node_with_rel_to_existing_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
 
     // create board node
-    let _results1 = client.create_node(
-        "ScrumBoard",
-        "id",
-        Some("1234".to_string()),
-        &json!({
-            "name": "ORION Board"
-        }),
-    );
+    let _results1 = client
+        .create_node(
+            "ScrumBoard",
+            "id",
+            Some("1234".to_string()),
+            &json!({
+                "name": "ORION Board"
+            }),
+        )
+        .await;
 
     // update project node to create a rel to a new node
     let _results2 = client
@@ -920,6 +950,7 @@ fn update_existing_node_with_rel_to_existing_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // read nodes matching rel dst node props
@@ -942,6 +973,7 @@ fn update_existing_node_with_rel_to_existing_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     let projects = results2.as_array().unwrap();
@@ -959,37 +991,37 @@ fn update_existing_node_with_rel_to_existing_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
+async fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_matching_props_on_rel_dst_node();
+    delete_node_with_matching_props_on_rel_dst_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_with_matching_props_on_rel_dst_node_graphson2() {
+async fn delete_node_with_matching_props_on_rel_dst_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_with_matching_props_on_rel_dst_node();
+    delete_node_with_matching_props_on_rel_dst_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node_with_matching_props_on_rel_dst_node() {
+async fn delete_node_with_matching_props_on_rel_dst_node() {
     let mut client = test_client();
 
     // create project nodes
@@ -1002,6 +1034,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
                 "name": "ORION",
             }),
         )
+        .await
         .unwrap();
     let _results1 = client
         .create_node(
@@ -1012,6 +1045,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
                 "name": "SPARTAN-II",
             }),
         )
+        .await
         .unwrap();
 
     // delete node with matching props
@@ -1022,6 +1056,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
             Some(&json!({"name": "ORION"})),
             None,
         )
+        .await
         .unwrap();
 
     // read projects
@@ -1035,6 +1070,7 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);
@@ -1042,37 +1078,37 @@ fn delete_node_with_matching_props_on_rel_dst_node() {
 }
 
 #[cfg(feature = "neo4j")]
+#[tokio::test]
 #[serial(neo4j)]
-#[test]
-fn delete_node_neo4j() {
+async fn delete_node_neo4j() {
     init();
     clear_db();
 
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node();
+    delete_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
+#[tokio::test]
 #[serial(graphson2)]
-#[test]
-fn delete_node_graphson2() {
+async fn delete_node_graphson2() {
     init();
     clear_db();
 
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node();
+    delete_node().await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-fn delete_node() {
+async fn delete_node() {
     let mut client = test_client();
 
     // create project nodes
@@ -1094,6 +1130,7 @@ fn delete_node() {
                 }
             }),
         )
+        .await
         .unwrap();
 
     // delete node with matching props
@@ -1104,6 +1141,7 @@ fn delete_node() {
             Some(&json!({"name": "ORION"})),
             Some(&json!({})),
         )
+        .await
         .unwrap();
 
     // read projects
@@ -1117,6 +1155,7 @@ fn delete_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
     assert!(results2.is_array());
     assert_eq!(results2.as_array().unwrap().len(), 0);
@@ -1132,6 +1171,7 @@ fn delete_node() {
             Some("1234".to_string()),
             None,
         )
+        .await
         .unwrap();
     assert!(results3.is_array());
     assert_eq!(results3.as_array().unwrap().len(), 1);

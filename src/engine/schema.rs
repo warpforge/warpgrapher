@@ -3,12 +3,11 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    EndpointClass, GraphqlType, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherProp,
-    WarpgrapherRel, WarpgrapherType, WarpgrapherTypeDef,
+    Config, Endpoint, EndpointClass, GraphqlType, Prop, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
+use crate::engine::context::RequestContext;
 use crate::error::{Error, ErrorKind};
-use crate::server::context::WarpgrapherRequestContext;
 use inflector::Inflector;
 use juniper::RootNode;
 use std::collections::HashMap;
@@ -214,7 +213,7 @@ impl Argument {
 
 /// Takes a vector of WG Props and returns a map of Property structs that
 /// represent the property fields in a graphql schema component
-fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<String, Property> {
+fn generate_props(props: &[Prop], id: bool, object: bool) -> HashMap<String, Property> {
     let mut hm = HashMap::new();
 
     // if the ID field was specified, add it
@@ -266,7 +265,7 @@ fn generate_props(props: &[WarpgrapherProp], id: bool, object: bool) -> HashMap<
 /// In reality all this is doing is returning the name, but it add value by
 /// maintaining consistency with using functions that returned formatted names
 /// instead of doing inline string concat
-fn fmt_node_object_name(t: &WarpgrapherType) -> String {
+fn fmt_node_object_name(t: &Type) -> String {
     t.name.to_owned()
 }
 
@@ -285,7 +284,7 @@ fn fmt_node_object_name(t: &WarpgrapherType) -> String {
 ///     name: String
 ///     owner: ProjectOwnerRel
 /// }
-fn generate_node_object(t: &WarpgrapherType) -> NodeType {
+fn generate_node_object(t: &Type) -> NodeType {
     let mut props = generate_props(&t.props, true, true);
     for r in &t.rels {
         let mut arguments = HashMap::new();
@@ -313,7 +312,7 @@ fn generate_node_object(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeQueryInput
-fn fmt_node_query_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_query_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "QueryInput".to_string())
 }
 
@@ -332,7 +331,7 @@ fn fmt_node_query_input_name(t: &WarpgrapherType) -> String {
 ///     name: String
 ///     owner: ProjectOwnerQueryInput
 /// }
-fn generate_node_query_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_query_input(t: &Type) -> NodeType {
     let mut props = generate_props(&t.props, true, false);
     for r in &t.rels {
         props.insert(
@@ -349,7 +348,7 @@ fn generate_node_query_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
-fn fmt_node_create_mutation_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_create_mutation_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "CreateMutationInput".to_string())
 }
 
@@ -366,7 +365,7 @@ fn fmt_node_create_mutation_input_name(t: &WarpgrapherType) -> String {
 ///     name: String
 ///     owner: ProjectOwnerMutationInput
 /// }
-fn generate_node_create_mutation_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_create_mutation_input(t: &Type) -> NodeType {
     let mut props = generate_props(&t.props, false, false);
     for r in &t.rels {
         props.insert(
@@ -387,7 +386,7 @@ fn generate_node_create_mutation_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
-fn fmt_node_update_mutation_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_update_mutation_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "UpdateMutationInput".to_string())
 }
 
@@ -405,7 +404,7 @@ fn fmt_node_update_mutation_input_name(t: &WarpgrapherType) -> String {
 ///     owner: ProjectOwnerChangeInput
 ///     issues: ProjectIssuesChangeInput
 /// }
-fn generate_node_update_mutation_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_update_mutation_input(t: &Type) -> NodeType {
     let mut props = generate_props(&t.props, false, false);
     for r in &t.rels {
         props.insert(
@@ -426,7 +425,7 @@ fn generate_node_update_mutation_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeInput
-fn fmt_node_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "Input".to_string())
 }
 
@@ -443,7 +442,7 @@ fn fmt_node_input_name(t: &WarpgrapherType) -> String {
 ///     EXISTING: ProjectQueryInput
 ///     NEW: ProjectMutationInput
 /// }
-fn generate_node_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "EXISTING".to_owned(),
@@ -465,7 +464,7 @@ fn generate_node_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeUpdateInput
-fn fmt_node_update_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_update_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "UpdateInput".to_string())
 }
 
@@ -482,7 +481,7 @@ fn fmt_node_update_input_name(t: &WarpgrapherType) -> String {
 ///     match: ProjectQueryInput
 ///     modify: ProjectMutationInput
 /// }
-fn generate_node_update_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_update_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "match".to_owned(),
@@ -504,7 +503,7 @@ fn generate_node_update_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
-fn fmt_node_delete_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_delete_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "DeleteInput".to_string())
 }
 
@@ -521,7 +520,7 @@ fn fmt_node_delete_input_name(t: &WarpgrapherType) -> String {
 ///     match: ProjectQueryInput
 ///     delete: ProjectDeleteMutationInput
 /// }
-fn generate_node_delete_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_delete_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "match".to_owned(),
@@ -543,7 +542,7 @@ fn generate_node_delete_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteMutationInput
-fn fmt_node_delete_mutation_input_name(t: &WarpgrapherType) -> String {
+fn fmt_node_delete_mutation_input_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "DeleteMutationInput".to_string())
 }
 
@@ -559,7 +558,7 @@ fn fmt_node_delete_mutation_input_name(t: &WarpgrapherType) -> String {
 ///     owner: ProjectOwnerDeleteInput
 ///     issues: ProjectIssuesDeleteInput
 /// }
-fn generate_node_delete_mutation_input(t: &WarpgrapherType) -> NodeType {
+fn generate_node_delete_mutation_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     for r in &t.rels {
         props.insert(
@@ -580,7 +579,7 @@ fn generate_node_delete_mutation_input(t: &WarpgrapherType) -> NodeType {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeReadEndpoint
-fn fmt_node_read_endpoint_name(t: &WarpgrapherType) -> String {
+fn fmt_node_read_endpoint_name(t: &Type) -> String {
     t.name.to_owned()
 }
 
@@ -591,7 +590,7 @@ fn fmt_node_read_endpoint_name(t: &WarpgrapherType) -> String {
 ///
 /// Ex:
 /// Project(input: ProjectQueryInput): [Project]
-fn generate_node_read_endpoint(t: &WarpgrapherType) -> Property {
+fn generate_node_read_endpoint(t: &Type) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -620,7 +619,7 @@ fn generate_node_read_endpoint(t: &WarpgrapherType) -> Property {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
-fn fmt_node_create_endpoint_name(t: &WarpgrapherType) -> String {
+fn fmt_node_create_endpoint_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "Create".to_string())
 }
 
@@ -631,7 +630,7 @@ fn fmt_node_create_endpoint_name(t: &WarpgrapherType) -> String {
 ///
 /// Ex:
 /// ProjectCreate (input: ProjectCreateMutationInput): Project
-fn generate_node_create_endpoint(t: &WarpgrapherType) -> Property {
+fn generate_node_create_endpoint(t: &Type) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -659,7 +658,7 @@ fn generate_node_create_endpoint(t: &WarpgrapherType) -> Property {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
-fn fmt_node_update_endpoint_name(t: &WarpgrapherType) -> String {
+fn fmt_node_update_endpoint_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "Update".to_string())
 }
 
@@ -670,7 +669,7 @@ fn fmt_node_update_endpoint_name(t: &WarpgrapherType) -> String {
 ///
 /// Ex:
 /// ProjectUpdate (input: ProjectUpdateInput): [Project]
-fn generate_node_update_endpoint(t: &WarpgrapherType) -> Property {
+fn generate_node_update_endpoint(t: &Type) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -699,7 +698,7 @@ fn generate_node_update_endpoint(t: &WarpgrapherType) -> Property {
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteEndpoint
-fn fmt_node_delete_endpoint_name(t: &WarpgrapherType) -> String {
+fn fmt_node_delete_endpoint_name(t: &Type) -> String {
     format!("{}{}", t.name.to_owned(), "Delete".to_string())
 }
 
@@ -710,7 +709,7 @@ fn fmt_node_delete_endpoint_name(t: &WarpgrapherType) -> String {
 ///
 /// Ex:
 /// ProjectDelete (input: <ProjectQueryInput>): Int
-fn generate_node_delete_endpoint(t: &WarpgrapherType) -> Property {
+fn generate_node_delete_endpoint(t: &Type) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -738,7 +737,7 @@ fn generate_node_delete_endpoint(t: &WarpgrapherType) -> Property {
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelObject
-fn fmt_rel_object_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_object_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -749,7 +748,7 @@ fn fmt_rel_object_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
 
 /// Takes a WG rel an returns the name of the rel. In reality, this just makes
 /// a copy of the name
-fn fmt_rel_name(r: &WarpgrapherRel) -> String {
+fn fmt_rel_name(r: &Relationship) -> String {
     r.name.to_owned()
 }
 
@@ -770,7 +769,7 @@ fn fmt_rel_name(r: &WarpgrapherRel) -> String {
 ///     dst: ProjectOwnerNodesUnion
 ///     src: Project
 /// }
-fn generate_rel_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_owned(),
@@ -805,7 +804,7 @@ fn generate_rel_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsObject
-fn fmt_rel_props_object_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_props_object_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -825,7 +824,7 @@ fn fmt_rel_props_object_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String 
 /// type ProjectOwnerProps {
 ///     since: String
 /// }
-fn generate_rel_props_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_props_object(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_object_name(t, r),
         TypeKind::Object,
@@ -834,7 +833,7 @@ fn generate_rel_props_object(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesUnion
-fn fmt_rel_nodes_union_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_nodes_union_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -850,7 +849,7 @@ fn fmt_rel_nodes_union_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
 ///
 /// Ex:
 /// union ProjectIssuesNodesUnion = Feature | Bug
-fn generate_rel_nodes_union(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_nodes_union(t: &Type, r: &Relationship) -> NodeType {
     let mut nt = NodeType::new(
         fmt_rel_nodes_union_name(t, r),
         TypeKind::Union,
@@ -861,7 +860,7 @@ fn generate_rel_nodes_union(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelQueryInput
-fn fmt_rel_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -887,7 +886,7 @@ fn fmt_rel_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
 ///     src: ProjectQueryInput
 ///     dst: ProjectOwnerNodesQueryInputUnion  
 /// }
-fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_owned(),
@@ -923,7 +922,7 @@ fn generate_rel_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateMutationInput
-fn fmt_rel_create_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -946,7 +945,7 @@ fn fmt_rel_create_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -
 ///     props: ProjectOwnerPropsInput
 ///     dst: ProjectOwnerNodesMutationInputUnion  
 /// }
-fn generate_rel_create_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     if !r.props.is_empty() {
         props.insert(
@@ -975,7 +974,7 @@ fn generate_rel_create_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
-fn fmt_rel_change_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_change_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -999,7 +998,7 @@ fn fmt_rel_change_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String 
 ///     UPDATE: ProjectIssuesUpdateInput
 ///     DELETE: ProjectIssuesDeleteInput
 /// }
-fn generate_rel_change_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "ADD".to_owned(),
@@ -1028,7 +1027,7 @@ fn generate_rel_change_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
     NodeType::new(fmt_rel_change_input_name(t, r), TypeKind::Input, props)
 }
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
-fn fmt_rel_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1052,7 +1051,7 @@ fn fmt_rel_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -
 ///     src: ProjectOwnerSrcUpdateMutationInput
 ///     dst: ProjectOwnerDstUpdateMutationInput
 /// }
-fn generate_rel_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     if !r.props.is_empty() {
         props.insert(
@@ -1088,7 +1087,7 @@ fn generate_rel_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcUpdateMutationInput
-fn fmt_rel_src_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_src_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1108,7 +1107,7 @@ fn fmt_rel_src_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// input ProjectOwnerSrcUpdateMutationInput {
 ///     Project: ProjectUpdateMutationInput
 /// }
-fn generate_rel_src_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_src_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         t.name.clone(),
@@ -1126,7 +1125,7 @@ fn generate_rel_src_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstUpdateMutationInput
-fn fmt_rel_dst_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_dst_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1146,7 +1145,7 @@ fn fmt_rel_dst_update_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// input ProjectOwnerDstUpdateMutationInput {
 ///     User: UserUpdateMutationInput
 /// }
-fn generate_rel_dst_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     for node in &r.nodes {
         props.insert(
@@ -1165,7 +1164,7 @@ fn generate_rel_dst_update_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
     )
 }
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
-fn fmt_rel_props_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1185,7 +1184,7 @@ fn fmt_rel_props_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
 /// input ProjectOwnerPropsInput   {
 ///     since: String
 /// }
-fn generate_rel_props_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_input_name(t, r),
         TypeKind::Input,
@@ -1194,7 +1193,7 @@ fn generate_rel_props_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
-fn fmt_rel_src_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_src_query_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1214,7 +1213,7 @@ fn fmt_rel_src_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// input ProjectOwnerSrcQueryInput  {
 ///     Project: ProjectQueryInput
 /// }
-fn generate_rel_src_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_src_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         t.name.clone(),
@@ -1228,7 +1227,7 @@ fn generate_rel_src_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> Node
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstQueryInput
-fn fmt_rel_dst_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_dst_query_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1248,7 +1247,7 @@ fn fmt_rel_dst_query_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 /// input ProjectOwnerDstQueryInput  {
 ///     User: UserQueryInput
 /// }
-fn generate_rel_dst_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_dst_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     for node in &r.nodes {
         props.insert(
@@ -1265,7 +1264,7 @@ fn generate_rel_dst_query_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> Node
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesMutationInputUnion
-fn fmt_rel_nodes_mutation_input_union_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_nodes_mutation_input_union_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1285,7 +1284,7 @@ fn fmt_rel_nodes_mutation_input_union_name(t: &WarpgrapherType, r: &WarpgrapherR
 /// input ProjectOwnerNodesMutationInputUnion  {
 ///     User: UserInput
 /// }
-fn generate_rel_nodes_mutation_input_union(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_nodes_mutation_input_union(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     for node in &r.nodes {
         props.insert(
@@ -1301,7 +1300,7 @@ fn generate_rel_nodes_mutation_input_union(t: &WarpgrapherType, r: &WarpgrapherR
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateInput
-fn fmt_rel_create_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1323,7 +1322,7 @@ fn fmt_rel_create_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String 
 ///     match: ProjectQueryInput
 ///     create: ProjectOwnerCreateMutationInput
 /// }
-fn generate_rel_create_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "match".to_owned(),
@@ -1346,7 +1345,7 @@ fn generate_rel_create_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateInput
-fn fmt_rel_update_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_update_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}{}",
         t.name.to_owned(),
@@ -1368,7 +1367,7 @@ fn fmt_rel_update_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String 
 ///     match: ProjectOwnerQueryInput
 ///     update: ProjectOwnerUpdateMutationInput
 /// }
-fn generate_rel_update_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "match".to_owned(),
@@ -1391,7 +1390,7 @@ fn generate_rel_update_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
-fn fmt_rel_delete_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_delete_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}DeleteInput",
         t.name.to_owned(),
@@ -1414,7 +1413,7 @@ fn fmt_rel_delete_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String 
 ///    src: ProjectOwnerSrcDeleteMutationInput
 ///    dst: ProjectOwnerDstDeleteMutationInput
 /// }
-fn generate_rel_delete_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "match".to_owned(),
@@ -1444,7 +1443,7 @@ fn generate_rel_delete_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeTyp
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlRelSrcDeleteMutationInput
-fn fmt_rel_src_delete_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_src_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}SrcDeleteMutationInput",
         t.name.to_owned(),
@@ -1463,7 +1462,7 @@ fn fmt_rel_src_delete_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// input ProjectOwnerSrcDeleteMutationInput {
 ///    Project: ProjectDeleteMutationInput
 /// }
-fn generate_rel_src_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_src_delete_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         t.name.clone(),
@@ -1481,7 +1480,7 @@ fn generate_rel_src_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
-fn fmt_rel_dst_delete_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_dst_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}DstDeleteMutationInput",
         t.name.to_owned(),
@@ -1500,7 +1499,7 @@ fn fmt_rel_dst_delete_mutation_input_name(t: &WarpgrapherType, r: &WarpgrapherRe
 /// input ProjectOwnerDstDeleteMutationInput {
 ///     User: UserDeleteMutationInput
 /// }
-fn generate_rel_dst_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRel) -> NodeType {
+fn generate_rel_dst_delete_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     for node in &r.nodes {
         props.insert(
@@ -1520,7 +1519,7 @@ fn generate_rel_dst_delete_mutation_input(t: &WarpgrapherType, r: &WarpgrapherRe
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelReadEndpoint
-fn fmt_rel_read_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_read_endpoint_name(t: &Type, r: &Relationship) -> String {
     format!("{}{}", t.name.to_owned(), r.name.to_owned().to_title_case())
 }
 
@@ -1531,7 +1530,7 @@ fn fmt_rel_read_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String
 ///
 /// Ex:
 /// ProjectOwner(input: ProjectOwnerQueryInput): [ProjectOwnerRel]
-fn generate_rel_read_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+fn generate_rel_read_endpoint(t: &Type, r: &Relationship) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -1560,7 +1559,7 @@ fn generate_rel_read_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Proper
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateEndpoint
-fn fmt_rel_create_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_create_endpoint_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}Create",
         t.name.to_owned(),
@@ -1575,7 +1574,7 @@ fn fmt_rel_create_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 ///
 /// Ex:
 /// ProjectOwnerCreate(input: ProjectOwnerCreateInput): ProjectOwnerRel
-fn generate_rel_create_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -1604,7 +1603,7 @@ fn generate_rel_create_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Prop
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateEndpoint
-fn fmt_rel_update_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_update_endpoint_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}Update",
         t.name.to_owned(),
@@ -1619,7 +1618,7 @@ fn fmt_rel_update_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 ///
 /// Ex:
 /// ProjectOwnerUpdate(input: ProjectOwnerUpdateInput): ProjectOwnerRel
-fn generate_rel_update_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+fn generate_rel_update_endpoint(t: &Type, r: &Relationship) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -1648,7 +1647,7 @@ fn generate_rel_update_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Prop
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDeleteEndpoint
-fn fmt_rel_delete_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> String {
+fn fmt_rel_delete_endpoint_name(t: &Type, r: &Relationship) -> String {
     format!(
         "{}{}Delete",
         t.name.to_owned(),
@@ -1663,7 +1662,7 @@ fn fmt_rel_delete_endpoint_name(t: &WarpgrapherType, r: &WarpgrapherRel) -> Stri
 ///
 /// Ex:
 /// ProjectOwnerDelete(input: ProjectOwnerQueryInput): [Project]
-fn generate_rel_delete_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Property {
+fn generate_rel_delete_endpoint(t: &Type, r: &Relationship) -> Property {
     let mut arguments = HashMap::new();
     arguments.insert(
         "input".to_string(),
@@ -1691,7 +1690,7 @@ fn generate_rel_delete_endpoint(t: &WarpgrapherType, r: &WarpgrapherRel) -> Prop
 }
 
 /// Takes a WG Endpoint and returns a NodeType representing a root endpoint
-fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
+fn generate_custom_endpoint(e: &Endpoint) -> Property {
     let mut arguments = HashMap::new();
     match &e.input {
         None => {}
@@ -1711,7 +1710,7 @@ fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
             );
 
             match &input.type_def {
-                WarpgrapherTypeDef::Scalar(s) => match s {
+                TypeDef::Scalar(s) => match s {
                     GraphqlType::Boolean => arguments.insert(
                         "input".to_string(),
                         Argument::new("input".to_string(), is_required, "Boolean".to_string()),
@@ -1729,11 +1728,11 @@ fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
                         Argument::new("input".to_string(), is_required, "String".to_string()),
                     ),
                 },
-                WarpgrapherTypeDef::Existing(e) => arguments.insert(
+                TypeDef::Existing(e) => arguments.insert(
                     "input".to_string(),
                     Argument::new("input".to_string(), is_required, e.clone()),
                 ),
-                WarpgrapherTypeDef::Custom(c) => arguments.insert(
+                TypeDef::Custom(c) => arguments.insert(
                     "input".to_string(),
                     Argument::new("input".to_string(), is_required, c.name.clone()),
                 ),
@@ -1745,14 +1744,14 @@ fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
         e.name.clone(),
         PropertyKind::CustomResolver,
         match &e.output.type_def {
-            WarpgrapherTypeDef::Scalar(t) => match &t {
+            TypeDef::Scalar(t) => match &t {
                 GraphqlType::Int => "Int".to_string(),
                 GraphqlType::Float => "Float".to_string(),
                 GraphqlType::String => "String".to_string(),
                 GraphqlType::Boolean => "Boolean".to_string(),
             },
-            WarpgrapherTypeDef::Existing(s) => s.clone(),
-            WarpgrapherTypeDef::Custom(t) => t.name.clone(),
+            TypeDef::Existing(s) => s.clone(),
+            TypeDef::Custom(t) => t.name.clone(),
         },
     )
     .with_required(e.output.required)
@@ -1760,7 +1759,7 @@ fn generate_custom_endpoint(e: &WarpgrapherEndpoint) -> Property {
     .with_arguments(arguments)
 }
 
-fn generate_custom_endpoint_input(t: &WarpgrapherType) -> NodeType {
+fn generate_custom_endpoint_input(t: &Type) -> NodeType {
     let mut props = generate_props(&t.props, false, false);
     for r in &t.rels {
         props.insert(
@@ -1786,7 +1785,7 @@ fn generate_static_version_query() -> Property {
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Config) -> HashMap<String, NodeType> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
@@ -1999,14 +1998,14 @@ fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
 
         // add custom input type if provided
         if let Some(input) = &e.input {
-            if let WarpgrapherTypeDef::Custom(t) = &input.type_def {
+            if let TypeDef::Custom(t) = &input.type_def {
                 let input = generate_custom_endpoint_input(&t);
                 nthm.insert(t.name.clone(), input);
             }
         }
 
         // add custom output type if provided
-        if let WarpgrapherTypeDef::Custom(t) = &e.output.type_def {
+        if let TypeDef::Custom(t) = &e.output.type_def {
             let node_type = generate_node_object(&t);
             nthm.insert(node_type.type_name.to_owned(), node_type);
         }
@@ -2033,25 +2032,23 @@ fn generate_schema(c: &WarpgrapherConfig) -> HashMap<String, NodeType> {
 /// GraphQL schema that matches the Warpgrapher configuration.
 ///
 /// # Errors
-/// Returns an [`Error`] of kind [`CouldNotResolveWarpgrapherType`] if
+/// Returns an [`Error`] of kind [`CouldNotResolveType`] if
 /// there is an error in the configuration, specifically if the
 /// configuration of type A references type B, but type B cannot be found.
 ///
 /// [`Error`]: ../error/struct.Error.html
-/// [`CouldNotResolveWarpgrapherType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveWarpgrapherType
+/// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
 ///
-pub fn create_root_node<GlobalCtx, ReqCtx>(
-    c: &WarpgrapherConfig,
-) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
+pub fn create_root_node<GlobalCtx, ReqCtx>(c: &Config) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
 where
     GlobalCtx: Debug,
-    ReqCtx: Debug + WarpgrapherRequestContext,
+    ReqCtx: RequestContext,
 {
     // Runtime performance could be optimized by generating the entirety of the
     // schema in one loop iteration over the configuration. In fact, that's how
     // the first iteration of the code worked. However, doing so adds code
     // complexity, as all the schema objects built from any given
-    // WarpgrapherType are built at once. This implementation opts for clarity
+    // Type are built at once. This implementation opts for clarity
     // over runtime efficiency, given that the number of configuration items
     // is lkely to be small.
 
@@ -2110,10 +2107,9 @@ mod tests {
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,
         ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind,
     };
-    use crate::server::config::{
-        EndpointClass, WarpgrapherConfig, WarpgrapherEndpoint, WarpgrapherEndpointType,
-        WarpgrapherEndpointsFilter, WarpgrapherProp, WarpgrapherRel, WarpgrapherType,
-        WarpgrapherTypeDef,
+    use crate::engine::config::{
+        Config, Endpoint, EndpointClass, EndpointType, EndpointsFilter, Prop, Relationship, Type,
+        TypeDef,
     };
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -2122,11 +2118,11 @@ mod tests {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
-    fn mock_project_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_project_type() -> Type {
+        Type::new(
             "Project".to_string(),
             vec![
-                WarpgrapherProp::new(
+                Prop::new(
                     "name".to_string(),
                     "String".to_string(),
                     true,
@@ -2134,7 +2130,7 @@ mod tests {
                     None,
                     None,
                 ),
-                WarpgrapherProp::new(
+                Prop::new(
                     "tags".to_string(),
                     "String".to_string(),
                     false,
@@ -2142,7 +2138,7 @@ mod tests {
                     None,
                     None,
                 ),
-                WarpgrapherProp::new(
+                Prop::new(
                     "public".to_string(),
                     "Boolean".to_string(),
                     true,
@@ -2152,11 +2148,11 @@ mod tests {
                 ),
             ],
             vec![
-                WarpgrapherRel::new(
+                Relationship::new(
                     "owner".to_string(),
                     false,
                     vec!["User".to_string()],
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "since".to_string(),
                         "String".to_string(),
                         false,
@@ -2164,38 +2160,38 @@ mod tests {
                         None,
                         None,
                     )],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
-                WarpgrapherRel::new(
+                Relationship::new(
                     "board".to_string(),
                     false,
                     vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
-                WarpgrapherRel::new(
+                Relationship::new(
                     "commits".to_string(),
                     true,
                     vec!["Commit".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
-                WarpgrapherRel::new(
+                Relationship::new(
                     "issues".to_string(),
                     true,
                     vec!["Feature".to_string(), "Bug".to_string()],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 ),
             ],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_user_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_user_type() -> Type {
+        Type::new(
             "User".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2204,14 +2200,14 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_kanbanboard_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_kanbanboard_type() -> Type {
+        Type::new(
             "KanbanBoard".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2220,14 +2216,14 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_scrumboard_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_scrumboard_type() -> Type {
+        Type::new(
             "ScrumBoard".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2236,14 +2232,14 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_feature_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_feature_type() -> Type {
+        Type::new(
             "Feature".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2252,14 +2248,14 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_bug_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_bug_type() -> Type {
+        Type::new(
             "Bug".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2268,14 +2264,14 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_commit_type() -> WarpgrapherType {
-        WarpgrapherType::new(
+    fn mock_commit_type() -> Type {
+        Type::new(
             "Commit".to_string(),
-            vec![WarpgrapherProp::new(
+            vec![Prop::new(
                 "name".to_string(),
                 "String".to_string(),
                 true,
@@ -2284,55 +2280,47 @@ mod tests {
                 None,
             )],
             vec![],
-            WarpgrapherEndpointsFilter::all(),
+            EndpointsFilter::all(),
         )
     }
 
-    fn mock_endpoint_one() -> WarpgrapherEndpoint {
+    fn mock_endpoint_one() -> Endpoint {
         // RegisterUsers(input: [UserCreateMutationInput]): [User]
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "RegisterUsers".to_string(),
             EndpointClass::Mutation,
-            Some(WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Existing("UserCreateMutationInput".to_string()),
+            Some(EndpointType::new(
+                TypeDef::Existing("UserCreateMutationInput".to_string()),
                 true,
                 true,
             )),
-            WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Existing("User".to_string()),
-                true,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), true, true),
         )
     }
 
-    fn mock_endpoint_two() -> WarpgrapherEndpoint {
+    fn mock_endpoint_two() -> Endpoint {
         // DisableUser(input: UserQueryInput): User
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "DisableUser".to_string(),
             EndpointClass::Mutation,
-            Some(WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Existing("UserQueryInput".to_string()),
+            Some(EndpointType::new(
+                TypeDef::Existing("UserQueryInput".to_string()),
                 false,
                 true,
             )),
-            WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Existing("User".to_string()),
-                false,
-                true,
-            ),
+            EndpointType::new(TypeDef::Existing("User".to_string()), false, true),
         )
     }
 
-    fn mock_endpoint_three() -> WarpgrapherEndpoint {
+    fn mock_endpoint_three() -> Endpoint {
         // ComputeBurndown(input: BurndownFilter): BurndownMetrics
-        WarpgrapherEndpoint::new(
+        Endpoint::new(
             "ComputeBurndown".to_string(),
             EndpointClass::Query,
-            Some(WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Custom(WarpgrapherType::new(
+            Some(EndpointType::new(
+                TypeDef::Custom(Type::new(
                     "BurndownFilter".to_string(),
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "ticket_types".to_string(),
                         "String".to_string(),
                         true,
@@ -2341,15 +2329,15 @@ mod tests {
                         None,
                     )],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 )),
                 false,
                 false,
             )),
-            WarpgrapherEndpointType::new(
-                WarpgrapherTypeDef::Custom(WarpgrapherType::new(
+            EndpointType::new(
+                TypeDef::Custom(Type::new(
                     "BurndownMetrics".to_string(),
-                    vec![WarpgrapherProp::new(
+                    vec![Prop::new(
                         "points".to_string(),
                         "Int".to_string(),
                         false,
@@ -2358,7 +2346,7 @@ mod tests {
                         None,
                     )],
                     vec![],
-                    WarpgrapherEndpointsFilter::all(),
+                    EndpointsFilter::all(),
                 )),
                 false,
                 true,
@@ -2366,8 +2354,8 @@ mod tests {
         )
     }
 
-    fn mock_config() -> WarpgrapherConfig {
-        WarpgrapherConfig::new(
+    fn mock_config() -> Config {
+        Config::new(
             1,
             vec![
                 mock_project_type(),
@@ -4630,11 +4618,11 @@ mod tests {
     /// Passes if the right schema elements are generated
     #[test]
     fn test_wg_type_endpoints_filter() {
-        let config = WarpgrapherConfig::new(
+        let config = Config::new(
             1,
-            vec![WarpgrapherType::new(
+            vec![Type::new(
                 "User".to_string(),
-                vec![WarpgrapherProp::new(
+                vec![Prop::new(
                     "name".to_string(),
                     "String".to_string(),
                     true,
@@ -4643,7 +4631,7 @@ mod tests {
                     None,
                 )],
                 vec![],
-                WarpgrapherEndpointsFilter::new(false, true, false, false),
+                EndpointsFilter::new(false, true, false, false),
             )],
             Vec::new(),
         );
@@ -4671,7 +4659,7 @@ mod tests {
     #[test]
     fn type_lookup_error() {
         init();
-        let config = WarpgrapherConfig::new(1, vec![mock_project_type()], vec![]);
+        let config = Config::new(1, vec![mock_project_type()], vec![]);
         let root_node = create_root_node::<(), ()>(&config);
         assert!(root_node.is_err());
     }
