@@ -2,19 +2,20 @@ mod setup;
 
 use log::trace;
 use serde_json::json;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use serial_test::serial;
 #[cfg(feature = "graphson2")]
 use setup::server::test_server_graphson2;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-use setup::test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(feature = "graphson2")]
+use setup::graphson2_test_client;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
+use warpgrapher::client::Client;
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn create_mnmt_new_nodes_graphson2() {
     init();
     clear_db();
@@ -22,14 +23,14 @@ async fn create_mnmt_new_nodes_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_new_nodes().await;
+    let client = graphson2_test_client();
+    create_mnmt_new_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn create_mnmt_new_nodes_neo4j() {
     init();
     clear_db();
@@ -37,16 +38,15 @@ async fn create_mnmt_new_nodes_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_new_nodes().await;
+    let client = neo4j_test_client();
+    create_mnmt_new_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_new_nodes() {
-    let mut client = test_client();
-
+async fn create_mnmt_new_nodes(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -193,7 +193,6 @@ async fn create_mnmt_new_nodes() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn create_mnmt_existing_nodes_graphson2() {
     init();
     clear_db();
@@ -201,14 +200,14 @@ async fn create_mnmt_existing_nodes_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_existing_nodes().await;
+    let client = graphson2_test_client();
+    create_mnmt_existing_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn create_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
@@ -216,16 +215,15 @@ async fn create_mnmt_existing_nodes_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_mnmt_existing_nodes().await;
+    let client = neo4j_test_client();
+    create_mnmt_existing_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_existing_nodes() {
-    let mut client = test_client();
-
+async fn create_mnmt_existing_nodes(mut client: Client) {
     let b0 = client
         .create_node(
             "Bug",
@@ -325,7 +323,6 @@ async fn create_mnmt_existing_nodes() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn read_mnmt_by_rel_props_graphson2() {
     init();
     clear_db();
@@ -333,14 +330,14 @@ async fn read_mnmt_by_rel_props_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_rel_props().await;
+    let client = graphson2_test_client();
+    read_mnmt_by_rel_props(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn read_mnmt_by_rel_props_neo4j() {
     init();
     clear_db();
@@ -348,16 +345,15 @@ async fn read_mnmt_by_rel_props_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_rel_props().await;
+    let client = neo4j_test_client();
+    read_mnmt_by_rel_props(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_rel_props() {
-    let mut client = test_client();
-
+async fn read_mnmt_by_rel_props(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -418,7 +414,6 @@ async fn read_mnmt_by_rel_props() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn read_mnmt_by_dst_props_graphson2() {
     init();
     clear_db();
@@ -426,14 +421,14 @@ async fn read_mnmt_by_dst_props_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_dst_props().await;
+    let client = graphson2_test_client();
+    read_mnmt_by_dst_props(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn read_mnmt_by_dst_props_neo4j() {
     init();
     clear_db();
@@ -441,16 +436,15 @@ async fn read_mnmt_by_dst_props_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_mnmt_by_dst_props().await;
+    let client = neo4j_test_client();
+    read_mnmt_by_dst_props(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a destination node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_dst_props() {
-    let mut client = test_client();
-
+async fn read_mnmt_by_dst_props(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -523,7 +517,6 @@ async fn read_mnmt_by_dst_props() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_mnmt_new_node_graphson2() {
     init();
     clear_db();
@@ -531,14 +524,14 @@ async fn update_mnmt_new_node_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_new_node().await;
+    let client = graphson2_test_client();
+    update_mnmt_new_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_mnmt_new_node_neo4j() {
     init();
     clear_db();
@@ -546,16 +539,15 @@ async fn update_mnmt_new_node_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_new_node().await;
+    let client = neo4j_test_client();
+    update_mnmt_new_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_new_node() {
-    let mut client = test_client();
-
+async fn update_mnmt_new_node(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -622,7 +614,6 @@ async fn update_mnmt_new_node() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_mnmt_existing_nodes_graphson2() {
     init();
     clear_db();
@@ -630,14 +621,14 @@ async fn update_mnmt_existing_nodes_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_existing_nodes().await;
+    let client = graphson2_test_client();
+    update_mnmt_existing_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
@@ -645,16 +636,15 @@ async fn update_mnmt_existing_nodes_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_existing_nodes().await;
+    let client = neo4j_test_client();
+    update_mnmt_existing_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_existing_nodes() {
-    let mut client = test_client();
-
+async fn update_mnmt_existing_nodes(mut client: Client) {
     let b0 = client
         .create_node(
             "Bug",
@@ -732,7 +722,6 @@ async fn update_mnmt_existing_nodes() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_mnmt_relationship_graphson2() {
     init();
     clear_db();
@@ -740,14 +729,14 @@ async fn update_mnmt_relationship_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_relationship().await;
+    let client = graphson2_test_client();
+    update_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_mnmt_relationship_neo4j() {
     init();
     clear_db();
@@ -755,16 +744,15 @@ async fn update_mnmt_relationship_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mnmt_relationship().await;
+    let client = neo4j_test_client();
+    update_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_relationship() {
-    let mut client = test_client();
-
+async fn update_mnmt_relationship(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -875,7 +863,6 @@ async fn update_mnmt_relationship() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_only_correct_mnmt_relationship_graphson2() {
     init();
     clear_db();
@@ -883,14 +870,14 @@ async fn update_only_correct_mnmt_relationship_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_only_correct_mnmt_relationship().await;
+    let client = graphson2_test_client();
+    update_only_correct_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_only_correct_mnmt_relationship_neo4j() {
     init();
     clear_db();
@@ -898,16 +885,15 @@ async fn update_only_correct_mnmt_relationship_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_only_correct_mnmt_relationship().await;
+    let client = neo4j_test_client();
+    update_only_correct_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher only updates the correct matching relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_only_correct_mnmt_relationship() {
-    let mut client = test_client();
-
+async fn update_only_correct_mnmt_relationship(mut client: Client) {
     client
         .create_node(
             "Project",
@@ -989,7 +975,6 @@ async fn update_only_correct_mnmt_relationship() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn delete_mnmt_relationship_graphson2() {
     init();
     clear_db();
@@ -997,14 +982,14 @@ async fn delete_mnmt_relationship_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnmt_relationship().await;
+    let client = graphson2_test_client();
+    delete_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn delete_mnmt_relationship_neo4j() {
     init();
     clear_db();
@@ -1012,16 +997,15 @@ async fn delete_mnmt_relationship_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mnmt_relationship().await;
+    let client = neo4j_test_client();
+    delete_mnmt_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to delete a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_relationship() {
-    let mut client = test_client();
-
+async fn delete_mnmt_relationship(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -1114,7 +1098,6 @@ async fn delete_mnmt_relationship() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn delete_node_by_mnmt_rel_property_graphson2() {
     init();
     clear_db();
@@ -1122,14 +1105,14 @@ async fn delete_node_by_mnmt_rel_property_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnmt_rel_property().await;
+    let client = graphson2_test_client();
+    delete_node_by_mnmt_rel_property(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn delete_node_by_mnmt_rel_property_neo4j() {
     init();
     clear_db();
@@ -1137,16 +1120,15 @@ async fn delete_node_by_mnmt_rel_property_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node_by_mnmt_rel_property().await;
+    let client = neo4j_test_client();
+    delete_node_by_mnmt_rel_property(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node based on matching a property on a rel.
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_by_mnmt_rel_property() {
-    let mut client = test_client();
-
+async fn delete_node_by_mnmt_rel_property(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -1199,7 +1181,6 @@ async fn delete_node_by_mnmt_rel_property() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn delete_node_graphson2() {
     init();
     clear_db();
@@ -1207,14 +1188,14 @@ async fn delete_node_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node().await;
+    let client = graphson2_test_client();
+    delete_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn delete_node_neo4j() {
     init();
     clear_db();
@@ -1222,16 +1203,15 @@ async fn delete_node_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_node().await;
+    let client = neo4j_test_client();
+    delete_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node() {
-    let mut client = test_client();
-
+async fn delete_node(mut client: Client) {
     client
         .create_node(
             "Project",

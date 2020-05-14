@@ -80,11 +80,27 @@ pub fn server_addr() -> String {
     format!("127.0.0.1:{}", port)
 }
 
+pub fn neo4j_server_addr() -> String {
+    "127.0.0.1:5000".to_string()
+}
+
+pub fn graphson2_server_addr() -> String {
+    "127.0.0.1:5001".to_string()
+}
+
 // Rust's dead code detection seems not to process all integration test crates,
 // leading to a false positive on this function.
 #[allow(dead_code)]
 pub fn gql_endpoint() -> String {
     format!("http://{}/graphql", server_addr())
+}
+
+pub fn neo4j_gql_endpoint() -> String {
+    format!("http://{}/graphql", neo4j_server_addr())
+}
+
+pub fn graphson2_gql_endpoint() -> String {
+    format!("http://{}/graphql", graphson2_server_addr())
 }
 
 #[allow(dead_code)]
@@ -95,8 +111,13 @@ pub fn load_config(config: &str) -> Config {
 }
 
 #[allow(dead_code)]
-pub fn test_client() -> Client {
-    Client::new(&gql_endpoint())
+pub fn neo4j_test_client() -> Client {
+    Client::new(&neo4j_gql_endpoint())
+}
+
+#[allow(dead_code)]
+pub fn graphson2_test_client() -> Client {
+    Client::new(&graphson2_gql_endpoint())
 }
 
 #[cfg(feature = "graphson2")]

@@ -162,6 +162,7 @@ pub fn test_server_graphson2(config_path: &str) -> Server {
 
     // create server
     Server::new(
+        "5001",
         config,
         Graphson2Endpoint::from_env().unwrap().get_pool().unwrap(),
         global_ctx,
@@ -173,6 +174,7 @@ pub fn test_server_graphson2(config_path: &str) -> Server {
 
 #[allow(dead_code)]
 pub struct Server {
+    bind_port: String,
     config: Config,
     db_pool: DatabasePool,
     global_ctx: AppGlobalCtx,
@@ -185,6 +187,7 @@ pub struct Server {
 
 impl Server {
     fn new(
+        bind_port: &str,
         config: Config,
         db_pool: DatabasePool,
         global_ctx: AppGlobalCtx,
@@ -193,6 +196,7 @@ impl Server {
         extensions: Extensions<AppGlobalCtx, AppReqCtx>,
     ) -> Server {
         Server {
+            bind_port: bind_port.to_owned(),
             config,
             db_pool,
             global_ctx,
@@ -214,6 +218,7 @@ impl Server {
 
         if block {
             super::actix_server::start(
+                &self.bind_port,
                 &self.config,
                 self.db_pool.clone(),
                 &self.global_ctx,
@@ -223,6 +228,7 @@ impl Server {
                 tx,
             );
         } else {
+            let bind_port = self.bind_port.clone();
             let config = self.config.clone();
             let db_pool = self.db_pool.clone();
             let global_ctx = self.global_ctx.clone();
@@ -232,6 +238,7 @@ impl Server {
 
             self.handle = Some(spawn(move || {
                 super::actix_server::start(
+                    &bind_port,
                     &config,
                     db_pool,
                     &global_ctx,
@@ -313,6 +320,7 @@ pub fn test_server_neo4j(config_path: &str) -> Server {
 
     // create server
     Server::new(
+        "5000",
         config,
         Neo4jEndpoint::from_env().unwrap().get_pool().unwrap(),
         global_ctx,

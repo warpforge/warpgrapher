@@ -92,43 +92,37 @@ Run all tests (unit and integration).
 For Graphson2:
 
 ```bash
-cargo test --features graphson2
+cargo test --features graphson2 -- --test-threads=1
 ```
 
 For Neo4J:
 
 ```bash
-cargo test --features neo4j
+cargo test --features neo4j -- --test-threads=1
 ```
 
 For all databases:
 
 ```bash
-cargo test --all-features
+cargo test --all-features -- --test-threads=1
 ```
 
 Run specific test:
 
 ```bash
-cargo test --features DB_FEATURE <TEST_NAME>
+cargo test --features DB_FEATURE <TEST_NAME> -- --test-threads=1
 ```
 
 Run specific module:
 
 ```bash
-cargo test --features DB_FEATURE  server::graphql::tests
+cargo test --features DB_FEATURE server::graphql::tests -- --test-threads=1
 ```
 
 Print to console when running tests:
 
 ```bash
-cargo test --features DB_FEATURE -- --nocapture
-```
-
-Test coverage:
-
-```bash
-cargo tarpaulin --all-features -o Html
+cargo test --features DB_FEATURE -- --nocapture --test-threads=1
 ```
 
 Clippy

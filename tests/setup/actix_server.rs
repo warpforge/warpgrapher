@@ -49,7 +49,9 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
 
 #[allow(clippy::ptr_arg)]
 #[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
 pub fn start(
+    bind_port: &str,
     config: &Config,
     database_pool: DatabasePool,
     global_ctx: &AppGlobalCtx,
@@ -69,7 +71,6 @@ pub fn start(
 
     let graphql_endpoint = "/graphql";
     let bind_addr = "127.0.0.1".to_string();
-    let bind_port = "5000".to_string();
     let addr = format!("{}:{}", bind_addr, bind_port);
 
     let sys = System::new("warpgrapher-test-server");

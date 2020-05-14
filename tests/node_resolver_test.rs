@@ -4,22 +4,23 @@ use assert_approx_eq::assert_approx_eq;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use serde_json::json;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use serial_test::serial;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_url;
 #[cfg(feature = "graphson2")]
 use setup::server::test_server_graphson2;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-use setup::test_client;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
+#[cfg(feature = "graphson2")]
+use setup::graphson2_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+use warpgrapher::client::Client;
 
 /// Passes if the create mutation and the read query both succeed.
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn create_single_node_neo4j() {
     init();
     clear_db();
@@ -27,7 +28,8 @@ async fn create_single_node_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_single_node().await;
+    let client = neo4j_test_client();
+    create_single_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -35,7 +37,6 @@ async fn create_single_node_neo4j() {
 /// Passes if the create mutation and the read query both succeed.
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn create_single_node_graphson2() {
     init();
     clear_db();
@@ -43,16 +44,15 @@ async fn create_single_node_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    create_single_node().await;
+    let client = graphson2_test_client();
+    create_single_node(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn create_single_node() {
-    let mut client = test_client();
-
+async fn create_single_node(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -100,7 +100,6 @@ async fn create_single_node() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn read_query_neo4j() {
     init();
     clear_db();
@@ -108,14 +107,14 @@ async fn read_query_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_query().await;
+    let client = neo4j_test_client();
+    read_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn read_query_graphson2() {
     init();
     clear_db();
@@ -123,16 +122,15 @@ async fn read_query_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    read_query().await;
+    let client = graphson2_test_client();
+    read_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn read_query() {
-    let mut client = test_client();
-
+async fn read_query(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -178,7 +176,6 @@ async fn read_query() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn handle_missing_properties_neo4j() {
     init();
     clear_db();
@@ -186,14 +183,14 @@ async fn handle_missing_properties_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    handle_missing_properties().await;
+    let client = neo4j_test_client();
+    handle_missing_properties(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn handle_missing_properties_graphson2() {
     init();
     clear_db();
@@ -201,7 +198,8 @@ async fn handle_missing_properties_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    handle_missing_properties().await;
+    let client = graphson2_test_client();
+    handle_missing_properties(client).await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -209,9 +207,7 @@ async fn handle_missing_properties_graphson2() {
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
 #[allow(dead_code)]
-async fn handle_missing_properties() {
-    let mut client = test_client();
-
+async fn handle_missing_properties(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -247,7 +243,6 @@ async fn handle_missing_properties() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_mutation_neo4j() {
     init();
     clear_db();
@@ -255,14 +250,14 @@ async fn update_mutation_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation().await;
+    let client = neo4j_test_client();
+    update_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_mutation_graphson2() {
     init();
     clear_db();
@@ -270,16 +265,15 @@ async fn update_mutation_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation().await;
+    let client = graphson2_test_client();
+    update_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn update_mutation() {
-    let mut client = test_client();
-
+async fn update_mutation(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -355,7 +349,6 @@ async fn update_mutation() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn update_mutation_null_query_neo4j() {
     init();
     clear_db();
@@ -363,14 +356,14 @@ async fn update_mutation_null_query_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation_null_query().await;
+    let client = neo4j_test_client();
+    update_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn update_mutation_null_query_graphson2() {
     init();
     clear_db();
@@ -378,16 +371,15 @@ async fn update_mutation_null_query_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    update_mutation_null_query().await;
+    let client = graphson2_test_client();
+    update_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mutation_null_query() {
-    let mut client = test_client();
-
+async fn update_mutation_null_query(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -464,7 +456,6 @@ async fn update_mutation_null_query() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn delete_mutation_neo4j() {
     init();
     clear_db();
@@ -472,14 +463,14 @@ async fn delete_mutation_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation().await;
+    let client = neo4j_test_client();
+    delete_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn delete_mutation_graphson2() {
     init();
     clear_db();
@@ -487,16 +478,15 @@ async fn delete_mutation_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation().await;
+    let client = graphson2_test_client();
+    delete_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn delete_mutation() {
-    let mut client = test_client();
-
+async fn delete_mutation(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -559,7 +549,6 @@ async fn delete_mutation() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn delete_mutation_null_query_neo4j() {
     init();
     clear_db();
@@ -567,14 +556,14 @@ async fn delete_mutation_null_query_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation_null_query().await;
+    let client = neo4j_test_client();
+    delete_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn delete_mutation_null_query_graphson2() {
     init();
     clear_db();
@@ -582,16 +571,15 @@ async fn delete_mutation_null_query_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    delete_mutation_null_query().await;
+    let client = graphson2_test_client();
+    delete_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mutation_null_query() {
-    let mut client = test_client();
-
+async fn delete_mutation_null_query(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
@@ -656,7 +644,6 @@ async fn delete_mutation_null_query() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn error_on_node_missing_id_neo4j() {
     init();
     clear_db();
@@ -669,7 +656,8 @@ async fn error_on_node_missing_id_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    error_on_node_missing_id().await;
+    let client = neo4j_test_client();
+    error_on_node_missing_id(client).await;
 
     assert!(server.shutdown().is_ok());
 }
@@ -678,9 +666,7 @@ async fn error_on_node_missing_id_neo4j() {
 /// to that node.  There is no GraphSON variant of this test, because GraphSON
 /// data stores automatically assign a UUID id.
 #[allow(dead_code)]
-async fn error_on_node_missing_id() {
-    let mut client = test_client();
-
+async fn error_on_node_missing_id(mut client: Client) {
     let projects = client
         .read_node(
             "Project",

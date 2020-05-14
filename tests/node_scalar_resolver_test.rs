@@ -1,19 +1,20 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use serial_test::serial;
 #[cfg(feature = "graphson2")]
 use setup::server::test_server_graphson2;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-use setup::test_client;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
+#[cfg(feature = "graphson2")]
+use setup::graphson2_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+use warpgrapher::client::Client;
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn scalar_lists_test_graphson2() {
     init();
     clear_db();
@@ -21,14 +22,14 @@ async fn scalar_lists_test_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_lists_test().await;
+    let client = graphson2_test_client();
+    scalar_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn scalar_lists_test_neo4j() {
     init();
     clear_db();
@@ -36,16 +37,15 @@ async fn scalar_lists_test_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_lists_test().await;
+    let client = neo4j_test_client();
+    scalar_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_test() {
-    let mut client = test_client();
-
+async fn scalar_lists_test(mut client: Client) {
     let result = client
         .create_node(
             "TestType",
@@ -96,7 +96,6 @@ async fn scalar_lists_test() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn scalar_lists_no_array_graphson2() {
     init();
     clear_db();
@@ -104,14 +103,14 @@ async fn scalar_lists_no_array_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_lists_no_array_test().await;
+    let client = graphson2_test_client();
+    scalar_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn scalar_lists_no_array_neo4j() {
     init();
     clear_db();
@@ -119,16 +118,15 @@ async fn scalar_lists_no_array_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_lists_no_array_test().await;
+    let client = neo4j_test_client();
+    scalar_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_no_array_test() {
-    let mut client = test_client();
-
+async fn scalar_lists_no_array_test(mut client: Client) {
     let result = client
         .create_node(
             "TestType",
@@ -167,7 +165,6 @@ async fn scalar_lists_no_array_test() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn scalar_no_lists_graphson2() {
     init();
     clear_db();
@@ -175,14 +172,14 @@ async fn scalar_no_lists_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_no_lists_test().await;
+    let client = graphson2_test_client();
+    scalar_no_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn scalar_no_lists_neo4j() {
     init();
     clear_db();
@@ -190,16 +187,15 @@ async fn scalar_no_lists_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_no_lists_test().await;
+    let client = neo4j_test_client();
+    scalar_no_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn scalar_no_lists_test() {
-    let mut client = test_client();
-
+async fn scalar_no_lists_test(mut client: Client) {
     assert!(client
         .create_node(
             "TestType",
@@ -250,7 +246,6 @@ async fn scalar_no_lists_test() {
 
 #[cfg(feature = "graphson2")]
 #[tokio::test]
-#[serial(graphson2)]
 async fn scalar_no_lists_no_array_graphson2() {
     init();
     clear_db();
@@ -258,14 +253,14 @@ async fn scalar_no_lists_no_array_graphson2() {
     let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_no_lists_no_array_test().await;
+    let client = graphson2_test_client();
+    scalar_no_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn scalar_no_lists_no_array_neo4j() {
     init();
     clear_db();
@@ -273,16 +268,15 @@ async fn scalar_no_lists_no_array_neo4j() {
     let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    scalar_no_lists_no_array_test().await;
+    let client = neo4j_test_client();
+    scalar_no_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_no_lists_no_array_test() {
-    let mut client = test_client();
-
+async fn scalar_no_lists_no_array_test(mut client: Client) {
     let result = client
         .create_node(
             "TestType",

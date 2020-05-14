@@ -3,19 +3,16 @@ mod setup;
 #[cfg(feature = "neo4j")]
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use serial_test::serial;
-#[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
 #[cfg(feature = "neo4j")]
-use setup::{clear_db, init, test_client};
+use setup::{clear_db, init, neo4j_test_client};
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn client_node_crud() {
     init();
     clear_db();
-    let mut client = test_client();
+    let mut client = neo4j_test_client();
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
@@ -94,11 +91,10 @@ async fn client_node_crud() {
 
 #[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial(neo4j)]
 async fn client_rel_crud() {
     init();
     clear_db();
-    let mut client = test_client();
+    let mut client = neo4j_test_client();
     let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
