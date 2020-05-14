@@ -18,11 +18,11 @@ The project is currently in development. Prior to reaching v1.0.0:
 
 # Getting Started
 
-See the [Quickstart]() section of the Warpgrapher Book. 
+See the [Quickstart](https://warpforge.github.io/warpgrapher/warpgrapher/quickstart.html) section of the Warpgrapher Book. 
 
 # Documentation
 
-See the [Warpgrapher Book]() for in-depth usage documentation. 
+See the [Warpgrapher Book](https://warpforge.github.io/warpgrapher/) for in-depth usage documentation. 
 
 ## Contributing
 
