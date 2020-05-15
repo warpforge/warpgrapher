@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Endpoints: Defined - Warpgrapher Book (v0.1.0)</title>
+        <title>Node Create - Warpgrapher Book (v0.1.0)</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> API</a></li><li><ol class="section"><li class="expanded "><a href="../api/crud_nodes.html"><strong aria-hidden="true">2.1.</strong> CRUD: Nodes</a></li><li class="expanded "><a href="../api/curd_rels.html"><strong aria-hidden="true">2.2.</strong> CRUD: Relationships</a></li><li class="expanded "><a href="../api/endpoints_defined.html" class="active"><strong aria-hidden="true">2.3.</strong> Endpoints: Defined</a></li><li class="expanded "><a href="../api/endpoints_static.html"><strong aria-hidden="true">2.4.</strong> Endpoints: Static</a></li></ol></li></ol>
+                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.2.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html" class="active"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,21 +148,92 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#defined-endpoints" id="defined-endpoints">Defined Endpoints</a></h1>
-<p>TODO</p>
+                        <h1><a class="header" href="#node-create" id="node-create">Node Create</a></h1>
+<ul>
+<li><a href="#create-node-with-no-relationships">Create node with no relationships</a></li>
+<li><a href="#create-node-with-relationship-to-a-new-node">Create node with relationship to a NEW node</a></li>
+<li><a href="#create-node-with-relationship-to-an-existing-node">Create node with relationship to an EXISTING node</a></li>
+</ul>
+<h3><a class="header" href="#create-node-with-no-relationships" id="create-node-with-no-relationships">Create node with no relationships</a></h3>
+<p>To create a new <code>Project</code> node by itself:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 1&quot;,
+            status: &quot;ACTIVE&quot;
+        }
+    )
+    {
+        id
+        name
+    }
+}
+</code></pre>
+<p>Output:</p>
+<pre><code class="language-json">{
+  &quot;data&quot;: {
+    &quot;ProjectCreate&quot;: {
+      &quot;id&quot;: &quot;a55e1dae-a87f-4ca1-8724-b967a678b942&quot;,
+      &quot;name&quot;: &quot;Project 1&quot;
+    }
+  }
+}
+</code></pre>
+<h3><a class="header" href="#create-node-with-relationship-to-a-new-node" id="create-node-with-relationship-to-a-new-node">Create node with relationship to a <code>NEW</code> node</a></h3>
+<p>To create a new <code>Project</code> node with an <code>owner</code> relationship to a new <code>User</code> node:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 2&quot;,
+            status: &quot;ACTIVE&quot;,
+            owner: {
+                dst: {
+                    User: {
+                        $NEW: {
+                            name: &quot;Smith&quot;
+                        }
+                    }
+                }
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
+<h3><a class="header" href="#create-node-with-relationship-to-an-existing-node" id="create-node-with-relationship-to-an-existing-node">Create node with relationship to an <code>EXISTING</code> node</a></h3>
+<p>To create a new <code>Project</code> node with an <code>owner</code> relationship to an existing <code>User</code> node:</p>
+<pre><code>mutation {
+    ProjectCreate(
+        input: {
+            name: &quot;Project 3&quot;,
+            status: &quot;ACTIVE&quot;,
+            owner: {
+                dst: {
+                    User: {
+                        $EXISTING: {
+                            name: &quot;Oneill&quot;
+                        }
+                    }
+                }
+            }
+        }
+    )
+    { ... }
+}
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../api/curd_rels.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../api/node_read.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../api/endpoints_static.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../api/node_update.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -174,13 +245,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../api/curd_rels.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="../api/node_read.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../api/endpoints_static.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../api/node_update.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

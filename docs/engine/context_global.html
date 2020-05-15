@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Warpgrapher - Warpgrapher Book (v0.1.0)</title>
+        <title>Global Context - Warpgrapher Book (v0.1.0)</title>
         
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
@@ -81,7 +81,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html" class="active"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.2.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
+                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.2.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_global.html" class="active"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -148,17 +148,146 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#warpgrapher" id="warpgrapher">Warpgrapher</a></h1>
-<p>Warpgrapher is framework for developing graph-based API services. </p>
+                        <h1><a class="header" href="#global-context" id="global-context">Global Context</a></h1>
+<p>Warpgrapher's GlobalContext feature enable the creation of global state that is accessible across multiple points within Warpgrapher's event hooks including inside function endpoints. The example below will demonstrate how to set a <code>tenant_id</code> variable in the global context that denotes under which account the app is running. The app also creates a defined endpoint that returns that value to the caller.</p>
+<h2><a class="header" href="#usage" id="usage">Usage</a></h2>
+<h4><a class="header" href="#1-define-globalcontext-struct" id="1-define-globalcontext-struct">1. Define GlobalContext struct</a></h4>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>#[derive(Clone, Debug, Sync, Send)]
+struct AppGlobalContext {
+    tenant_id: String
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>The struct must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, and <code>Send</code>.</p>
+<h4><a class="header" href="#2-create-engine-with-globalcontext-type-parameter-and-option" id="2-create-engine-with-globalcontext-type-parameter-and-option">2. Create Engine with GlobalContext type parameter and option</a></h4>
+<p>The GlobalContext type is specified in the first type parameter of <code>Engine</code>. </p>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>let global_ctx = AppGlobalContext {
+    tenant_id: &quot;123456&quot;.to_string();
+}
+
+let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
+    .with_global_ctx(global_ctx)
+    .build();
+<span class="boring">}
+</span></code></pre></pre>
+<h4><a class="header" href="#3-use-globalcontext-in-a-resolver" id="3-use-globalcontext-in-a-resolver">3. Use GlobalContext in a resolver</a></h4>
+<pre><pre class="playpen"><code class="language-rust">
+<span class="boring">#![allow(unused_variables)]
+</span><span class="boring">fn main() {
+</span>fn resolve(context: ResolverContext&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
+    let global_ctx = context.get_global_context()?;
+
+    // use global_ctx
+}
+<span class="boring">}
+</span></code></pre></pre>
+<h2><a class="header" href="#full-example" id="full-example">Full Example</a></h2>
+<p><code>main.rs</code></p>
+<pre><pre class="playpen"><code class="language-rust">use std::collections::HashMap;
+use warpgrapher::{Engine, Config};
+use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::resolvers::{Resolvers, ResolverContext, ExecutionResult};
+use warpgrapher::juniper::http::GraphQLRequest;
+
+static CONFIG : &amp;'static str = &quot;
+version: 1
+model:
+  - name: User
+    props:
+      - name: email
+        type: String
+  - name: Team
+    props:
+      - name: name
+        type: String
+    rels:
+      - name: users
+        nodes: [User]
+endpoints:
+  - name: GetEnvironment
+    class: Query
+    input: null
+    output: 
+      type: String
+&quot;;
+
+#[derive(Clone, Debug)]
+struct AppGlobalContext {
+    tenant_id: String
+}
+
+fn resolve_get_environment(context: ResolverContext&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
+    let global_ctx = context.get_global_context()?;
+    context.resolve_scalar(global_ctx.tenant_id.clone())
+}
+
+fn main() {
+
+    // parse warpgrapher config
+    let config = Config::from_string(CONFIG.to_string())
+        .expect(&quot;Failed to parse CONFIG&quot;);
+
+    // define database endpoint
+    let db = Neo4jEndpoint::from_env(&quot;DB_URL&quot;).unwrap();
+
+    // define global context
+    let global_ctx = AppGlobalContext {
+        tenant_id: &quot;123456&quot;.to_string()
+    };
+
+    // define resolvers
+    let mut resolvers = Resolvers::&lt;AppGlobalContext, ()&gt;::new();
+    resolvers.insert(&quot;GetEnvironment&quot;.to_string(), Box::new(resolve_get_environment));
+
+    // create warpgrapher engine
+    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
+        .with_global_ctx(global_ctx)
+        .with_resolvers(resolvers)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
+    // execute query on `GetEnvironment` endpoint
+    let request = GraphQLRequest::new(
+        &quot;query {
+            GetEnvironment
+        }
+        &quot;.to_string(),
+        None,
+        None
+    );
+    let metadata = HashMap::new();
+    let result = engine.execute(request, metadata).unwrap();
+
+    // verify result
+    println!(&quot;result: {:#?}&quot;, result);
+    assert_eq!(
+        &quot;123456&quot;,
+        result
+        .get(&quot;data&quot;).unwrap()
+        .get(&quot;GetEnvironment&quot;).unwrap()
+        .as_str().unwrap(),
+    );
+}
+</code></pre></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="../engine/dynamic_rels.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
                         
-                            <a rel="next" href="../warpgrapher/quickstart.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../engine/context_request.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -170,9 +299,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a href="../engine/dynamic_rels.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
                 
-                    <a href="../warpgrapher/quickstart.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../engine/context_request.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
