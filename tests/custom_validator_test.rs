@@ -27,7 +27,8 @@ async fn custom_input_validator_create() {
             "id name",
             Some("1234".to_string()),
             &json!({"name": "ORION"}),
-        ).await
+        )
+        .await
         .unwrap();
 
     let name = result.get("name").unwrap();
@@ -41,7 +42,8 @@ async fn custom_input_validator_create() {
             "id name",
             Some("1234".to_string()),
             &json!({"name": "KENOBI"}),
-        ).await
+        )
+        .await
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
@@ -72,7 +74,8 @@ async fn custom_input_validator_update() {
             "id name",
             Some("1234".to_string()),
             &json!({"name": "ORION"}),
-        ).await
+        )
+        .await
         .unwrap();
 
     // Test validator on update

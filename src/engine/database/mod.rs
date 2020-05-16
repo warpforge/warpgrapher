@@ -3,13 +3,13 @@ pub mod graphson2;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
 
-use crate::error::Error;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-use crate::error::ErrorKind;
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
+use crate::error::Error;
+#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use crate::error::ErrorKind;
 #[cfg(feature = "graphson2")]
 use gremlin_client::GremlinClient;
 use juniper::FieldError;
@@ -23,7 +23,7 @@ use std::env::var_os;
 use std::fmt::Debug;
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
-fn get_env_string(var_name: &str) -> Result<String, Error> {
+fn env_string(var_name: &str) -> Result<String, Error> {
     match var_os(var_name) {
         None => Err(Error::new(
             ErrorKind::EnvironmentVariableNotFound(var_name.to_string()),
@@ -40,8 +40,8 @@ fn get_env_string(var_name: &str) -> Result<String, Error> {
 }
 
 #[cfg(any(feature = "graphson2"))]
-fn get_env_u16(var_name: &str) -> Result<u16, Error> {
-    Ok(get_env_string(var_name)?
+fn env_u16(var_name: &str) -> Result<u16, Error> {
+    Ok(env_string(var_name)?
         .parse::<u16>()
         .map_err(|_| Error::new(ErrorKind::EnvironmentVariableParseError, None))?)
 }
@@ -57,10 +57,10 @@ pub enum DatabasePool {
 }
 
 pub trait DatabaseEndpoint {
-    fn get_pool(&self) -> Result<DatabasePool, Error>;
+    fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
-pub trait Transaction {
+pub(crate) trait Transaction {
     type ImplQueryResult: QueryResult + Debug;
     fn begin(&self) -> Result<(), FieldError>;
     fn commit(&mut self) -> Result<(), FieldError>;
@@ -150,8 +150,8 @@ pub trait Transaction {
     fn rollback(&mut self) -> Result<(), FieldError>;
 }
 
-pub trait QueryResult: Debug {
-    fn get_nodes<GlobalCtx, ReqCtx>(
+pub(crate) trait QueryResult: Debug {
+    fn nodes<GlobalCtx, ReqCtx>(
         self,
         name: &str,
         info: &Info,
@@ -161,7 +161,7 @@ pub trait QueryResult: Debug {
         ReqCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
-    fn get_rels<GlobalCtx, ReqCtx>(
+    fn rels<GlobalCtx, ReqCtx>(
         self,
         src_name: &str,
         src_suffix: &str,
@@ -174,8 +174,8 @@ pub trait QueryResult: Debug {
     where
         GlobalCtx: Debug,
         ReqCtx: RequestContext;
-    fn get_ids(&self, column_name: &str) -> Result<Value, FieldError>;
-    fn get_count(&self) -> Result<i32, FieldError>;
+    fn ids(&self, column_name: &str) -> Result<Value, FieldError>;
+    fn count(&self) -> Result<i32, FieldError>;
     fn len(&self) -> i32;
     fn is_empty(&self) -> bool;
 }

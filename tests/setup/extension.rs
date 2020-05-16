@@ -10,20 +10,20 @@ use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
-pub struct Metadata {
-    pub src_ip: String,
-    pub src_useragent: String,
+pub(crate) struct Metadata {
+    pub(crate) src_ip: String,
+    pub(crate) src_useragent: String,
 }
 
 /// Trait that must be implemented by app's request context struct
-pub trait MetadataExtensionCtx {
+pub(crate) trait MetadataExtensionCtx {
     fn set_metadata(&mut self, metadata: Metadata);
 }
 
 /// Extension that adds metadata to request
 #[cfg(feature = "neo4j")]
 #[derive(Clone)]
-pub struct MetadataExtension<GlobalCtx, ReqCtx>
+pub(crate) struct MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
@@ -38,7 +38,7 @@ where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
-    pub fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
+    pub(crate) fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
         MetadataExtension {
             _gctx: PhantomData,
             _rctx: PhantomData,

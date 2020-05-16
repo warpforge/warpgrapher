@@ -3,13 +3,14 @@
 //use std::fmt;
 use super::context::GraphQLContext;
 use super::schema::Info;
-use crate::error::{Error, ErrorKind};
 use crate::engine::value::Value;
+use crate::error::{Error, ErrorKind};
 use juniper::{Arguments, ExecutionResult, Executor};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::slice::Iter;
 
 /// Convenience function for setting serde default value
 fn get_false() -> bool {
@@ -34,9 +35,6 @@ pub type ValidatorFunc = fn(&Value) -> Result<(), Error>;
 
 pub type Validators = HashMap<String, Box<ValidatorFunc>>;
 
-//pub enum PropType {
-//}
-
 /// Configuration item for a Warpgrapher data model. The configuration contains
 /// the version of the Warpgrapher configuration file format, and a vector of
 /// [`Type`] structures.
@@ -54,21 +52,21 @@ pub type Validators = HashMap<String, Box<ValidatorFunc>>;
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// Version of the Warpgrapher configuration file format used
-    pub version: i32,
+    version: i32,
 
     /// A vector of [`Type`] structures, each defining one type in
     /// the data model
     ///
     /// [`Type`]: struct.Type.html
     #[serde(default)]
-    pub model: Vec<Type>,
+    model: Vec<Type>,
 
     /// A vector of [`Endpoint`] structures, each defining an
     /// a custom root endpoint in the graphql schema
     ///
     /// [`Endpoint`]: struct.Endpoint.html
     #[serde(default)]
-    pub endpoints: Vec<Endpoint>,
+    endpoints: Vec<Endpoint>,
 }
 
 impl Config {
@@ -109,6 +107,13 @@ impl Config {
         }
     }
 
+    pub fn endpoints(&self) -> Iter<Endpoint> {
+        self.endpoints.iter()
+    }
+    pub fn types(&self) -> Iter<Type> {
+        self.model.iter()
+    }
+
     /// Creates a new [`Config`] data structure from
     /// the contents of the specified config file. Returns error
     /// if the config file could not be opened or deserialized.
@@ -137,7 +142,6 @@ impl Config {
     ///     let config = Config::new(1, Vec::new(), Vec::new());
     ///     config.validate();
     /// ```
-
     pub fn validate(&self) -> Result<(), Error> {
         let scalar_names = ["Int", "Float", "Boolean", "String", "ID"];
 
@@ -329,30 +333,30 @@ impl Config {
 #[serde(rename_all = "camelCase")]
 pub struct Prop {
     /// Name of the property
-    pub name: String,
+    name: String,
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
-    pub type_name: String,
+    type_name: String,
 
     /// True if this property is required to be present on this type; false if
     /// the property is optional
     #[serde(default = "get_false")]
-    pub required: bool,
+    required: bool,
 
     /// True if this property is a list
     #[serde(default = "get_false")]
-    pub list: bool,
+    list: bool,
 
     /// The name of the resolver function to be called when querying for the value of this prop.
     /// If this field is None, the prop resolves the scalar value from the database.
     #[serde(default = "get_none")]
-    pub resolver: Option<String>,
+    resolver: Option<String>,
 
     /// The name of the validator function to be called when creating or modifying the value of
     /// this prop. If this field is None, the prop resolves the scalar value from the database.
     #[serde(default = "get_none")]
-    pub validator: Option<String>,
+    validator: Option<String>,
 }
 
 impl Prop {
@@ -385,6 +389,30 @@ impl Prop {
             validator,
         }
     }
+
+    pub fn list(&self) -> bool {
+        self.list
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn resolver(&self) -> &Option<String> {
+        &self.resolver
+    }
+
+    pub fn required(&self) -> bool {
+        self.required
+    }
+
+    pub fn type_name(&self) -> &str {
+        &self.type_name
+    }
+
+    pub fn validator(&self) -> &Option<String> {
+        &self.validator
+    }
 }
 
 /// Configuration item for a relationship on a GraphQL type
@@ -406,25 +434,25 @@ impl Prop {
 #[serde(rename_all = "camelCase")]
 pub struct Relationship {
     /// Name of the relationship
-    pub name: String,
+    name: String,
 
     /// True if its a multi-node relationship
     #[serde(default = "get_false")]
-    pub list: bool,
+    list: bool,
 
     /// List of possible dst nodes for the relationship. A single element
     /// vector indicates a single-type rel and more than one element
     /// indicates a multi-type relationship.
-    pub nodes: Vec<String>,
+    nodes: Vec<String>,
 
     /// Properties of the relationship
     #[serde(default)]
-    pub props: Vec<Prop>,
+    props: Vec<Prop>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
     #[serde(default)]
-    pub endpoints: EndpointsFilter,
+    endpoints: EndpointsFilter,
 }
 
 impl Relationship {
@@ -444,6 +472,29 @@ impl Relationship {
             endpoints,
         }
     }
+
+    pub fn endpoints(&self) -> &EndpointsFilter {
+        &self.endpoints
+    }
+
+    pub fn list(&self) -> bool {
+        self.list
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn nodes(&self) -> Iter<String> {
+        self.nodes.iter()
+    }
+
+    pub fn nodes_to_vec(&self) -> Vec<String> {
+        self.nodes.clone()
+    }
+    pub fn props_as_slice(&self) -> &[Prop] {
+        &self.props
+    }
 }
 
 /// Configuration item for endpoint filters
@@ -459,19 +510,19 @@ impl Relationship {
 pub struct EndpointsFilter {
     /// True if a read endpoint should be generated for the corresponding type/rel
     #[serde(default = "get_true")]
-    pub read: bool,
+    read: bool,
 
     /// True if a create endpoint should be generated for the corresponding type/rel
     #[serde(default = "get_true")]
-    pub create: bool,
+    create: bool,
 
     /// True if a update endpoint should be generated for the corresponding type/rel
     #[serde(default = "get_true")]
-    pub update: bool,
+    update: bool,
 
     /// True if a delete endpoint should be generated for the corresponding type/rel
     #[serde(default = "get_true")]
-    pub delete: bool,
+    delete: bool,
 }
 
 impl EndpointsFilter {
@@ -495,6 +546,14 @@ impl EndpointsFilter {
         }
     }
 
+    pub fn create(&self) -> bool {
+        self.create
+    }
+
+    pub fn delete(&self) -> bool {
+        self.delete
+    }
+
     /// Creates a new filter with all endpoints set to false
     pub fn none() -> EndpointsFilter {
         EndpointsFilter {
@@ -503,6 +562,14 @@ impl EndpointsFilter {
             update: false,
             delete: false,
         }
+    }
+
+    pub fn read(&self) -> bool {
+        self.read
+    }
+
+    pub fn update(&self) -> bool {
+        self.update
     }
 }
 
@@ -536,19 +603,19 @@ impl Default for EndpointsFilter {
 #[serde(rename_all = "camelCase")]
 pub struct Type {
     /// Name of this GraphQL type, also used as the Neo4J label for nodes
-    pub name: String,
+    name: String,
 
     /// Vector of properties on this type
-    pub props: Vec<Prop>,
+    props: Vec<Prop>,
 
     /// Vector of relationships on this type
     #[serde(default)]
-    pub rels: Vec<Relationship>,
+    rels: Vec<Relationship>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
     #[serde(default)]
-    pub endpoints: EndpointsFilter,
+    endpoints: EndpointsFilter,
 }
 
 impl Type {
@@ -586,11 +653,31 @@ impl Type {
         }
     }
 
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn endpoints(&self) -> &EndpointsFilter {
+        &self.endpoints
+    }
+
     /// Creates a new [`Type`] data structure from
     /// a yaml-formatted string
     pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
         serde_yaml::from_str(yaml)
             .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
+    }
+
+    pub fn props(&self) -> Iter<Prop> {
+        self.props.iter()
+    }
+
+    pub fn props_as_slice(&self) -> &[Prop] {
+        &self.props
+    }
+
+    pub fn rels(&self) -> Iter<Relationship> {
+        self.rels.iter()
     }
 }
 
@@ -600,16 +687,16 @@ impl Type {
 #[serde(rename_all = "camelCase")]
 pub struct Endpoint {
     /// Name of this Endpoint
-    pub name: String,
+    name: String,
 
     /// Class of endpoint (Mutation or Query)
-    pub class: EndpointClass,
+    class: EndpointClass,
 
     /// Defines the input of the endpoint
-    pub input: Option<EndpointType>,
+    input: Option<EndpointType>,
 
     /// Defines the type returned by the endpoint
-    pub output: EndpointType,
+    output: EndpointType,
 }
 
 impl Endpoint {
@@ -626,6 +713,22 @@ impl Endpoint {
             output,
         }
     }
+
+    pub fn class(&self) -> &EndpointClass {
+        &self.class
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn input(&self) -> &Option<EndpointType> {
+        &self.input
+    }
+
+    pub fn output(&self) -> &EndpointType {
+        &self.output
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -640,15 +743,15 @@ pub enum EndpointClass {
 pub struct EndpointType {
     /// Defines option for an endpoint type to use an existing or custom type
     #[serde(rename = "type")]
-    pub type_def: TypeDef,
+    type_def: TypeDef,
 
     /// Determines if the endpoint type is a list
     #[serde(default = "get_false")]
-    pub list: bool,
+    list: bool,
 
     /// Determine if the type is required (non-nullable)
     #[serde(default = "get_false")]
-    pub required: bool,
+    required: bool,
 }
 
 impl EndpointType {
@@ -658,6 +761,17 @@ impl EndpointType {
             list,
             required,
         }
+    }
+
+    pub fn list(&self) -> bool {
+        self.list
+    }
+    pub fn required(&self) -> bool {
+        self.required
+    }
+
+    pub fn type_def(&self) -> &TypeDef {
+        &self.type_def
     }
 }
 
@@ -693,7 +807,6 @@ pub enum TypeDef {
 ///     let mut config_vec: Vec<Config> = Vec::new();
 ///     let config = compose(config_vec).unwrap();
 /// ```
-
 pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
     let mut version: Option<i32> = None;
     let mut model: Vec<Type> = Vec::new();
@@ -732,6 +845,299 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
     };
 
     Ok(Config::new(version, model, endpoints))
+}
+
+#[cfg(test)]
+pub(crate) fn mock_project_config() -> Config {
+    Config::new(1, vec![mock_project_type()], vec![])
+}
+
+#[cfg(test)]
+pub(crate) fn mock_project_type() -> Type {
+    Type::new(
+        "Project".to_string(),
+        vec![
+            Prop::new(
+                "name".to_string(),
+                "String".to_string(),
+                true,
+                false,
+                None,
+                None,
+            ),
+            Prop::new(
+                "tags".to_string(),
+                "String".to_string(),
+                false,
+                true,
+                None,
+                None,
+            ),
+            Prop::new(
+                "public".to_string(),
+                "Boolean".to_string(),
+                true,
+                false,
+                None,
+                None,
+            ),
+        ],
+        vec![
+            Relationship::new(
+                "owner".to_string(),
+                false,
+                vec!["User".to_string()],
+                vec![Prop::new(
+                    "since".to_string(),
+                    "String".to_string(),
+                    false,
+                    false,
+                    None,
+                    None,
+                )],
+                EndpointsFilter::all(),
+            ),
+            Relationship::new(
+                "board".to_string(),
+                false,
+                vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
+                vec![],
+                EndpointsFilter::all(),
+            ),
+            Relationship::new(
+                "commits".to_string(),
+                true,
+                vec!["Commit".to_string()],
+                vec![],
+                EndpointsFilter::all(),
+            ),
+            Relationship::new(
+                "issues".to_string(),
+                true,
+                vec!["Feature".to_string(), "Bug".to_string()],
+                vec![],
+                EndpointsFilter::all(),
+            ),
+        ],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_user_type() -> Type {
+    Type::new(
+        "User".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_kanbanboard_type() -> Type {
+    Type::new(
+        "KanbanBoard".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_scrumboard_type() -> Type {
+    Type::new(
+        "ScrumBoard".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_feature_type() -> Type {
+    Type::new(
+        "Feature".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_bug_type() -> Type {
+    Type::new(
+        "Bug".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+fn mock_commit_type() -> Type {
+    Type::new(
+        "Commit".to_string(),
+        vec![Prop::new(
+            "name".to_string(),
+            "String".to_string(),
+            true,
+            false,
+            None,
+            None,
+        )],
+        vec![],
+        EndpointsFilter::all(),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn mock_endpoint_one() -> Endpoint {
+    // RegisterUsers(input: [UserCreateMutationInput]): [User]
+    Endpoint::new(
+        "RegisterUsers".to_string(),
+        EndpointClass::Mutation,
+        Some(EndpointType::new(
+            TypeDef::Existing("UserCreateMutationInput".to_string()),
+            true,
+            true,
+        )),
+        EndpointType::new(TypeDef::Existing("User".to_string()), true, true),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn mock_endpoint_two() -> Endpoint {
+    // DisableUser(input: UserQueryInput): User
+    Endpoint::new(
+        "DisableUser".to_string(),
+        EndpointClass::Mutation,
+        Some(EndpointType::new(
+            TypeDef::Existing("UserQueryInput".to_string()),
+            false,
+            true,
+        )),
+        EndpointType::new(TypeDef::Existing("User".to_string()), false, true),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn mock_endpoint_three() -> Endpoint {
+    // ComputeBurndown(input: BurndownFilter): BurndownMetrics
+    Endpoint::new(
+        "ComputeBurndown".to_string(),
+        EndpointClass::Query,
+        Some(EndpointType::new(
+            TypeDef::Custom(Type::new(
+                "BurndownFilter".to_string(),
+                vec![Prop::new(
+                    "ticket_types".to_string(),
+                    "String".to_string(),
+                    true,
+                    false,
+                    None,
+                    None,
+                )],
+                vec![],
+                EndpointsFilter::all(),
+            )),
+            false,
+            false,
+        )),
+        EndpointType::new(
+            TypeDef::Custom(Type::new(
+                "BurndownMetrics".to_string(),
+                vec![Prop::new(
+                    "points".to_string(),
+                    "Int".to_string(),
+                    false,
+                    false,
+                    None,
+                    None,
+                )],
+                vec![],
+                EndpointsFilter::all(),
+            )),
+            false,
+            true,
+        ),
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn mock_config() -> Config {
+    Config::new(
+        1,
+        vec![
+            mock_project_type(),
+            mock_user_type(),
+            mock_kanbanboard_type(),
+            mock_scrumboard_type(),
+            mock_feature_type(),
+            mock_bug_type(),
+            mock_commit_type(),
+        ],
+        vec![
+            mock_endpoint_one(),
+            mock_endpoint_two(),
+            mock_endpoint_three(),
+        ],
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn mock_endpoints_filter() -> Config {
+    Config::new(
+        1,
+        vec![Type::new(
+            "User".to_string(),
+            vec![Prop::new(
+                "name".to_string(),
+                "String".to_string(),
+                true,
+                false,
+                None,
+                None,
+            )],
+            vec![],
+            EndpointsFilter::new(false, true, false, false),
+        )],
+        Vec::new(),
+    )
 }
 
 #[cfg(test)]

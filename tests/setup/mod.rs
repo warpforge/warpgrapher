@@ -1,8 +1,8 @@
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
-pub mod actix_server;
-pub mod extension;
+mod actix_server;
+mod extension;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
-pub mod server;
+pub(crate) mod server;
 
 #[cfg(feature = "graphson2")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
@@ -17,12 +17,12 @@ use warpgrapher::client::Client;
 use warpgrapher::engine::config::Config;
 
 #[allow(dead_code)]
-pub fn init() {
+pub(crate) fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
 #[cfg(feature = "graphson2")]
-pub fn graphson2_host() -> String {
+fn graphson2_host() -> String {
     var_os("WG_GRAPHSON2_HOST")
         .expect("Expected WG_GRAPHSON2_HOST to be set.")
         .to_str()
@@ -31,7 +31,7 @@ pub fn graphson2_host() -> String {
 }
 
 #[cfg(feature = "graphson2")]
-pub fn graphson2_port() -> u16 {
+fn graphson2_port() -> u16 {
     var_os("WG_GRAPHSON2_PORT")
         .expect("Expected WG_GRAPHSON2_PORT to be set.")
         .to_str()
@@ -42,7 +42,7 @@ pub fn graphson2_port() -> u16 {
 
 #[allow(dead_code)]
 #[cfg(feature = "graphson2")]
-pub fn graphson2_login() -> String {
+fn graphson2_login() -> String {
     var_os("WG_GRAPHSON2_LOGIN")
         .expect("Expected WG_GRAPHSON2_LOGIN to be set.")
         .to_str()
@@ -52,7 +52,7 @@ pub fn graphson2_login() -> String {
 
 #[allow(dead_code)]
 #[cfg(feature = "graphson2")]
-pub fn graphson2_pass() -> String {
+fn graphson2_pass() -> String {
     var_os("WG_GRAPHSON2_PASS")
         .expect("Expected WG_GRAPHSON2_PASS to be set.")
         .to_str()
@@ -62,7 +62,7 @@ pub fn graphson2_pass() -> String {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub fn neo4j_url() -> String {
+pub(crate) fn neo4j_url() -> String {
     var_os("WG_NEO4J_URL")
         .expect("Expected WG_NEO4J_URL to be set.")
         .to_str()
@@ -71,7 +71,7 @@ pub fn neo4j_url() -> String {
 }
 
 #[allow(dead_code)]
-pub fn server_addr() -> String {
+fn server_addr() -> String {
     let port = match var_os("WG_SAMPLE_PORT") {
         None => 5000,
         Some(os) => os.to_str().unwrap_or("5000").parse::<u16>().unwrap_or(5000),
@@ -80,49 +80,49 @@ pub fn server_addr() -> String {
     format!("127.0.0.1:{}", port)
 }
 
-pub fn neo4j_server_addr() -> String {
+fn neo4j_server_addr() -> String {
     "127.0.0.1:5000".to_string()
 }
 
-pub fn graphson2_server_addr() -> String {
+fn graphson2_server_addr() -> String {
     "127.0.0.1:5001".to_string()
 }
 
 // Rust's dead code detection seems not to process all integration test crates,
 // leading to a false positive on this function.
 #[allow(dead_code)]
-pub fn gql_endpoint() -> String {
+fn gql_endpoint() -> String {
     format!("http://{}/graphql", server_addr())
 }
 
-pub fn neo4j_gql_endpoint() -> String {
+fn neo4j_gql_endpoint() -> String {
     format!("http://{}/graphql", neo4j_server_addr())
 }
 
-pub fn graphson2_gql_endpoint() -> String {
+fn graphson2_gql_endpoint() -> String {
     format!("http://{}/graphql", graphson2_server_addr())
 }
 
 #[allow(dead_code)]
-pub fn load_config(config: &str) -> Config {
+fn load_config(config: &str) -> Config {
     let cf = File::open(config).expect("Could not open test model config file.");
     let cr = BufReader::new(cf);
     serde_yaml::from_reader(cr).expect("Could not deserialize configuration file.")
 }
 
 #[allow(dead_code)]
-pub fn neo4j_test_client() -> Client {
+pub(crate) fn neo4j_test_client() -> Client {
     Client::new(&neo4j_gql_endpoint())
 }
 
 #[allow(dead_code)]
-pub fn graphson2_test_client() -> Client {
+pub(crate) fn graphson2_test_client() -> Client {
     Client::new(&graphson2_gql_endpoint())
 }
 
 #[cfg(feature = "graphson2")]
 #[allow(dead_code)]
-pub fn clear_graphson2_db() {
+fn clear_graphson2_db() {
     // g.V().drop() -- delete the entire graph
     let client = GremlinClient::connect(
         ConnectionOptions::builder()
@@ -143,13 +143,13 @@ pub fn clear_graphson2_db() {
 
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
-pub fn clear_neo4j_db() {
+fn clear_neo4j_db() {
     let graph = GraphClient::connect(neo4j_url()).unwrap();
     graph.exec("MATCH (n) DETACH DELETE (n)").unwrap();
 }
 
 #[allow(dead_code)]
-pub fn clear_db() {
+pub(crate) fn clear_db() {
     #[cfg(feature = "graphson2")]
     clear_graphson2_db();
 

@@ -1,10 +1,13 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::engine::config::{Resolvers, Validators};
+use crate::engine::config::{ResolverFunc, Resolvers, Validators};
 use crate::engine::database::DatabasePool;
-use crate::engine::extensions::Extensions;
+use crate::engine::extensions::{Extension, Extensions};
+use crate::{Error, ErrorKind};
 use juniper::Context;
 use std::fmt::Debug;
+use std::slice::Iter;
+use std::sync::Arc;
 
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
@@ -15,13 +18,13 @@ where
     ReqCtx: RequestContext,
 {
     /// Connection pool database
-    pub pool: DatabasePool,
-    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
-    pub validators: Validators,
-    pub extensions: Extensions<GlobalCtx, ReqCtx>,
-    pub global_ctx: Option<GlobalCtx>,
-    pub req_ctx: Option<ReqCtx>,
-    pub version: Option<String>,
+    pool: DatabasePool,
+    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    validators: Validators,
+    extensions: Extensions<GlobalCtx, ReqCtx>,
+    global_ctx: Option<GlobalCtx>,
+    req_ctx: Option<ReqCtx>,
+    version: Option<String>,
 }
 
 impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
@@ -50,6 +53,45 @@ where
             req_ctx,
             version,
         }
+    }
+
+    pub fn pool(&self) -> &DatabasePool {
+        &self.pool
+    }
+
+    pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, ReqCtx>, Error> {
+        self.resolvers
+            .get(name)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::ResolverNotFound(
+                        format!("Could not find custom endpoint resolver {}.", name),
+                        name.to_owned(),
+                    ),
+                    None,
+                )
+            })
+            .and_then(|b| Ok(b.as_ref()))
+    }
+
+    pub fn validators(&self) -> &Validators {
+        &self.validators
+    }
+
+    pub fn version(&self) -> &Option<String> {
+        &self.version
+    }
+
+    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, ReqCtx> + Send + Sync>> {
+        self.extensions.iter()
+    }
+
+    pub fn global_context(&self) -> &Option<GlobalCtx> {
+        &self.global_ctx
+    }
+
+    pub fn request_context(&self) -> &Option<ReqCtx> {
+        &self.req_ctx
     }
 }
 
@@ -86,7 +128,7 @@ mod tests {
         let resolvers: Resolvers<(), ()> = Resolvers::new();
         let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-            ne.get_pool().unwrap(),
+            ne.pool().unwrap(),
             resolvers,
             validators,
             vec![],

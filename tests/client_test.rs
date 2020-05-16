@@ -32,7 +32,8 @@ async fn client_node_crud() {
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
     let projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None).await
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -59,7 +60,8 @@ async fn client_node_crud() {
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
     let u_projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None).await
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .await
         .unwrap();
 
     assert!(u_projects.is_array());
@@ -73,13 +75,15 @@ async fn client_node_crud() {
             Some("1234".to_string()),
             Some(&json!({"name": "MJOLNIR"})),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert_eq!(pd, 1);
 
     let d_projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None).await
+        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .await
         .unwrap();
 
     assert!(d_projects.is_array());
@@ -104,7 +108,8 @@ async fn client_rel_crud() {
             "id name",
             Some("1234".to_string()),
             &json!({"name": "Project Zero"}),
-        ).await
+        )
+        .await
         .unwrap();
     client
         .create_node(
@@ -112,7 +117,8 @@ async fn client_rel_crud() {
             "id name",
             Some("1234".to_string()),
             &json!({"name": "Bug Zero"}),
-        ).await
+        )
+        .await
         .unwrap();
 
     let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234".to_string()),
@@ -132,7 +138,8 @@ async fn client_rel_crud() {
             "id props { since }",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(rels.is_array());
@@ -167,7 +174,8 @@ async fn client_rel_crud() {
             "id props { since }",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(u_rels.is_array());
@@ -193,7 +201,8 @@ async fn client_rel_crud() {
     assert_eq!(rd, 1);
 
     let d_rels = client
-        .read_rel("Project", "issues", "id", Some("1234".to_string()), None).await
+        .read_rel("Project", "issues", "id", Some("1234".to_string()), None)
+        .await
         .unwrap();
 
     assert!(d_rels.is_array());

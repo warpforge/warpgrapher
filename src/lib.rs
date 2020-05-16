@@ -7,10 +7,7 @@
 //! generate the GraphQL configuration and invoke your custom resolvers when
 //! appropriate.
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-#[macro_use]
-pub extern crate juniper;
-
+pub use client::Client;
 pub use engine::config::Config;
 pub use engine::Engine;
 pub use error::Error;
@@ -18,4 +15,4 @@ pub use error::ErrorKind;
 
 pub mod client;
 pub mod engine;
-pub mod error;
+mod error;

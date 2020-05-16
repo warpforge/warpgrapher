@@ -4,6 +4,10 @@ use assert_approx_eq::assert_approx_eq;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use serde_json::json;
+#[cfg(feature = "graphson2")]
+use setup::graphson2_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_url;
 #[cfg(feature = "graphson2")]
@@ -12,10 +16,6 @@ use setup::server::test_server_graphson2;
 use setup::server::test_server_neo4j;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
 use warpgrapher::client::Client;
 
 /// Passes if the create mutation and the read query both succeed.
@@ -229,7 +229,8 @@ async fn handle_missing_properties(mut client: Client) {
             "__typename id name description",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(projects.is_array());
@@ -414,7 +415,8 @@ async fn update_mutation_null_query(mut client: Client) {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -444,7 +446,8 @@ async fn update_mutation_null_query(mut client: Client) {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(after_projects.is_array());
@@ -528,7 +531,8 @@ async fn delete_mutation(mut client: Client) {
             Some("1234".to_string()),
             Some(&json!({"name": "Project1"})),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert_eq!(pd, 1);
@@ -614,7 +618,8 @@ async fn delete_mutation_null_query(mut client: Client) {
             "__typename id name status",
             Some("1234".to_string()),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(before_projects.is_array());
@@ -622,7 +627,8 @@ async fn delete_mutation_null_query(mut client: Client) {
     assert_eq!(before_projects_a.len(), 2);
 
     let pd = client
-        .delete_node("Project", Some("1234".to_string()), None, None).await
+        .delete_node("Project", Some("1234".to_string()), None, None)
+        .await
         .unwrap();
 
     assert_eq!(pd, 2);
@@ -698,7 +704,8 @@ async fn error_on_node_missing_id(mut client: Client) {
             Some("1234".to_string()),
             Some(&json!({"name": "Project One"})),
             None,
-        ).await
+        )
+        .await
         .unwrap();
 
     assert!(pd.is_null());

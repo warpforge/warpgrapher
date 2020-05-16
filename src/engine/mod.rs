@@ -20,12 +20,9 @@ pub mod config;
 pub mod context;
 pub mod database;
 pub mod extensions;
-pub mod objects;
-pub mod resolvers;
+mod objects;
 pub mod schema;
 pub mod value;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-pub mod visitors;
 
 impl RequestContext for () {
     fn new() {}
@@ -37,13 +34,13 @@ where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
-    pub config: Config,
-    pub db_pool: DatabasePool,
-    pub global_ctx: Option<GlobalCtx>,
-    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
-    pub validators: Validators,
-    pub extensions: Extensions<GlobalCtx, ReqCtx>,
-    pub version: Option<String>,
+    config: Config,
+    db_pool: DatabasePool,
+    global_ctx: Option<GlobalCtx>,
+    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    validators: Validators,
+    extensions: Extensions<GlobalCtx, ReqCtx>,
+    version: Option<String>,
 }
 
 impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
@@ -228,7 +225,7 @@ where
         Ok(engine)
     }
 
-    fn validate_engine(
+    pub fn validate_engine(
         resolvers: &Resolvers<GlobalCtx, ReqCtx>,
         validators: &Validators,
         config: &Config,
@@ -242,12 +239,12 @@ where
         };
 
         //Validate Custom Endpoint defined in Config exists as a Resolver
-        for e in config.endpoints.iter() {
-            if !resolvers.contains_key(&e.name) {
+        for e in config.endpoints() {
+            if !resolvers.contains_key(e.name()) {
                 return Err(Error::new(
                     ErrorKind::ResolverNotFound(
-                        format!("Engine could not find a Resolver for the Custom Endpoint: {endpoint_name}.", endpoint_name=e.name),
-                        e.name.clone()
+                        format!("Engine could not find a Resolver for the Custom Endpoint: {endpoint_name}.", endpoint_name=e.name()),
+                        e.name().to_owned()
                     ),
                     None,
                 ));
@@ -258,37 +255,37 @@ where
         let mut dyn_scalar_props: Vec<Prop> = Vec::new();
         let mut props_with_validator: Vec<Prop> = Vec::new();
 
-        for m in config.model.iter() {
-            for p in m.props.iter() {
-                p.resolver
-                    .as_ref()
+        for t in config.types() {
+            for p in t.props() {
+                p.resolver()
+                    .clone()
                     .map_or((), |_| dyn_scalar_props.push(p.clone()));
-                p.validator
-                    .as_ref()
+                p.validator()
+                    .clone()
                     .map_or((), |_| props_with_validator.push(p.clone()));
             }
         }
         for dsp in dyn_scalar_props.iter() {
-            let resolver_name = dsp.resolver.as_ref().ok_or_else(|| {
+            let resolver_name = dsp.resolver().clone().ok_or_else(|| {
                 Error::new(
                     ErrorKind::ResolverNotFound(
                         format!(
                             "Failed to resolve custom prop: {prop_name}. Missing resolver name.",
-                            prop_name = dsp.name
+                            prop_name = dsp.name()
                         ),
-                        dsp.name.to_string(),
+                        dsp.name().to_string(),
                     ),
                     None,
                 )
             })?;
-            if !resolvers.contains_key(resolver_name) {
+            if !resolvers.contains_key(&resolver_name) {
                 return Err(Error::new(
                     ErrorKind::ResolverNotFound(
                         format!(
                             "Engine could not find a resolver for the custom prop: {prop_name}.",
-                            prop_name = dsp.name
+                            prop_name = dsp.name()
                         ),
-                        dsp.name.clone(),
+                        dsp.name().to_string(),
                     ),
                     None,
                 ));
@@ -297,26 +294,26 @@ where
 
         //Validate Custom Input Validator defined in Config exists as Validator
         for pwv in props_with_validator.iter() {
-            let validator_name = pwv.validator.as_ref().ok_or_else(|| {
+            let validator_name = pwv.validator().clone().ok_or_else(|| {
                 Error::new(
                     ErrorKind::ValidatorNotFound(
                         format!(
                             "Failed to find custom validator for prop: {prop_name}.",
-                            prop_name = pwv.name
+                            prop_name = pwv.name()
                         ),
-                        pwv.name.to_string(),
+                        pwv.name().to_string(),
                     ),
                     None,
                 )
             })?;
-            if !validators.contains_key(validator_name) {
+            if !validators.contains_key(&validator_name) {
                 return Err(Error::new(
                     ErrorKind::ValidatorNotFound(
                         format!(
                             "Engine could not find a validator for the custom prop: {prop_name}.",
-                            prop_name = pwv.name
+                            prop_name = pwv.name()
                         ),
-                        pwv.name.clone(),
+                        pwv.name().to_string(),
                     ),
                     None,
                 ));
@@ -358,13 +355,13 @@ where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
 {
-    pub config: Config,
-    pub db_pool: DatabasePool,
-    pub global_ctx: Option<GlobalCtx>,
-    pub resolvers: Resolvers<GlobalCtx, ReqCtx>,
-    pub validators: Validators,
-    pub extensions: Extensions<GlobalCtx, ReqCtx>,
-    pub version: Option<String>,
+    config: Config,
+    db_pool: DatabasePool,
+    global_ctx: Option<GlobalCtx>,
+    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    validators: Validators,
+    extensions: Extensions<GlobalCtx, ReqCtx>,
+    version: Option<String>,
     root_node: RootRef<GlobalCtx, ReqCtx>,
 }
 
@@ -501,7 +498,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    pub fn test_config() -> Config {
+    fn test_config() -> Config {
         init();
         let cf = File::open("tests/fixtures/config.yml")
             .expect("Could not open test model config file.");
@@ -510,7 +507,7 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    pub fn load_config(config: &str) -> Config {
+    fn load_config(config: &str) -> Config {
         init();
         let cf = File::open(config).expect("Could not open test model config file.");
         let cr = BufReader::new(cf);
@@ -646,7 +643,7 @@ mod tests {
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
 
-    pub fn my_resolver(
+    fn my_resolver(
         _info: &Info,
         _args: &Arguments,
         _executor: &Executor<GraphQLContext<(), ()>>,
@@ -654,7 +651,7 @@ mod tests {
         Ok(juniper::Value::scalar(100 as i32))
     }
 
-    pub fn my_validator(_value: &Value) -> Result<(), Error> {
+    fn my_validator(_value: &Value) -> Result<(), Error> {
         Ok(())
     }
 }

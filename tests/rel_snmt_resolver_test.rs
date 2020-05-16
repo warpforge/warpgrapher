@@ -2,13 +2,13 @@ mod setup;
 
 use serde_json::json;
 #[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
-#[cfg(feature = "graphson2")]
 use setup::graphson2_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
@@ -1160,14 +1160,16 @@ async fn delete_snmt_rel_by_rel_prop(mut client: Client) {
         .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some("1234".to_string()),
-        Some(&json!({"props": {"publicized": false}})),
-        None,
-        None,
-    ).await;
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some("1234".to_string()),
+            Some(&json!({"props": {"publicized": false}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(
@@ -1279,14 +1281,16 @@ async fn delete_snmt_rel_by_dst_prop(mut client: Client) {
         .await
         .unwrap();
 
-    let _b2 = client.delete_rel(
-        "Project",
-        "board",
-        Some("1234".to_string()),
-        Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
-        None,
-        None,
-    ).await;
+    let _b2 = client
+        .delete_rel(
+            "Project",
+            "board",
+            Some("1234".to_string()),
+            Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
+            None,
+            None,
+        )
+        .await;
 
     let projects = client
         .read_node(

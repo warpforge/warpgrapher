@@ -2,13 +2,13 @@ mod setup;
 
 use serde_json::json;
 #[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
-#[cfg(feature = "graphson2")]
 use setup::graphson2_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+#[cfg(feature = "graphson2")]
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
@@ -202,7 +202,8 @@ async fn create_mnst_existing_nodes(mut client: Client) {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "00000"}),
-        ).await
+        )
+        .await
         .unwrap();
     assert!(c0.is_object());
     assert_eq!(c0.get("__typename").unwrap(), "Commit");
@@ -214,7 +215,8 @@ async fn create_mnst_existing_nodes(mut client: Client) {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "11111"}),
-        ).await
+        )
+        .await
         .unwrap();
     assert!(c1.is_object());
     assert_eq!(c1.get("__typename").unwrap(), "Commit");
@@ -577,7 +579,8 @@ async fn update_mnst_existing_node(mut client: Client) {
             "__typename id hash",
             Some("1234".to_string()),
             &json!({"hash": "22222"}),
-        ).await
+        )
+        .await
         .unwrap();
 
     let pu = client

@@ -30,12 +30,12 @@ use warpgrapher::{Error, ErrorKind};
 
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 #[derive(Clone, Debug)]
-pub struct AppGlobalCtx {
+pub(crate) struct AppGlobalCtx {
     version: String,
 }
 
 #[derive(Clone, Debug)]
-pub struct AppReqCtx {
+pub(crate) struct AppReqCtx {
     metadata: Metadata,
 }
 
@@ -57,7 +57,7 @@ impl MetadataExtensionCtx for AppReqCtx {
 }
 
 #[allow(dead_code)]
-pub fn name_validator(value: &Value) -> Result<(), Error> {
+fn name_validator(value: &Value) -> Result<(), Error> {
     let name = match value {
         Value::Map(m) => match m.get("name") {
             Some(n) => n,
@@ -108,7 +108,7 @@ pub fn name_validator(value: &Value) -> Result<(), Error> {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub fn project_count<AppGlobalCtx, AppReqCtx>(
+fn project_count<AppGlobalCtx, AppReqCtx>(
     _info: &Info,
     _args: &Arguments,
     executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
@@ -116,7 +116,7 @@ pub fn project_count<AppGlobalCtx, AppReqCtx>(
 where
     AppReqCtx: RequestContext,
 {
-    match &executor.context().pool {
+    match &executor.context().pool() {
         DatabasePool::Neo4j(p) => {
             // get projects from database
             let graph = p.get().unwrap();
@@ -137,7 +137,7 @@ where
 }
 
 #[allow(dead_code)]
-pub fn project_points<AppGlobalCtx, AppReqCtx>(
+fn project_points<AppGlobalCtx, AppReqCtx>(
     _info: &Info,
     _args: &Arguments,
     _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
@@ -150,7 +150,7 @@ where
 
 #[allow(dead_code)]
 #[cfg(feature = "graphson2")]
-pub fn test_server_graphson2(config_path: &str) -> Server {
+pub(crate) fn test_server_graphson2(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
@@ -164,7 +164,7 @@ pub fn test_server_graphson2(config_path: &str) -> Server {
     Server::new(
         "5001",
         config,
-        Graphson2Endpoint::from_env().unwrap().get_pool().unwrap(),
+        Graphson2Endpoint::from_env().unwrap().pool().unwrap(),
         global_ctx,
         HashMap::new(),
         HashMap::new(),
@@ -173,7 +173,7 @@ pub fn test_server_graphson2(config_path: &str) -> Server {
 }
 
 #[allow(dead_code)]
-pub struct Server {
+pub(crate) struct Server {
     bind_port: String,
     config: Config,
     db_pool: DatabasePool,
@@ -209,7 +209,7 @@ impl Server {
     }
 
     #[allow(dead_code)]
-    pub fn serve(&mut self, block: bool) -> Result<(), Error> {
+    pub(crate) fn serve(&mut self, block: bool) -> Result<(), Error> {
         if self.handle.is_some() || self.server.is_some() {
             return Err(Error::new(ErrorKind::ServerAlreadyRunning, None));
         }
@@ -268,7 +268,7 @@ impl Server {
     }
 
     #[allow(dead_code)]
-    pub fn shutdown(&mut self) -> Result<(), Error> {
+    pub(crate) fn shutdown(&mut self) -> Result<(), Error> {
         let s = self
             .server
             .take()
@@ -289,7 +289,7 @@ impl Server {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub fn test_server_neo4j(config_path: &str) -> Server {
+pub(crate) fn test_server_neo4j(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
@@ -322,7 +322,7 @@ pub fn test_server_neo4j(config_path: &str) -> Server {
     Server::new(
         "5000",
         config,
-        Neo4jEndpoint::from_env().unwrap().get_pool().unwrap(),
+        Neo4jEndpoint::from_env().unwrap().pool().unwrap(),
         global_ctx,
         resolvers,
         validators,

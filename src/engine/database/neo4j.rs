@@ -1,4 +1,4 @@
-use super::{get_env_string, DatabaseEndpoint, DatabasePool, QueryResult};
+use super::{env_string, DatabaseEndpoint, DatabasePool, QueryResult};
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -21,13 +21,13 @@ pub struct Neo4jEndpoint {
 impl Neo4jEndpoint {
     pub fn from_env() -> Result<Neo4jEndpoint, Error> {
         Ok(Neo4jEndpoint {
-            db_url: get_env_string("WG_NEO4J_URL")?,
+            db_url: env_string("WG_NEO4J_URL")?,
         })
     }
 }
 
 impl DatabaseEndpoint for Neo4jEndpoint {
-    fn get_pool(&self) -> Result<DatabasePool, Error> {
+    fn pool(&self) -> Result<DatabasePool, Error> {
         let manager = CypherConnectionManager {
             url: self.db_url.to_owned(),
         };
@@ -41,12 +41,12 @@ impl DatabaseEndpoint for Neo4jEndpoint {
     }
 }
 
-pub struct Neo4jTransaction<'t> {
+pub(crate) struct Neo4jTransaction<'t> {
     transaction: Option<Transaction<'t, Started>>,
 }
 
 impl<'t> Neo4jTransaction<'t> {
-    pub fn new(transaction: Transaction<'t, Started>) -> Neo4jTransaction {
+    pub(crate) fn new(transaction: Transaction<'t, Started>) -> Neo4jTransaction {
         Neo4jTransaction {
             transaction: Some(transaction),
         }
@@ -120,10 +120,10 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             (src_ids.clone(), dst_ids.clone())
         {
             // TODO remove clone
-            let src_td = info.get_type_def_by_name(src_label)?;
-            let src_prop = src_td.get_prop(rel_name)?;
+            let src_td = info.type_def_by_name(src_label)?;
+            let src_prop = src_td.prop(rel_name)?;
 
-            if !src_prop.list {
+            if !src_prop.list() {
                 let check_query = String::from("MATCH (")
                     + src_label
                     + ":"
@@ -141,7 +141,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
                 check_params.insert("aid".to_owned(), Value::Array(src_id_vec)); // TODO -- remove cloning
                 let check_results =
                     self.exec(&check_query, partition_key_opt, Some(check_params))?;
-                if check_results.get_count()? > 0 || dst_id_vec.len() > 1 {
+                if check_results.count()? > 0 || dst_id_vec.len() > 1 {
                     return Err(Error::new(
                         ErrorKind::RelAlreadyExists(rel_name.to_string()),
                         None,
@@ -609,13 +609,13 @@ pub struct Neo4jQueryResult {
 }
 
 impl Neo4jQueryResult {
-    pub fn new(result: CypherResult) -> Neo4jQueryResult {
+    fn new(result: CypherResult) -> Neo4jQueryResult {
         Neo4jQueryResult { result }
     }
 }
 
 impl QueryResult for Neo4jQueryResult {
-    fn get_nodes<GlobalCtx, ReqCtx>(
+    fn nodes<GlobalCtx, ReqCtx>(
         self,
         _name: &str,
         info: &Info,
@@ -624,10 +624,7 @@ impl QueryResult for Neo4jQueryResult {
         GlobalCtx: Debug,
         ReqCtx: RequestContext,
     {
-        trace!(
-            "Neo4jQueryResult::get_nodes called, result: {:#?}",
-            self.result
-        );
+        trace!("Neo4jQueryResult::nodes called, result: {:#?}", self.result);
 
         let mut v = Vec::new();
         for row in self.result.rows() {
@@ -637,10 +634,10 @@ impl QueryResult for Neo4jQueryResult {
                 Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
             })?;
             let mut fields = HashMap::new();
-            let type_def = info.get_type_def_by_name(&label)?;
+            let type_def = info.type_def_by_name(&label)?;
             for (k, v) in m.into_iter() {
-                let prop_def = type_def.get_prop(&k)?;
-                if prop_def.list {
+                let prop_def = type_def.prop(&k)?;
+                if prop_def.list() {
                     if let serde_json::Value::Array(_) = v {
                         fields.insert(k, v.try_into()?);
                     } else {
@@ -654,11 +651,11 @@ impl QueryResult for Neo4jQueryResult {
             }
             v.push(Node::new(label.to_owned(), fields));
         }
-        trace!("Neo4jQueryResults::get_nodes results: {:#?}", v);
+        trace!("Neo4jQueryResults::nodes results: {:#?}", v);
         Ok(v)
     }
 
-    fn get_rels<GlobalCtx, ReqCtx>(
+    fn rels<GlobalCtx, ReqCtx>(
         self,
         src_name: &str,
         src_suffix: &str,
@@ -672,7 +669,7 @@ impl QueryResult for Neo4jQueryResult {
         GlobalCtx: Debug,
         ReqCtx: RequestContext,
     {
-        trace!("Neo4jQueryResult::get_rels called, src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name: {:#?}, {:#?}, {:#?}, {:#?}, {:#?}, {:#?}", src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name);
+        trace!("Neo4jQueryResult::rels called, src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name: {:#?}, {:#?}, {:#?}, {:#?}, {:#?}, {:#?}", src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name);
 
         let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
 
@@ -685,10 +682,10 @@ impl QueryResult for Neo4jQueryResult {
                         Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
                     })?;
                     let mut src_fields = HashMap::new();
-                    let type_def = info.get_type_def_by_name(&src_label)?;
+                    let type_def = info.type_def_by_name(&src_label)?;
                     for (k, v) in src_map.into_iter() {
-                        let prop_def = type_def.get_prop(&k)?;
-                        if prop_def.list {
+                        let prop_def = type_def.prop(&k)?;
+                        if prop_def.list() {
                             if let serde_json::Value::Array(_) = v {
                                 src_fields.insert(k, v.try_into()?);
                             } else {
@@ -712,10 +709,10 @@ impl QueryResult for Neo4jQueryResult {
                                 )
                             })?;
                             let mut dst_fields = HashMap::new();
-                            let type_def = info.get_type_def_by_name(&dst_label)?;
+                            let type_def = info.type_def_by_name(&dst_label)?;
                             for (k, v) in dst_map.into_iter() {
-                                let prop_def = type_def.get_prop(&k)?;
-                                if prop_def.list {
+                                let prop_def = type_def.prop(&k)?;
+                                if prop_def.list() {
                                     if let serde_json::Value::Array(_) = v {
                                         dst_fields.insert(k, v.try_into()?);
                                     } else {
@@ -790,12 +787,12 @@ impl QueryResult for Neo4jQueryResult {
                 .into());
             };
         }
-        trace!("Neo4jQueryResults::get_rels results: {:#?}", v);
+        trace!("Neo4jQueryResults::rels results: {:#?}", v);
         Ok(v)
     }
 
-    fn get_ids(&self, _name: &str) -> Result<Value, FieldError> {
-        trace!("Neo4jQueryResult::get_ids called");
+    fn ids(&self, _name: &str) -> Result<Value, FieldError> {
+        trace!("Neo4jQueryResult::ids called");
 
         let mut v = Vec::new();
         for row in self.result.rows() {
@@ -820,12 +817,12 @@ impl QueryResult for Neo4jQueryResult {
             }
         }
 
-        trace!("get_ids result: {:#?}", v);
+        trace!("ids result: {:#?}", v);
         Ok(Value::Array(v))
     }
 
-    fn get_count(&self) -> Result<i32, FieldError> {
-        trace!("Neo4jQueryResult::get_count called");
+    fn count(&self) -> Result<i32, FieldError> {
+        trace!("Neo4jQueryResult::count called");
 
         let ret_row = self
             .result

@@ -2,15 +2,15 @@ mod setup;
 
 use serde_json::json;
 #[cfg(feature = "graphson2")]
+use setup::graphson2_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(feature = "graphson2")]
 use setup::server::test_server_graphson2;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
 use warpgrapher::client::Client;
 
 #[cfg(feature = "graphson2")]
@@ -240,7 +240,8 @@ async fn scalar_no_lists_test(mut client: Client) {
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
-        ).await
+        )
+        .await
         .is_err());
 }
 

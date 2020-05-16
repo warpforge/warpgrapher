@@ -50,7 +50,7 @@ async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpR
 #[allow(clippy::ptr_arg)]
 #[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
-pub fn start(
+pub(crate) fn start(
     bind_port: &str,
     config: &Config,
     database_pool: DatabasePool,

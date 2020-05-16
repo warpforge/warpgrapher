@@ -3,13 +3,13 @@ mod setup;
 use log::trace;
 use serde_json::json;
 #[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
+use setup::graphson2_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
 #[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
+use setup::server::test_server_graphson2;
+#[cfg(feature = "neo4j")]
+use setup::server::test_server_neo4j;
 #[cfg(any(feature = "graphson2", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
@@ -230,7 +230,8 @@ async fn create_mnmt_existing_nodes(mut client: Client) {
             "__typename id name",
             Some("1234".to_string()),
             &json!({"name": "Bug Zero"}),
-        ).await
+        )
+        .await
         .unwrap();
     assert!(b0.is_object());
     assert_eq!(b0.get("__typename").unwrap(), "Bug");
@@ -651,7 +652,8 @@ async fn update_mnmt_existing_nodes(mut client: Client) {
             "__typename id name",
             Some("1234".to_string()),
             &json!({"name": "Bug Zero"}),
-        ).await
+        )
+        .await
         .unwrap();
     assert!(b0.is_object());
     assert_eq!(b0.get("__typename").unwrap(), "Bug");
@@ -1221,13 +1223,15 @@ async fn delete_node(mut client: Client) {
         .unwrap();
 
     let projects_pre = client
-        .read_node("Project", "id", Some("1234".to_string()), None).await
+        .read_node("Project", "id", Some("1234".to_string()), None)
+        .await
         .unwrap();
     assert!(projects_pre.is_array());
     assert_eq!(projects_pre.as_array().unwrap().len(), 1);
 
     let bugs_pre = client
-        .read_node("Bug", "id", Some("1234".to_string()), None).await
+        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .await
         .unwrap();
     assert!(bugs_pre.is_array());
     assert_eq!(bugs_pre.as_array().unwrap().len(), 1);
@@ -1255,7 +1259,8 @@ async fn delete_node(mut client: Client) {
     assert_eq!(projects_post.as_array().unwrap().len(), 0);
 
     let bugs_post = client
-        .read_node("Bug", "id", Some("1234".to_string()), None).await
+        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .await
         .unwrap();
     assert!(bugs_post.is_array());
     assert_eq!(bugs_post.as_array().unwrap().len(), 1);

@@ -1,6 +1,4 @@
-use super::{
-    get_env_string, get_env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction,
-};
+use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction};
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -26,16 +24,16 @@ pub struct Graphson2Endpoint {
 impl Graphson2Endpoint {
     pub fn from_env() -> Result<Graphson2Endpoint, Error> {
         Ok(Graphson2Endpoint {
-            host: get_env_string("WG_GRAPHSON2_HOST")?,
-            port: get_env_u16("WG_GRAPHSON2_PORT")?,
-            login: get_env_string("WG_GRAPHSON2_LOGIN")?,
-            pass: get_env_string("WG_GRAPHSON2_PASS")?,
+            host: env_string("WG_GRAPHSON2_HOST")?,
+            port: env_u16("WG_GRAPHSON2_PORT")?,
+            login: env_string("WG_GRAPHSON2_LOGIN")?,
+            pass: env_string("WG_GRAPHSON2_PASS")?,
         })
     }
 }
 
 impl DatabaseEndpoint for Graphson2Endpoint {
-    fn get_pool(&self) -> Result<DatabasePool, Error> {
+    fn pool(&self) -> Result<DatabasePool, Error> {
         Ok(DatabasePool::Graphson2(
             GremlinClient::connect(
                 ConnectionOptions::builder()
@@ -53,12 +51,12 @@ impl DatabaseEndpoint for Graphson2Endpoint {
     }
 }
 
-pub struct Graphson2Transaction {
+pub(crate) struct Graphson2Transaction {
     client: GremlinClient,
 }
 
 impl Graphson2Transaction {
-    pub fn new(client: GremlinClient) -> Graphson2Transaction {
+    pub(crate) fn new(client: GremlinClient) -> Graphson2Transaction {
         Graphson2Transaction { client }
     }
 }
@@ -133,10 +131,10 @@ impl Transaction for Graphson2Transaction {
         }
 
         if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) = (src_ids, dst_ids) {
-            let src_td = info.get_type_def_by_name(src_label)?;
-            let src_prop = src_td.get_prop(rel_name)?;
+            let src_td = info.type_def_by_name(src_label)?;
+            let src_prop = src_td.prop(rel_name)?;
 
-            if !src_prop.list {
+            if !src_prop.list() {
                 let mut check_query = String::from("g.V()");
                 check_query.push_str(&(String::from(".has('partitionKey', partitionKey)")));
                 check_query.push_str(&(String::from(".has('label', '") + src_label + "')"));
@@ -159,7 +157,7 @@ impl Transaction for Graphson2Transaction {
                 check_query.push_str(&(String::from(").outE('") + rel_name + "').count()"));
                 let check_results =
                     self.exec(&check_query, partition_key_opt, Some(props.clone()))?; // TODO -- remove cloning
-                if check_results.get_count()? > 0 || dst_id_vec.len() > 1 {
+                if check_results.count()? > 0 || dst_id_vec.len() > 1 {
                     return Err(Error::new(
                         ErrorKind::RelAlreadyExists(rel_name.to_string()),
                         None,
@@ -639,13 +637,13 @@ pub struct Graphson2QueryResult {
 }
 
 impl Graphson2QueryResult {
-    pub fn new(results: Vec<GValue>) -> Graphson2QueryResult {
+    fn new(results: Vec<GValue>) -> Graphson2QueryResult {
         Graphson2QueryResult { results }
     }
 }
 
 impl QueryResult for Graphson2QueryResult {
-    fn get_nodes<GlobalCtx, ReqCtx>(
+    fn nodes<GlobalCtx, ReqCtx>(
         self,
         _name: &str,
         info: &Info,
@@ -656,7 +654,7 @@ impl QueryResult for Graphson2QueryResult {
     {
         /*
         trace!(
-            "Graphson2QueryResult::get_nodes self.results: {:#?}",
+            "Graphson2QueryResult::nodes self.results: {:#?}",
             self.results
         );
         */
@@ -681,14 +679,14 @@ impl QueryResult for Graphson2QueryResult {
                     Some(GValue::Map(props)),
                 ) = (hm.remove("nID"), hm.remove("nLabel"), hm.remove("nProps"))
                 {
-                    let type_def = info.get_type_def_by_name(&label)?;
+                    let type_def = info.type_def_by_name(&label)?;
 
                     let mut fields = HashMap::new();
                     fields.insert("id".to_string(), Value::String(id.to_owned()));
 
                     for (key, property_list) in props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !type_def.get_prop(&k)?.list {
+                            if k == "partitionKey" || !type_def.prop(&k)?.list() {
                                 fields.insert(
                                     k.to_owned(),
                                     plist
@@ -731,12 +729,12 @@ impl QueryResult for Graphson2QueryResult {
             }
         }
 
-        trace!("Graphson2QueryResult::get_nodes returning {:#?}", v);
+        trace!("Graphson2QueryResult::nodes returning {:#?}", v);
 
         Ok(v)
     }
 
-    fn get_rels<GlobalCtx, ReqCtx>(
+    fn rels<GlobalCtx, ReqCtx>(
         self,
         _src_name: &str,
         _src_suffix: &str,
@@ -752,7 +750,7 @@ impl QueryResult for Graphson2QueryResult {
     {
         /*
         trace!(
-            "Graphson2QueryResult::get_rels self.results: {:#?}",
+            "Graphson2QueryResult::rels self.results: {:#?}",
             self.results
         );
         */
@@ -792,14 +790,14 @@ impl QueryResult for Graphson2QueryResult {
                     hm.remove("dstLabel"),
                     hm.remove("dstProps"),
                 ) {
-                    let src_type_def = info.get_type_def_by_name(&src_label)?;
+                    let src_type_def = info.type_def_by_name(&src_label)?;
 
                     let mut src_fields = HashMap::new();
                     src_fields.insert("id".to_string(), Value::String(src_id.to_owned()));
 
                     for (key, property_list) in src_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !src_type_def.get_prop(&k)?.list {
+                            if k == "partitionKey" || !src_type_def.prop(&k)?.list() {
                                 src_fields.insert(
                                     k.to_owned(),
                                     plist
@@ -831,14 +829,14 @@ impl QueryResult for Graphson2QueryResult {
                         }
                     }
 
-                    let dst_type_def = info.get_type_def_by_name(&dst_label)?;
+                    let dst_type_def = info.type_def_by_name(&dst_label)?;
 
                     let mut dst_fields = HashMap::new();
                     dst_fields.insert("id".to_string(), Value::String(dst_id.to_owned()));
 
                     for (key, property_list) in dst_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !dst_type_def.get_prop(&k)?.list {
+                            if k == "partitionKey" || !dst_type_def.prop(&k)?.list() {
                                 dst_fields.insert(
                                     k.to_owned(),
                                     plist
@@ -909,15 +907,15 @@ impl QueryResult for Graphson2QueryResult {
             }
         }
 
-        trace!("Graphson2QueryResult::get_rels returning {:#?}", v);
+        trace!("Graphson2QueryResult::rels returning {:#?}", v);
 
         Ok(v)
     }
 
-    fn get_ids(&self, _type_name: &str) -> Result<Value, FieldError> {
+    fn ids(&self, _type_name: &str) -> Result<Value, FieldError> {
         /*
         trace!(
-            "Graphson2QueryResult::get_ids self.results: {:#?}",
+            "Graphson2QueryResult::ids self.results: {:#?}",
             self.results
         );
         */
@@ -944,9 +942,9 @@ impl QueryResult for Graphson2QueryResult {
         Ok(Value::Array(v))
     }
 
-    fn get_count(&self) -> Result<i32, FieldError> {
+    fn count(&self) -> Result<i32, FieldError> {
         trace!(
-            "Graphson2QueryResult::get_count self.results: {:#?}",
+            "Graphson2QueryResult::count self.results: {:#?}",
             self.results
         );
 

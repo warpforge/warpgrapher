@@ -38,12 +38,10 @@ async fn custom_endpoint_resolver() {
         .unwrap();
 
     // count projects via custom resolver
-    let result = client.graphql(
-        "query { ProjectCount }",
-        Some("1234".to_string()),
-        None,
-    ).await
-    .unwrap();
+    let result = client
+        .graphql("query { ProjectCount }", Some("1234".to_string()), None)
+        .await
+        .unwrap();
     let count = result.get("ProjectCount").unwrap();
 
     // verify result
@@ -74,12 +72,14 @@ async fn custom_prop_resolver() {
         .await
         .unwrap();
 
-    let result = client.graphql(
-        "query { Project{id, points}}",
-        Some("1234".to_string()),
-        None,
-    ).await
-    .unwrap();
+    let result = client
+        .graphql(
+            "query { Project{id, points}}",
+            Some("1234".to_string()),
+            None,
+        )
+        .await
+        .unwrap();
     let project = result.get("Project").unwrap();
     let points = project[0].get("points").unwrap();
 
