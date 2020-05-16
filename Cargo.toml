@@ -2,7 +2,8 @@
 name = "warpgrapher"
 authors = ["Javier Vazquez"]
 description = "Automate web service creation with GraphQL and Neo4J"
-license = "MIT"
+homepage = "https://warpforge.github.io/warpgrapher/"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
@@ -40,3 +41,4 @@ actix-http = "1.0.1"
 assert_approx_eq = "1.1.0"
 futures = "0.3.1"
 tokio = { version = "0.2", features = ["rt-threaded", "macros"] }
+version-sync = "0.9.0"

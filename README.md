@@ -16,6 +16,14 @@ The project is currently in development. Prior to reaching v1.0.0:
 2. Patch versions represent fixes and features.
 3. There are no deprecation warnings between releases.
 
+# Usage
+
+Add this to your `Cargo.toml`:
+```toml
+[dependencies]
+warpgrapher = "0.1.1"
+```
+
 # Getting Started
 
 See the [Quickstart]() section of the Warpgrapher Book. 
@@ -24,19 +32,19 @@ See the [Quickstart]() section of the Warpgrapher Book.
 
 See the [Warpgrapher Book]() for in-depth usage documentation. 
 
-## Contributing
+# Contributing
 
 Note that the steps below are for doing development on the Warpgrapher itself,
 to contribute to the project. In order to develop with Warpgrapher, on your own
 project, see the Documentation.
 
-### Clone the Warpgrapher Repository
+## Clone the Warpgrapher Repository
 
 ```
 git clone https://github.com/warpforge/warpgrapher.git
 ```
 
-### Build Warpgrapher
+## Build Warpgrapher
 
 To build for use with Graphson2 graph engines:
 
@@ -50,7 +58,7 @@ To build for use with Neo4J:
 cargo build --features neo4j
 ```
 
-### Test
+## Test
 
 Set env variables.
 
@@ -131,13 +139,13 @@ Clippy
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
-### Format code
+## Format code
 
 ```bash
 cargo fmt
 ```
 
-### Review against API style guidelines
+## Review against API style guidelines
 
 Review your change against the following Rust language API style guidelines.
 
@@ -146,3 +154,20 @@ https://rust-lang.github.io/api-guidelines/
 If reviewing a PR, use the following as a review checklist:
 
 https://rust-lang.github.io/api-guidelines/checklist.html
+
+## Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in the work by you, as defined in the Apache-2.0 license, shall be
+dual licensed as above, without any additional terms or conditions.
+
+# License
+
+Licensed under either of
+
+ * Apache License, Version 2.0
+   ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license
+   ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+at your option.
