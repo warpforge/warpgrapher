@@ -1,10 +1,6 @@
 //! models and custom GraphQL endpoints.
 
-//use std::fmt;
-use super::context::GraphQLContext;
-use super::schema::Info;
 use crate::error::{Error, ErrorKind};
-use juniper::{Arguments, ExecutionResult, Executor};
 use serde::{Deserialize, Serialize};
 use serde_json::value::Value;
 use std::collections::HashMap;
@@ -24,11 +20,6 @@ fn get_true() -> bool {
 fn get_none() -> Option<String> {
     None
 }
-
-pub type ResolverFunc<GlobalCtx, ReqCtx> =
-    fn(&Info, &Arguments, &Executor<GraphQLContext<GlobalCtx, ReqCtx>>) -> ExecutionResult;
-
-pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
 
 pub type ValidatorFunc = fn(&Value) -> Result<(), Error>;
 
@@ -107,6 +98,13 @@ impl Config {
             model: vec![],
             endpoints: vec![],
         }
+    }
+
+    /// Creates a new [`Config`] data structure from a yaml formatted
+    /// config string.
+    pub fn from_string(data: String) -> Result<Config, Error> {
+        serde_yaml::from_str(&data)
+            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
     }
 
     /// Creates a new [`Config`] data structure from
@@ -399,7 +397,8 @@ impl Prop {
 ///            true,
 ///            vec!["User".to_string()],
 ///            vec![],  
-///            EndpointsFilter::all()
+///            EndpointsFilter::all(),
+///            None
 ///         );
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -425,6 +424,11 @@ pub struct Relationship {
     /// auto generated for the relationship
     #[serde(default)]
     pub endpoints: EndpointsFilter,
+
+    /// The name of the resolver function to be called when querying for the value of this prop.
+    /// If this field is None, the prop resolves the scalar value from the database.
+    #[serde(default = "get_none")]
+    pub resolver: Option<String>,
 }
 
 impl Relationship {
@@ -435,6 +439,7 @@ impl Relationship {
         nodes: Vec<String>,
         props: Vec<Prop>,
         endpoints: EndpointsFilter,
+        resolver: Option<String>,
     ) -> Relationship {
         Relationship {
             name,
@@ -442,6 +447,7 @@ impl Relationship {
             nodes,
             props,
             endpoints,
+            resolver,
         }
     }
 }

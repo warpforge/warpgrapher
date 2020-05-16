@@ -1,12 +1,8 @@
-extern crate warpgrapher;
-use self::warpgrapher::engine::context::GraphQLContext;
-use self::warpgrapher::engine::schema::Info;
-use self::warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::engine::resolvers::ResolverContext;
+use warpgrapher::juniper::ExecutionResult; // TODO: consider re-exporting from warpgrapher::engine::resolvers
 
 pub fn resolver(
-    _info: &Info,
-    _args: &Arguments,
-    _executor: &Executor<GraphQLContext<crate::AppGlobalContext, crate::AppRequestContext>>,
+    context: ResolverContext<crate::AppGlobalContext, crate::AppRequestContext>,
 ) -> ExecutionResult {
-    Ok(Value::scalar(1_000_000 as i32))
+    context.resolve_scalar(1)
 }

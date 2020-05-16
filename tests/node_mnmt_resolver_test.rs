@@ -11,6 +11,7 @@ use setup::{clear_db, init, test_client};
 #[tokio::test]
 #[serial]
 async fn create_mnmt_new_nodes() {
+    println!("create_mnmt_new_nodes::start");
     init();
     clear_db();
 
@@ -162,6 +163,7 @@ async fn create_mnmt_new_nodes() {
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
 
     assert!(server.shutdown().is_ok());
+    println!("create_mnmt_new_nodes::end");
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
@@ -169,6 +171,7 @@ async fn create_mnmt_new_nodes() {
 #[tokio::test]
 #[serial]
 async fn create_mnmt_existing_nodes() {
+    println!("create_mnmt_existing_nodes::start");
     init();
     clear_db();
 
@@ -268,6 +271,7 @@ async fn create_mnmt_existing_nodes() {
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
 
     assert!(server.shutdown().is_ok());
+    println!("create_mnmt_existing_nodes::end");
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship

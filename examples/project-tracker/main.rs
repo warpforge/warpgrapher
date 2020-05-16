@@ -1,8 +1,9 @@
-use resolvers::{project_count, project_points};
+use resolvers::{project_contributors, project_count, project_points};
 use validators::name_validator;
-use warpgrapher::engine::config::{Config, Resolvers, Validators};
+use warpgrapher::engine::config::{Config, Validators};
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::resolvers::Resolvers;
 use warpgrapher::engine::Engine;
 use warpgrapher::Error;
 
@@ -63,6 +64,10 @@ fn main() -> Result<(), Error> {
     resolvers.insert(
         "ProjectPoints".to_string(),
         Box::new(project_points::resolver),
+    );
+    resolvers.insert(
+        "ProjectContributors".to_string(),
+        Box::new(project_contributors::resolver),
     );
 
     let mut validators = Validators::new();

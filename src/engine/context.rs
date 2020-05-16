@@ -1,10 +1,12 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::engine::config::{Resolvers, Validators};
+use crate::engine::config::Validators;
 use crate::engine::extensions::WarpgrapherExtensions;
+use crate::engine::resolvers::Resolvers;
 use juniper::Context;
 use r2d2::Pool;
 use r2d2_cypher::CypherConnectionManager;
+use std::fmt::Debug;
 
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
@@ -12,7 +14,8 @@ use r2d2_cypher::CypherConnectionManager;
 /// ['GraphQLContext']: ./struct/GraphQLContext.html
 pub struct GraphQLContext<GlobalCtx, ReqCtx: RequestContext>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     /// Connection pool for the Neo4J database
     pub pool: Pool<CypherConnectionManager>,
@@ -26,7 +29,8 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     /// Takes an r2d2 Pool of CypherConnectionManager structs and returns a
     /// ['GraphQLContext'] containing that connection pool.
@@ -53,7 +57,12 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx: RequestContext> Context for GraphQLContext<GlobalCtx, ReqCtx> {}
+impl<GlobalCtx, ReqCtx> Context for GraphQLContext<GlobalCtx, ReqCtx>
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
+{
+}
 
 pub trait RequestContext {
     fn new() -> Self;
@@ -63,7 +72,8 @@ pub trait RequestContext {
 mod tests {
 
     use super::GraphQLContext;
-    use crate::engine::config::{Resolvers, Validators};
+    use crate::engine::config::Validators;
+    use crate::engine::resolvers::Resolvers;
     use r2d2_cypher::CypherConnectionManager;
     use std::env::var_os;
 

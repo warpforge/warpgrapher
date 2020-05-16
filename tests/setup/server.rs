@@ -1,15 +1,17 @@
 use super::extension::{Metadata, MetadataExtension, MetadataExtensionCtx};
 use actix_web::dev;
 use futures::executor::block_on;
+use serde_json::json;
 use std::env::var_os;
+use std::fmt::Debug;
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-use warpgrapher::engine::config::{Config, Resolvers, Validators};
-use warpgrapher::engine::context::{GraphQLContext, RequestContext};
+use warpgrapher::engine::config::{Config, Validators};
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::extensions::WarpgrapherExtensions;
-use warpgrapher::engine::schema::Info;
-use warpgrapher::juniper::{Arguments, ExecutionResult, Executor, Value};
+use warpgrapher::engine::resolvers::{GraphNode, GraphRel, ResolverContext, Resolvers};
+use warpgrapher::juniper::ExecutionResult;
 use warpgrapher::{Error, ErrorKind};
 
 #[derive(Clone, Debug)]
@@ -18,13 +20,13 @@ pub struct AppGlobalCtx {
 }
 
 #[derive(Clone, Debug)]
-pub struct AppReqCtx {
+pub struct AppRequestCtx {
     metadata: Metadata,
 }
 
-impl RequestContext for AppReqCtx {
-    fn new() -> AppReqCtx {
-        AppReqCtx {
+impl RequestContext for AppRequestCtx {
+    fn new() -> AppRequestCtx {
+        AppRequestCtx {
             metadata: Metadata {
                 src_ip: "".to_string(),
                 src_useragent: "".to_string(),
@@ -33,7 +35,7 @@ impl RequestContext for AppReqCtx {
     }
 }
 
-impl MetadataExtensionCtx for AppReqCtx {
+impl MetadataExtensionCtx for AppRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
@@ -88,43 +90,105 @@ pub fn name_validator(value: &serde_json::Value) -> Result<(), Error> {
     }
 }
 
+/// custom endpoint returning scalar:
 #[allow(dead_code)]
-pub fn project_count<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
-    // get projects from database
-    let graph = executor.context().pool.get().unwrap();
+pub fn project_count(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    let db = context.get_db()?;
     let query = "MATCH (n:Project) RETURN (n);";
-    let results = graph.exec(query).unwrap();
-
-    // return number of projects
-    let count = results.data.len();
-    Ok(Value::scalar(count as i32))
+    let results = db.exec(query).unwrap();
+    context.resolve_scalar(results.data.len() as i32)
 }
 
-pub fn project_points<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
-    Ok(Value::scalar(1_000_000 as i32))
+/// custom endpoint returning scalar_list:
+pub fn global_top_tags(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
+}
+
+/// custom endpoint returning node
+pub fn global_top_dev(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.resolve_node(GraphNode {
+        typename: "User",
+        props: json!({
+            "name": "Joe"
+        })
+        .as_object()
+        .unwrap(),
+    })
+}
+
+/*
+/// custom endpoint returning node_list
+pub fn global_top_issues(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) {
+    // TODO: add real database query
+    context.resolve_node_list()
+}
+*/
+
+/// custom field returning scalar
+pub fn project_points(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.resolve_scalar(138)
+}
+
+/// custom field returning scalar_list
+pub fn project_top_tags(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
+}
+
+/// custom rel returning rel
+pub fn project_top_dev(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) -> ExecutionResult {
+    context.resolve_rel(GraphRel {
+        id: "1234567890",
+        props: None,
+        dst: GraphNode {
+            typename: "User",
+            props: json!({
+                "name": "Joe"
+            })
+            .as_object()
+            .unwrap(),
+        },
+    })
+}
+
+/// custom rel returning rel_list
+pub fn project_top_issues(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    context.resolve_rel_list(vec![
+        GraphRel {
+            id: "1234567890",
+            props: None,
+            dst: GraphNode {
+                typename: "Feature",
+                props: json!({
+                    "name": "Add async support"
+                })
+                .as_object()
+                .unwrap(),
+            },
+        },
+        GraphRel {
+            id: "0987654321",
+            props: None,
+            dst: GraphNode {
+                typename: "Bug",
+                props: json!({
+                    "name": "Fix type mismatch"
+                })
+                .as_object()
+                .unwrap(),
+            },
+        },
+    ])
 }
 
 pub struct Server {
     config: Config,
     db_url: String,
     global_ctx: AppGlobalCtx,
-    resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+    resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
     validators: Validators,
-    extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+    extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx>,
     server: Option<dev::Server>,
     handle: Option<JoinHandle<()>>,
 }
@@ -134,9 +198,9 @@ impl Server {
         config: Config,
         db_url: String,
         global_ctx: AppGlobalCtx,
-        resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+        resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
         validators: Validators,
-        extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx>,
+        extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx>,
     ) -> Server {
         Server {
             config,
@@ -227,7 +291,6 @@ impl Server {
 #[allow(dead_code)]
 pub fn test_server(config_path: &str) -> Server {
     // load config
-    //let config_path = "./tests/fixtures/config.yml".to_string();
     let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
@@ -236,23 +299,23 @@ pub fn test_server(config_path: &str) -> Server {
     };
 
     // load resolvers
-    let mut resolvers: Resolvers<AppGlobalCtx, AppReqCtx> = Resolvers::new();
-    resolvers.insert(
-        "ProjectCount".to_owned(),
-        Box::new(project_count::<AppGlobalCtx, AppReqCtx>),
-    );
+    let mut resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
+    resolvers.insert("GlobalTopDev".to_owned(), Box::new(global_top_dev));
+    resolvers.insert("GlobalTopTags".to_owned(), Box::new(global_top_tags));
+    resolvers.insert("ProjectCount".to_owned(), Box::new(project_count));
+    resolvers.insert("ProjectPoints".to_string(), Box::new(project_points));
+    resolvers.insert("ProjectTopDev".to_string(), Box::new(project_top_dev));
+    resolvers.insert("ProjectTopIssues".to_string(), Box::new(project_top_issues));
+    resolvers.insert("ProjectTopTags".to_string(), Box::new(project_top_tags));
 
-    resolvers.insert(
-        "ProjectPoints".to_string(),
-        Box::new(project_points::<AppGlobalCtx, AppReqCtx>),
-    );
-
+    // load validators
     let mut validators: Validators = Validators::new();
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    let metadata_extension: MetadataExtension<AppGlobalCtx, AppReqCtx> = MetadataExtension::new();
-    let extensions: WarpgrapherExtensions<AppGlobalCtx, AppReqCtx> =
+    let metadata_extension: MetadataExtension<AppGlobalCtx, AppRequestCtx> =
+        MetadataExtension::new();
+    let extensions: WarpgrapherExtensions<AppGlobalCtx, AppRequestCtx> =
         vec![Arc::new(metadata_extension)];
 
     // configure server
