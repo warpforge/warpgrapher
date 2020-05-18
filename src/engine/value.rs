@@ -1,5 +1,5 @@
 use crate::{Error, ErrorKind};
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 use gremlin_client::{GValue, ToGValue, VertexProperty};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -38,7 +38,7 @@ impl PartialEq for Value {
     }
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 impl ToGValue for Value {
     fn to_gvalue(&self) -> GValue {
         match self {
@@ -68,7 +68,7 @@ impl ToGValue for Value {
     }
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 impl TryFrom<GValue> for Value {
     type Error = Error;
 
@@ -224,7 +224,7 @@ impl TryFrom<serde_json::Value> for Value {
     }
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 impl TryFrom<VertexProperty> for Value {
     type Error = Error;
 

@@ -2,46 +2,47 @@
 use super::extension::MetadataExtension;
 use super::extension::{Metadata, MetadataExtensionCtx};
 use futures::executor::block_on;
-use juniper::{Arguments, ExecutionResult, Executor};
+#[cfg(feature = "neo4j")]
+use juniper::ExecutionResult;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 use std::sync::mpsc;
 #[cfg(feature = "neo4j")]
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::engine::config::Config;
-use warpgrapher::engine::config::Resolvers;
 use warpgrapher::engine::config::Validators;
-use warpgrapher::engine::context::GraphQLContext;
 use warpgrapher::engine::context::RequestContext;
-#[cfg(feature = "graphson2")]
-use warpgrapher::engine::database::graphson2::Graphson2Endpoint;
+#[cfg(feature = "cosmos")]
+use warpgrapher::engine::database::cosmos::CosmosEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabaseEndpoint;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabasePool;
 use warpgrapher::engine::extensions::Extensions;
-use warpgrapher::engine::schema::Info;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::objects::resolvers::{GraphNode, GraphRel, ResolverContext};
+use warpgrapher::engine::objects::resolvers::{Resolvers};
 use warpgrapher::engine::value::Value;
 use warpgrapher::{Error, ErrorKind};
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[derive(Clone, Debug)]
 pub(crate) struct AppGlobalCtx {
     version: String,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct AppReqCtx {
+pub(crate) struct AppRequestCtx {
     metadata: Metadata,
 }
 
-impl RequestContext for AppReqCtx {
-    fn new() -> AppReqCtx {
-        AppReqCtx {
+impl RequestContext for AppRequestCtx {
+    fn new() -> AppRequestCtx {
+        AppRequestCtx {
             metadata: Metadata {
                 src_ip: "".to_string(),
                 src_useragent: "".to_string(),
@@ -50,7 +51,7 @@ impl RequestContext for AppReqCtx {
     }
 }
 
-impl MetadataExtensionCtx for AppReqCtx {
+impl MetadataExtensionCtx for AppRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
@@ -107,50 +108,8 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-fn project_count<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
-    match &executor.context().pool() {
-        DatabasePool::Neo4j(p) => {
-            // get projects from database
-            let graph = p.get().unwrap();
-            let mut transaction = graph.transaction().begin()?.0;
-            let query = "MATCH (n:Project) RETURN (n);";
-            let results = transaction.exec(query).unwrap();
-
-            // return number of projects
-            let count = results.data.len();
-            Ok(juniper::Value::scalar(count as i32))
-        }
-        _ => Err(Error::new(
-            ErrorKind::UnsupportedDatabase("Anything but neo4j".to_owned()),
-            None,
-        )
-        .into()),
-    }
-}
-
-#[allow(dead_code)]
-fn project_points<AppGlobalCtx, AppReqCtx>(
-    _info: &Info,
-    _args: &Arguments,
-    _executor: &Executor<GraphQLContext<AppGlobalCtx, AppReqCtx>>,
-) -> ExecutionResult
-where
-    AppReqCtx: RequestContext,
-{
-    Ok(juniper::Value::scalar(1_000_000 as i32))
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "graphson2")]
-pub(crate) fn test_server_graphson2(config_path: &str) -> Server {
+#[cfg(feature = "cosmos")]
+pub(crate) fn test_server_cosmos(config_path: &str) -> Server {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
@@ -164,12 +123,107 @@ pub(crate) fn test_server_graphson2(config_path: &str) -> Server {
     Server::new(
         "5001",
         config,
-        Graphson2Endpoint::from_env().unwrap().pool().unwrap(),
+        CosmosEndpoint::from_env().unwrap().pool().unwrap(),
         global_ctx,
         HashMap::new(),
         HashMap::new(),
         Vec::new(),
     )
+}
+
+#[cfg(feature = "neo4j")]
+pub(crate) fn project_count(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    if let DatabasePool::Neo4j(p) = context.executor().context().pool() {
+        let db = p.get()?;
+        let query = "MATCH (n:Project) RETURN (n);";
+        let results = db.exec(query)?;
+        context.resolve_scalar(results.data.len() as i32)
+    } else {
+        Err(Error::new(
+            ErrorKind::UnsupportedDatabase("Non-Neo4j".to_string()),
+            None,
+        )
+        .into())
+    }
+}
+
+/// custom endpoint returning scalar_list:
+#[cfg(feature = "neo4j")]
+pub(crate) fn global_top_tags(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    context.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
+}
+
+/// custom endpoint returning node
+#[cfg(feature = "neo4j")]
+pub(crate) fn global_top_dev(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    let mut hm = HashMap::new();
+    hm.insert("name".to_string(), Value::String("Joe".to_string()));
+    context.resolve_node(GraphNode::new("User", &hm))
+}
+
+/*
+/// custom endpoint returning node_list
+pub fn global_top_issues(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) {
+    // TODO: add real database query
+    context.resolve_node_list()
+}
+*/
+
+/// custom field returning scalar
+#[cfg(feature = "neo4j")]
+pub(crate) fn project_points(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    context.resolve_scalar(138)
+}
+
+/// custom field returning scalar_list
+#[cfg(feature = "neo4j")]
+pub(crate) fn project_top_tags(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    context.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
+}
+
+/// custom rel returning rel
+#[cfg(feature = "neo4j")]
+pub(crate) fn project_top_dev(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    let mut hm = HashMap::new();
+    hm.insert("name".to_string(), Value::String("Joe".to_string()));
+    context.resolve_rel(GraphRel::new(
+        "1234567890",
+        None,
+        GraphNode::new("User", &hm),
+    ))
+}
+
+/// custom rel returning rel_list
+#[cfg(feature = "neo4j")]
+pub(crate) fn project_top_issues(
+    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+) -> ExecutionResult {
+    let mut hm1 = HashMap::new();
+    hm1.insert(
+        "name".to_string(),
+        Value::String("Add async support".to_string()),
+    );
+    let mut hm2 = HashMap::new();
+    hm2.insert(
+        "name".to_string(),
+        Value::String("Fix type mismatch".to_string()),
+    );
+    context.resolve_rel_list(vec![
+        GraphRel::new("1234567890", None, GraphNode::new("Feature", &hm1)),
+        GraphRel::new("0987654321", None, GraphNode::new("Bug", &hm2)),
+    ])
 }
 
 #[allow(dead_code)]
@@ -178,9 +232,9 @@ pub(crate) struct Server {
     config: Config,
     db_pool: DatabasePool,
     global_ctx: AppGlobalCtx,
-    resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+    resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
     validators: Validators,
-    extensions: Extensions<AppGlobalCtx, AppReqCtx>,
+    extensions: Extensions<AppGlobalCtx, AppRequestCtx>,
     server: Option<actix_web::dev::Server>,
     handle: Option<JoinHandle<()>>,
 }
@@ -191,9 +245,9 @@ impl Server {
         config: Config,
         db_pool: DatabasePool,
         global_ctx: AppGlobalCtx,
-        resolvers: Resolvers<AppGlobalCtx, AppReqCtx>,
+        resolvers: Resolvers<AppGlobalCtx, AppRequestCtx>,
         validators: Validators,
-        extensions: Extensions<AppGlobalCtx, AppReqCtx>,
+        extensions: Extensions<AppGlobalCtx, AppRequestCtx>,
     ) -> Server {
         Server {
             bind_port: bind_port.to_owned(),
@@ -291,7 +345,6 @@ impl Server {
 #[cfg(feature = "neo4j")]
 pub(crate) fn test_server_neo4j(config_path: &str) -> Server {
     // load config
-    //let config_path = "./tests/fixtures/config.yml".to_string();
     let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
 
     // create app context
@@ -300,23 +353,23 @@ pub(crate) fn test_server_neo4j(config_path: &str) -> Server {
     };
 
     // load resolvers
-    let mut resolvers: Resolvers<AppGlobalCtx, AppReqCtx> = Resolvers::new();
-    resolvers.insert(
-        "ProjectCount".to_owned(),
-        Box::new(project_count::<AppGlobalCtx, AppReqCtx>),
-    );
+    let mut resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
+    resolvers.insert("GlobalTopDev".to_owned(), Box::new(global_top_dev));
+    resolvers.insert("GlobalTopTags".to_owned(), Box::new(global_top_tags));
+    resolvers.insert("ProjectCount".to_owned(), Box::new(project_count));
+    resolvers.insert("ProjectPoints".to_string(), Box::new(project_points));
+    resolvers.insert("ProjectTopDev".to_string(), Box::new(project_top_dev));
+    resolvers.insert("ProjectTopIssues".to_string(), Box::new(project_top_issues));
+    resolvers.insert("ProjectTopTags".to_string(), Box::new(project_top_tags));
 
-    resolvers.insert(
-        "ProjectPoints".to_string(),
-        Box::new(project_points::<AppGlobalCtx, AppReqCtx>),
-    );
-
+    // load validators
     let mut validators: Validators = Validators::new();
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    let metadata_extension: MetadataExtension<AppGlobalCtx, AppReqCtx> = MetadataExtension::new();
-    let extensions: Extensions<AppGlobalCtx, AppReqCtx> = vec![Arc::new(metadata_extension)];
+    let metadata_extension: MetadataExtension<AppGlobalCtx, AppRequestCtx> =
+        MetadataExtension::new();
+    let extensions: Extensions<AppGlobalCtx, AppRequestCtx> = vec![Arc::new(metadata_extension)];
 
     // create server
     Server::new(

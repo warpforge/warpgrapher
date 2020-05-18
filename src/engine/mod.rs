@@ -2,15 +2,14 @@
 //! configuration, GraphQL schema generation, resolvers, and interface to the
 //! database.
 
-use actix_web::web::Json;
-
 use super::error::{Error, ErrorKind};
-use config::{Config, Prop, Resolvers, Validators};
+use config::{Config, Prop, Validators};
 use context::{GraphQLContext, RequestContext};
 use database::DatabasePool;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
+use objects::resolvers::Resolvers;
 use schema::{create_root_node, RootRef};
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -20,7 +19,7 @@ pub mod config;
 pub mod context;
 pub mod database;
 pub mod extensions;
-mod objects;
+pub mod objects;
 pub mod schema;
 pub mod value;
 
@@ -83,8 +82,9 @@ where
     /// ```rust
     /// use std::env::var_os;
     /// use warpgrapher::engine::Engine;
-    /// use warpgrapher::engine::config::{Config, Resolvers};
+    /// use warpgrapher::engine::config::Config;
     /// use warpgrapher::engine::database::DatabasePool;
+    /// use warpgrapher::engine::objects::resolvers::Resolvers;
     ///
     /// let resolvers = Resolvers::<(), ()>::new();
     ///
@@ -404,9 +404,9 @@ where
 
     pub fn execute(
         &self,
-        req: Json<GraphQLRequest>, //TODO make generic
+        req: GraphQLRequest,
         metadata: HashMap<String, String>,
-    ) -> Result<String, Error> {
+    ) -> Result<serde_json::Value, Error> {
         debug!("\nRequest: {:#?}\n", req);
 
         // initialize empty request context
@@ -464,13 +464,17 @@ where
             }
         }
 
+        Ok(res_value)
+
         // convert graphql response to string
+        /*
         let body = match serde_json::to_string(&res_value) {
             Ok(s) => s,
             Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
         };
 
         Ok(body)
+        */
     }
 }
 
@@ -479,17 +483,18 @@ where
 /// reachable, so most of the coverage is provided by integration tests.
 #[cfg(test)]
 mod tests {
-    use super::config::{Config, Resolvers, Validators};
-    use super::context::GraphQLContext;
-    use super::schema::Info;
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    use super::config::{Config, Validators};
+    // use super::context::GraphQLContext;
+    // use super::schema::Info;
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     use super::Engine;
     use super::EngineBuilder;
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     use crate::engine::database::DatabasePool;
+    use crate::engine::objects::resolvers::{ResolverContext, Resolvers};
     use crate::engine::value::Value;
     use crate::error::Error;
-    use juniper::{Arguments, ExecutionResult, Executor};
+    use juniper::ExecutionResult;
     use std::fs::File;
     use std::io::BufReader;
 
@@ -515,7 +520,7 @@ mod tests {
     }
 
     /// Passes if the engine can be created.
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     #[test]
     fn engine_new() {
         init();
@@ -643,12 +648,8 @@ mod tests {
         assert!(EngineBuilder::validate_engine(&resolvers, &validators, &config).is_err());
     }
 
-    fn my_resolver(
-        _info: &Info,
-        _args: &Arguments,
-        _executor: &Executor<GraphQLContext<(), ()>>,
-    ) -> ExecutionResult {
-        Ok(juniper::Value::scalar(100 as i32))
+    pub fn my_resolver(context: ResolverContext<(), ()>) -> ExecutionResult {
+        context.resolve_scalar(1 as i32)
     }
 
     fn my_validator(_value: &Value) -> Result<(), Error> {

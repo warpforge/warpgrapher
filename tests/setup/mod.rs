@@ -1,12 +1,12 @@
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 mod actix_server;
 mod extension;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(crate) mod server;
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 use log::trace;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
@@ -21,42 +21,42 @@ pub(crate) fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
 }
 
-#[cfg(feature = "graphson2")]
-fn graphson2_host() -> String {
-    var_os("WG_GRAPHSON2_HOST")
-        .expect("Expected WG_GRAPHSON2_HOST to be set.")
+#[cfg(feature = "cosmos")]
+fn cosmos_host() -> String {
+    var_os("WG_COSMOS_HOST")
+        .expect("Expected WG_COSMOS_HOST to be set.")
         .to_str()
-        .expect("Expected WG_GRAPHSON2_HOST to be a string.")
+        .expect("Expected WG_COSMOS_HOST to be a string.")
         .to_owned()
 }
 
-#[cfg(feature = "graphson2")]
-fn graphson2_port() -> u16 {
-    var_os("WG_GRAPHSON2_PORT")
-        .expect("Expected WG_GRAPHSON2_PORT to be set.")
+#[cfg(feature = "cosmos")]
+fn cosmos_port() -> u16 {
+    var_os("WG_COSMOS_PORT")
+        .expect("Expected WG_COSMOS_PORT to be set.")
         .to_str()
-        .expect("Expected WG_GRAPHSON2_PORT to be a string.")
+        .expect("Expected WG_COSMOS_PORT to be a string.")
         .parse::<u16>()
-        .expect("Expected WG_GRAPHSON2_PORT to be a u16.")
+        .expect("Expected WG_COSMOS_PORT to be a u16.")
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "graphson2")]
-fn graphson2_login() -> String {
-    var_os("WG_GRAPHSON2_LOGIN")
-        .expect("Expected WG_GRAPHSON2_LOGIN to be set.")
+#[cfg(feature = "cosmos")]
+fn cosmos_login() -> String {
+    var_os("WG_COSMOS_LOGIN")
+        .expect("Expected WG_COSMOS_LOGIN to be set.")
         .to_str()
-        .expect("Expected WG_GRAPHSON2_LOGIN to be a string.")
+        .expect("Expected WG_COSMOS_LOGIN to be a string.")
         .to_owned()
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "graphson2")]
-fn graphson2_pass() -> String {
-    var_os("WG_GRAPHSON2_PASS")
-        .expect("Expected WG_GRAPHSON2_PASS to be set.")
+#[cfg(feature = "cosmos")]
+fn cosmos_pass() -> String {
+    var_os("WG_COSMOS_PASS")
+        .expect("Expected WG_COSMOS_PASS to be set.")
         .to_str()
-        .expect("Expected WG_GRAPHSON2_PASS to be a string.")
+        .expect("Expected WG_COSMOS_PASS to be a string.")
         .to_owned()
 }
 
@@ -84,7 +84,7 @@ fn neo4j_server_addr() -> String {
     "127.0.0.1:5000".to_string()
 }
 
-fn graphson2_server_addr() -> String {
+fn cosmos_server_addr() -> String {
     "127.0.0.1:5001".to_string()
 }
 
@@ -99,8 +99,8 @@ fn neo4j_gql_endpoint() -> String {
     format!("http://{}/graphql", neo4j_server_addr())
 }
 
-fn graphson2_gql_endpoint() -> String {
-    format!("http://{}/graphql", graphson2_server_addr())
+fn cosmos_gql_endpoint() -> String {
+    format!("http://{}/graphql", cosmos_server_addr())
 }
 
 #[allow(dead_code)]
@@ -116,22 +116,22 @@ pub(crate) fn neo4j_test_client() -> Client {
 }
 
 #[allow(dead_code)]
-pub(crate) fn graphson2_test_client() -> Client {
-    Client::new(&graphson2_gql_endpoint())
+pub(crate) fn cosmos_test_client() -> Client {
+    Client::new(&cosmos_gql_endpoint())
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[allow(dead_code)]
-fn clear_graphson2_db() {
+fn clear_cosmos_db() {
     // g.V().drop() -- delete the entire graph
     let client = GremlinClient::connect(
         ConnectionOptions::builder()
-            .host(graphson2_host())
-            .port(graphson2_port())
+            .host(cosmos_host())
+            .port(cosmos_port())
             .pool_size(1)
             .ssl(true)
             .serializer(GraphSON::V2)
-            .credentials(&graphson2_login(), &graphson2_pass())
+            .credentials(&cosmos_login(), &cosmos_pass())
             .build(),
     )
     .expect("Expected successful gremlin client creation.");
@@ -150,8 +150,8 @@ fn clear_neo4j_db() {
 
 #[allow(dead_code)]
 pub(crate) fn clear_db() {
-    #[cfg(feature = "graphson2")]
-    clear_graphson2_db();
+    #[cfg(feature = "cosmos")]
+    clear_cosmos_db();
 
     #[cfg(feature = "neo4j")]
     clear_neo4j_db();

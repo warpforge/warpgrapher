@@ -1,64 +1,552 @@
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use super::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input, SuffixGenerator,
 };
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use super::Input;
-use super::Node;
+use super::{Node, Rel};
 use crate::engine::context::{GraphQLContext, RequestContext};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::{QueryResult, Transaction};
+use crate::engine::objects::Object;
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::{Error, ErrorKind};
 use core::hash::BuildHasher;
-use juniper::{Arguments, ExecutionResult, Executor};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+use inflector::Inflector;
+use juniper::{Arguments, Executor, FieldError};
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::debug;
-use log::trace;
+use log::{error, trace};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
-pub(super) fn resolve_custom_endpoint<GlobalCtx, ReqCtx>(
+pub use juniper::ExecutionResult;
+
+pub type ResolverFunc<GlobalCtx, ReqCtx> =
+    fn(ResolverContext<GlobalCtx, ReqCtx>) -> ExecutionResult;
+
+pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
+
+#[derive(Clone, Debug)]
+pub struct GraphNode<'a> {
+    typename: &'a str,
+    props: &'a HashMap<String, Value>,
+}
+
+impl<'a> GraphNode<'a> {
+    pub fn new(typename: &'a str, props: &'a HashMap<String, Value>) -> GraphNode<'a> {
+        GraphNode { typename, props }
+    }
+    pub fn typename(&self) -> &str {
+        self.typename
+    }
+    pub fn props(&self) -> &HashMap<String, Value> {
+        self.props
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GraphRel<'a> {
+    id: &'a str,
+    props: Option<&'a HashMap<String, Value>>,
+    dst: GraphNode<'a>,
+}
+
+impl<'a> GraphRel<'a> {
+    pub fn new(
+        id: &'a str,
+        props: Option<&'a HashMap<String, Value>>,
+        dst: GraphNode<'a>,
+    ) -> GraphRel<'a> {
+        GraphRel { id, props, dst }
+    }
+    pub fn id(&self) -> &str {
+        self.id
+    }
+    pub fn props(&self) -> &Option<&'a HashMap<String, Value>> {
+        &self.props
+    }
+    pub fn dst(&self) -> &'a GraphNode {
+        &self.dst
+    }
+}
+
+/// A Warpgrapher ResolverContext.
+///
+/// The [`ResolverContext`] struct is a collection of arguments and context
+/// structs that are passed as input to a custom resolver.
+pub struct ResolverContext<'a, GlobalCtx, ReqCtx>
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
+{
+    field_name: String,
+    info: &'a Info,
+    args: &'a Arguments<'a>,
+    parent: Object<'a, GlobalCtx, ReqCtx>,
+    executor: &'a Executor<'a, GraphQLContext<GlobalCtx, ReqCtx>>,
+}
+
+impl<'a, GlobalCtx, ReqCtx> ResolverContext<'a, GlobalCtx, ReqCtx>
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
+{
+    pub fn new(
+        field_name: String,
+        info: &'a Info,
+        args: &'a Arguments,
+        parent: Object<'a, GlobalCtx, ReqCtx>,
+        executor: &'a Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
+    ) -> Self {
+        ResolverContext {
+            field_name,
+            info,
+            args,
+            parent,
+            executor,
+        }
+    }
+
+    pub fn args(&self) -> &Arguments {
+        self.args
+    }
+
+    pub fn info(&self) -> &Info {
+        self.info
+    }
+
+    pub fn executor(&self) -> &Executor<GraphQLContext<GlobalCtx, ReqCtx>> {
+        self.executor
+    }
+
+    /// Returns the global context, if the global context does not exist,
+    /// it returns a FieldError.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let global_context = context.get_global_context()?;
+    ///
+    ///     // use global_context
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn get_global_context(&self) -> Result<&GlobalCtx, FieldError> {
+        // TODO: make mutable
+        match &self.executor.context().global_context() {
+            None => {
+                error!("Attempted to access non-existing global context");
+                Err(FieldError::new(
+                    "Unable to access global context.",
+                    juniper::Value::Null,
+                ))
+            }
+            Some(ctx) => Ok(ctx),
+        }
+    }
+    /// Returns the request context, if the request context does not exist,
+    /// it returns a FieldError.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let request_context = context.get_request_context()?;
+    ///
+    ///     // use request_context
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn get_request_context(&self) -> Result<&ReqCtx, FieldError> {
+        // TODO: make mutable
+        match &self.executor.context().request_context() {
+            None => {
+                error!("Attempted to access non-existing request context");
+                Err(FieldError::new(
+                    "Unable to access request context.",
+                    juniper::Value::Null,
+                ))
+            }
+            Some(ctx) => Ok(ctx),
+        }
+    }
+
+    /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::GraphQLType;
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     let parent_node = context.get_parent_node()?;
+    ///     println!("Parent type: {:#?}",
+    ///         parent_node.concrete_type_name(context.executor().context(),
+    ///             context.info()));
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn get_parent_node(&self) -> Result<&Node<GlobalCtx, ReqCtx>, FieldError> {
+        match self.parent {
+            Object::Node(n) => Ok(n),
+            _ => Err(FieldError::new(
+                "Unable to get parent node",
+                juniper::Value::Null,
+            )),
+        }
+    }
+
+    /// Returns a GraphQL Null
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return null
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn resolve_null(&self) -> ExecutionResult {
+        Ok(juniper::Value::Null)
+    }
+
+    /// Returns a GraphQL Scalar
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return string
+    ///     context.resolve_scalar("Hello")
+    /// }
+    /// ```
+    pub fn resolve_scalar<T>(&self, v: T) -> ExecutionResult
+    where
+        T: std::convert::Into<juniper::DefaultScalarValue>,
+    {
+        Ok(juniper::Value::scalar::<T>(v))
+    }
+
+    /// Returns a GraphQL Scalar list
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return string
+    ///     context.resolve_scalar_list(vec![1, 2, 3])
+    /// }
+    /// ```
+    pub fn resolve_scalar_list<T>(&self, v: Vec<T>) -> ExecutionResult
+    where
+        T: std::convert::Into<juniper::DefaultScalarValue> + Clone,
+    {
+        /*
+        //Ok(juniper::Value::scalar::<T>(v))
+        let list : Vec<juniper::Value::Scalar> = v
+            .iter()
+            .map(|v| juniper::Value::Scalar::<T>(v));
+        list
+        */
+        let x = v
+            .iter()
+            .map(|i| juniper::Value::scalar::<T>((*i).clone()))
+            .collect();
+        let list = juniper::Value::List(x);
+        Ok(list)
+        //Ok(juniper::Value::list(v))
+    }
+
+    /// Returns a GraphQL Object representing a graph node defined by
+    /// a type and a map of props.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult, GraphNode};
+    /// use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///     let mut hm = HashMap::new();
+    ///     hm.insert("name".to_string(), Value::String("John Doe".to_string()));
+    ///     hm.insert("age".to_string(), Value::Int64(21));
+    ///
+    ///     // return node
+    ///     context.resolve_node(GraphNode::new("user", &hm))
+    /// }
+    /// ```
+    pub fn resolve_node(&self, node: GraphNode) -> ExecutionResult {
+        self.executor.resolve(
+            &Info::new(node.typename.to_string(), self.info.type_defs()),
+            &Node::new(node.typename.to_string(), node.props().clone()),
+        )
+    }
+
+    /*
+    /// Returns a GraphQL Object array representing graph nodes defined by
+    /// a type and a map of props.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult, GraphNode};
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///
+    ///     // return node list
+    ///     context.resolve_node_list(
+    ///         vec![
+    ///             GraphNode::new(
+    ///                 "User",
+    ///                 json!({
+    ///                     "name": "John Doe",
+    ///                     "age": 21
+    ///                 })
+    ///                 .as_object()
+    ///                 .unwrap()
+    ///             ),
+    ///             GraphNode::new(
+    ///                 "User",
+    ///                 json!({
+    ///                     "name": "Jane Smith",
+    ///                     "age": 22
+    ///                 })
+    ///                 .as_object
+    ///                 .unwrap()
+    ///             )
+    ///         ]
+    ///     })
+    /// }
+    /// ```
+    pub fn resolve_node_list(
+        &self,
+        nodes: Vec<GraphNode>
+    ) -> ExecutionResult {
+        let node_list : Vec<Node<GlobalCtx, ReqCtx>> = nodes
+            .iter()
+            .map(|node| {
+                Node::new(
+                    node.typename,
+                    node.props
+                )
+            })
+            .collect();
+        // TODO: investigate the effect of returning a list of variable node types
+        self.executor.resolve(
+            &Info::new(object_name, self.info.type_defs.clone()),
+            &node_list
+        )
+    }
+    */
+
+    /// Returns a GraphQL Object representing a graph relationship defined by
+    /// an ID, props, and a destination Warpgrapher Node.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
+    /// use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///     let mut hm1 = HashMap::new();
+    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+    /// 
+    ///     let mut hm2 = HashMap::new();
+    ///     hm2.insert("name".to_string(), Value::String("Jane Smith".to_string()));
+    ///     hm2.insert("age".to_string(), Value::Int64(24));
+    ///
+    ///     // return rel
+    ///     context.resolve_rel(GraphRel::new("655c4e13-5075-45ea-97de-b43f800e5854", Some(&hm1), GraphNode::new("user", &hm2)))
+    /// }
+    /// ```
+    pub fn resolve_rel(&self, rel: GraphRel) -> ExecutionResult
+    where
+        GlobalCtx: Debug,
+        ReqCtx: Debug + RequestContext,
+    {
+        let id = serde_json::Value::String(rel.id.to_string());
+
+        let props = match &rel.props {
+            None => None,
+            Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
+        };
+
+        let parent_node = match self.parent {
+            Object::Node(n) => n.to_owned(),
+            _ => {
+                return Err(FieldError::new(
+                    "Invalid parent passed",
+                    juniper::Value::Null,
+                ))
+            }
+        };
+
+        let src = Node::new(
+            parent_node.concrete_typename.clone(),
+            parent_node.fields.clone(),
+        );
+
+        let dst = Node::new(rel.dst.typename.to_string(), rel.dst.props.clone());
+
+        let r = Rel::new(id.try_into()?, props, src, dst);
+
+        let object_name = format!(
+            "{}{}{}",
+            self.info.name().to_string(),
+            self.field_name.to_owned().to_title_case(),
+            "Rel".to_string()
+        );
+        self.executor
+            .resolve(&Info::new(object_name, self.info.type_defs()), &r)
+    }
+
+    /// Returns a GraphQL Object array representing Warpgrapher Rels defined by
+    /// an ID, props, and a destination Warpgrapher Node.
+    ///
+    /// # Examples
+    /// ```rust, norun
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    /// use warpgrapher::engine::objects::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
+    /// use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    ///     // do work
+    ///     let mut hm1 = HashMap::new();
+    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+    /// 
+    ///     let mut hm2 = HashMap::new();
+    ///     hm2.insert("name".to_string(), Value::String("John Doe".to_string()));
+    ///     hm2.insert("age".to_string(), Value::Int64(21));
+    /// 
+    ///     let mut hm3 = HashMap::new();
+    ///     hm3.insert("role".to_string(), Value::String("leader".to_string()));
+    /// 
+    ///     let mut hm4 = HashMap::new();
+    ///     hm4.insert("name".to_string(), Value::String("Jane Smith".to_string()));
+    ///     hm4.insert("age".to_string(), Value::Int64(24));
+    /// 
+    ///     // return rel list
+    ///     context.resolve_rel_list(vec![
+    ///         GraphRel::new("655c4e13-5075-45ea-97de-b43f800e5854", Some(&hm1), GraphNode::new("User", &hm2)),
+    ///         GraphRel::new("713c4e13-5075-45ea-97de-b43f800e5854", Some(&hm3), GraphNode::new("user", &hm4))
+    ///     ])
+    /// }
+    /// ```
+    pub fn resolve_rel_list(&self, rels: Vec<GraphRel>) -> ExecutionResult
+    where
+        GlobalCtx: Debug,
+        ReqCtx: Debug + RequestContext,
+    {
+        let object_name = format!(
+            "{}{}{}",
+            self.info.name().to_string(),
+            self.field_name.to_string().to_title_case(),
+            "Rel".to_string()
+        );
+        let parent_node = match self.parent {
+            Object::Node(n) => n.to_owned(),
+            _ => {
+                return Err(FieldError::new(
+                    "Invalid parent passed",
+                    juniper::Value::Null,
+                ))
+            }
+        };
+
+        let rel_list: Vec<Rel<GlobalCtx, ReqCtx>> = rels
+            .iter()
+            .map(|rel| {
+                Rel::new(
+                    Value::String(rel.id.to_string()),
+                    match &rel.props {
+                        None => None,
+                        Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
+                    },
+                    Node::new(
+                        parent_node.concrete_typename.clone(),
+                        parent_node.fields.clone(),
+                    ),
+                    Node::new(rel.dst.typename.to_string(), rel.dst.props.clone()),
+                )
+            })
+            .collect();
+
+        self.executor
+            .resolve(&Info::new(object_name, self.info.type_defs()), &rel_list)
+    }
+}
+
+pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
+    parent: Object<GlobalCtx, ReqCtx>,
     args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult
-where
-    ReqCtx: RequestContext,
-{
+) -> ExecutionResult {
     trace!(
         "resolve_custom_endpoint called -- field_name: {}, info.name: {:#?}",
         field_name,
         info.name(),
     );
 
-    let func = executor.context().resolver(field_name)?;
-    func(info, args, executor)
+    // load resolver function
+    let func = &executor.context().resolver(field_name)?;
+
+    // TODO:
+    // pluginHooks
+
+    // results
+    func(ResolverContext::new(
+        field_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
 }
 
-pub(super) fn resolve_custom_field<GlobalCtx, ReqCtx>(
+pub fn resolve_custom_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
     info: &Info,
     field_name: &str,
-    resolver_name: &Option<String>,
+    resolver: &Option<String>,
+    parent: Object<GlobalCtx, ReqCtx>,
     args: &Arguments,
     executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult
-where
-    ReqCtx: RequestContext,
-{
+) -> ExecutionResult {
     trace!(
         "resolve_custom_field called -- field_name: {:#?}, info.name: {:#?}",
         field_name,
         info.name(),
     );
 
-    let resolver_name = resolver_name.as_ref().ok_or_else(|| {
+    let resolver_name = resolver.as_ref().ok_or_else(|| {
         Error::new(
             ErrorKind::FieldMissingResolverError(
                 format!(
@@ -71,12 +559,60 @@ where
         )
     })?;
 
-    let func = executor.context().resolver(resolver_name)?;
+    let func = &executor.context().resolver(resolver_name)?;
 
-    func(info, args, executor)
+    func(ResolverContext::new(
+        field_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub fn resolve_custom_rel<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
+    info: &Info,
+    rel_name: &str,
+    resolver: &Option<String>,
+    parent: Object<GlobalCtx, ReqCtx>,
+    args: &Arguments,
+    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
+) -> ExecutionResult
+where
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
+{
+    trace!(
+        "resolve_custom_rel called -- rel_name: {:#?}, info.name: {:#?}",
+        rel_name,
+        info.name(),
+    );
+
+    let resolver_name = resolver.as_ref().ok_or_else(|| {
+        Error::new(
+            ErrorKind::FieldMissingResolverError(
+                format!(
+                    "Failed to resolve custom rel: {rel_name}. Missing resolver name.",
+                    rel_name = rel_name
+                ),
+                rel_name.to_string(),
+            ),
+            None,
+        )
+    })?;
+
+    let func = &executor.context().resolver(resolver_name)?;
+
+    func(ResolverContext::new(
+        rel_name.to_string(),
+        info,
+        args,
+        parent,
+        executor,
+    ))
+}
+
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(super) fn resolve_node_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
@@ -130,7 +666,7 @@ where
     )
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(super) fn resolve_node_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     del_type: &str,
@@ -183,7 +719,7 @@ where
     executor.resolve_with_ctx(&(), &(results.count()? as i32))
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 fn resolve_node_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
@@ -259,7 +795,7 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(super) fn resolve_node_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     info: &Info,
@@ -312,7 +848,7 @@ where
     )
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(super) fn resolve_object_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
     _id_opt: Option<&Value>,
@@ -355,7 +891,7 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn resolve_rel_create_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
@@ -426,7 +962,7 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn resolve_rel_delete_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
@@ -476,7 +1012,7 @@ where
     executor.resolve_with_ctx(&(), &(results.count()? as i32))
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn resolve_rel_field<GlobalCtx, ReqCtx, T>(
     field_name: &str,
@@ -543,7 +1079,7 @@ where
     )
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[allow(clippy::too_many_arguments)]
 fn resolve_rel_read_query<GlobalCtx, ReqCtx, T>(
     field_name: &str,
@@ -659,7 +1195,7 @@ where
     }
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[allow(clippy::too_many_arguments)]
 pub(super) fn resolve_rel_update_mutation<GlobalCtx, ReqCtx, T>(
     field_name: &str,
@@ -782,7 +1318,7 @@ where
     )
 }
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub(super) fn resolve_static_version_query<GlobalCtx, ReqCtx>(
     _info: &Info,
     _args: &Arguments,

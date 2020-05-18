@@ -13,20 +13,21 @@ use juniper::http::GraphQLRequest;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
-use super::server::{AppGlobalCtx, AppReqCtx};
-use warpgrapher::engine::config::{Config, Resolvers, Validators};
+use super::server::{AppGlobalCtx, AppRequestCtx};
+use warpgrapher::engine::config::{Config, Validators};
 use warpgrapher::engine::database::DatabasePool;
 use warpgrapher::engine::extensions::Extensions;
+use warpgrapher::engine::objects::resolvers::Resolvers;
 use warpgrapher::engine::Engine;
 
 #[derive(Clone)]
 struct AppData {
-    engine: Engine<AppGlobalCtx, AppReqCtx>,
+    engine: Engine<AppGlobalCtx, AppRequestCtx>,
 }
 
 impl AppData {
     #[allow(dead_code)]
-    fn new(engine: Engine<AppGlobalCtx, AppReqCtx>) -> AppData {
+    fn new(engine: Engine<AppGlobalCtx, AppRequestCtx>) -> AppData {
         AppData { engine }
     }
 }
@@ -35,7 +36,7 @@ impl AppData {
 async fn graphql(data: Data<AppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
 
-    let resp = &data.engine.execute(req, metadata);
+    let resp = &data.engine.execute(req.into_inner(), metadata);
 
     match resp {
         Ok(body) => Ok(HttpResponse::Ok()
@@ -55,12 +56,12 @@ pub(crate) fn start(
     config: &Config,
     database_pool: DatabasePool,
     global_ctx: &AppGlobalCtx,
-    resolvers: &Resolvers<AppGlobalCtx, AppReqCtx>,
+    resolvers: &Resolvers<AppGlobalCtx, AppRequestCtx>,
     validators: &Validators,
-    extensions: &Extensions<AppGlobalCtx, AppReqCtx>,
+    extensions: &Extensions<AppGlobalCtx, AppRequestCtx>,
     tx: Sender<Result<dev::Server, warpgrapher::Error>>,
 ) {
-    let engine = Engine::<AppGlobalCtx, AppReqCtx>::new(config.clone(), database_pool)
+    let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config.clone(), database_pool)
         .with_version("1.0".to_string())
         .with_global_ctx(global_ctx.clone())
         .with_resolvers(resolvers.clone())

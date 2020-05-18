@@ -60,9 +60,9 @@ pub enum ErrorKind {
     /// type that does not exist
     ConfigEndpointMissingTypeError(String, String),
 
-    /// Returned when a client for a GraphSON2 database pool cannot be built
-    #[cfg(feature = "graphson2")]
-    CouldNotBuildGraphson2Pool(gremlin_client::GremlinError),
+    /// Returned when a client for a cosmos database pool cannot be built
+    #[cfg(feature = "cosmos")]
+    CouldNotBuildCosmosPool(gremlin_client::GremlinError),
 
     /// Returned when `WarpgrapherServer` fails to build a pool for the cypher
     /// connection manager.
@@ -208,8 +208,8 @@ pub enum ErrorKind {
     /// Returned when the DB_TYPE environment variable specified a database type that Warpgrapher
     /// does not support. Note that this error is also returned if a supported database is specified
     /// in the DB_TYPE environment variable, but Warpgrapher has been compiled without the
-    /// corresponding feature flag.  For example, Warpgrapher must be compiled with the graphson2
-    /// feature in order to use a graphson2 database type.
+    /// corresponding feature flag.  For example, Warpgrapher must be compiled with the cosmos
+    /// feature in order to use a cosmos database type.
     UnsupportedDatabase(String),
 
     /// Returned when a custom input validator is defined, but the corresponding

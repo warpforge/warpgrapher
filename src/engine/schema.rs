@@ -32,6 +32,7 @@ pub(crate) enum ArgumentKind {
 pub(crate) enum PropertyKind {
     CustomResolver,
     DynamicScalar,
+    DynamicRel(String),
     Input,
     NodeCreateMutation,
     NodeUpdateMutation,
@@ -210,7 +211,7 @@ impl Property {
         self.list
     }
 
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn input_type_definition<'i>(&self, info: &'i Info) -> Result<&'i NodeType, Error> {
         self.arguments
             .get("input")
@@ -242,7 +243,7 @@ impl Property {
         &self.resolver
     }
 
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn validator(&self) -> &Option<String> {
         &self.validator
     }
@@ -363,16 +364,22 @@ fn generate_node_object(t: &Type) -> NodeType {
             ),
         );
 
-        props.insert(
+        let mut p = Property::new(
             r.name().to_string(),
-            Property::new(
-                r.name().to_string(),
-                PropertyKind::Rel(r.name().to_string()),
-                fmt_rel_object_name(t, r),
-            )
-            .with_list(r.list())
-            .with_arguments(arguments),
-        );
+            match r.resolver() {
+                None => PropertyKind::Rel(r.name().to_string()),
+                Some(_) => PropertyKind::DynamicRel(r.name().to_string()),
+            },
+            fmt_rel_object_name(t, &r),
+        )
+        .with_list(r.list())
+        .with_arguments(arguments);
+
+        if let Some(resolver) = r.resolver() {
+            p = p.with_resolver(resolver);
+        }
+
+        props.insert(r.name().to_string(), p);
     }
     NodeType::new(t.name().to_string(), TypeKind::Object, props)
 }
@@ -386,7 +393,7 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///
 /// Format:
 /// input GqlNodeQueryInput {
-///     id: ID>
+///     id: <ID>
 ///     prop[n]: <Scalar>
 ///     rel[n]:  <GqlRelQueryInput>
 /// }

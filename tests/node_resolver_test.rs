@@ -4,17 +4,17 @@ use assert_approx_eq::assert_approx_eq;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
 use serde_json::json;
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_url;
-#[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
+#[cfg(feature = "cosmos")]
+use setup::server::test_server_cosmos;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
 
@@ -35,16 +35,16 @@ async fn create_single_node_neo4j() {
 }
 
 /// Passes if the create mutation and the read query both succeed.
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_single_node_graphson2() {
+async fn create_single_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     create_single_node(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -113,16 +113,16 @@ async fn read_query_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn read_query_graphson2() {
+async fn read_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_query(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -189,16 +189,16 @@ async fn handle_missing_properties_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn handle_missing_properties_graphson2() {
+async fn handle_missing_properties_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     handle_missing_properties(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -257,16 +257,16 @@ async fn update_mutation_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_mutation_graphson2() {
+async fn update_mutation_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -363,16 +363,16 @@ async fn update_mutation_null_query_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_mutation_null_query_graphson2() {
+async fn update_mutation_null_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -472,16 +472,16 @@ async fn delete_mutation_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_mutation_graphson2() {
+async fn delete_mutation_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_mutation(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -566,16 +566,16 @@ async fn delete_mutation_null_query_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_mutation_null_query_graphson2() {
+async fn delete_mutation_null_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_mutation_null_query(client).await;
 
     assert!(server.shutdown().is_ok());

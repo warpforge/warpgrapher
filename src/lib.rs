@@ -7,7 +7,7 @@
 //! generate the GraphQL configuration and invoke your custom resolvers when
 //! appropriate.
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.1.1")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.2.0")]
 
 pub use client::Client;
 pub use engine::config::Config;

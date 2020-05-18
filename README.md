@@ -21,16 +21,16 @@ The project is currently in development. Prior to reaching v1.0.0:
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-warpgrapher = "0.1.1"
+warpgrapher = "0.2.0"
 ```
 
 # Getting Started
 
-See the [Quickstart]() section of the Warpgrapher Book. 
+See the [Quickstart](https://warpforge.github.io/warpgrapher/warpgrapher/quickstart.html) section of the Warpgrapher Book. 
 
 # Documentation
 
-See the [Warpgrapher Book]() for in-depth usage documentation. 
+See the [Warpgrapher Book](https://warpforge.github.io/warpgrapher/) for in-depth usage documentation. 
 
 # Contributing
 
@@ -46,10 +46,10 @@ git clone https://github.com/warpforge/warpgrapher.git
 
 ## Build Warpgrapher
 
-To build for use with Graphson2 graph engines:
+To build for use with Cosmos DB:
 
 ```bash
-cargo build --features graphson2
+cargo build --features cosmos
 ```
 
 To build for use with Neo4J:
@@ -62,28 +62,33 @@ cargo build --features neo4j
 
 Set env variables.
 
-For Graphson2 graphs:
+For Cosmos DB graphs:
 
 ```bash
-export WG_GRAPHSON2_URL=http://localhost/
-export WG_GRAPHSON2_LOGIN=username
-export WG_GRAPHSON2_PASS=my-db-pass
+export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
+export WG_COSMOS_PORT=443
+export WG_COSMOS_LOGIN=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
+export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 ```
 
 For Neo4J:
 
 ```bash
-export DB_PASS=my-db-pass
+export DB_PASS=*MY-DB-PASS*
 export WG_NEO4J_URL=http://neo4j:${DB_PASS}@127.0.0.1:7474/db/data
 ```
 
 Run the database.
 
-For Graphson2:
+For Cosmos DB:
 
-Commands to run the database will vary, depending on the server, e.g. Tinkerpop vs. CosmosDB.
+Cosmos DB is an Azure cloud service, so it's already running. Or, if you're using a local Cosmos
+emulator, start the service based on its instructions.
 
 For neo4j:
+
+Note that Warpgrapher is only compatible with Neo4J up to version 3.5. (If anyone knows of a Rust
+driver that works with Neo4J version 4, please open an issue and point us to it!)
 
 ```bash
 docker run --rm -e NEO4J_AUTH="neo4j/${DB_PASS}" -p 7474:7474 -p 7687:7687 neo4j:3.5
@@ -97,10 +102,10 @@ cargo test --lib
 
 Run all tests (unit and integration).
 
-For Graphson2:
+For Cosmos DB:
 
 ```bash
-cargo test --features graphson2 -- --test-threads=1
+cargo test --features cosmos -- --test-threads=1
 ```
 
 For Neo4J:
@@ -115,22 +120,10 @@ For all databases:
 cargo test --all-features -- --test-threads=1
 ```
 
-Run specific test:
+Enable full logging and stack traces when running tests:
 
 ```bash
-cargo test --features DB_FEATURE <TEST_NAME> -- --test-threads=1
-```
-
-Run specific module:
-
-```bash
-cargo test --features DB_FEATURE server::graphql::tests -- --test-threads=1
-```
-
-Print to console when running tests:
-
-```bash
-cargo test --features DB_FEATURE -- --nocapture --test-threads=1
+RUST_BACKTRACE=full RUST_LOG=warpgrapher cargo test --features *DB_FEATURE* -- --nocapture --test-threads=1
 ```
 
 Clippy

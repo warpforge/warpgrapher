@@ -1,28 +1,28 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
+#[cfg(feature = "cosmos")]
+use setup::server::test_server_cosmos;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn scalar_lists_test_graphson2() {
+async fn scalar_lists_test_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     scalar_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -94,16 +94,16 @@ async fn scalar_lists_test(mut client: Client) {
     assert_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3_f64);
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn scalar_lists_no_array_graphson2() {
+async fn scalar_lists_no_array_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/scalar_list.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/scalar_list.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     scalar_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -163,16 +163,16 @@ async fn scalar_lists_no_array_test(mut client: Client) {
     assert_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0_f64);
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn scalar_no_lists_graphson2() {
+async fn scalar_no_lists_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     scalar_no_lists_test(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -245,16 +245,16 @@ async fn scalar_no_lists_test(mut client: Client) {
         .is_err());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn scalar_no_lists_no_array_graphson2() {
+async fn scalar_no_lists_no_array_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/scalar_no_list.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/scalar_no_list.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     scalar_no_lists_no_array_test(client).await;
 
     assert!(server.shutdown().is_ok());

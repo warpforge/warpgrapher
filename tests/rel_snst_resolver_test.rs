@@ -1,15 +1,15 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
+#[cfg(feature = "cosmos")]
+use setup::server::test_server_cosmos;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
 
@@ -28,16 +28,16 @@ async fn create_snst_new_rel_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_snst_new_rel_graphson2() {
+async fn create_snst_new_rel_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     create_snst_new_rel(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -109,16 +109,16 @@ async fn create_snst_rel_existing_node_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_snst_rel_existing_node_graphson2() {
+async fn create_snst_rel_existing_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     create_snst_rel_existing_node(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -201,16 +201,16 @@ async fn create_snst_rel_by_rel_props_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_snst_rel_by_rel_props_graphson2() {
+async fn create_snst_rel_by_rel_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_snst_rel_by_rel_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -278,16 +278,16 @@ async fn read_snst_rel_by_src_props_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn read_snst_rel_by_src_props_graphson2() {
+async fn read_snst_rel_by_src_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_snst_rel_by_src_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -355,16 +355,16 @@ async fn read_snst_rel_by_dst_props_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn read_snst_rel_by_dst_props_graphson2() {
+async fn read_snst_rel_by_dst_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_snst_rel_by_dst_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -432,16 +432,16 @@ async fn update_snst_rel_by_rel_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_snst_rel_by_rel_prop_graphson2() {
+async fn create_snst_rel_by_rel_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_snst_rel_by_rel_prop(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -535,16 +535,16 @@ async fn update_snst_rel_by_src_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_snst_rel_by_src_prop_graphson2() {
+async fn update_snst_rel_by_src_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_snst_rel_by_src_prop(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -638,16 +638,16 @@ async fn update_snst_rel_by_dst_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_snst_rel_by_dst_prop_graphson2() {
+async fn update_snst_rel_by_dst_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_snst_rel_by_dst_prop(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -741,16 +741,16 @@ async fn delete_snst_rel_by_rel_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_snst_rel_by_del_prop_graphson2() {
+async fn delete_snst_rel_by_del_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_snst_rel_by_rel_prop(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -822,16 +822,16 @@ async fn delete_snst_rel_by_dst_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_snst_rel_by_dst_prop_graphson2() {
+async fn delete_snst_rel_by_dst_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_snst_rel_by_dst_prop(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -903,16 +903,16 @@ async fn delete_snst_rel_by_src_prop_neo4j() {
     assert!(server.shutdown().is_ok());
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_snst_rel_by_src_prop_graphson2() {
+async fn delete_snst_rel_by_src_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_snst_rel_by_src_prop(client).await;
 
     assert!(server.shutdown().is_ok());

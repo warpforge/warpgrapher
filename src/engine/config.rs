@@ -1,11 +1,10 @@
 //! models and custom GraphQL endpoints.
 
 //use std::fmt;
-use super::context::GraphQLContext;
-use super::schema::Info;
+// use super::context::GraphQLContext;
+// use super::schema::Info;
 use crate::engine::value::Value;
 use crate::error::{Error, ErrorKind};
-use juniper::{Arguments, ExecutionResult, Executor};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -25,11 +24,6 @@ fn get_true() -> bool {
 fn get_none() -> Option<String> {
     None
 }
-
-pub type ResolverFunc<GlobalCtx, ReqCtx> =
-    fn(&Info, &Arguments, &Executor<GraphQLContext<GlobalCtx, ReqCtx>>) -> ExecutionResult;
-
-pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
 
 pub type ValidatorFunc = fn(&Value) -> Result<(), Error>;
 
@@ -112,6 +106,12 @@ impl Config {
     }
     pub fn types(&self) -> Iter<Type> {
         self.model.iter()
+    }
+    /// Creates a new [`Config`] data structure from a yaml formatted
+    /// config string.
+    pub fn from_string(data: String) -> Result<Config, Error> {
+        serde_yaml::from_str(&data)
+            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
     }
 
     /// Creates a new [`Config`] data structure from
@@ -427,7 +427,8 @@ impl Prop {
 ///            true,
 ///            vec!["User".to_string()],
 ///            vec![],  
-///            EndpointsFilter::all()
+///            EndpointsFilter::all(),
+///            None
 ///         );
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
@@ -453,6 +454,11 @@ pub struct Relationship {
     /// auto generated for the relationship
     #[serde(default)]
     endpoints: EndpointsFilter,
+
+    /// The name of the resolver function to be called when querying for the value of this prop.
+    /// If this field is None, the prop resolves the scalar value from the database.
+    #[serde(default = "get_none")]
+    resolver: Option<String>,
 }
 
 impl Relationship {
@@ -463,6 +469,7 @@ impl Relationship {
         nodes: Vec<String>,
         props: Vec<Prop>,
         endpoints: EndpointsFilter,
+        resolver: Option<String>,
     ) -> Relationship {
         Relationship {
             name,
@@ -470,6 +477,7 @@ impl Relationship {
             nodes,
             props,
             endpoints,
+            resolver,
         }
     }
 
@@ -494,6 +502,10 @@ impl Relationship {
     }
     pub fn props_as_slice(&self) -> &[Prop] {
         &self.props
+    }
+
+    pub fn resolver(&self) -> &Option<String> {
+        &self.resolver
     }
 }
 
@@ -896,6 +908,7 @@ pub(crate) fn mock_project_type() -> Type {
                     None,
                 )],
                 EndpointsFilter::all(),
+                None,
             ),
             Relationship::new(
                 "board".to_string(),
@@ -903,6 +916,7 @@ pub(crate) fn mock_project_type() -> Type {
                 vec!["ScrumBoard".to_string(), "KanbanBoard".to_string()],
                 vec![],
                 EndpointsFilter::all(),
+                None,
             ),
             Relationship::new(
                 "commits".to_string(),
@@ -910,6 +924,7 @@ pub(crate) fn mock_project_type() -> Type {
                 vec!["Commit".to_string()],
                 vec![],
                 EndpointsFilter::all(),
+                None,
             ),
             Relationship::new(
                 "issues".to_string(),
@@ -917,6 +932,7 @@ pub(crate) fn mock_project_type() -> Type {
                 vec!["Feature".to_string(), "Bug".to_string()],
                 vec![],
                 EndpointsFilter::all(),
+                None,
             ),
         ],
         EndpointsFilter::all(),

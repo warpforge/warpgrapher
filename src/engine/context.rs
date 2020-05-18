@@ -1,8 +1,9 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::engine::config::{ResolverFunc, Resolvers, Validators};
+use crate::engine::config::Validators;
 use crate::engine::database::DatabasePool;
 use crate::engine::extensions::{Extension, Extensions};
+use crate::engine::objects::resolvers::{ResolverFunc, Resolvers};
 use crate::{Error, ErrorKind};
 use juniper::Context;
 use std::fmt::Debug;
@@ -15,7 +16,8 @@ use std::sync::Arc;
 /// ['GraphQLContext']: ./struct/GraphQLContext.html
 pub struct GraphQLContext<GlobalCtx, ReqCtx>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     /// Connection pool database
     pool: DatabasePool,
@@ -29,7 +31,8 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     /// Takes a DatabasePool and returns a
     /// ['GraphQLContext'] containing that connection pool.
@@ -95,7 +98,12 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx> Context for GraphQLContext<GlobalCtx, ReqCtx> where ReqCtx: RequestContext {}
+impl<GlobalCtx, ReqCtx> Context for GraphQLContext<GlobalCtx, ReqCtx>
+where
+    GlobalCtx: Debug,
+    ReqCtx: RequestContext,
+{
+}
 
 pub trait RequestContext: Clone + Debug + Send + Sync {
     fn new() -> Self;
@@ -107,11 +115,13 @@ mod tests {
     #[cfg(feature = "neo4j")]
     use super::GraphQLContext;
     #[cfg(feature = "neo4j")]
-    use crate::engine::config::{Resolvers, Validators};
+    use crate::engine::config::Validators;
     #[cfg(feature = "neo4j")]
     use crate::engine::database::neo4j::Neo4jEndpoint;
     #[cfg(feature = "neo4j")]
     use crate::engine::database::DatabaseEndpoint;
+    #[cfg(feature = "neo4j")]
+    use crate::engine::objects::resolvers::Resolvers;
 
     #[cfg(feature = "neo4j")]
     fn init() {

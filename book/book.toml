@@ -1,0 +1,6 @@
+[book]
+authors = ["Javier Vazquez"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Warpgrapher Book (v0.1.0)"

@@ -27,12 +27,20 @@ model:
       - name: points
         type: Int
         resolver: ProjectPoints
+      - name: toptags
+        type: String
+        list: true
+        resolver: ProjectTopTags
     rels:
       - name: owner
         props:
           - name: since
             type: String
         nodes: [User]
+      - name: topdev
+        nodes: [User]
+        list: true
+        resolver: ProjectTopDev
       - name: board
         nodes: [KanbanBoard, ScrumBoard]
       - name: activity
@@ -41,6 +49,10 @@ model:
       - name: issues
         nodes: [Feature, Bug]
         list: true
+      - name: topissues
+        nodes: [Feature, Bug]
+        list: true
+        resolver: ProjectTopIssues
   
   # Feature
   - name: Feature
@@ -83,3 +95,20 @@ endpoints:
     output:
       list: false
       type: Int
+  
+  # GlobalTopTags:
+  - name: GlobalTopTags
+    class: Query
+    input: null
+    output:
+      list: true
+      type: String
+
+  # GlobalTopDev:
+  - name: GlobalTopDev
+    class: Query
+    input: null
+    output:
+      list: false
+      type: User
+

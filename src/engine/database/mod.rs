@@ -1,5 +1,5 @@
-#[cfg(feature = "graphson2")]
-pub mod graphson2;
+#[cfg(feature = "cosmos")]
+pub mod cosmos;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
 
@@ -8,9 +8,9 @@ use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::error::ErrorKind;
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 use gremlin_client::GremlinClient;
 use juniper::FieldError;
 #[cfg(feature = "neo4j")]
@@ -18,11 +18,11 @@ use r2d2::Pool;
 #[cfg(feature = "neo4j")]
 use r2d2_cypher::CypherConnectionManager;
 use std::collections::HashMap;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
 
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 fn env_string(var_name: &str) -> Result<String, Error> {
     match var_os(var_name) {
         None => Err(Error::new(
@@ -39,7 +39,7 @@ fn env_string(var_name: &str) -> Result<String, Error> {
     }
 }
 
-#[cfg(any(feature = "graphson2"))]
+#[cfg(any(feature = "cosmos"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?
         .parse::<u16>()
@@ -50,8 +50,8 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
 pub enum DatabasePool {
     #[cfg(feature = "neo4j")]
     Neo4j(Pool<CypherConnectionManager>),
-    #[cfg(feature = "graphson2")]
-    Graphson2(GremlinClient),
+    #[cfg(feature = "cosmos")]
+    Cosmos(GremlinClient),
     // Used to serve the schema without a database backend
     NoDatabase,
 }

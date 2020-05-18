@@ -1,28 +1,28 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(feature = "graphson2")]
-use setup::graphson2_test_client;
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "graphson2")]
-use setup::server::test_server_graphson2;
+#[cfg(feature = "cosmos")]
+use setup::server::test_server_cosmos;
 #[cfg(feature = "neo4j")]
 use setup::server::test_server_neo4j;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_mnst_new_nodes_graphson2() {
+async fn create_mnst_new_nodes_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     create_mnst_new_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -163,16 +163,16 @@ async fn create_mnst_new_nodes(mut client: Client) {
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn create_mnst_existing_nodes_graphson2() {
+async fn create_mnst_existing_nodes_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     create_mnst_existing_nodes(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -287,16 +287,16 @@ async fn create_mnst_existing_nodes(mut client: Client) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn read_mnst_by_rel_props_graphson2() {
+async fn read_mnst_by_rel_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_mnst_by_rel_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -369,16 +369,16 @@ async fn read_mnst_by_rel_props(mut client: Client) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn read_mnst_by_dst_props_graphson2() {
+async fn read_mnst_by_dst_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     read_mnst_by_dst_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -451,16 +451,16 @@ async fn read_mnst_by_dst_props(mut client: Client) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_mnst_new_node_graphson2() {
+async fn update_mnst_new_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_mnst_new_node(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -532,16 +532,16 @@ async fn update_mnst_new_node(mut client: Client) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_mnst_existing_node_graphson2() {
+async fn update_mnst_existing_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_mnst_existing_node(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -623,16 +623,16 @@ async fn update_mnst_existing_node(mut client: Client) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn update_mnst_relationship_graphson2() {
+async fn update_mnst_relationship_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     update_mnst_relationship(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -707,16 +707,16 @@ async fn update_mnst_relationship(mut client: Client) {
         .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_mnst_relationship_by_rel_props_graphson2() {
+async fn delete_mnst_relationship_by_rel_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_mnst_relationship_by_rel_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -799,16 +799,16 @@ async fn delete_mnst_relationship_by_rel_props(mut client: Client) {
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_mnst_relationship_by_dst_props_graphson2() {
+async fn delete_mnst_relationship_by_dst_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_mnst_relationship_by_dst_props(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -891,16 +891,16 @@ async fn delete_mnst_relationship_by_dst_props(mut client: Client) {
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_node_by_mnst_rel_property_graphson2() {
+async fn delete_node_by_mnst_rel_property_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_node_by_mnst_rel_property(client).await;
 
     assert!(server.shutdown().is_ok());
@@ -964,16 +964,16 @@ async fn delete_node_by_mnst_rel_property(mut client: Client) {
     assert_eq!(projects_a.len(), 0);
 }
 
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-async fn delete_node_by_mnst_dst_property_graphson2() {
+async fn delete_node_by_mnst_dst_property_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_graphson2("./tests/fixtures/minimal.yml");
+    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
     assert!(server.serve(false).is_ok());
 
-    let client = graphson2_test_client();
+    let client = cosmos_test_client();
     delete_node_by_mnst_dst_property(client).await;
 
     assert!(server.shutdown().is_ok());

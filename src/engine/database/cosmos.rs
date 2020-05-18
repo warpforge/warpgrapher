@@ -4,9 +4,9 @@ use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::{Error, ErrorKind};
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 // use gremlin_client::process::traversal::traversal;
-#[cfg(feature = "graphson2")]
+#[cfg(feature = "cosmos")]
 use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, ToGValue};
 use juniper::FieldError;
 use log::trace;
@@ -14,27 +14,27 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 
-pub struct Graphson2Endpoint {
+pub struct CosmosEndpoint {
     host: String,
     port: u16,
     login: String,
     pass: String,
 }
 
-impl Graphson2Endpoint {
-    pub fn from_env() -> Result<Graphson2Endpoint, Error> {
-        Ok(Graphson2Endpoint {
-            host: env_string("WG_GRAPHSON2_HOST")?,
-            port: env_u16("WG_GRAPHSON2_PORT")?,
-            login: env_string("WG_GRAPHSON2_LOGIN")?,
-            pass: env_string("WG_GRAPHSON2_PASS")?,
+impl CosmosEndpoint {
+    pub fn from_env() -> Result<CosmosEndpoint, Error> {
+        Ok(CosmosEndpoint {
+            host: env_string("WG_COSMOS_HOST")?,
+            port: env_u16("WG_COSMOS_PORT")?,
+            login: env_string("WG_COSMOS_LOGIN")?,
+            pass: env_string("WG_COSMOS_PASS")?,
         })
     }
 }
 
-impl DatabaseEndpoint for Graphson2Endpoint {
+impl DatabaseEndpoint for CosmosEndpoint {
     fn pool(&self) -> Result<DatabasePool, Error> {
-        Ok(DatabasePool::Graphson2(
+        Ok(DatabasePool::Cosmos(
             GremlinClient::connect(
                 ConnectionOptions::builder()
                     .host(&self.host)
@@ -46,23 +46,23 @@ impl DatabaseEndpoint for Graphson2Endpoint {
                     .credentials(&self.login, &self.pass)
                     .build(),
             )
-            .map_err(|e| Error::new(ErrorKind::CouldNotBuildGraphson2Pool(e), None))?,
+            .map_err(|e| Error::new(ErrorKind::CouldNotBuildCosmosPool(e), None))?,
         ))
     }
 }
 
-pub(crate) struct Graphson2Transaction {
+pub(crate) struct CosmosTransaction {
     client: GremlinClient,
 }
 
-impl Graphson2Transaction {
-    pub(crate) fn new(client: GremlinClient) -> Graphson2Transaction {
-        Graphson2Transaction { client }
+impl CosmosTransaction {
+    pub(crate) fn new(client: GremlinClient) -> CosmosTransaction {
+        CosmosTransaction { client }
     }
 }
 
-impl Transaction for Graphson2Transaction {
-    type ImplQueryResult = Graphson2QueryResult;
+impl Transaction for CosmosTransaction {
+    type ImplQueryResult = CosmosQueryResult;
 
     fn begin(&self) -> Result<(), FieldError> {
         Ok(())
@@ -77,7 +77,7 @@ impl Transaction for Graphson2Transaction {
         label: &str,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
+    ) -> Result<CosmosQueryResult, FieldError> {
         let mut params = HashMap::new();
         let mut query = String::from("g.addV('") + label + "')";
         query.push_str(".property('partitionKey', partitionKey)");
@@ -120,7 +120,7 @@ impl Transaction for Graphson2Transaction {
         partition_key_opt: &Option<String>,
         info: &Info,
     ) -> Result<Self::ImplQueryResult, FieldError> {
-        trace!("Graphson2Transaction::create_rels called.");
+        trace!("CosmosTransaction::create_rels called.");
 
         let mut props = HashMap::new();
         if let Some(Value::Map(pm)) = params.remove("props") {
@@ -239,7 +239,7 @@ impl Transaction for Graphson2Transaction {
         label: &str,
         ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
+    ) -> Result<CosmosQueryResult, FieldError> {
         if let Value::Array(idvec) = ids {
             let mut qs = String::from("g.V().hasLabel('") + label + "')";
             qs.push_str(".has('partitionKey', partitionKey)");
@@ -268,7 +268,7 @@ impl Transaction for Graphson2Transaction {
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
-            Ok(Graphson2QueryResult::new(v))
+            Ok(CosmosQueryResult::new(v))
         } else {
             Err(Error::new(
                 ErrorKind::InvalidType("Expected ID array".to_string()),
@@ -284,7 +284,7 @@ impl Transaction for Graphson2Transaction {
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
+    ) -> Result<CosmosQueryResult, FieldError> {
         if let Value::Array(idvec) = rel_ids {
             let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
             qs.push_str(".has('partitionKey', partitionKey)");
@@ -313,7 +313,7 @@ impl Transaction for Graphson2Transaction {
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
-            Ok(Graphson2QueryResult::new(v))
+            Ok(CosmosQueryResult::new(v))
         } else {
             Err(Error::new(
                 ErrorKind::InvalidType("Expected ID array".to_string()),
@@ -328,9 +328,9 @@ impl Transaction for Graphson2Transaction {
         query: &str,
         partition_key_opt: &Option<String>,
         params: Option<HashMap<String, Value>>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
+    ) -> Result<CosmosQueryResult, FieldError> {
         trace!(
-            "Graphson2Transaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
+            "CosmosTransaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
             query,
             partition_key_opt,
             params
@@ -352,7 +352,7 @@ impl Transaction for Graphson2Transaction {
                 v.push(r?);
             }
 
-            Ok(Graphson2QueryResult::new(v))
+            Ok(CosmosQueryResult::new(v))
         } else {
             Err(Error::new(ErrorKind::MissingPartitionKey, None).into())
         }
@@ -518,7 +518,7 @@ impl Transaction for Graphson2Transaction {
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: &Option<String>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
+    ) -> Result<CosmosQueryResult, FieldError> {
         trace!("transaction::update_nodes called, label: {}, ids: {:#?}, props: {:#?}, partition_key_opt: {:#?}", label, ids, props, partition_key_opt);
 
         if let Value::Array(idvec) = ids {
@@ -587,8 +587,8 @@ impl Transaction for Graphson2Transaction {
         rel_ids: Value,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Graphson2QueryResult, FieldError> {
-        trace!("Graphson2Transaction::update_rels called, src_label: {}, rel_name: {}, rel_ids: {:#?}, partition_key_opt: {:#?}, props: {:#?}", src_label, rel_name, rel_ids, partition_key_opt, props);
+    ) -> Result<CosmosQueryResult, FieldError> {
+        trace!("CosmosTransaction::update_rels called, src_label: {}, rel_name: {}, rel_ids: {:#?}, partition_key_opt: {:#?}, props: {:#?}", src_label, rel_name, rel_ids, partition_key_opt, props);
 
         if let Value::Array(rel_id_vec) = rel_ids {
             let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
@@ -632,17 +632,17 @@ impl Transaction for Graphson2Transaction {
 }
 
 #[derive(Debug)]
-pub struct Graphson2QueryResult {
+pub struct CosmosQueryResult {
     results: Vec<GValue>,
 }
 
-impl Graphson2QueryResult {
-    fn new(results: Vec<GValue>) -> Graphson2QueryResult {
-        Graphson2QueryResult { results }
+impl CosmosQueryResult {
+    fn new(results: Vec<GValue>) -> CosmosQueryResult {
+        CosmosQueryResult { results }
     }
 }
 
-impl QueryResult for Graphson2QueryResult {
+impl QueryResult for CosmosQueryResult {
     fn nodes<GlobalCtx, ReqCtx>(
         self,
         _name: &str,
@@ -654,7 +654,7 @@ impl QueryResult for Graphson2QueryResult {
     {
         /*
         trace!(
-            "Graphson2QueryResult::nodes self.results: {:#?}",
+            "CosmosQueryResult::nodes self.results: {:#?}",
             self.results
         );
         */
@@ -729,7 +729,7 @@ impl QueryResult for Graphson2QueryResult {
             }
         }
 
-        trace!("Graphson2QueryResult::nodes returning {:#?}", v);
+        trace!("CosmosQueryResult::nodes returning {:#?}", v);
 
         Ok(v)
     }
@@ -750,7 +750,7 @@ impl QueryResult for Graphson2QueryResult {
     {
         /*
         trace!(
-            "Graphson2QueryResult::rels self.results: {:#?}",
+            "CosmosQueryResult::rels self.results: {:#?}",
             self.results
         );
         */
@@ -907,7 +907,7 @@ impl QueryResult for Graphson2QueryResult {
             }
         }
 
-        trace!("Graphson2QueryResult::rels returning {:#?}", v);
+        trace!("CosmosQueryResult::rels returning {:#?}", v);
 
         Ok(v)
     }
@@ -915,7 +915,7 @@ impl QueryResult for Graphson2QueryResult {
     fn ids(&self, _type_name: &str) -> Result<Value, FieldError> {
         /*
         trace!(
-            "Graphson2QueryResult::ids self.results: {:#?}",
+            "CosmosQueryResult::ids self.results: {:#?}",
             self.results
         );
         */
@@ -944,7 +944,7 @@ impl QueryResult for Graphson2QueryResult {
 
     fn count(&self) -> Result<i32, FieldError> {
         trace!(
-            "Graphson2QueryResult::count self.results: {:#?}",
+            "CosmosQueryResult::count self.results: {:#?}",
             self.results
         );
 
@@ -963,7 +963,7 @@ impl QueryResult for Graphson2QueryResult {
 
     fn len(&self) -> i32 {
         trace!(
-            "Graphson2QueryResult::len self.results: {:#?}",
+            "CosmosQueryResult::len self.results: {:#?}",
             self.results
         );
         0
@@ -971,7 +971,7 @@ impl QueryResult for Graphson2QueryResult {
 
     fn is_empty(&self) -> bool {
         trace!(
-            "Graphson2QueryResult::is_empty self.results: {:#?}",
+            "CosmosQueryResult::is_empty self.results: {:#?}",
             self.results
         );
         true

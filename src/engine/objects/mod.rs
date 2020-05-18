@@ -1,31 +1,31 @@
-mod resolvers;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+pub mod resolvers;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 mod visitors;
 
 use super::context::GraphQLContext;
 use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
 use crate::engine::context::RequestContext;
-#[cfg(feature = "graphson2")]
-use crate::engine::database::graphson2::Graphson2Transaction;
+#[cfg(feature = "cosmos")]
+use crate::engine::database::cosmos::CosmosTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::Transaction;
 use crate::engine::value::Value;
 use crate::error::{Error, ErrorKind};
 use juniper::meta::MetaType;
 use juniper::{
-    Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, GraphQLType,
-    InputValue, Registry, Selection, ID,
+    Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, InputValue, Registry,
+    Selection, ID,
 };
 use log::{error, trace};
-#[cfg(any(feature = "graphson2", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use resolvers::{
-    resolve_custom_endpoint, resolve_node_create_mutation, resolve_node_delete_mutation,
-    resolve_node_update_mutation, resolve_object_field, resolve_rel_create_mutation,
-    resolve_rel_delete_mutation, resolve_rel_field, resolve_rel_update_mutation,
-    resolve_static_version_query,
+    resolve_custom_endpoint, resolve_custom_rel, resolve_node_create_mutation,
+    resolve_node_delete_mutation, resolve_node_update_mutation, resolve_object_field,
+    resolve_rel_create_mutation, resolve_rel_delete_mutation, resolve_rel_field,
+    resolve_rel_update_mutation, resolve_static_version_query,
 };
 use resolvers::{
     resolve_custom_field, resolve_rel_props, resolve_scalar_field, resolve_union_field,
@@ -34,6 +34,14 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+
+pub use juniper::GraphQLType;
+
+#[derive(Debug)]
+pub enum Object<'a, GlobalCtx: Debug, ReqCtx: RequestContext> {
+    Node(&'a Node<GlobalCtx, ReqCtx>),
+    Rel(&'a Rel<GlobalCtx, ReqCtx>),
+}
 
 #[derive(Debug)]
 struct Input<GlobalCtx, ReqCtx> {
@@ -54,7 +62,8 @@ impl<GlobalCtx, ReqCtx> Input<GlobalCtx, ReqCtx> {
 
 impl<GlobalCtx, ReqCtx> FromInputValue for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
         serde_json::to_value(v)
@@ -66,7 +75,8 @@ where
 
 impl<GlobalCtx, ReqCtx> GraphQLType for Input<GlobalCtx, ReqCtx>
 where
-    ReqCtx: RequestContext,
+    GlobalCtx: Debug,
+    ReqCtx: Debug + RequestContext,
 {
     type Context = GraphQLContext<GlobalCtx, ReqCtx>;
     type TypeInfo = Info;
@@ -142,7 +152,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Node<GlobalCtx, ReqCtx>
+pub struct Node<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
@@ -338,7 +348,7 @@ where
             .into_meta()
     }
 
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     fn resolve_field_with_transaction<T>(
         &self,
         info: &<Self as GraphQLType>::TypeInfo,
@@ -381,11 +391,24 @@ where
 
         match p.kind() {
             PropertyKind::CustomResolver => {
-                resolve_custom_endpoint(info, field_name, args, executor)
+                resolve_custom_endpoint(info, field_name, Object::Node(self), args, executor)
             }
-            PropertyKind::DynamicScalar => {
-                resolve_custom_field(info, field_name, p.resolver(), args, executor)
-            }
+            PropertyKind::DynamicScalar => resolve_custom_field(
+                info,
+                field_name,
+                &p.resolver(),
+                Object::Node(self),
+                args,
+                executor,
+            ),
+            PropertyKind::DynamicRel(rel_name) => resolve_custom_rel(
+                info,
+                rel_name,
+                &p.resolver(),
+                Object::Node(self),
+                args,
+                executor,
+            ),
             PropertyKind::Input => Err(Error::new(
                 ErrorKind::InvalidPropertyType("PropertyKind::Input".to_owned()),
                 None,
@@ -588,9 +611,9 @@ where
                     &mut transaction,
                 )
             }
-            #[cfg(feature = "graphson2")]
-            DatabasePool::Graphson2(c) => {
-                let mut transaction = Graphson2Transaction::new(c.clone());
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => {
+                let mut transaction = CosmosTransaction::new(c.clone());
                 self.resolve_field_with_transaction(
                     info,
                     field_name,
@@ -648,7 +671,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct Rel<GlobalCtx, ReqCtx>
+pub struct Rel<GlobalCtx, ReqCtx>
 where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
@@ -666,7 +689,6 @@ where
     GlobalCtx: Debug,
     ReqCtx: Debug + RequestContext,
 {
-    #[cfg(any(feature = "graphson2", feature = "neo4j"))]
     pub(crate) fn new(
         id: Value,
         props: Option<Node<GlobalCtx, ReqCtx>>,
@@ -783,9 +805,14 @@ where
         let p = td.prop(field_name)?;
 
         let r = match (p.kind(), &field_name) {
-            (PropertyKind::DynamicScalar, _) => {
-                resolve_custom_field(info, field_name, p.resolver(), args, executor)
-            }
+            (PropertyKind::DynamicScalar, _) => resolve_custom_field(
+                info,
+                field_name,
+                p.resolver(),
+                Object::Rel(self),
+                args,
+                executor,
+            ),
             (PropertyKind::Object, &"props") => match &self.props {
                 Some(p) => resolve_rel_props(info, field_name, p, executor),
                 None => Err(Error::new(

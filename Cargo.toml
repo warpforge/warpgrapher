@@ -8,11 +8,11 @@ repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
 categories = ["web-programming"]
-version = "0.1.1"
+version = "0.2.0"
 edition = "2018"
 
 [features]
-graphson2 = ["gremlin-client"]
+cosmos = ["gremlin-client"]
 neo4j = ["r2d2", "r2d2_cypher", "rusted_cypher"]
 
 [dependencies]
@@ -20,7 +20,7 @@ neo4j = ["r2d2", "r2d2_cypher", "rusted_cypher"]
 actix-web = "2.0.0"
 env_logger = "0.6.1"
 Inflector = "0.11.4"
-juniper = "0.13.1"
+juniper = "0.14.2"
 log = "0.4.6"
 num_cpus = "1.0"
 reqwest = { version = "0.10.4", features = ["json"] }
