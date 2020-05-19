@@ -1158,9 +1158,70 @@ pub(crate) fn mock_endpoints_filter() -> Config {
 
 #[cfg(test)]
 mod tests {
-    use super::{compose, Config, EndpointsFilter, ErrorKind, Prop, Type};
+    use super::{compose, Config, EndpointsFilter, ErrorKind, Prop, Relationship, Type};
     use std::fs::File;
     use std::io::prelude::*;
+
+    /// There's not really much of a "test" per se, in this first unit test.
+    /// This is the example used in the book/src/warpgrapher/config.md file, so
+    /// having it here is a forcing function to make sure we catch any changes
+    /// in interface that would change this code and update the book to match.
+    #[test]
+    fn warpgrapher_book_config() {
+        let config = Config::new(
+            1,
+            vec![
+                // User
+                Type::new(
+                    "User".to_string(),
+                    vec![
+                        Prop::new(
+                            "username".to_string(),
+                            "String".to_string(),
+                            false,
+                            false,
+                            None,
+                            None,
+                        ),
+                        Prop::new(
+                            "email".to_string(),
+                            "String".to_string(),
+                            false,
+                            false,
+                            None,
+                            None,
+                        ),
+                    ],
+                    Vec::new(),
+                    EndpointsFilter::all(),
+                ),
+                // Team
+                Type::new(
+                    "Team".to_string(),
+                    vec![Prop::new(
+                        "teamname".to_string(),
+                        "String".to_string(),
+                        false,
+                        false,
+                        None,
+                        None,
+                    )],
+                    vec![Relationship::new(
+                        "members".to_string(),
+                        true,
+                        vec!["User".to_string()],
+                        Vec::new(),
+                        EndpointsFilter::default(),
+                        None,
+                    )],
+                    EndpointsFilter::all(),
+                ),
+            ],
+            vec![],
+        );
+
+        assert!(!config.model.is_empty());
+    }
 
     /// Passes if a new Configuration is created
     #[test]

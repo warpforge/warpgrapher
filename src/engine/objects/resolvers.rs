@@ -376,7 +376,7 @@ where
     ///     // do work
     ///     let mut hm1 = HashMap::new();
     ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
-    /// 
+    ///
     ///     let mut hm2 = HashMap::new();
     ///     hm2.insert("name".to_string(), Value::String("Jane Smith".to_string()));
     ///     hm2.insert("age".to_string(), Value::Int64(24));
@@ -440,18 +440,18 @@ where
     ///     // do work
     ///     let mut hm1 = HashMap::new();
     ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
-    /// 
+    ///
     ///     let mut hm2 = HashMap::new();
     ///     hm2.insert("name".to_string(), Value::String("John Doe".to_string()));
     ///     hm2.insert("age".to_string(), Value::Int64(21));
-    /// 
+    ///
     ///     let mut hm3 = HashMap::new();
     ///     hm3.insert("role".to_string(), Value::String("leader".to_string()));
-    /// 
+    ///
     ///     let mut hm4 = HashMap::new();
     ///     hm4.insert("name".to_string(), Value::String("Jane Smith".to_string()));
     ///     hm4.insert("age".to_string(), Value::Int64(24));
-    /// 
+    ///
     ///     // return rel list
     ///     context.resolve_rel_list(vec![
     ///         GraphRel::new("655c4e13-5075-45ea-97de-b43f800e5854", Some(&hm1), GraphNode::new("User", &hm2)),

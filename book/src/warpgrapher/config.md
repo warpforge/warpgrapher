@@ -32,59 +32,55 @@ model:
 ```rust
 use warpgrapher::engine::config::{Config, Prop, Relationship, Type};
 
-let config = Config {
-    version: 1,
-    model: vec![
-
+let config = Config::new(
+    1,
+    vec![
         // User
-        Type {
-            name: "User".to_string(),
-            props: vec![
-                Prop {
-                    name: "username".to_string(),
-                    type_name: "String",
-                    required: false,
-                    list: false,
-                    resolver: None,
-                    validator: None
-                },
-                Prop {
-                    name: "email".to_string(),
-                    type_name: "String",
-                    required: false,
-                    list: false,
-                    resolver: None,
-                    validator: None
-                }
+        Type::new(
+            "User".to_string(),
+            vec![
+                Prop::new(
+                    "username".to_string(),
+                    "String".to_string(),
+                    false,
+                    false,
+                    None,
+                    None,
+                ),
+                Prop::new(
+                    "email".to_string(),
+                    "String".to_string(),
+                    false,
+                    false,
+                    None,
+                    None,
+                ),
             ],
-            rels: vec![]
-        },
-
+            Vec::new(),
+            EndpointsFilter::all(),
+        ),
         // Team
-        Type {
-            name: "Team".to_string(),
-            props: vec![
-                Prop {
-                    name: "teamname".to_string(),
-                    type_name: "String",
-                    required: false,
-                    list: false,
-                    resolver: None,
-                    validator: None
-                },
-            ],
-            rels: vec![
-                Relationship {
-                    name: "members".to_string(),
-                    list: true,
-                    nodes: vec!["User".to_string()],
-                    props: vec![],
-                    endpoints: EndpointsFilter::default()
-                }
-            ]
-        },
+        Type::new(
+            "Team".to_string(),
+            vec![Prop::new(
+                "teamname".to_string(),
+                "String".to_string(),
+                false,
+                false,
+                None,
+                None,
+            )],
+            vec![Relationship::new(
+                "members".to_string(),
+                true,
+                vec!["User".to_string()],
+                Vec::new(),
+                EndpointsFilter::default(),
+                None,
+            )],
+            EndpointsFilter::all(),
+        ),
     ],
-
-    endpoints: vec![]
-}
+    vec![],
+);
 ```

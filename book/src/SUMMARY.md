@@ -2,6 +2,7 @@
 
 - [Warpgrapher](./warpgrapher/intro.md)
   - [Quickstart](./warpgrapher/quickstart.md)
+  - [Databases](.warpgrapher/databases.md)
   - [Config](./warpgrapher/config.md)
 - [CRUD API](./api/intro.md)
   - [Node Read](./api/node_read.md)

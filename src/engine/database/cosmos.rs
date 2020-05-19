@@ -943,10 +943,7 @@ impl QueryResult for CosmosQueryResult {
     }
 
     fn count(&self) -> Result<i32, FieldError> {
-        trace!(
-            "CosmosQueryResult::count self.results: {:#?}",
-            self.results
-        );
+        trace!("CosmosQueryResult::count self.results: {:#?}", self.results);
 
         if let Some(GValue::Int32(i)) = self.results.get(0) {
             Ok(*i)
@@ -962,10 +959,7 @@ impl QueryResult for CosmosQueryResult {
     }
 
     fn len(&self) -> i32 {
-        trace!(
-            "CosmosQueryResult::len self.results: {:#?}",
-            self.results
-        );
+        trace!("CosmosQueryResult::len self.results: {:#?}", self.results);
         0
     }
 

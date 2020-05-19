@@ -50,9 +50,9 @@ fn resolve(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
 ```rust
 use std::collections::HashMap;
 use warpgrapher::{Engine, Config};
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::resolvers::{Resolvers, ResolverContext, ExecutionResult};
-use warpgrapher::juniper::http::GraphQLRequest;
+use warpgrapher::engine::databases::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::objects::resolvers::{Resolvers, ResolverContext, ExecutionResult};
+use warpgrapher::GraphQLRequest;
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {
@@ -95,14 +95,14 @@ fn main() {
         .expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+    let db = Neo4jEndpoint::from_env().unwrap();
 
     // define resolvers
     let mut resolvers = Resolvers::<(), AppRequestContext>::new();
     resolvers.insert("RequestDebug".to_string(), Box::new(resolve_request_debug));
 
     // create warpgrapher engine
-    let engine: Engine<(), AppRequestContext> = Engine::new(config, db)
+    let engine: Engine<(), AppRequestContext> = Engine::new(config, db.pool().unwrap())
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

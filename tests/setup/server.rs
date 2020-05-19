@@ -23,9 +23,9 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabasePool;
 use warpgrapher::engine::extensions::Extensions;
+use warpgrapher::engine::objects::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::resolvers::{GraphNode, GraphRel, ResolverContext};
-use warpgrapher::engine::objects::resolvers::{Resolvers};
 use warpgrapher::engine::value::Value;
 use warpgrapher::{Error, ErrorKind};
 

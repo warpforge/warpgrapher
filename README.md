@@ -60,7 +60,7 @@ cargo build --features neo4j
 
 ## Test
 
-Set env variables.
+### Set Environment Variables
 
 For Cosmos DB graphs:
 
@@ -74,11 +74,11 @@ export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 For Neo4J:
 
 ```bash
-export DB_PASS=*MY-DB-PASS*
-export WG_NEO4J_URL=http://neo4j:${DB_PASS}@127.0.0.1:7474/db/data
+export WG_NEO4J_PASSWORD=*MY-DB-PASS*
+export WG_NEO4J_URL=http://neo4j:${WG_NEO4J_PASSWORD}@127.0.0.1:7474/db/data
 ```
 
-Run the database.
+### Run the Database
 
 For Cosmos DB:
 
@@ -94,7 +94,9 @@ driver that works with Neo4J version 4, please open an issue and point us to it!
 docker run --rm -e NEO4J_AUTH="neo4j/${DB_PASS}" -p 7474:7474 -p 7687:7687 neo4j:3.5
 ```
 
-Run unit tests:
+### Run Tests
+
+Run unit tests.
 
 ```bash
 cargo test --lib
@@ -126,10 +128,16 @@ Enable full logging and stack traces when running tests:
 RUST_BACKTRACE=full RUST_LOG=warpgrapher cargo test --features *DB_FEATURE* -- --nocapture --test-threads=1
 ```
 
-Clippy
+## Lint Code
 
 ```bash
 cargo clippy --all-targets --all-features -- -D warnings
+```
+
+## Check Dependencies for Vulnerabilities
+
+```bash
+cargo audit
 ```
 
 ## Format code
@@ -138,7 +146,13 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo fmt
 ```
 
-## Review against API style guidelines
+## Generate Documentation
+
+```bash
+book/build.sh
+```
+
+## Review Against API Style GUide
 
 Review your change against the following Rust language API style guidelines.
 

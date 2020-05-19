@@ -26,17 +26,11 @@ fn resolve_project_topcontributor(
 ) -> ExecutionResult {
 
     // compute ...
-    let rel = GraphRel {
-        id: "1234567890",
-        props: None,
-        dst: GraphNode {
-            typename: "User",
-            props: json!({
-                "id": "1234567890",
-                "name": "Joe"
-            })
-        }
-    };
+    let mut hm = HashMap::new();
+    hm.insert("id".to_string(), Value::String("1234567890".to_string()));
+    hm.insert("name".to_string(), Value::String("Joe".to_string()));
+
+    let rel = GraphRel::new("1234567890", None, GraphNode::new("User", &hm));
     
     context.resolve_scalar(rel)
 }
