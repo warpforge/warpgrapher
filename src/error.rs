@@ -2,10 +2,31 @@ use std::error;
 use std::fmt::{Display, Formatter, Result};
 use std::sync::mpsc::RecvError;
 
-/// Categories of Warpgrapher errors.
+/// Categories of Warpgrapher errors
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum ErrorKind {
+    /// Returned when a [`Client`] receives an HTTP response which contains a body that is not
+    /// valid JSON. All GraphQL responses including errors are expected to be in the form of valid
+    /// JSON.
+    ///
+    /// [`Client`]: ./client/struct.Client.html
+    ClientReceivedInvalidJson,
+
+    /// Returned when a [`Client`] is unable to submit a request to the server, such as due to a
+    /// network or server error.
+    ///
+    /// [`Client`]: ./client/struct.Client.html
+    ClientRequestFailed,
+
+    /// Returned when a [`Client`] receives a valid JSON response that does not contain the
+    /// expected 'data' or 'errors' objects.
+    ///
+    /// The [`serde_json::Value`] tuple value contains the deserialized JSON response.
+    ClientRequestUnexpectedPayload(serde_json::Value),
+
+    /// *******
+
     /// Returned when the server attempts to listen on an address/port
     /// combination that is already bound on the system.
     AddrInUse(std::io::Error),
@@ -13,19 +34,6 @@ pub enum ErrorKind {
     /// Returned when the server attempts to listen on an address not
     /// assigned to any of the system's interfaces.
     AddrNotAvailable(std::io::Error),
-
-    /// Returned when `Client` receives an HTTP response which
-    /// contains a body that is not valid JSON. All GraphQL responses
-    /// including errors are expected to be in the form of valid JSON.
-    ClientReceivedInvalidJson,
-
-    /// Returned when `Client` is unable to submit a request to
-    /// the server (network error or server error).
-    ClientRequestFailed,
-
-    /// Returned when `Client` receives a valid JSON response
-    /// that does not contain the expected 'data' or 'errors' objects.
-    ClientRequestUnexpectedPayload(serde_json::Value),
 
     /// Returned when a custom endpoint defines an inline custom input type
     /// with a name that conflicts with a GraphQL scalar
@@ -250,7 +258,10 @@ impl Error {
     /// let s = std::io::Error::new(std::io::ErrorKind::Other, "Oh no!");
     /// let e2 = Error::new(ErrorKind::ServerShutdownFailed, Some(Box::new(s)));
     /// ```
-    pub fn new(kind: ErrorKind, source: Option<Box<dyn error::Error + Send + Sync>>) -> Error {
+    pub fn new(
+        kind: ErrorKind,
+        source: Option<Box<dyn error::Error + Send + Sync + 'static>>,
+    ) -> Error {
         Error { kind, source }
     }
 }

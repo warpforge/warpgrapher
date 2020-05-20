@@ -6,6 +6,9 @@
 //! can supply your own custom resolvers. Warpgrapher will automatically
 //! generate the GraphQL configuration and invoke your custom resolvers when
 //! appropriate.
+//!
+//! * [Cargo Crate](https://crates.io/crates/warpgrapher)
+//! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
 
 #![doc(html_root_url = "https://docs.rs/warpgrapher/0.2.0")]
 

@@ -20,7 +20,7 @@ async fn client_node_crud() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
         )
         .await
@@ -32,7 +32,7 @@ async fn client_node_crud() {
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
     let projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .read_node("Project", "id status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -45,7 +45,7 @@ async fn client_node_crud() {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "MJOLNIR"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -60,7 +60,7 @@ async fn client_node_crud() {
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
     let u_projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .read_node("Project", "id status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -72,7 +72,7 @@ async fn client_node_crud() {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "MJOLNIR"})),
             None,
         )
@@ -82,7 +82,7 @@ async fn client_node_crud() {
     assert_eq!(pd, 1);
 
     let d_projects = client
-        .read_node("Project", "id status", Some("1234".to_string()), None)
+        .read_node("Project", "id status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -106,22 +106,17 @@ async fn client_rel_crud() {
         .create_node(
             "Project",
             "id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
         .unwrap();
     client
-        .create_node(
-            "Bug",
-            "id name",
-            Some("1234".to_string()),
-            &json!({"name": "Bug Zero"}),
-        )
+        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
         .await
         .unwrap();
 
-    let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234".to_string()),
+    let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234"),
     &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}}])).await.unwrap();
 
     assert!(results.is_array());
@@ -136,7 +131,7 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             "id props { since }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -155,7 +150,7 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             "id props { since }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"props": {"since": "2000"}})),
             &json!({"props": {"since": "2010"}}),
         )
@@ -172,7 +167,7 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             "id props { since }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -190,7 +185,7 @@ async fn client_rel_crud() {
         .delete_rel(
             "Project",
             "issues",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"props": {"since": "2010"}})),
             None,
             None,
@@ -201,7 +196,7 @@ async fn client_rel_crud() {
     assert_eq!(rd, 1);
 
     let d_rels = client
-        .read_rel("Project", "issues", "id", Some("1234".to_string()), None)
+        .read_rel("Project", "issues", "id", Some("1234"), None)
         .await
         .unwrap();
 

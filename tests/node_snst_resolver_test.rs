@@ -64,7 +64,7 @@ async fn create_snst_new_node(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -114,7 +114,7 @@ async fn create_snst_new_node(mut client: Client) {
                     } 
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -170,7 +170,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
             "__typename
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -193,7 +193,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -233,7 +233,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -292,7 +292,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
             "__typename
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -306,7 +306,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
             "__typename
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User One"
             }),
@@ -329,7 +329,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -361,7 +361,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "owner": {
@@ -391,7 +391,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -421,7 +421,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project One"
             })),
@@ -475,7 +475,7 @@ async fn read_snst_node_by_rel_props(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -487,7 +487,7 @@ async fn read_snst_node_by_rel_props(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -524,7 +524,7 @@ async fn read_snst_node_by_rel_props(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "owner": {
                     "props": {
@@ -587,7 +587,7 @@ async fn read_snst_node_by_dst_props(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -599,7 +599,7 @@ async fn read_snst_node_by_dst_props(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -636,7 +636,7 @@ async fn read_snst_node_by_dst_props(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "owner": {
                     "dst": {
@@ -701,7 +701,7 @@ async fn update_snst_node_with_new_rel(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -713,7 +713,7 @@ async fn update_snst_node_with_new_rel(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -750,7 +750,7 @@ async fn update_snst_node_with_new_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -783,7 +783,7 @@ async fn update_snst_node_with_new_rel(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -834,7 +834,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -846,7 +846,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User One"
             }),
@@ -858,7 +858,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -895,7 +895,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -927,7 +927,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -978,7 +978,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -990,7 +990,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1027,7 +1027,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -1065,7 +1065,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -1116,7 +1116,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -1128,7 +1128,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1165,7 +1165,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "Project Zero"
             })),
@@ -1201,7 +1201,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -1252,7 +1252,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -1264,7 +1264,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1287,7 +1287,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client) {
     let _projects = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "owner": {
                     "dst": {
@@ -1323,7 +1323,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1338,7 +1338,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -1389,7 +1389,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -1401,7 +1401,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1424,7 +1424,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client) {
     let _projects = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "owner": {
                     "props": {
@@ -1458,7 +1458,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1473,7 +1473,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }
@@ -1524,7 +1524,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client) {
         .create_node(
             "User",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "User Zero"
             }),
@@ -1536,7 +1536,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client) {
         .create_node(
             "Project",
             "__typename",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -1559,7 +1559,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client) {
     let _projects = client
         .delete_node(
             "User",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
             })),
@@ -1585,7 +1585,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1606,7 +1606,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client) {
             "__typename 
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "User Zero"
                 }

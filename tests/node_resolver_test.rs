@@ -56,7 +56,7 @@ async fn create_single_node(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name description status priority estimate active", Some("1234".to_string()),
+            "__typename id name description status priority estimate active", Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
             // &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN"}),
         )
@@ -76,7 +76,7 @@ async fn create_single_node(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -135,7 +135,7 @@ async fn read_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project1"}),
         )
         .await
@@ -148,7 +148,7 @@ async fn read_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project2"}),
         )
         .await
@@ -160,7 +160,7 @@ async fn read_query(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -212,7 +212,7 @@ async fn handle_missing_properties(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "MJOLNIR"}),
         )
         .await
@@ -227,7 +227,7 @@ async fn handle_missing_properties(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -279,7 +279,7 @@ async fn update_mutation(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .await
@@ -293,7 +293,7 @@ async fn update_mutation(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -314,7 +314,7 @@ async fn update_mutation(mut client: Client) {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -330,7 +330,7 @@ async fn update_mutation(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -385,7 +385,7 @@ async fn update_mutation_null_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .await
@@ -399,7 +399,7 @@ async fn update_mutation_null_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
         .await
@@ -410,12 +410,7 @@ async fn update_mutation_null_query(mut client: Client) {
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node(
-            "Project",
-            "__typename id name status",
-            Some("1234".to_string()),
-            None,
-        )
+        .read_node("Project", "__typename id name status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -427,7 +422,7 @@ async fn update_mutation_null_query(mut client: Client) {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
             &json!({"status": "ACTIVE"}),
         )
@@ -441,12 +436,7 @@ async fn update_mutation_null_query(mut client: Client) {
     assert_eq!(pu_a[1].get("__typename").unwrap(), "Project");
     assert_eq!(pu_a[1].get("status").unwrap(), "ACTIVE");
     let after_projects = client
-        .read_node(
-            "Project",
-            "__typename id name status",
-            Some("1234".to_string()),
-            None,
-        )
+        .read_node("Project", "__typename id name status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -494,7 +484,7 @@ async fn delete_mutation(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .await
@@ -508,7 +498,7 @@ async fn delete_mutation(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -528,7 +518,7 @@ async fn delete_mutation(mut client: Client) {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
             None,
         )
@@ -540,7 +530,7 @@ async fn delete_mutation(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -588,7 +578,7 @@ async fn delete_mutation_null_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
         )
         .await
@@ -602,7 +592,7 @@ async fn delete_mutation_null_query(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project2", "status": "PENDING"}),
         )
         .await
@@ -613,12 +603,7 @@ async fn delete_mutation_null_query(mut client: Client) {
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node(
-            "Project",
-            "__typename id name status",
-            Some("1234".to_string()),
-            None,
-        )
+        .read_node("Project", "__typename id name status", Some("1234"), None)
         .await
         .unwrap();
 
@@ -627,7 +612,7 @@ async fn delete_mutation_null_query(mut client: Client) {
     assert_eq!(before_projects_a.len(), 2);
 
     let pd = client
-        .delete_node("Project", Some("1234".to_string()), None, None)
+        .delete_node("Project", Some("1234"), None, None)
         .await
         .unwrap();
 
@@ -637,7 +622,7 @@ async fn delete_mutation_null_query(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project1"})),
         )
         .await
@@ -677,7 +662,7 @@ async fn error_on_node_missing_id(mut client: Client) {
         .read_node(
             "Project",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -689,7 +674,7 @@ async fn error_on_node_missing_id(mut client: Client) {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project One"})),
             &json!({"status": "ACTIVE"}),
         )
@@ -701,7 +686,7 @@ async fn error_on_node_missing_id(mut client: Client) {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project One"})),
             None,
         )

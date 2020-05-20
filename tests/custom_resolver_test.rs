@@ -22,7 +22,7 @@ async fn custom_endpoint_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
         .await
@@ -31,7 +31,7 @@ async fn custom_endpoint_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "SPARTANII", "description": "Cue MC music"}),
         )
         .await
@@ -39,7 +39,7 @@ async fn custom_endpoint_returning_scalar() {
 
     // count projects via custom resolver
     let result = client
-        .graphql("query { ProjectCount }", Some("1234".to_string()), None)
+        .graphql("query { ProjectCount }", Some("1234"), None, "ProjectCount")
         .await
         .unwrap();
     let count = result.get("ProjectCount").unwrap();
@@ -68,8 +68,9 @@ async fn custom_endpoint_returning_scalar_list() {
                 GlobalTopTags 
             }
          ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
+            "GlobalTopTags",
         )
         .await
         .unwrap();
@@ -101,8 +102,9 @@ async fn custom_endpoint_returning_node() {
                 }
             }
         ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
+            "GlobalTopDev",
         )
         .await
         .unwrap();
@@ -127,7 +129,7 @@ async fn custom_field_resolver_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
         )
         .await
@@ -136,8 +138,9 @@ async fn custom_field_resolver_returning_scalar() {
     let result = client
         .graphql(
             "query { Project{id, points}}",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
+            "Project",
         )
         .await
         .unwrap();
@@ -165,7 +168,7 @@ async fn custom_field_returning_scalar_list() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
@@ -181,7 +184,7 @@ async fn custom_field_returning_scalar_list() {
             id 
             name 
             toptags",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -212,7 +215,7 @@ async fn custom_rel_returning_rel() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
@@ -235,7 +238,7 @@ async fn custom_rel_returning_rel() {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -265,7 +268,7 @@ async fn custom_rel_returning_rel_list() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
@@ -291,7 +294,7 @@ async fn custom_rel_returning_rel_list() {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await

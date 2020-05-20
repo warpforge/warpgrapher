@@ -54,7 +54,7 @@ async fn scalar_lists_test(mut client: Client) {
              int_list
              float_list
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
                 "bool_list": [true, false, true, false],
@@ -135,7 +135,7 @@ async fn scalar_lists_no_array_test(mut client: Client) {
              int_list
              float_list
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "string_list": "string0",
                 "bool_list": false,
@@ -200,7 +200,7 @@ async fn scalar_no_lists_test(mut client: Client) {
         .create_node(
             "TestType",
             "string_list",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
@@ -212,7 +212,7 @@ async fn scalar_no_lists_test(mut client: Client) {
         .create_node(
             "TestType",
             "bool_list",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "bool_list": [true, false, true, false],
             }),
@@ -224,7 +224,7 @@ async fn scalar_no_lists_test(mut client: Client) {
         .create_node(
             "TestType",
             "int_list",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "int_list": [0, 1, 2, 3],
             }),
@@ -236,7 +236,7 @@ async fn scalar_no_lists_test(mut client: Client) {
         .create_node(
             "TestType",
             "float_list",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
@@ -286,7 +286,7 @@ async fn scalar_no_lists_no_array_test(mut client: Client) {
              int_list
              float_list
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "string_list": "string0",
                 "bool_list": false,

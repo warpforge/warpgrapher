@@ -50,7 +50,7 @@ async fn create_mnmt_new_nodes(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -82,7 +82,7 @@ async fn create_mnmt_new_nodes(mut client: Client) {
     let p1 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234"),
             &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
         .await
         .unwrap();
@@ -114,7 +114,7 @@ async fn create_mnmt_new_nodes(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -229,7 +229,7 @@ async fn create_mnmt_existing_nodes(mut client: Client) {
         .create_node(
             "Bug",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Bug Zero"}),
         )
         .await
@@ -242,7 +242,7 @@ async fn create_mnmt_existing_nodes(mut client: Client) {
         .create_node(
             "Feature",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Feature Zero"}),
         )
         .await
@@ -254,7 +254,7 @@ async fn create_mnmt_existing_nodes(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "EXISTING": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"EXISTING": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -285,7 +285,7 @@ async fn create_mnmt_existing_nodes(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -360,7 +360,7 @@ async fn read_mnmt_by_rel_props(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name", Some("1234".to_string()),
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -371,7 +371,7 @@ async fn read_mnmt_by_rel_props(mut client: Client) {
 
     let projects = client
         .read_node(
-            "Project",             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "Project",             "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
 
             Some(&json!({"issues": {"props": {"since": "today"}}}))
         )
@@ -451,7 +451,7 @@ async fn read_mnmt_by_dst_props(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name", Some("1234".to_string()),
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -463,7 +463,7 @@ async fn read_mnmt_by_dst_props(mut client: Client) {
     let p1 = client
         .create_node(
             "Project",
-            "__typename id name", Some("1234".to_string()),
+            "__typename id name", Some("1234"),
             &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
         .await
         .unwrap();
@@ -475,7 +475,7 @@ async fn read_mnmt_by_dst_props(mut client: Client) {
     let projects = client
         .read_node(
             "Project", 
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"issues": {"dst": {"Bug": {"name": "Bug Zero"}}}}))
         )
         .await
@@ -555,7 +555,7 @@ async fn update_mnmt_new_node(mut client: Client) {
         .create_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Project Zero", "description": "Powered armor"}),
         )
         .await
@@ -564,7 +564,7 @@ async fn update_mnmt_new_node(mut client: Client) {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"ADD": {"dst": { "Bug": { "NEW": {"name": "Bug Zero"}}}}}}),
         )
@@ -593,7 +593,7 @@ async fn update_mnmt_new_node(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -652,7 +652,7 @@ async fn update_mnmt_existing_nodes(mut client: Client) {
         .create_node(
             "Bug",
             "__typename id name",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({"name": "Bug Zero"}),
         )
         .await
@@ -664,7 +664,7 @@ async fn update_mnmt_existing_nodes(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name description status priority estimate active", Some("1234".to_string()),
+            "__typename id name description status priority estimate active", Some("1234"),
             &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
         .await
@@ -673,7 +673,7 @@ async fn update_mnmt_existing_nodes(mut client: Client) {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"ADD": {"dst": { "Bug": { "EXISTING": {"name": "Bug Zero"}}}}}}),
         )
@@ -702,7 +702,7 @@ async fn update_mnmt_existing_nodes(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -760,7 +760,7 @@ async fn update_mnmt_relationship(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -792,7 +792,7 @@ async fn update_mnmt_relationship(mut client: Client) {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
         )
@@ -820,7 +820,7 @@ async fn update_mnmt_relationship(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -901,7 +901,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client) {
     client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()), 
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"), 
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -909,7 +909,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client) {
     client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }",Some("1234".to_string()), 
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }",Some("1234"), 
             &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -917,7 +917,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client) {
     client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project One"})),
             &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
         )
@@ -927,7 +927,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client) {
     let p_zero = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -953,7 +953,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client) {
     let p_one = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -1013,7 +1013,7 @@ async fn delete_mnmt_relationship(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
@@ -1045,7 +1045,7 @@ async fn delete_mnmt_relationship(mut client: Client) {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name status issues { __typename dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"issues": {"DELETE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}}}}),
         )
@@ -1074,7 +1074,7 @@ async fn delete_mnmt_relationship(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -1136,7 +1136,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
@@ -1162,7 +1162,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client) {
     client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"issues": {"props": {"since": "never"}}})),
             Some(&json!({"issues": [{"match": {}}]})),
         )
@@ -1172,7 +1172,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client) {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -1219,20 +1219,20 @@ async fn delete_node(mut client: Client) {
     client
         .create_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
             &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
 
     let projects_pre = client
-        .read_node("Project", "id", Some("1234".to_string()), None)
+        .read_node("Project", "id", Some("1234"), None)
         .await
         .unwrap();
     assert!(projects_pre.is_array());
     assert_eq!(projects_pre.as_array().unwrap().len(), 1);
 
     let bugs_pre = client
-        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .read_node("Bug", "id", Some("1234"), None)
         .await
         .unwrap();
     assert!(bugs_pre.is_array());
@@ -1241,7 +1241,7 @@ async fn delete_node(mut client: Client) {
     client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             Some(&json!({})),
         )
@@ -1251,7 +1251,7 @@ async fn delete_node(mut client: Client) {
     let projects_post = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234".to_string()),
+            "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -1261,7 +1261,7 @@ async fn delete_node(mut client: Client) {
     assert_eq!(projects_post.as_array().unwrap().len(), 0);
 
     let bugs_post = client
-        .read_node("Bug", "id", Some("1234".to_string()), None)
+        .read_node("Bug", "id", Some("1234"), None)
         .await
         .unwrap();
     assert!(bugs_post.is_array());

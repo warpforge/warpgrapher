@@ -2,7 +2,7 @@
 
 use super::error::{Error, ErrorKind};
 use inflector::Inflector;
-use log::debug;
+use log::{debug, trace};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 
@@ -16,7 +16,6 @@ use std::collections::BTreeMap;
 /// # Examples
 ///
 /// ```rust
-/// use std::env::var_os;
 /// use warpgrapher::client::Client;;
 ///
 /// let mut client = Client::new("http://localhost:5000/graphql");
@@ -27,40 +26,58 @@ pub struct Client {
 }
 
 impl Client {
-    /// Takes an endpoint string and creates a new [`Client`].
+    /// Takes the URL of a Warpgrapher service endpoint and returns a new ['Client'] initialized to
+    /// query that endpoint.
     ///
     /// [`Client`]: ./struct.Client.html
+    ///
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;
     ///
     /// let mut client = Client::new("http://localhost:5000/graphql");
     /// ```
     pub fn new(endpoint: &str) -> Client {
+        trace!("Client::new called -- endpoint: {}", endpoint);
         Client {
             endpoint: endpoint.to_string(),
         }
     }
 
-    /// Executes a raw graphql query.
+    /// Executes a graphql query
+    ///
+    /// # Arguments
+    ///
+    /// * query - text of the query statement, parameterized to avoid query injection attacks
+    /// * partition_key - used to scope a query to a Cosmos DB partition. In future, when Neo4J is
+    /// supported, it is anticipated that the partition_key will be used to select among Neo4J
+    /// fabric shards.
+    /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
+    /// to the graph query
+    /// * result_field - name of the field under 'data' that holds the GraphQL response
     ///
     /// [`Client`]: ./struct.Client.html
     ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
+    ///
     /// # Errors
     ///
-    /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
@@ -68,20 +85,26 @@ impl Client {
     ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
     ///     let query = "query { Project { id name } }";
-    ///     let results = client.graphql(
-    ///         "query { Project { id name } }",
-    ///         Some("1234".to_string()),
-    ///         None
-    ///     ).await;
+    ///     let results = client.graphql("query { Project { id name } }", Some("1234"), None,
+    ///         "Project").await;
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
     pub async fn graphql(
         &mut self,
         query: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         input: Option<&Value>,
+        result_field: &str,
     ) -> Result<Value, Error> {
+        trace!(
+            "Client::graphql called -- query: {} | partition_key: {:#?} | input: {:#?} | result_field: {}",
+            query,
+            partition_key,
+            input,
+            result_field
+        );
+
         // format request body
         let req_body = json!({
             "query": query.to_string(),
@@ -93,58 +116,83 @@ impl Client {
 
         // send request
         let client = reqwest::Client::new();
-        let resp = client
+        debug!(
+            "Client::graphql posting request -- endpoint: {} | req_body: {}",
+            self.endpoint, req_body
+        );
+        let raw_resp = client
             .post(self.endpoint.as_str())
             .json(&req_body)
             .send()
             .await
-            .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))))?;
+            .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))));
+        debug!(
+            "Client::graphql receiving response -- response: {:#?}",
+            raw_resp
+        );
+        let resp = raw_resp?;
 
         // parse result
-        let body = resp
+        let mut body = resp
             .json::<serde_json::Value>()
             .await
             .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
 
-        // extract data from result
-        match body.get("data") {
-            None => Err(Error::new(
-                ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
-                None,
-            )),
-            Some(data) => Ok(data.to_owned()),
-        }
+        body.as_object_mut()
+            .and_then(|m| m.remove("data"))
+            .and_then(|mut d| d.as_object_mut().and_then(|dm| dm.remove(result_field)))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
+                    None,
+                )
+            })
     }
 
-    /// Takes the name of a Type and executes a NodeCreate operation. Requires
-    /// a query shape and the input of the node being created.
+    /// Creates a node
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] for which to create a node
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
+    /// to the graph query
+    ///
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.create_node(
-    ///         "Project",
-    ///         "id name description",
-    ///         Some("1234".to_string()),
-    ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"}),
-    ///     ).await;
+    ///     let projects = client.create_node("Project", "id name description", Some("1234"),
+    ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
@@ -152,48 +200,73 @@ impl Client {
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         input: &Value,
     ) -> Result<Value, Error> {
-        let query = self.fmt_create_node_query(type_name, shape);
-        debug!(
-            "Client create_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::create_node called -- type_name: {} | shape: {} | partition_key: {:#?} | input: {:#?}",
+            type_name,
+            shape,
+            partition_key,
+            input
         );
-        let result = self.graphql(&query, partition_key, Some(input)).await?;
-        self.strip(&result, &format!("{}Create", type_name))
+
+        let query = Client::fmt_create_node_query(type_name, shape);
+        let result_field = type_name.to_string() + "Create";
+        self.graphql(&query, partition_key, Some(input), &result_field)
+            .await
     }
 
-    /// Takes the name of a Type and a relationship property on that
-    /// types and executes a RelCreate operation. Requires also a query shape,
-    /// an input to match the source node(s) for which the rel(s) will be created,
-    /// and an input of the relationship being created.
+    /// Creates one or more relationships
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] for which to create a relationship
+    /// * rel_name - the name of the [`Relationship`] to create
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to select the node(s) on which to create the relationship
+    /// * create_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to use in creating the relationship
+    ///
+    /// [`Relationship`]: ../engine/config/struct.Relationship.html
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.create_rel(
-    ///         "Project",
+    ///     let proj_issues = client.create_rel("Project",
     ///         "issues",
     ///         "id props { since } src { id name } dst { id name }",
-    ///         Some("1234".to_string()),
+    ///         Some("1234"),
     ///         &json!({"name": "ProjectName"}),
     ///         &json!({"props": {"since": "2000"},
     ///                "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
@@ -206,42 +279,64 @@ impl Client {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         match_input: &Value,
         create_input: &Value,
     ) -> Result<Value, Error> {
-        let query = self.fmt_create_rel_query(type_name, rel_name, shape);
-        let input = json!({"match": match_input, "create": create_input});
-        debug!(
-            "Client create_rel -- query: {:#?}, partition_key {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::create_rel called -- type_name: {} | rel_name: {} | shape: {} | partition_key: {:#?} | match_input: {:#?} | create_input: {:#?}",
+            type_name,
+            rel_name,
+            shape,
+            partition_key,
+            match_input,
+            create_input
         );
-        let result = self.graphql(&query, partition_key, Some(&input)).await?;
-        self.strip(
-            &result,
-            &format!("{}{}Create", type_name, rel_name.to_title_case()),
-        )
+
+        let query = Client::fmt_create_rel_query(type_name, rel_name, shape);
+        let input = json!({"match": match_input, "create": create_input});
+        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Create";
+        self.graphql(&query, partition_key, Some(&input), &result_field)
+            .await
     }
 
-    /// Takes the name of a Type and executes a Delete operation.
-    /// Takes one optional input, which selects the node(s) for deletion.
-    /// Also contains options for deleting additional nodes and rels connected
-    /// to the target node. Returns the number of nodes of the WarpgrapherType
-    /// deleted.
+    /// Deletes one or more nodes
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] of the node to delete
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to select the node(s) on which to create the relationship
+    /// * delete_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to use in deleting the relationship. By default, all
+    /// relationships incoming to and outgoing from the node are deleted. The delete input argument
+    /// allows for extending the delete operation through relationships to destination nodes.
+    ///
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response, a count of the nodes deleted
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     /// use serde_json::json;
     ///
@@ -249,53 +344,77 @@ impl Client {
     /// async fn main() {
     ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.delete_node(
-    ///         "Project",
-    ///         Some("1234".to_string()),
-    ///         Some(&json!({"name": "MJOLNIR"})),
-    ///         None
-    ///     ).await;
+    ///     let projects = client.delete_node("Project", Some("1234"),
+    ///         Some(&json!({"name": "MJOLNIR"})), None).await;
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
     pub async fn delete_node(
         &mut self,
         type_name: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         match_input: Option<&Value>,
         delete_input: Option<&Value>,
     ) -> Result<Value, Error> {
-        let query = self.fmt_delete_node_query(type_name);
-        let input = json!({"match": match_input, "delete": delete_input});
-        debug!(
-            "Client delete_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::delete_node called -- type_name: {} | partition_key: {:#?} | match_input: {:#?} | delete_input: {:#?}",
+            type_name,
+            partition_key,
+            match_input,
+            delete_input
         );
-        let result = self.graphql(&query, partition_key, Some(&input)).await?;
-        self.strip(&result, &(type_name.to_string() + "Delete"))
+
+        let query = Client::fmt_delete_node_query(type_name);
+        let input = json!({"match": match_input, "delete": delete_input});
+        let result_field = type_name.to_string() + "Delete";
+        self.graphql(&query, partition_key, Some(&input), &result_field)
+            .await
     }
 
-    /// Takes the name of a Type and a relationship property on that
-    /// types and executes a RelDelete operation. Takes three optional inputs.  The
-    /// first selects the relationship(s) for deletion. The second and third,
-    /// if present, request the deletion of the src and dst nodes associated with the
-    /// relationship, and potentially additional nodes and rels as well. Returns
-    /// the number of matched relationships deleted.
+    /// Deletes one or more relationships
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] for which to delete a relationship
+    /// * rel_name - the name of the [`Relationship`] to delete
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to select the relationship(s) to delete
+    /// * src_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to use in deleting the src node. By default, nodes are not
+    /// deleted along with a relationship, but this parameter can be used to delete the source of
+    /// the relationship as well.
+    /// * dst_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query to use in deleting the destination node. By default, nodes are
+    /// not deleted along with a relationship, but this parameter can be used to delete the
+    /// destination node of the relationship as well.
+    ///
+    /// [`Relationship`]: ../engine/config/struct.Relationship.html
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response, a count of the relationships deleted
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
@@ -303,10 +422,10 @@ impl Client {
     ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.delete_rel("Project", "issues",
-    ///        Some("1234".to_string()),
+    ///        Some("1234"),
     ///        Some(&json!({"props": {"since": "2000"}})),
     ///        None,
-    ///        Some(&json!({"Bug": {"force": true}}))
+    ///        Some(&json!({"Bug": {}}))
     ///     ).await;
     /// }
     /// ```
@@ -315,21 +434,31 @@ impl Client {
         &mut self,
         type_name: &str,
         rel_name: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         match_input: Option<&Value>,
         src_input: Option<&Value>,
         dst_input: Option<&Value>,
     ) -> Result<Value, Error> {
-        let query = self.fmt_delete_rel_query(type_name, rel_name);
+        trace!(
+            "Client::delete_rel called -- type_name: {} | rel_name: {} | partition_key: {:#?} | match_input: {:#?} | src_input: {:#?} | dst_input: {:#?}",
+            type_name,
+            rel_name,
+            partition_key,
+            match_input,
+            src_input,
+            dst_input
+        );
+
+        let query = Client::fmt_delete_rel_query(type_name, rel_name);
         let mut m = BTreeMap::new();
         if let Some(mi) = match_input {
-            m.insert("match".to_owned(), mi);
+            m.insert("match".to_string(), mi);
         }
         if let Some(src) = src_input {
-            m.insert("src".to_owned(), src);
+            m.insert("src".to_string(), src);
         }
         if let Some(dst) = dst_input {
-            m.insert("dst".to_owned(), dst);
+            m.insert("dst".to_string(), dst);
         }
         let value: serde_json::Value;
         let input = if m.is_empty() {
@@ -338,89 +467,123 @@ impl Client {
             value = json!(m);
             Some(&value)
         };
-        debug!(
-            "Client delete_rel -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
-        );
-        let result = self.graphql(&query, partition_key, input).await?;
-        self.strip(
-            &result,
-            &format!("{}{}Delete", type_name, rel_name.to_title_case()),
-        )
+        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Delete";
+        self.graphql(&query, partition_key, input, &result_field)
+            .await
     }
 
-    /// Takes the name of a Type and executes a Read operation. Requires
-    /// a query shape and takes an optional input which filters the results.
+    /// Queries to retrieve one or more nodes
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] to be retrieved
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
+    /// to the graph query
+    ///
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`Value`] containing the query response
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.read_node("Project", "id name description",
-    ///         Some("1234".to_string()), None).await;
+    ///     let projects = client.read_node("Project", "id name description", Some("1234"),
+    ///         None).await;
     /// }
     /// ```
+    ///
     #[allow(clippy::needless_doctest_main)]
     pub async fn read_node(
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         input: Option<&Value>,
     ) -> Result<Value, Error> {
-        let query = self.fmt_read_node_query(type_name, shape);
-        debug!(
-            "Client read_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::read_node called -- type_name: {} | shape: {} | partition_key: {:#?} | input: {:#?} ",
+            type_name,
+            shape,
+            partition_key,
+            input,
         );
-        let result = self.graphql(&query, partition_key, input).await?;
-        self.strip(&result, type_name)
+
+        let query = Client::fmt_read_node_query(type_name, shape);
+        self.graphql(&query, partition_key, input, type_name).await
     }
 
-    /// Takes the name of a Type and a relationship property on that
-    /// types and executes a read operation. Also takes an option input with match
-    /// criteria for selecting the relationship to read.
+    /// Queries for one or more relationships
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] for the source node in the relationship
+    /// * rel_name - the name of the [`Relationship`] to find
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
+    /// to the graph query to select the relationship(s) to return
+    ///
+    /// [`Relationship`]: ../engine/config/struct.Relationship.html
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::new("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.read_rel("Project", "issues",
-    ///         "id props { since }",
-    ///         Some("1234".to_string()),
-    ///         Some(&json!({"props": {"since": "2000"}}))
-    ///     ).await;
+    ///     let proj_issues = client.read_rel("Project", "issues", "id props { since }",
+    ///         Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
@@ -429,52 +592,70 @@ impl Client {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         input: Option<&Value>,
     ) -> Result<Value, Error> {
-        let query = self.fmt_read_rel_query(type_name, rel_name, shape);
-        debug!(
-            "Client read_rel -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::read_rel called -- type_name: {} | rel_name: {} | shape: {} | partition_key: {:#?} | input: {:#?} ",
+            type_name,
+            rel_name,
+            shape,
+            partition_key,
+            input,
         );
-        let result = self.graphql(&query, partition_key, input).await?;
-        self.strip(
-            &result,
-            &format!("{}{}", type_name, rel_name.to_title_case()),
-        )
+
+        let query = Client::fmt_read_rel_query(type_name, rel_name, shape);
+        let result_field = type_name.to_string() + &rel_name.to_title_case();
+        self.graphql(&query, partition_key, input, &result_field)
+            .await
     }
 
-    /// Takes the name of a Type and executes an Update operation.
-    /// Requires a query shape, an optional match component of the input, and a
-    /// mandatory update component of the input.
+    /// Updates one or more nodes
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] to be updated
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query used to select the set of nodes to update
+    /// * update_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arugments to the graph query used to change the properties of the nodes being updated
+    ///
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
     ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
     /// async fn main() {
     ///     let mut client = Client::new("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.update_node(
-    ///         "Project",
-    ///         "id name status",
-    ///         Some("1234".to_string()),
-    ///         Some(&json!({"name": "TodoApp"})),
-    ///         &json!({"status": "ACTIVE"}),
-    ///     ).await;
+    ///     let projects = client.update_node("Project", "id name status", Some("1234"),
+    ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
     /// }
     /// ```
     #[allow(clippy::needless_doctest_main)]
@@ -482,18 +663,24 @@ impl Client {
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         match_input: Option<&Value>,
         update_input: &Value,
     ) -> Result<Value, Error> {
-        let query = self.fmt_update_node_query(type_name, shape);
-        let input = json!({"match": match_input, "modify": update_input});
-        debug!(
-            "Client update_node -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::update_node called -- type_name: {} | shape: {} | | partition_key: {:#?} | match_input: {:#?} | update_input: {:#?}",
+            type_name,
+            shape,
+            partition_key,
+            match_input,
+            update_input
         );
-        let result = self.graphql(&query, partition_key, Some(&input)).await?;
-        self.strip(&result, &format!("{}Update", type_name))
+
+        let query = Client::fmt_update_node_query(type_name, shape);
+        let input = json!({"match": match_input, "modify": update_input});
+        let result_field = type_name.to_string() + "Update";
+        self.graphql(&query, partition_key, Some(&input), &result_field)
+            .await
     }
 
     /// Takes the name of a Type and a relationship property on that
@@ -511,11 +698,46 @@ impl Client {
     /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
     /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
     ///
+    /// Updates one or more relationships
+    ///
+    /// # Arguments
+    ///
+    /// * type_name - the name of the [`Type`] for the source node in the relationship(s) to update
+    /// * rel_name - the name of the [`Relationship`] to find and update
+    /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
+    /// returned in the query result
+    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
+    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
+    /// select among Neo4J fabric shards.
+    /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query used to select the set of relationships to update
+    /// * update_input - a [`serde_json::Value`], specifically a Value::Object, containing the
+    /// arguments to the graph query used to change the properties of the items being updated
+    ///
+    /// [`Relationship`]: ../engine/config/struct.Relationship.html
+    /// [`Type`]: ../engine/config/struct.Type.html
+    ///
+    /// # Return
+    ///
+    /// A [`serde_json::Value`] containing the query response
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of the following kinds:
+    ///
+    /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
+    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
+    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// response
+    ///
+    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
+    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// use serde_json::json;
-    /// use std::env::var_os;
     /// use warpgrapher::client::Client;;
     ///
     /// #[tokio::main]
@@ -524,7 +746,7 @@ impl Client {
     ///
     ///     let proj_issues = client.update_rel("Project", "issues",
     ///         "id props {since} src {id name} dst {id name}",
-    ///         Some("1234".to_string()),
+    ///         Some("1234"),
     ///         Some(&json!({"props": {"since": "2000"}})),
     ///         &json!({"props": {"since": "2010"}})
     ///     ).await;
@@ -536,24 +758,28 @@ impl Client {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<String>,
+        partition_key: Option<&str>,
         match_input: Option<&Value>,
         update_input: &Value,
     ) -> Result<Value, Error> {
-        let query = self.fmt_update_rel_query(type_name, rel_name, shape);
-        let input = json!({"match": match_input, "update": update_input});
-        debug!(
-            "Client update_rel -- query: {:#?}, partition_key: {:#?}, input: {:#?}",
-            query, partition_key, input
+        trace!(
+            "Client::update_rel called -- type_name: {} | rel_name: {} | shape: {} | | partition_key: {:#?} | match_input: {:#?} | update_input: {:#?}",
+            type_name,
+            rel_name,
+            shape,
+            partition_key,
+            match_input,
+            update_input
         );
-        let result = self.graphql(&query, partition_key, Some(&input)).await?;
-        self.strip(
-            &result,
-            &format!("{}{}Update", type_name, rel_name.to_title_case()),
-        )
+
+        let query = Client::fmt_update_rel_query(type_name, rel_name, shape);
+        let input = json!({"match": match_input, "update": update_input});
+        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Update";
+        self.graphql(&query, partition_key, Some(&input), &result_field)
+            .await
     }
 
-    fn fmt_create_node_query(&self, type_name: &str, shape: &str) -> String {
+    fn fmt_create_node_query(type_name: &str, shape: &str) -> String {
         format!(
             "mutation Create($partitionKey: String, $input: {type_name}CreateMutationInput!) {{ 
                 {type_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -563,7 +789,7 @@ impl Client {
         )
     }
 
-    fn fmt_create_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
+    fn fmt_create_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
             "mutation Create($partitionKey: String, $input: {type_name}{rel_name}CreateInput!) {{
                 {type_name}{rel_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -574,7 +800,7 @@ impl Client {
         )
     }
 
-    fn fmt_delete_node_query(&self, type_name: &str) -> String {
+    fn fmt_delete_node_query(type_name: &str) -> String {
         format!(
             "mutation Delete($partitionKey: String, $input: {type_name}DeleteInput!) {{ 
                 {type_name}Delete(partitionKey: $partitionKey, input: $input)
@@ -583,7 +809,7 @@ impl Client {
         )
     }
 
-    fn fmt_delete_rel_query(&self, type_name: &str, rel_name: &str) -> String {
+    fn fmt_delete_rel_query(type_name: &str, rel_name: &str) -> String {
         format!(
             "mutation Delete($partitionKey: String, $input: {type_name}{rel_name}DeleteInput!) {{
                 {type_name}{rel_name}Delete(partitionKey: $partitionKey, input: $input)
@@ -593,7 +819,7 @@ impl Client {
         )
     }
 
-    fn fmt_read_node_query(&self, type_name: &str, shape: &str) -> String {
+    fn fmt_read_node_query(type_name: &str, shape: &str) -> String {
         format!(
             "query Read($partitionKey: String, $input: {type_name}QueryInput) {{ 
                 {type_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -603,7 +829,7 @@ impl Client {
         )
     }
 
-    fn fmt_read_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
+    fn fmt_read_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
             "query Read($partitionKey: String, $input: {type_name}{rel_name}QueryInput) {{
                 {type_name}{rel_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -614,7 +840,7 @@ impl Client {
         )
     }
 
-    fn fmt_update_node_query(&self, type_name: &str, shape: &str) -> String {
+    fn fmt_update_node_query(type_name: &str, shape: &str) -> String {
         format!(
             "mutation Update($partitionKey: String, $input: {type_name}UpdateInput!) {{
                 {type_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -624,7 +850,7 @@ impl Client {
         )
     }
 
-    fn fmt_update_rel_query(&self, type_name: &str, rel_name: &str, shape: &str) -> String {
+    fn fmt_update_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
             "mutation Update($partitionKey: String, $input: {type_name}{rel_name}UpdateInput!) {{
                 {type_name}{rel_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
@@ -634,23 +860,13 @@ impl Client {
             shape = shape
         )
     }
-
-    fn strip(&self, data: &Value, name: &str) -> Result<Value, Error> {
-        match data.get(name) {
-            None => Err(Error::new(
-                ErrorKind::ClientRequestUnexpectedPayload(data.to_owned()),
-                None,
-            )),
-            Some(v) => Ok(v.to_owned()),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::Client;
 
+    /// Passes if a new client is created with the endpoint passed into the constructor
     #[test]
     fn new() {
         let endpoint = "http://localhost:5000/graphql";
@@ -658,24 +874,20 @@ mod tests {
         assert_eq!(client.endpoint, endpoint);
     }
 
+    /// Passes if a client formats a read node query correctly
     #[test]
     fn fmt_read_node_query() {
-        let endpoint = "http://localhost:5000/graphql";
-        let client = Client::new(&endpoint);
-
-        let actual = client.fmt_read_node_query("Project", "id");
+        let actual = Client::fmt_read_node_query("Project", "id");
         let expected = r#"query Read($partitionKey: String, $input: ProjectQueryInput) { 
                 Project(partitionKey: $partitionKey, input: $input) { id }
             }"#;
         assert_eq!(actual, expected);
     }
 
+    /// Passes if a client formats a create node query correctly
     #[test]
     fn fmt_create_node_query() {
-        let endpoint = "http://localhost:5000/graphql";
-        let client = Client::new(&endpoint);
-
-        let actual = client.fmt_create_node_query("Project", "id");
+        let actual = Client::fmt_create_node_query("Project", "id");
         let expected = r#"mutation Create($partitionKey: String, $input: ProjectCreateMutationInput!) { 
                 ProjectCreate(partitionKey: $partitionKey, input: $input) { id }
             }"#;

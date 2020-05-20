@@ -22,12 +22,7 @@ async fn custom_input_validator_create() {
     // Test validator on create
     // Validator pass
     let result = client
-        .create_node(
-            "User",
-            "id name",
-            Some("1234".to_string()),
-            &json!({"name": "ORION"}),
-        )
+        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
         .await
         .unwrap();
 
@@ -37,12 +32,7 @@ async fn custom_input_validator_create() {
 
     // Validator fail
     let result = client
-        .create_node(
-            "User",
-            "id name",
-            Some("1234".to_string()),
-            &json!({"name": "KENOBI"}),
-        )
+        .create_node("User", "id name", Some("1234"), &json!({"name": "KENOBI"}))
         .await
         .unwrap();
 
@@ -69,12 +59,7 @@ async fn custom_input_validator_update() {
     assert!(server.serve(false).is_ok());
 
     let _ = client
-        .create_node(
-            "User",
-            "id name",
-            Some("1234".to_string()),
-            &json!({"name": "ORION"}),
-        )
+        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
         .await
         .unwrap();
 
@@ -84,7 +69,7 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "ORION"})),
             &json!({"name": "SKYWALKER"}),
         )
@@ -100,7 +85,7 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "SKYWALKER"})),
             &json!({"name": "KENOBI"}),
         )

@@ -64,7 +64,7 @@ async fn create_node_with_rel_to_new(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-V",
                 "board": {
@@ -97,7 +97,7 @@ async fn create_node_with_rel_to_new(mut client: Client) {
             "__typename
             id
             name",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "SPARTAN-V Board"
             })),
@@ -128,7 +128,7 @@ async fn create_node_with_rel_to_new(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "SPARTAN-V"
             })),
@@ -190,7 +190,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
             id
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-VI Board"
             }),
@@ -217,7 +217,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
                     }
                 }
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-VI",
                 "board": {
@@ -253,7 +253,7 @@ async fn create_node_with_rel_to_existing(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "SPARTAN-VI"
             })),
@@ -312,7 +312,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client) {
             "__typename
             id
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-10",
                 "board": {
@@ -334,7 +334,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client) {
             "__typename
             id
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-11",
                 "board": {
@@ -356,7 +356,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client) {
             "__typename
             id
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-12",
                 "board": {
@@ -394,7 +394,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -475,7 +475,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -499,7 +499,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN",
                 "board": {
@@ -540,7 +540,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "board": {
                     "props": {
@@ -580,7 +580,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client) {
                     }
                 } 
             }",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "board": {
                     "props": {
@@ -643,7 +643,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -666,7 +666,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN",
                 "board": {
@@ -709,7 +709,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client) {
                 } 
              }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "board": {
                     "dst": {
@@ -768,7 +768,7 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
             }),
@@ -793,7 +793,7 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client) {
                 }
             }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "ORION"
             })),
@@ -835,7 +835,7 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client) {
                 }
              }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -892,7 +892,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
             }),
@@ -905,7 +905,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client) {
         .create_node(
             "ScrumBoard",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION Board"
             }),
@@ -920,7 +920,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client) {
             id
             name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({
                 "name": "ORION"
             })),
@@ -958,7 +958,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client) {
                  }
              }
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1015,7 +1015,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
             }),
@@ -1026,7 +1026,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "SPARTAN-II",
             }),
@@ -1038,7 +1038,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client) {
     let _results2 = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "ORION"})),
             None,
         )
@@ -1053,7 +1053,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client) {
              id
              name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1100,7 +1100,7 @@ async fn delete_node(mut client: Client) {
         .create_node(
             "Project",
             "id",
-            Some("1234".to_string()),
+            Some("1234"),
             &json!({
                 "name": "ORION",
                 "board": {
@@ -1121,7 +1121,7 @@ async fn delete_node(mut client: Client) {
     let _results1 = client
         .delete_node(
             "Project",
-            Some("1234".to_string()),
+            Some("1234"),
             Some(&json!({"name": "ORION"})),
             Some(&json!({})),
         )
@@ -1136,7 +1136,7 @@ async fn delete_node(mut client: Client) {
              id
              name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
@@ -1152,7 +1152,7 @@ async fn delete_node(mut client: Client) {
              id
              name
             ",
-            Some("1234".to_string()),
+            Some("1234"),
             None,
         )
         .await
