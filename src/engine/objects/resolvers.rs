@@ -13,7 +13,7 @@ use crate::engine::database::{QueryResult, Transaction};
 use crate::engine::objects::Object;
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use core::hash::BuildHasher;
 use inflector::Inflector;
 use juniper::{Arguments, Executor, FieldError};
@@ -546,17 +546,8 @@ pub fn resolve_custom_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
         info.name(),
     );
 
-    let resolver_name = resolver.as_ref().ok_or_else(|| {
-        Error::new(
-            ErrorKind::FieldMissingResolverError(
-                format!(
-                    "Failed to resolve custom field: {field_name}. Missing resolver name.",
-                    field_name = field_name
-                ),
-                field_name.to_string(),
-            ),
-            None,
-        )
+    let resolver_name = resolver.as_ref().ok_or_else(|| Error::ResolverNotFound {
+        name: field_name.to_string(),
     })?;
 
     let func = &executor.context().resolver(resolver_name)?;
@@ -588,17 +579,8 @@ where
         info.name(),
     );
 
-    let resolver_name = resolver.as_ref().ok_or_else(|| {
-        Error::new(
-            ErrorKind::FieldMissingResolverError(
-                format!(
-                    "Failed to resolve custom rel: {rel_name}. Missing resolver name.",
-                    rel_name = rel_name
-                ),
-                rel_name.to_string(),
-            ),
-            None,
-        )
+    let resolver_name = resolver.as_ref().ok_or_else(|| Error::ResolverNotFound {
+        name: rel_name.to_string(),
     })?;
 
     let func = &executor.context().resolver(resolver_name)?;
@@ -883,11 +865,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::new(
-            ErrorKind::InvalidPropertyType("To be implemented.".to_owned()),
-            None,
-        )
-        .into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1179,13 +1157,7 @@ where
         )?;
 
         if v.len() > 1 {
-            return Err(Error::new(
-                ErrorKind::InvalidType(
-                    "Multiple results for a single-node relationship.".to_string(),
-                ),
-                None,
-            )
-            .into());
+            return Err(Error::TypeNotExpected.into());
         }
 
         executor.resolve(
@@ -1283,20 +1255,35 @@ where
     fields.get(field_name).map_or_else(
         || {
             if field_name == "id" {
-                Err(Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None).into())
+                Err(Error::ResponseItemNotFound {
+                    name: "id".to_string(),
+                }
+                .into())
             } else {
                 executor.resolve_with_ctx(&(), &None::<String>)
             }
         },
         |v| match v {
             Value::Null => executor.resolve_with_ctx(&(), &None::<String>),
-            Value::Bool(_) => executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?),
-            Value::Int64(_) | Value::UInt64(_) => executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?),
-            Value::Float64(_) => executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?),
-            Value::String(_) => executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
+            Value::Bool(_) => {
+                executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?)
+            }
+            Value::Int64(_) | Value::UInt64(_) => {
+                executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?)
+            }
+            Value::Float64(_) => {
+                executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?)
+            }
+            Value::String(_) => {
+                executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?)
+            }
             Value::Array(a) => match a.get(0) {
-                Some(Value::Null) | Some(Value::String(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
-                Some(Value::Bool(_)) => executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
+                Some(Value::Null) | Some(Value::String(_)) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?)
+                }
+                Some(Value::Bool(_)) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?)
+                }
                 Some(Value::Int64(_)) | Some(Value::UInt64(_)) | Some(Value::Float64(_)) => {
                     let r = TryInto::<Vec<i32>>::try_into(v.clone());
                     if r.is_ok() {
@@ -1305,15 +1292,11 @@ where
                         executor.resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?)
                     }
                 }
-                Some(Value::Array(_)) | Some(Value::Map(_)) | None => Err(Error::new(ErrorKind::InvalidPropertyType(String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array."), None).into()),
+                Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
+                    Err(Error::TypeNotExpected.into())
+                } // Err(Error::new(ErrorKind::InvalidPropertyType(String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array."), None).into()),
             },
-            Value::Map(_) => Err(Error::new(
-                ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an object. Expected a scalar or a scalar array.",
-                ),
-                None,
-            )
-            .into()),
+            Value::Map(_) => Err(Error::TypeNotExpected.into()), // Err(Error::new( ErrorKind::InvalidPropertyType( String::from(field_name) + " is an object. Expected a scalar or a scalar array.",), None,) .into()),
         },
     )
 }
@@ -1362,10 +1345,9 @@ where
             &Info::new(src.concrete_typename.to_owned(), info.type_defs()),
             src,
         ),
-        _ => Err(Error::new(
-            ErrorKind::InvalidProperty(String::from(info.name()) + "::" + field_name),
-            None,
-        )
+        _ => Err(Error::SchemaItemNotFound {
+            name: info.name().to_string() + "::" + field_name,
+        }
         .into()),
     }
 }

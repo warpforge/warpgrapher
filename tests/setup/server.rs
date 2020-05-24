@@ -4,6 +4,8 @@ use super::extension::{Metadata, MetadataExtensionCtx};
 use futures::executor::block_on;
 #[cfg(feature = "neo4j")]
 use juniper::ExecutionResult;
+#[cfg(feature = "neo4j")]
+use log::trace;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 use std::sync::mpsc;
@@ -27,7 +29,7 @@ use warpgrapher::engine::objects::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::resolvers::{GraphNode, GraphRel, ResolverContext};
 use warpgrapher::engine::value::Value;
-use warpgrapher::{Error, ErrorKind};
+use warpgrapher::Error;
 
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 #[derive(Clone, Debug)]
@@ -63,47 +65,43 @@ fn name_validator(value: &Value) -> Result<(), Error> {
         Value::Map(m) => match m.get("name") {
             Some(n) => n,
             None => {
-                return Err(Error::new(
-                    ErrorKind::ValidationError(format!(
+                return Err(Error::ValidationFailed {
+                    message: format!(
                         "Input validator for {field_name} failed.",
                         field_name = "name"
-                    )),
-                    None,
-                ))
+                    ),
+                })
             }
         },
         _ => {
-            return Err(Error::new(
-                ErrorKind::ValidationError(format!(
+            return Err(Error::ValidationFailed {
+                message: format!(
                     "Input validator for {field_name} failed.",
                     field_name = "name"
-                )),
-                None,
-            ))
+                ),
+            })
         }
     };
 
     match name {
         Value::String(s) => {
             if s == "KENOBI" {
-                Err(Error::new(
-                    ErrorKind::ValidationError(format!(
+                Err(Error::ValidationFailed {
+                    message: format!(
                         "Input validator for {field_name} failed. Cannot be named KENOBI",
                         field_name = "name"
-                    )),
-                    None,
-                ))
+                    ),
+                })
             } else {
                 Ok(())
             }
         }
-        _ => Err(Error::new(
-            ErrorKind::ValidationError(format!(
+        _ => Err(Error::ValidationFailed {
+            message: format!(
                 "Input validator for {field_name} failed.",
                 field_name = "name"
-            )),
-            None,
-        )),
+            ),
+        }),
     }
 }
 
@@ -141,11 +139,7 @@ pub(crate) fn project_count(
         let results = db.exec(query)?;
         context.resolve_scalar(results.data.len() as i32)
     } else {
-        Err(Error::new(
-            ErrorKind::UnsupportedDatabase("Non-Neo4j".to_string()),
-            None,
-        )
-        .into())
+        panic!("Unsupported database.");
     }
 }
 
@@ -162,6 +156,7 @@ pub(crate) fn global_top_tags(
 pub(crate) fn global_top_dev(
     context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
+    trace!("global_top_dev called");
     let mut hm = HashMap::new();
     hm.insert("name".to_string(), Value::String("Joe".to_string()));
     context.resolve_node(GraphNode::new("User", &hm))
@@ -263,9 +258,9 @@ impl Server {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn serve(&mut self, block: bool) -> Result<(), Error> {
+    pub(crate) fn serve(&mut self, block: bool) -> Result<(), std::io::Error> {
         if self.handle.is_some() || self.server.is_some() {
-            return Err(Error::new(ErrorKind::ServerAlreadyRunning, None));
+            panic!("Server already running.");
         }
 
         let (tx, rx) = mpsc::channel();
@@ -305,7 +300,7 @@ impl Server {
         }
 
         rx.recv()
-            .map_err(|e| Error::new(ErrorKind::ServerStartupFailed(e), None))
+            .map_err(|_e| panic!("Server Startup Failed."))
             .and_then(|m| match m {
                 Ok(s) => {
                     self.server = Some(s);
@@ -323,20 +318,14 @@ impl Server {
 
     #[allow(dead_code)]
     pub(crate) fn shutdown(&mut self) -> Result<(), Error> {
-        let s = self
-            .server
-            .take()
-            .ok_or_else(|| Error::new(ErrorKind::ServerNotRunning, None))?;
+        let s = self.server.take().expect("Server not running!");
 
-        let h = self
-            .handle
-            .take()
-            .ok_or_else(|| Error::new(ErrorKind::ServerNotRunning, None))?;
+        let h = self.handle.take().expect("Server not running!");
 
         block_on(s.stop(true));
 
         h.join()
-            .map_err(|_| Error::new(ErrorKind::ServerShutdownFailed, None))
+            .map_err(|_| panic!("Server shutdown failed."))
             .and_then(|_| Ok(()))
     }
 }

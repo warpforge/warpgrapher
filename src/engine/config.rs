@@ -4,7 +4,7 @@
 // use super::context::GraphQLContext;
 // use super::schema::Info;
 use crate::engine::value::Value;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::File;
@@ -110,21 +110,16 @@ impl Config {
     /// Creates a new [`Config`] data structure from a yaml formatted
     /// config string.
     pub fn from_string(data: String) -> Result<Config, Error> {
-        serde_yaml::from_str(&data)
-            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
+        Ok(serde_yaml::from_str(&data)?)
     }
 
     /// Creates a new [`Config`] data structure from
     /// the contents of the specified config file. Returns error
     /// if the config file could not be opened or deserialized.
     pub fn from_file(path: String) -> Result<Config, Error> {
-        File::open(path)
-            .map_err(|e| Error::new(ErrorKind::ConfigNotFound(e), None))
-            .and_then(|f| {
-                let r = BufReader::new(f);
-                serde_yaml::from_reader(r)
-                    .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
-            })
+        let f = File::open(path)?;
+        let r = BufReader::new(f);
+        Ok(serde_yaml::from_reader(r)?)
     }
 
     /// Validates the [`Config`] data structure.
@@ -148,45 +143,29 @@ impl Config {
         for t in &self.model {
             // Check for duplicate types
             if self.model.iter().filter(|m| m.name == t.name).count() > 1 {
-                return Err(Error::new(
-                    ErrorKind::ConfigTypeDuplicateError(
-                        format!(
-                            "Config Model contains duplicate Type: {type_name}.",
-                            type_name = t.name
-                        ),
-                        t.name.clone(),
-                    ),
-                    None,
-                ));
+                return Err(Error::ConfigItemDuplicated {
+                    type_name: t.name.to_string(),
+                });
             }
 
             // Check for types using reserved names (GraphQL scalars)
             if scalar_names.iter().any(|s| s == &t.name) {
-                return Err(Error::new(
-                    ErrorKind::ConfigTypeScalarNameError(
-                        format!(
-                            "Type cannot have the name of a scalar type: {type_name}.",
-                            type_name = t.name
-                        ),
-                        t.name.clone(),
-                    ),
-                    None,
-                ));
+                return Err(Error::ConfigItemReserved {
+                    type_name: t.name.clone(),
+                });
             }
 
             if t.props.iter().any(|p| p.name == "ID") {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropNameID("Prop cannot have the name ID.".to_string()),
-                    None,
-                ));
+                return Err(Error::ConfigItemReserved {
+                    type_name: "ID".to_string(),
+                });
             }
 
             for r in t.rels.iter() {
                 if r.props.iter().any(|p| p.name == "ID") {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropNameID("Prop cannot have the name ID.".to_string()),
-                        None,
-                    ));
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "ID".to_string(),
+                    });
                 }
             }
         }
@@ -194,32 +173,18 @@ impl Config {
         for ep in &self.endpoints {
             // Check for duplicate endpoints
             if self.endpoints.iter().filter(|e| e.name == ep.name).count() > 1 {
-                return Err(Error::new(
-                    ErrorKind::ConfigEndpointDuplicateError(
-                        format!(
-                            "Config contains duplicate Endpoints: {endpoint_name}.",
-                            endpoint_name = ep.name
-                        ),
-                        ep.name.clone(),
-                    ),
-                    None,
-                ));
+                return Err(Error::ConfigItemDuplicated {
+                    type_name: ep.name.to_string(),
+                });
             }
 
             // Check for endpoint custom input using reserved names (GraphQL scalars)
             if let Some(input) = &ep.input {
                 if let TypeDef::Custom(t) = &input.type_def {
                     if scalar_names.iter().any(|s| s == &t.name) {
-                        return Err(Error::new(
-                                ErrorKind::ConfigEndpointInputTypeScalarNameError(
-                                    format!(
-                                        "Endpoint Input Type cannot have the name of a scalar type: {type_name}.",
-                                        type_name = t.name
-                                    ),
-                                    t.name.clone(),
-                                ),
-                                None,
-                            ));
+                        return Err(Error::ConfigItemReserved {
+                            type_name: t.name.to_string(),
+                        });
                     }
                 }
             }
@@ -227,92 +192,11 @@ impl Config {
             // Check for endpoint custom input using reserved names (GraphQL scalars)
             if let TypeDef::Custom(t) = &ep.output.type_def {
                 if scalar_names.iter().any(|s| s == &t.name) {
-                    return Err(Error::new(
-                        ErrorKind::ConfigEndpointOutputTypeScalarNameError(
-                            format!(
-                                "Endpoint Output Type cannot have the name of a scalar type: {type_name}.",
-                                type_name = t.name
-                            ),
-                            t.name.clone(),
-                        ),
-                        None,
-                    ));
+                    return Err(Error::ConfigItemReserved {
+                        type_name: t.name.to_string(),
+                    });
                 }
             }
-
-            /*
-            // TODO: need to move this inside engine::validate() since it is possible for an endpoint
-            // input to be an auto-generated type which cannot be introspected from the context of the
-            // config alone
-            match &ep.input.type_def {
-                TypeDef::Null => { }
-                TypeDef::Scalar(_) => { }
-                TypeDef::Existing(t) => {
-                    if !self.model.iter().any(|m| &m.name == t) {
-                        return Err(Error::new(
-                            ErrorKind::ConfigEndpointMissingTypeError(
-                                format!(
-                                    "Endpoint Input Type is not defined: {type_name}.",
-                                    type_name = t
-                                ),
-                                t.clone(),
-                            ),
-                            None,
-                        ));
-                    }
-                }
-                TypeDef::Custom(_) => { }
-                TypeDef::Custom(t) => {
-                    if !self.model.iter().any(|m| m.name == t.name) {
-                        return Err(Error::new(
-                            ErrorKind::ConfigEndpointMissingTypeError(
-                                format!(
-                                    "Endpoint Input Type is not defined: {type_name}.",
-                                    type_name = t.name
-                                ),
-                                t.name.clone(),
-                            ),
-                            None,
-                        ));
-                    }
-                }
-            }
-
-            // TODO: need to move this inside engine::validate() since it is possible for an endpoint
-            // input to be an auto-generated type which cannot be introspected from the context of the
-            // config alone
-            match &ep.output.type_def {
-                TypeDef::Scalar(_) => {}
-                TypeDef::Existing(t) => {
-                    if !self.model.iter().any(|m| &m.name == t) {
-                        return Err(Error::new(
-                            ErrorKind::ConfigEndpointMissingTypeError(
-                                format!(
-                                    "Endpoint Output Type is not defined: {type_name}.",
-                                    type_name = t
-                                ),
-                                t.clone(),
-                            ),
-                            None,
-                        ));
-                    }
-                }
-                TypeDef::Custom(t) => {
-                    if !self.model.iter().any(|m| m.name == t.name) {
-                        return Err(Error::new(
-                            ErrorKind::ConfigEndpointMissingTypeError(
-                                format!(
-                                    "Endpoint Output Type is not defined: {type_name}.",
-                                    type_name = t.name
-                                ),
-                                t.name.clone(),
-                            ),
-                            None,
-                        ));
-                    }
-                }
-            }
-            */
         }
 
         Ok(())
@@ -676,8 +560,7 @@ impl Type {
     /// Creates a new [`Type`] data structure from
     /// a yaml-formatted string
     pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
-        serde_yaml::from_str(yaml)
-            .map_err(|e| Error::new(ErrorKind::ConfigDeserializationError(e), None))
+        Ok(serde_yaml::from_str(yaml)?)
     }
 
     pub fn props(&self) -> Iter<Prop> {
@@ -832,13 +715,10 @@ pub fn compose(configs: Vec<Config>) -> Result<Config, Error> {
 
         if let Some(ref v) = version {
             if *v != c.version {
-                return Err(Error::new(
-                    ErrorKind::ConfigVersionMismatchError(
-                        format!("All configs must be the same version. Found {wrong_version}, expected {correct_version}", wrong_version=c.version, correct_version=v),
-                        c.version
-                    ),
-                    None,
-                ));
+                return Err(Error::ConfigVersionMismatched {
+                    expected: *v,
+                    found: c.version,
+                });
             }
         }
 
@@ -1158,7 +1038,8 @@ pub(crate) fn mock_endpoints_filter() -> Config {
 
 #[cfg(test)]
 mod tests {
-    use super::{compose, Config, EndpointsFilter, ErrorKind, Prop, Relationship, Type};
+    use super::{compose, Config, EndpointsFilter, Prop, Relationship, Type};
+    use crate::Error;
     use std::fs::File;
     use std::io::prelude::*;
 
@@ -1342,11 +1223,8 @@ mod tests {
             };
 
         match duplicate_type_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeDuplicateError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemDuplicated { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test duplicate Endpoint type
@@ -1358,11 +1236,8 @@ mod tests {
         };
 
         match duplicate_endpoint_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointDuplicateError(_, _) => (), //assert!(true),
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemDuplicated { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         /*
@@ -1392,11 +1267,8 @@ mod tests {
             };
 
         match node_prop_name_id_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::InvalidPropNameID(_) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         let rel_prop_name_id_config: Config = match Config::from_file(
@@ -1407,11 +1279,8 @@ mod tests {
         };
 
         match rel_prop_name_id_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::InvalidPropNameID(_) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 
@@ -1427,11 +1296,8 @@ mod tests {
         };
 
         match scalar_type_name_int_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Input Name: Int
@@ -1443,11 +1309,8 @@ mod tests {
         };
 
         match scalar_endpoint_input_type_name_int_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointInputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Output Name: Int
@@ -1459,11 +1322,8 @@ mod tests {
         };
 
         match scalar_endpoint_output_type_name_int_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointOutputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 
@@ -1479,11 +1339,8 @@ mod tests {
         };
 
         match scalar_type_name_float_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Input Name: Float
@@ -1495,11 +1352,8 @@ mod tests {
         };
 
         match scalar_endpoint_input_type_name_float_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointInputTypeScalarNameError(_, _) => (), //assert!(true),
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Output Name: Float
@@ -1511,11 +1365,8 @@ mod tests {
         };
 
         match scalar_endpoint_output_type_name_float_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointOutputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 
@@ -1531,11 +1382,8 @@ mod tests {
         };
 
         match scalar_type_name_string_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Input Name: String
@@ -1547,11 +1395,8 @@ mod tests {
         };
 
         match scalar_endpoint_input_type_name_string_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointInputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Output Name: String
@@ -1563,11 +1408,8 @@ mod tests {
         };
 
         match scalar_endpoint_output_type_name_string_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointOutputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 
@@ -1583,11 +1425,8 @@ mod tests {
         };
 
         match scalar_type_name_id_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Input Name: id
@@ -1599,11 +1438,8 @@ mod tests {
         };
 
         match scalar_endpoint_input_type_name_id_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointInputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Output Name: ID
@@ -1615,11 +1451,8 @@ mod tests {
         };
 
         match scalar_endpoint_output_type_name_id_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointOutputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 
@@ -1635,11 +1468,8 @@ mod tests {
         };
 
         match scalar_type_name_boolean_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Input Name: Boolean
@@ -1651,11 +1481,8 @@ mod tests {
         };
 
         match scalar_endpoint_input_type_name_boolean_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointInputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
 
         //Test Scalar Endpoint Output Name: Boolean
@@ -1667,11 +1494,8 @@ mod tests {
         };
 
         match scalar_endpoint_output_type_name_boolean_config.validate() {
-            Ok(_) => panic!(),
-            Err(e) => match e.kind {
-                ErrorKind::ConfigEndpointOutputTypeScalarNameError(_, _) => (), //assert!(true)
-                _ => panic!(),
-            },
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
         }
     }
 

@@ -3,7 +3,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
-use crate::{Error, ErrorKind};
+use crate::Error;
 use juniper::FieldError;
 use log::{debug, trace};
 use r2d2_cypher::CypherConnectionManager;
@@ -35,18 +35,17 @@ impl DatabaseEndpoint for Neo4jEndpoint {
         Ok(DatabasePool::Neo4j(
             r2d2::Pool::builder()
                 .max_size(num_cpus::get().try_into().unwrap_or(8))
-                .build(manager)
-                .map_err(|e| Error::new(ErrorKind::CouldNotBuildNeo4jPool(e), None))?,
+                .build(manager)?, // .map_err(|e| Error::new(ErrorKind::CouldNotBuildNeo4jPool(e), None))?,
         ))
     }
 }
 
-pub(crate) struct Neo4jTransaction<'t> {
+pub struct Neo4jTransaction<'t> {
     transaction: Option<Transaction<'t, Started>>,
 }
 
 impl<'t> Neo4jTransaction<'t> {
-    pub(crate) fn new(transaction: Transaction<'t, Started>) -> Neo4jTransaction {
+    pub fn new(transaction: Transaction<'t, Started>) -> Neo4jTransaction {
         Neo4jTransaction {
             transaction: Some(transaction),
         }
@@ -66,7 +65,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         if let Some(t) = self.transaction.take() {
             t.commit().map(|_| Ok(()))?
         } else {
-            Err(Error::new(ErrorKind::TransactionFinished, None).into())
+            Err(Error::TransactionFinished.into())
         }
     }
 
@@ -142,11 +141,10 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
                 let check_results =
                     self.exec(&check_query, partition_key_opt, Some(check_params))?;
                 if check_results.count()? > 0 || dst_id_vec.len() > 1 {
-                    return Err(Error::new(
-                        ErrorKind::RelAlreadyExists(rel_name.to_string()),
-                        None,
-                    )
-                    .into()); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
+                    return Err(Error::RelDuplicated {
+                        rel_name: rel_name.to_string(),
+                    }
+                    .into());
                 }
             }
         }
@@ -283,7 +281,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             debug!("transaction::exec result: {:#?}", result);
             Ok(Neo4jQueryResult::new(result?))
         } else {
-            Err(Error::new(ErrorKind::TransactionFinished, None).into())
+            Err(Error::TransactionFinished.into())
         }
     }
 
@@ -524,7 +522,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         if let Some(t) = self.transaction.take() {
             Ok(t.rollback()?)
         } else {
-            Err(Error::new(ErrorKind::TransactionFinished, None).into())
+            Err(Error::TransactionFinished.into())
         }
     }
 
@@ -630,9 +628,11 @@ impl QueryResult for Neo4jQueryResult {
         for row in self.result.rows() {
             let m: HashMap<String, serde_json::Value> = row.get("n")?;
             let mut label_list: Vec<String> = row.get("n_label")?;
-            let label = label_list.pop().ok_or_else(|| {
-                Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
-            })?;
+            let label = label_list
+                .pop()
+                .ok_or_else(|| Error::ResponseItemNotFound {
+                    name: "label".to_string(),
+                })?;
             let mut fields = HashMap::new();
             let type_def = info.type_def_by_name(&label)?;
             for (k, v) in m.into_iter() {
@@ -678,9 +678,12 @@ impl QueryResult for Neo4jQueryResult {
                 if let serde_json::Value::String(src_type) = &src_labels[0] {
                     let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
                     let mut src_label_list: Vec<String> = row.get("src_label")?;
-                    let src_label = src_label_list.pop().ok_or_else(|| {
-                        Error::new(ErrorKind::MissingProperty("label".to_string(), None), None)
-                    })?;
+                    let src_label =
+                        src_label_list
+                            .pop()
+                            .ok_or_else(|| Error::ResponseItemNotFound {
+                                name: "label".to_string(),
+                            })?;
                     let mut src_fields = HashMap::new();
                     let type_def = info.type_def_by_name(&src_label)?;
                     for (k, v) in src_map.into_iter() {
@@ -703,10 +706,9 @@ impl QueryResult for Neo4jQueryResult {
                             let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
                             let mut dst_label_list: Vec<String> = row.get("dst_label")?;
                             let dst_label = dst_label_list.pop().ok_or_else(|| {
-                                Error::new(
-                                    ErrorKind::MissingProperty("label".to_string(), None),
-                                    None,
-                                )
+                                Error::ResponseItemNotFound {
+                                    name: "label".to_string(),
+                                }
                             })?;
                             let mut dst_fields = HashMap::new();
                             let type_def = info.type_def_by_name(&dst_label)?;
@@ -728,11 +730,8 @@ impl QueryResult for Neo4jQueryResult {
                             v.push(Rel::new(
                                 row.get::<serde_json::Value>("r")?
                                     .get("id")
-                                    .ok_or_else(|| {
-                                        Error::new(
-                                            ErrorKind::MissingResultElement("id".to_string()),
-                                            None,
-                                        )
+                                    .ok_or_else(|| Error::ResponseItemNotFound {
+                                        name: "id".to_string(),
                                     })?
                                     .clone()
                                     .try_into()?,
@@ -753,38 +752,16 @@ impl QueryResult for Neo4jQueryResult {
                                 Node::new(dst_type.to_owned(), dst_fields),
                             ))
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidPropertyType(
-                                    String::from(dst_name) + dst_suffix + "_label",
-                                ),
-                                None,
-                            )
-                            .into());
+                            return Err(Error::TypeNotExpected.into());
                         }
                     } else {
-                        return Err(Error::new(
-                            ErrorKind::InvalidPropertyType(
-                                String::from(dst_name) + dst_suffix + "_label",
-                            ),
-                            None,
-                        )
-                        .into());
+                        return Err(Error::TypeNotExpected.into());
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(
-                            String::from(src_name) + src_suffix + "_label",
-                        ),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(String::from(src_name) + src_suffix + "_label"),
-                    None,
-                )
-                .into());
+                return Err(Error::TypeNotExpected.into());
             };
         }
         trace!("Neo4jQueryResults::rels results: {:#?}", v);
@@ -797,22 +774,29 @@ impl QueryResult for Neo4jQueryResult {
         let mut v = Vec::new();
         for row in self.result.rows() {
             if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
-                if let serde_json::Value::String(id) = n.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
-                v.push(Value::String(id.to_owned()));
-            } else {
-                return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
-            }
+                if let serde_json::Value::String(id) =
+                    n.get("id").ok_or_else(|| Error::ResponseItemNotFound {
+                        name: "id".to_string(),
+                    })?
+                {
+                    v.push(Value::String(id.to_owned()));
+                } else {
+                    return Err(Error::TypeNotExpected.into());
+                }
             } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
-                if let serde_json::Value::String(id) = r.get("id").ok_or_else(|| Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None))? {
-                v.push(Value::String(id.to_owned()));
+                if let serde_json::Value::String(id) =
+                    r.get("id").ok_or_else(|| Error::ResponseItemNotFound {
+                        name: "id".to_string(),
+                    })?
+                {
+                    v.push(Value::String(id.to_owned()));
+                } else {
+                    return Err(Error::TypeNotExpected.into());
+                }
             } else {
-                return Err(Error::new(ErrorKind::InvalidPropertyType("id".to_owned()), None).into());
-            }
-            } else {
-                return Err(Error::new(
-                    ErrorKind::MissingProperty("n or r".to_string(), None),
-                    None,
-                )
+                return Err(Error::ResponseItemNotFound {
+                    name: "n or r".to_string(),
+                }
                 .into());
             }
         }
@@ -828,19 +812,17 @@ impl QueryResult for Neo4jQueryResult {
             .result
             .rows()
             .next()
-            .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-        let ret_val = ret_row
-            .get("count")
-            .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
+            .ok_or_else(|| Error::ResponseSetNotFound)?;
+        let ret_val = ret_row.get("count")?;
 
         if let serde_json::Value::Number(n) = ret_val {
             if let Some(i_val) = n.as_i64() {
                 Ok(i_val as i32)
             } else {
-                Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
+                Err(Error::TypeNotExpected.into())
             }
         } else {
-            Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 

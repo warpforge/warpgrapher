@@ -7,7 +7,7 @@ use super::config::{
 };
 use super::objects::Node;
 use crate::engine::context::RequestContext;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
 use std::collections::hash_map::Values;
@@ -79,7 +79,9 @@ impl Info {
     pub(crate) fn type_def_by_name(&self, name: &str) -> Result<&NodeType, Error> {
         self.type_defs
             .get(name)
-            .ok_or_else(|| Error::new(ErrorKind::MissingSchemaElement(self.name.to_owned()), None))
+            .ok_or_else(|| Error::SchemaItemNotFound {
+                name: self.name.to_string(),
+            })
     }
 
     pub(crate) fn type_defs(&self) -> Arc<HashMap<String, NodeType>> {
@@ -106,12 +108,11 @@ impl NodeType {
     }
 
     pub(crate) fn prop(&self, field_name: &str) -> Result<&Property, Error> {
-        self.props.get(field_name).ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingSchemaElement(String::from(&self.type_name) + "::" + field_name),
-                None,
-            )
-        })
+        self.props
+            .get(field_name)
+            .ok_or_else(|| Error::SchemaItemNotFound {
+                name: self.type_name.to_string() + "::" + field_name,
+            })
     }
     /*
     fn prop_by_type(&self, type_name: &str) -> Result<&Property, Error> {
@@ -215,19 +216,15 @@ impl Property {
     pub(crate) fn input_type_definition<'i>(&self, info: &'i Info) -> Result<&'i NodeType, Error> {
         self.arguments
             .get("input")
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::MissingSchemaElement(String::from("Input for ") + &self.name),
-                    None,
-                )
+            .ok_or_else(|| Error::SchemaItemNotFound {
+                name: "Input for ".to_string() + &self.name,
             })
             .and_then(|input_arg| {
-                info.type_defs.get(&input_arg.type_name).ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::MissingSchemaElement(input_arg.type_name.to_owned()),
-                        None,
-                    )
-                })
+                info.type_defs
+                    .get(&input_arg.type_name)
+                    .ok_or_else(|| Error::SchemaItemNotFound {
+                        name: input_arg.type_name.to_string(),
+                    })
             })
     }
 
@@ -2162,8 +2159,8 @@ where
     .map_err(|e| {
         e.downcast::<Error>()
             .and_then(|e| Ok(*e))
-            .unwrap_or_else(|e| {
-                Error::new(ErrorKind::MissingSchemaElement(format!("{:#?}", e)), None)
+            .unwrap_or_else(|e| Error::SchemaItemNotFound {
+                name: format!("{:#?}", e),
             })
     })
 }

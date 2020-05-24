@@ -1,291 +1,348 @@
-use std::error;
-use std::fmt::{Display, Formatter, Result};
-use std::sync::mpsc::RecvError;
+//! Provides the [`Error`] type for Warpgrapher
 
-/// Categories of Warpgrapher errors
-#[allow(clippy::large_enum_variant)]
+#[cfg(feature = "cosmos")]
+use gremlin_client::GremlinError;
+use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::num::ParseIntError;
+
+/// Error type for Warpgrapher
+///
+/// # Examples
+///
+/// ```rust
+/// use serde_json::json;
+/// use warpgrapher::Error;
+///
+/// let e = Error::PayloadNotFound { response: json!{"surprise"} };
+/// ```
 #[derive(Debug)]
-pub enum ErrorKind {
-    /// Returned when a [`Client`] receives an HTTP response which contains a body that is not
-    /// valid JSON. All GraphQL responses including errors are expected to be in the form of valid
-    /// JSON.
+pub enum Error {
+    /// Returned if a GraphQL query is missing an expected argument. For example, if a create
+    /// mutation call were missing its input argument. Also returned if an input argument is
+    /// missing an expected field.
+    ArgumentNotFound { name: String },
+
+    /// Returned if a [`Client`] is unable to submit a request to the server, such as due to a
+    /// network or server error, or the response cannot be parsed as valid JSON. Inspect the
+    /// [`reqwest::Error`] included as a source error for additional detail.
     ///
     /// [`Client`]: ./client/struct.Client.html
-    ClientReceivedInvalidJson,
+    ClientRequestFailed { source: reqwest::Error },
 
-    /// Returned when a [`Client`] is unable to submit a request to the server, such as due to a
-    /// network or server error.
+    /// Returned if two Warpgrapher endpoints or two Warpgrapher types are defined with the same
+    /// name. The `type_name` field contains the name of the duplicated type.
+    ConfigItemDuplicated { type_name: String },
+    /// Returned if a Warpgrapher endpoint or type is defined with a name that is a reserved
+    /// word, such as "ID" or a GraphQL scalar. The field `type_name` is the name that triggered the
+    /// error.
+    ConfigItemReserved { type_name: String },
+
+    /// Returned if a `Config` file cannot be opened, typically because the configuration file
+    /// cannot be found on disk
+    ConfigOpenFailed { source: std::io::Error },
+
+    /// Returned if attempting to compose configs with different versions. The field `expected`
+    /// contains the version of the base `Config`, and `found` contains the version of the `Config`
+    /// being merged in.
     ///
-    /// [`Client`]: ./client/struct.Client.html
-    ClientRequestFailed,
+    /// [`Config`]: ../engine/config/struct.Config.html
+    ConfigVersionMismatched { expected: i32, found: i32 },
 
-    /// Returned when a [`Client`] receives a valid JSON response that does not contain the
+    /// Returned if a client for a cosmos database pool cannot be built
+    #[cfg(feature = "cosmos")]
+    CosmosPoolNotBuilt {
+        source: Box<gremlin_client::GremlinError>,
+    },
+
+    /// Returned if the engine is configured to operate without a database. Typically this would
+    /// never be done in production
+    DatabaseNotFound,
+
+    /// Returned if a `Config` fails to deserialize because the provided data does not match the
+    /// expected structure
+    ///
+    /// [`Config`]: ../engine/config/struct.Config.html
+    DeserializationFailed { source: serde_yaml::Error },
+
+    /// Returned if an environment variable cannot be found. The `name` field contains the name of
+    /// the environment variable that could not be found.
+    EnvironmentVariableNotFound { name: String },
+
+    /// Returned if an environment variable for a port number cannot be parsed from the
+    /// environment variable string into a number
+    EnvironmentVariableNotParsed { source: ParseIntError },
+
+    /// Returned if a registered extension function returns an error
+    ExtensionFailed {
+        source: Box<dyn std::error::Error + Sync + Send>,
+    },
+
+    /// Returned if a neo4j database pool cannot be built
+    #[cfg(feature = "neo4j")]
+    Neo4jPoolNotBuilt { source: r2d2::Error },
+    /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
+    /// Cosmos DB
+    PartitionKeyRequired,
+
+    /// Returned if a [`Client`] receives a valid JSON response that does not contain the
     /// expected 'data' or 'errors' objects.
     ///
     /// The [`serde_json::Value`] tuple value contains the deserialized JSON response.
-    ClientRequestUnexpectedPayload(serde_json::Value),
+    ///
+    /// [`Client`]: ../client/struct.Client.html
+    PayloadNotFound { response: serde_json::Value },
 
-    /// *******
+    /// Returned if a query tries to create a single-node relationship on a node that already has
+    /// a relationship in place for that relationship type. The `rel_name` field holds the name of
+    /// the relationship. This could also occur if the query to select the node to which to
+    /// establish a single-node relationship returns more than one destination.
+    RelDuplicated { rel_name: String },
 
-    /// Returned when the server attempts to listen on an address/port
-    /// combination that is already bound on the system.
-    AddrInUse(std::io::Error),
+    /// Returned if a custom endpoint is defined or a resolver is defined for a field, but the
+    /// corresponding resolver is not provided. The `name` field contains the name of the resolver
+    /// that could not be found.
+    ResolverNotFound { name: String },
 
-    /// Returned when the server attempts to listen on an address not
-    /// assigned to any of the system's interfaces.
-    AddrNotAvailable(std::io::Error),
+    /// Returned if a database query is missing a set of results altogether, where one is expected.
+    /// This likely indicates an intenral bug. Thus, if you happen to see it, please open an issue
+    /// at the Warpgrapher project.
+    ResponseSetNotFound,
 
-    /// Returned when a custom endpoint defines an inline custom input type
-    /// with a name that conflicts with a GraphQL scalar
-    ConfigEndpointInputTypeScalarNameError(String, String),
+    /// Returned if a database query result is missing an expected property. For example, if a
+    /// Cosmos DB query were to be missing the value for a property, or if the query fails to
+    /// to return an expected node or relationship. This could occur if a custom resolver creates a
+    /// node or rel witout adding mandatory properties, such as an ID.
+    ResponseItemNotFound { name: String },
 
-    /// Returned when a custom endpoint defines an inline custom output type
-    /// with a name that conflicts with a GraphQL scalar
-    ConfigEndpointOutputTypeScalarNameError(String, String),
+    /// Returned if a GraphQL response cannot be converted to a serde_json::Value
+    SerializationFailed { source: serde_json::Error },
+    /// Returned if Warpgrapher fails to find an element within a schema, such as a type or
+    /// property. This is very unlikely to be returned as a result of problems with inputs to the
+    /// engine and most likely indicates an internal bug. Thus, if you happen to see it, please
+    /// open an issue at the Warpgrapher project.  The field is the name of the schema element that
+    /// could not be fiound.
+    SchemaItemNotFound { name: String },
 
-    /// Returned when a warpgrapher type is defined with a name that conflicts with
-    /// a GraphQL scalar
-    ConfigTypeScalarNameError(String, String),
-
-    /// Returned when a `Config` struct attempts to be initialized
-    /// from a config file that cannot be found on disk.  
-    ConfigNotFound(std::io::Error),
-
-    /// Returned when a `Config` fails to deserialize because the
-    /// provided data does not match the expected config spec
-    ConfigDeserializationError(serde_yaml::Error),
-
-    /// Returned when attempting to compose configs with different versions
-    ConfigVersionMismatchError(String, i32),
-
-    /// Returned when two warpgrapher types are defined with the same name
-    ConfigTypeDuplicateError(String, String),
-
-    /// Returned when two warpgrapher endpoints are defined with the same name
-    ConfigEndpointDuplicateError(String, String),
-
-    /// Returned when a warpgrapher endpoint defines for an input or output a
-    /// type that does not exist
-    ConfigEndpointMissingTypeError(String, String),
-
-    /// Returned when a client for a cosmos database pool cannot be built
-    #[cfg(feature = "cosmos")]
-    CouldNotBuildCosmosPool(gremlin_client::GremlinError),
-
-    /// Returned when `WarpgrapherServer` fails to build a pool for the cypher
-    /// connection manager.
-    #[cfg(feature = "neo4j")]
-    CouldNotBuildNeo4jPool(r2d2::Error),
-
-    /// Returned when the internal resolver logic cannot infer the correct warpgrapher type
-    /// that corresponds to data queried from the database.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    CouldNotInferType,
-
-    /// Returned when an environment variable cannot be found
-    EnvironmentVariableNotFound(String),
-
-    /// Returned when an environment variable for a port number cannot be parsed from the
-    /// environment variable string into a number
-    EnvironmentVariableParseError,
-
-    /// Returned when there is a mismatch in the expected internal representation of a
-    /// warpgrapher type
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    InputTypeMismatch(String),
-
-    /// Returned when trying to perform on operation on a type that cannot support it.
-    /// For example, this would be returned when trying to load a relationship from
-    /// an input, as input types don't have relationships. This is a critical internal
-    /// error. If you see it, please report it to the warpgrapher team.
-    InvalidType(String),
-
-    /// Returned when received GraphQL input contains an invalid property
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    InvalidProperty(String),
-
-    /// Returned when there is a mismatch in the expected internal representation of a
-    /// warpgrapher type
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    InvalidPropertyType(String),
-
-    /// Returned during config validation if the config defines a Type or Rel property with the name 'ID'.
-    /// ID is a reserved prop used by the Warpgrapher internals.
-    InvalidPropNameID(String),
-
-    /// Returned when attempts to serialize/deserialize a struct to/from JSON fails
-    JsonError(serde_json::error::Error),
-
-    /// Returned when attempts to convert a serde_json object to/from a String fails
-    JsonStringConversionFailed(serde_json::error::Error),
-
-    /// Returned when a resolver's input is missing an expected argument. Given
-    /// GraphQL's type system
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    MissingArgument(String),
-
-    /// Returned when the backend storage feature selected required a partition key, but
-    /// a partition key argument was not provided by the client.
-    MissingPartitionKey,
-
-    /// Returned when warpgrapher missing a property expected for that node or rel type.
-    /// This could occur if a node or relationship is created with a direct cypher query
-    /// in a custom resolver or external to Warpgrapher altogether, without creating an
-    /// 'id' property with a UUID. This could also occur if a schema change makes a
-    /// previously optional and nullable property mandatory and non-nullable.
-    MissingProperty(String, Option<String>),
-
-    /// Returned when the cursor points outside of the bounds of the data returned
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    MissingResultSet,
-
-    /// Returned when there is a mismatch between the data returned from the database
-    /// and what the internal representation of a warpgrapher type expects
-    MissingResultElement(String),
-
-    /// Returned at start time when warpgrapher is dynamically generating a GraphQL schema
-    /// from the config but there is a mismatch in the schema.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    MissingSchemaElement(String),
-
-    /// Returned when a field (prop or rel) of a node has been determined to be a DynamicScalar
-    /// type and will attempt to execute a custom resolver for that field. This error is
-    /// returned if the resolver is not defined for that DynamicScalar type field.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    FieldMissingResolverError(String, String),
-
-    /// Returned when the output of a GraphQL execution is not a valid JSON.
-    /// Note: This error should never be thrown. This is a critical error. If you see it,
-    /// please report it to the warpgrapher team.
-    GraphQLOutputError(String),
-
-    /// Returned when a registered Pre Request Hook extension function returns an error
-    PreRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
-
-    /// Returned when a registered Post Requst Hook extension function returns an error
-    PostRequestHookExtensionError(Box<dyn std::error::Error + Send + Sync>),
-
-    /// Returned when a resolver attempt to infer relationships between queried data via
-    /// a regex match fails
-    RegexError,
-
-    RelAlreadyExists(String),
-
-    /// Returned when a custom endpoint is defined or a resolver is
-    /// defined for a field, but the corresponding resolver is not provided.
-    ResolverNotFound(String, String),
-
-    /// Returned when a `WarpgrapherServer` tries to shutdown but the server is not
-    /// running.
-    ServerNotRunning,
-
-    /// Returned when an error is encountered while trying to shutdown a `WarpgrapherServer`
-    /// that is supposed to be running.
-    ServerShutdownFailed,
-
-    /// Returned when a `WarpgrapherServer` that is already running tries to start.
-    ServerAlreadyRunning,
-
-    /// Returned when a `WarpgrapherServer` fails to start.
-    ServerStartupFailed(RecvError),
-
-    /// Returned when a transaction is used after it is committed or rolled back.
+    /// Returned if a transaction is used after it is committed or rolled back.
     TransactionFinished,
 
     /// Warpgrapher transforms data between different serialization formats in the course of
     /// relaying data between GraphQL and database back-ends. If data fails to convert successfully,
-    /// this error is thrown. For example, GraphQL only supports 32-bit integers, whereas some
-    /// database back-ends support 64-bit. This error would be thrown when trying to coerce a 64-bit
-    /// value from a database into a 32-bit GraphQL integer.
-    TypeConversionFailed(String),
+    /// this error is thrown. The `src` field contains the source type name or value that could not
+    /// be converted.
+    TypeConversionFailed { src: String, dst: String },
 
-    /// This is an internal error thrown if a cofiguration schema is parsed incorrectly, resulting
-    /// in an unexpected GraphQL endpoint input argument. This is very unlikely to be returned as
-    /// a result of a problem with inputs to the engine, and most likely indicates an internal bug.
-    /// Thus, if you happen to see it, please open an issue at the Warpgrapher project.
-    UnexpectedSchemaArgument(String, String, String),
-
-    /// Returned when the DB_TYPE environment variable specified a database type that Warpgrapher
-    /// does not support. Note that this error is also returned if a supported database is specified
-    /// in the DB_TYPE environment variable, but Warpgrapher has been compiled without the
-    /// corresponding feature flag.  For example, Warpgrapher must be compiled with the cosmos
-    /// feature in order to use a cosmos database type.
-    UnsupportedDatabase(String),
-
-    /// Returned when a custom input validator is defined, but the corresponding
-    /// validator is not provided.
-    ValidatorNotFound(String, String),
-
-    /// This error is returned by a custom input validator when the validation fails.
-    /// This error is converted into a FieldError and returned to the client.
-    ValidationError(String),
-}
-
-/// Error type for Warpgrapher operations.
-///
-/// Many errors originate in underlying libraries, but the
-/// [`ErrorKind`] wraps these as necessary into
-///  Warpgrapher errors.
-///
-/// [`ErrorKind`]: ./enum.ErrorKind.html
-#[derive(Debug)]
-pub struct Error {
-    pub kind: ErrorKind,
-    source: Option<Box<dyn error::Error + Send + Sync>>,
-}
-
-impl Error {
-    /// Creates a new Warpgrapher error from an [`ErrorKind`] and,
-    /// optionally, an arbitrary source error.
+    /// Returned in multiple circumstances if the type information associated with a value is
+    /// inconsistent with the type required. Examples include:
     ///
-    /// [`ErrorKind`]: ./enum.ErrorKind.html
+    /// * a Warpgrapher [`Value`] enum doesn't match the variant expected for a given property, such
+    /// as an ID represented by something other than a string value
+    /// * a configuration schema is parsed incorrectly, resulting in an unexpected GraphQL endpoing
+    /// input argument
     ///
-    /// # Examples
+    /// This error could be returned if a custom resolver creates a node or relationship with a
+    /// property of a type that doesn't match the type in the schema, such a creating an integer
+    /// property where the schema configures Warpgrapher to expect a string. However, other than
+    /// that case, this error most likely indicates an internal bug for which an issue should be
+    /// opened at the Warpgrapher project.
     ///
-    /// ```rust
-    /// use warpgrapher::{Error, ErrorKind};
-    ///
-    /// let e1 = Error::new(ErrorKind::ServerAlreadyRunning, None);
-    ///
-    /// let s = std::io::Error::new(std::io::ErrorKind::Other, "Oh no!");
-    /// let e2 = Error::new(ErrorKind::ServerShutdownFailed, Some(Box::new(s)));
-    /// ```
-    pub fn new(
-        kind: ErrorKind,
-        source: Option<Box<dyn error::Error + Send + Sync + 'static>>,
-    ) -> Error {
-        Error { kind, source }
-    }
+    /// [`Value`]: ../engine/value/struct.Value.html
+    TypeNotExpected,
+
+    /// This error is returned by a custom input validator when the validation fails. The message
+    /// String describes the reason the field failed validation.
+    ValidationFailed { message: String },
+
+    /// Returned if a custom input validator is defined, but the corresponding validator is not
+    /// provided. The `name` field contains the name of the validator that wasn't found.
+    ValidatorNotFound { name: String },
 }
 
 impl Display for Error {
-    fn fmt(&self, fmt: &mut Formatter) -> Result {
-        write!(
-            fmt,
-            "ErrorKind: {:#?}, source: {:#?}",
-            self.kind, self.source
-        )
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        match self {
+            Error::ArgumentNotFound { name } => {
+                write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
+            }
+            Error::ClientRequestFailed { source } => {
+                write!(f, "Client request failed. Source error: {}", source)
+            }
+            Error::ConfigItemDuplicated { type_name } => {
+                write!(f, "Config model contains duplicate item: {}", type_name)
+            }
+            Error::ConfigItemReserved { type_name } => {
+                write!(f, "Config item cannot use a reserved word as a name: {}", type_name)
+            }
+            Error::ConfigOpenFailed { source } => {
+                write!(f, "Config file could not be opened. Source error: {}", source)
+            }
+            Error::ConfigVersionMismatched { expected, found } => {
+                write!(f, "Configs must be the same version: expected {} but found {}", expected, found)
+            }
+            #[cfg(feature = "cosmos")]
+            Error::CosmosPoolNotBuilt { source } => {
+                write!(f, "Could not build database connection pool. Source error: {}", source)
+            }
+            Error::DatabaseNotFound => {
+                write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
+            }
+            Error::DeserializationFailed { source } => {
+                write!(f, "Failed to deserialize configuration. Source error: {}", source)
+            }
+            Error::EnvironmentVariableNotFound { name } => {
+                write!(f, "Could not find environment variable: {}", name)
+            }
+            Error::EnvironmentVariableNotParsed { source } => {
+                write!(f, "Failed to parse environment variable to integer port number. Source error: {}", source)
+            }
+            Error::ExtensionFailed { source } => {
+                write!(f, "Extension returned an error: {}", source)
+            }
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jPoolNotBuilt { source } => {
+                write!(f, "Could not build database connection pool. Source error: {}", source)
+            }
+            Error::PartitionKeyRequired => {
+                write!(f, "Partition keys are required when using Cosmos DB.")
+            }
+            Error::PayloadNotFound { response } => {
+                write!(f, "Required data and/or error fields are missing from the response: {}", response)
+            }
+            Error::RelDuplicated { rel_name } => {
+                write!(f, "Tried to add more than one instance of a single-node (i.e. one-to-one) relationship named {}", rel_name)
+            }
+            Error::ResolverNotFound { name } => {
+                write!(f, "Could not find a custom resolver named {}", name)
+            }
+            Error::ResponseItemNotFound { name } => {
+                write!(f, "Could not find an expected response item, {}, in the database results.", name)
+            }
+            Error::ResponseSetNotFound => {
+                write!(f, "Could not find an expected database set of results.")
+            }
+            Error::SerializationFailed { source } => {
+                write!(f, "Serialization of the GraphQL response failed. Source error: {}", source)
+            }
+            Error::SchemaItemNotFound { name } => {
+                write!(f, "The following item could not be found in the schema: {}", name)
+            }
+            Error::TransactionFinished => {
+                write!(f, "Cannot use a database transaction already committed or rolled back.")
+            }
+            Error::TypeConversionFailed { src, dst } => {
+                write!(f, "The type or value {} could not be converted to type {}", src, dst)
+            }
+            Error::TypeNotExpected => {
+                write!(f, "Warpgrapher encountered a type that was not expected, such as a non-string ID")
+            }
+            Error::ValidationFailed { message } => {
+                write!(f, "{}", message)
+            }
+            Error::ValidatorNotFound { name } => {
+                write!(f, "A validator function named {} could not be found", name)
+            }
+        }
     }
 }
 
-impl error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::ArgumentNotFound { name: _ } => None,
+            Error::ClientRequestFailed { source } => Some(source),
+            Error::ConfigItemDuplicated { type_name: _ } => None,
+            Error::ConfigItemReserved { type_name: _ } => None,
+            Error::ConfigOpenFailed { source } => Some(source),
+            Error::ConfigVersionMismatched {
+                expected: _,
+                found: _,
+            } => None,
+            #[cfg(feature = "cosmos")]
+            Error::CosmosPoolNotBuilt { source } => Some(source),
+            Error::DatabaseNotFound => None,
+            Error::DeserializationFailed { source } => Some(source),
+            Error::EnvironmentVariableNotFound { name: _ } => None,
+            Error::EnvironmentVariableNotParsed { source } => Some(source),
+            Error::ExtensionFailed { source } => Some(source.as_ref()),
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jPoolNotBuilt { source } => Some(source),
+            Error::PartitionKeyRequired => None,
+            Error::PayloadNotFound { response: _ } => None,
+            Error::RelDuplicated { rel_name: _ } => None,
+            Error::ResolverNotFound { name: _ } => None,
+            Error::ResponseItemNotFound { name: _ } => None,
+            Error::ResponseSetNotFound => None,
+            Error::SerializationFailed { source } => Some(source),
+            Error::SchemaItemNotFound { name: _ } => None,
+            Error::TransactionFinished => None,
+            Error::TypeConversionFailed { src: _, dst: _ } => None,
+            Error::TypeNotExpected => None,
+            Error::ValidationFailed { message: _ } => None,
+            Error::ValidatorNotFound { name: _ } => None,
+        }
+    }
+}
+
+impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
+    fn from(e: Box<dyn std::error::Error + Sync + Send>) -> Self {
+        Error::ExtensionFailed { source: e }
+    }
+}
+
+#[cfg(feature = "cosmos")]
+impl From<GremlinError> for Error {
+    fn from(e: GremlinError) -> Self {
+        Error::CosmosPoolNotBuilt {
+            source: Box::new(e),
+        }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<r2d2::Error> for Error {
+    fn from(e: r2d2::Error) -> Self {
+        Error::Neo4jPoolNotBuilt { source: e }
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(e: reqwest::Error) -> Self {
+        Error::ClientRequestFailed { source: e }
+    }
+}
+
+impl From<serde_yaml::Error> for Error {
+    fn from(e: serde_yaml::Error) -> Self {
+        Error::DeserializationFailed { source: e }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::ConfigOpenFailed { source: e }
+    }
+}
+
+impl From<std::num::ParseIntError> for Error {
+    fn from(e: std::num::ParseIntError) -> Self {
+        Error::EnvironmentVariableNotParsed { source: e }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::SerializationFailed { source: e }
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use super::{Error, ErrorKind};
+    use super::Error;
 
     /// Passes if a new error with no wrapped source error is created
     #[test]
     fn new_error() {
-        let e = Error::new(ErrorKind::ServerAlreadyRunning, None);
+        let e = Error::DatabaseNotFound;
 
         assert!(std::error::Error::source(&e).is_none());
     }
@@ -294,8 +351,25 @@ mod tests {
     #[test]
     fn display_fmt() {
         let s = std::io::Error::new(std::io::ErrorKind::Other, "oh no!");
-        let e = Error::new(ErrorKind::ServerShutdownFailed, Some(Box::new(s)));
+        let e = Error::ConfigOpenFailed { source: s };
 
-        assert!(&format!("{}", e).starts_with("ErrorKind: ServerShutdownFailed, source: Some"));
+        assert_eq!(
+            "Config file could not be opened. Source error: oh no!",
+            &format!("{}", e)
+        );
+    }
+
+    /// Passes if Error implements the Send trait
+    #[test]
+    fn test_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Error>();
+    }
+
+    /// Passes if Client implements the Sync trait
+    #[test]
+    fn test_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<Error>();
     }
 }

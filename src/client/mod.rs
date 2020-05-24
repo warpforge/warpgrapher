@@ -1,10 +1,11 @@
 //! This module provides the Warpgrapher client.
 
-use super::error::{Error, ErrorKind};
+use crate::Error;
 use inflector::Inflector;
 use log::{debug, trace};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 /// A Warpgrapher GraphQL client
 ///
@@ -67,13 +68,11 @@ impl Client {
     /// # Errors
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -124,8 +123,7 @@ impl Client {
             .post(self.endpoint.as_str())
             .json(&req_body)
             .send()
-            .await
-            .map_err(|e| Error::new(ErrorKind::ClientRequestFailed, Some(Box::new(e))));
+            .await;
         debug!(
             "Client::graphql receiving response -- response: {:#?}",
             raw_resp
@@ -133,19 +131,14 @@ impl Client {
         let resp = raw_resp?;
 
         // parse result
-        let mut body = resp
-            .json::<serde_json::Value>()
-            .await
-            .map_err(|_e| Error::new(ErrorKind::ClientReceivedInvalidJson, None))?;
+        let mut body = resp.json::<serde_json::Value>().await?;
+        debug!("Client::graphql -- response body: {:#?}", body);
 
         body.as_object_mut()
             .and_then(|m| m.remove("data"))
             .and_then(|mut d| d.as_object_mut().and_then(|dm| dm.remove(result_field)))
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::ClientRequestUnexpectedPayload(body.to_owned()),
-                    None,
-                )
+            .ok_or_else(|| Error::PayloadNotFound {
+                response: body.to_owned(),
             })
     }
 
@@ -173,13 +166,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -245,13 +236,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -326,13 +315,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -403,13 +390,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -496,13 +481,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -564,13 +547,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -636,13 +617,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -683,21 +662,6 @@ impl Client {
             .await
     }
 
-    /// Takes the name of a Type and a relationship property on that
-    /// types and executes a RelUpdate operation.  Requires a shape of result to
-    /// be returned.  Takes an optional input that selects the relationship for
-    /// update, and a mandatory input describing the update to be performed.  
-    /// Returns the number of matched relationships deleted.
-    ///
-    /// [`Client`]: ./struct.Client.html
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error`] of the following kinds:
-    /// [`ClientRequestFailed`] - when the HTTP response is a non-OK
-    /// [`ClientReceivedInvalidJson`] - when the HTTP response body is not valid JSON
-    /// [`ClientRequestUnexepctedPayload`] - when the HTTP response does not match a proper GraphQL response
-    ///
     /// Updates one or more relationships
     ///
     /// # Arguments
@@ -726,13 +690,11 @@ impl Client {
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientReceivedInvalidJson`] - if the HTTP response body is not valid JSON
     /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
-    /// [`ClientRequestFailed`]: ../enum.ErrorKind.html
-    /// [`ClientReceivedInvalidJson`]: ../enum.ErrorKind.html
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.ErrorKind.html
+    /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
+    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
     ///
     /// # Examples
     ///
@@ -862,6 +824,12 @@ impl Client {
     }
 }
 
+impl Display for Client {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "{}", self.endpoint)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Client;
@@ -892,5 +860,19 @@ mod tests {
                 ProjectCreate(partitionKey: $partitionKey, input: $input) { id }
             }"#;
         assert_eq!(actual, expected);
+    }
+
+    /// Passes if Client implements the Send trait
+    #[test]
+    fn test_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Client>();
+    }
+
+    /// Passes if Client implements the Sync trait
+    #[test]
+    fn test_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<Client>();
     }
 }

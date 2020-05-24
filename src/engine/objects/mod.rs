@@ -13,7 +13,7 @@ use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::Transaction;
 use crate::engine::value::Value;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use juniper::meta::MetaType;
 use juniper::{
     Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, InputValue, Registry,
@@ -328,14 +328,7 @@ where
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
-                        (name, type_name, required) => panic!(Error::new(
-                            ErrorKind::UnexpectedSchemaArgument(
-                                name.to_string(),
-                                type_name.to_string(),
-                                format!("{:#?}", required)
-                            ),
-                            None
-                        )),
+                        (_, _, _) => panic!(Error::TypeNotExpected),
                     };
                 }
 
@@ -360,11 +353,8 @@ where
     where
         T: Transaction,
     {
-        let sn = Self::name(info).ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingSchemaElement(info.name().to_owned()),
-                None,
-            )
+        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
+            name: info.name().to_string(),
         })?;
         trace!(
             "Node::resolve_field_with_transaction called -- sn: {}, field_name: {}",
@@ -409,14 +399,10 @@ where
                 args,
                 executor,
             ),
-            PropertyKind::Input => Err(Error::new(
-                ErrorKind::InvalidPropertyType("PropertyKind::Input".to_owned()),
-                None,
-            )
-            .into()),
+            PropertyKind::Input => Err(Error::TypeNotExpected.into()),
             PropertyKind::NodeCreateMutation => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_node_create_mutation(
                     field_name,
@@ -428,8 +414,8 @@ where
                 )
             }
             PropertyKind::NodeDeleteMutation(deltype) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_node_delete_mutation(
                     field_name,
@@ -442,8 +428,8 @@ where
                 )
             }
             PropertyKind::NodeUpdateMutation => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_node_update_mutation(
                     field_name,
@@ -474,8 +460,8 @@ where
                 transaction,
             ),
             PropertyKind::RelCreateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_rel_create_mutation(
                     field_name,
@@ -489,8 +475,8 @@ where
                 )
             }
             PropertyKind::RelDeleteMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_rel_delete_mutation(
                     field_name,
@@ -504,8 +490,8 @@ where
                 )
             }
             PropertyKind::RelUpdateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| {
-                    Error::new(ErrorKind::MissingArgument("input".to_owned()), None)
+                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                    name: "input".to_string(),
                 })?;
                 resolve_rel_update_mutation(
                     field_name,
@@ -519,11 +505,7 @@ where
                 )
             }
             PropertyKind::Scalar => resolve_scalar_field(info, field_name, &self.fields, executor),
-            PropertyKind::Union => Err(Error::new(
-                ErrorKind::InvalidPropertyType("PropertyKind::Union".to_owned()),
-                None,
-            )
-            .into()),
+            PropertyKind::Union => Err(Error::TypeNotExpected.into()),
             PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
         }
     }
@@ -586,11 +568,8 @@ where
         args: &Arguments,
         executor: &Executor<Self::Context>,
     ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingSchemaElement(info.name().to_owned()),
-                None,
-            )
+        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
+            name: info.name().to_string(),
         })?;
         trace!(
             "Node::resolve_field called -- sn: {}, field_name: {}",
@@ -622,11 +601,7 @@ where
                     &mut transaction,
                 )
             }
-            DatabasePool::NoDatabase => Err(Error::new(
-                ErrorKind::UnsupportedDatabase("no database".to_owned()),
-                None,
-            )
-            .into()),
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound.into()),
         }
     }
 
@@ -637,11 +612,8 @@ where
         _selection_set: Option<&[Selection]>,
         executor: &Executor<Self::Context>,
     ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingSchemaElement(info.name().to_owned()),
-                None,
-            )
+        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
+            name: info.name().to_string(),
         })?;
 
         trace!(
@@ -787,11 +759,8 @@ where
         args: &Arguments,
         executor: &Executor<Self::Context>,
     ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingSchemaElement(info.name().to_owned()),
-                None,
-            )
+        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
+            name: info.name().to_string(),
         })?;
         trace!(
             "Rel::resolve_field called -- sn: {}, field_name: {}, args: {:#?}, props: {:#?}",
@@ -815,20 +784,15 @@ where
             ),
             (PropertyKind::Object, &"props") => match &self.props {
                 Some(p) => resolve_rel_props(info, field_name, p, executor),
-                None => Err(Error::new(
-                    ErrorKind::InvalidPropertyType(format!("{:#?}", p.kind())),
-                    None,
-                )
-                .into()),
+                None => Err(Error::TypeNotExpected.into()),
             },
             (PropertyKind::Object, &"src") => executor.resolve(
                 &Info::new(self.src.concrete_typename.to_owned(), info.type_defs()),
                 &self.src,
             ),
-            (PropertyKind::Object, _) => Err(Error::new(
-                ErrorKind::MissingProperty(field_name.to_owned(), None),
-                None,
-            )
+            (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
+                name: field_name.to_string(),
+            }
             .into()),
             (PropertyKind::Scalar, _) => {
                 let mut m = HashMap::new();
@@ -838,11 +802,7 @@ where
             (PropertyKind::Union, _) => {
                 resolve_union_field(info, field_name, &self.src, &self.dst, executor)
             }
-            (_, _) => Err(Error::new(
-                ErrorKind::InvalidPropertyType(format!("{:#?}", p.kind())),
-                None,
-            )
-            .into()),
+            (_, _) => Err(Error::TypeNotExpected.into()),
         };
         trace!("Rel::resolve_field Response: {:#?}", r);
         r

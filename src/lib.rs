@@ -14,12 +14,12 @@
 
 pub use juniper::http::playground::playground_source;
 pub use juniper::http::GraphQLRequest;
+pub use juniper::FieldError;
 
 pub use client::Client;
 pub use engine::config::Config;
 pub use engine::Engine;
 pub use error::Error;
-pub use error::ErrorKind;
 
 pub mod client;
 pub mod engine;

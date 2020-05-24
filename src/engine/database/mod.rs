@@ -8,8 +8,6 @@ use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::error::ErrorKind;
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinClient;
 use juniper::FieldError;
@@ -24,26 +22,16 @@ use std::fmt::Debug;
 
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 fn env_string(var_name: &str) -> Result<String, Error> {
-    match var_os(var_name) {
-        None => Err(Error::new(
-            ErrorKind::EnvironmentVariableNotFound(var_name.to_string()),
-            None,
-        )),
-        Some(os) => match os.to_str() {
-            None => Err(Error::new(
-                ErrorKind::EnvironmentVariableNotFound(var_name.to_string()),
-                None,
-            )),
-            Some(osstr) => Ok(osstr.to_owned()),
-        },
-    }
+    var_os(var_name)
+        .map(|osstr| osstr.to_string_lossy().into_owned())
+        .ok_or_else(|| Error::EnvironmentVariableNotFound {
+            name: var_name.to_string(),
+        })
 }
 
 #[cfg(any(feature = "cosmos"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
-    Ok(env_string(var_name)?
-        .parse::<u16>()
-        .map_err(|_| Error::new(ErrorKind::EnvironmentVariableParseError, None))?)
+    Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
 #[derive(Clone, Debug)]
@@ -60,7 +48,7 @@ pub trait DatabaseEndpoint {
     fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
-pub(crate) trait Transaction {
+pub trait Transaction {
     type ImplQueryResult: QueryResult + Debug;
     fn begin(&self) -> Result<(), FieldError>;
     fn commit(&mut self) -> Result<(), FieldError>;
@@ -150,7 +138,7 @@ pub(crate) trait Transaction {
     fn rollback(&mut self) -> Result<(), FieldError>;
 }
 
-pub(crate) trait QueryResult: Debug {
+pub trait QueryResult: Debug {
     fn nodes<GlobalCtx, ReqCtx>(
         self,
         name: &str,

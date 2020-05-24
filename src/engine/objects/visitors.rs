@@ -4,7 +4,7 @@ use crate::engine::database::{QueryResult, Transaction};
 use crate::engine::objects::Rel;
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::value::Value;
-use crate::error::{Error, ErrorKind};
+use crate::error::Error;
 use juniper::{graphql_value, FieldError};
 use log::{debug, trace};
 use std::collections::HashMap;
@@ -73,14 +73,8 @@ where
                 }
                 PropertyKind::Input => {
                     inputs.insert(k, v);
-                } // Handle these later
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(itd.type_name().to_string() + "::" + &k),
-                        None,
-                    )
-                    .into())
                 }
+                _ => return Err(Error::TypeNotExpected.into()),
             }
         }
 
@@ -119,19 +113,13 @@ where
                         )?;
                     }
                 }
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(p.type_name().to_owned()),
-                        None,
-                    )
-                    .into())
-                }
+                _ => return Err(Error::TypeNotExpected.into()),
             }
         }
 
         Ok(results)
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -190,15 +178,14 @@ where
             partition_key_opt,
             Some(m.remove("delete").ok_or_else(|| {
                 // remove used to take ownership
-                Error::new(
-                    ErrorKind::MissingProperty("input::delete".to_owned(), None),
-                    None,
-                )
+                Error::ArgumentNotFound {
+                    name: "input::delete".to_string(),
+                }
             })?),
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -252,11 +239,7 @@ where
                     }
                 }
                 _ => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(info.name().to_string() + "::" + &k),
-                        None,
-                    )
-                    .into())
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
         }
@@ -286,12 +269,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_string() + "::NEW or ::EXISTING", None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string() + "::NEW or ::EXISTING",
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -332,14 +315,13 @@ where
                 results.ids(&(label.to_owned() + &var_suffix))
             }
 
-            _ => Err(Error::new(
-                ErrorKind::InvalidProperty(info.name().to_string() + "::" + &k),
-                None,
-            )
+            _ => Err(Error::SchemaItemNotFound {
+                name: info.name().to_string() + "::" + &k,
+            }
             .into()),
         }
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -396,13 +378,7 @@ where
                         transaction,
                     )?);
                 }
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(info.name().to_string() + "::" + &k),
-                        None,
-                    )
-                    .into())
-                }
+                _ => return Err(Error::TypeNotExpected.into()),
             }
         }
     }
@@ -476,16 +452,15 @@ where
             partition_key_opt,
             m.remove("modify").ok_or_else(|| {
                 // remove() used here to take ownership of the "modify" value, not borrow it
-                Error::new(
-                    ErrorKind::MissingProperty("input::modify".to_owned(), None),
-                    None,
-                )
+                Error::ArgumentNotFound {
+                    name: "input::modify".to_string(),
+                }
             })?,
             validators,
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -538,14 +513,8 @@ where
                 }
                 PropertyKind::Input => {
                     inputs.insert(k, v);
-                } // Handle these rels later
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(info.name().to_string() + "::" + &k),
-                        None,
-                    )
-                    .into())
                 }
+                _ => return Err(Error::TypeNotExpected.into()),
             }
         }
 
@@ -589,7 +558,7 @@ where
 
         Ok(results)
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -655,17 +624,13 @@ where
                 transaction,
             )
         } else {
-            Err(Error::new(
-                ErrorKind::MissingProperty(
-                    itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
-                    None,
-                ),
-                None,
-            )
+            Err(Error::ArgumentNotFound {
+                name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
+            }
             .into())
         }
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -722,10 +687,9 @@ where
 
         let create_input = m.remove("create").ok_or_else(|| {
             // Using remove to take ownership
-            Error::new(
-                ErrorKind::MissingProperty("input::create".to_owned(), None),
-                None,
-            )
+            Error::ArgumentNotFound {
+                name: "input::create".to_string(),
+            }
         })?;
 
         trace!("visit_rel_create_input calling rels.");
@@ -763,10 +727,10 @@ where
                 }
                 Ok(v)
             }
-            _ => Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into()),
+            _ => Err(Error::TypeNotExpected.into()),
         }
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -799,8 +763,9 @@ where
     if let Value::Map(mut m) = input {
         let dst = m
             .remove("dst") // Using remove to take ownership
-            .ok_or_else(|| Error::new(ErrorKind::MissingProperty("dst".to_owned(), None), None))?;
-
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: "dst".to_string(),
+            })?;
         let (dst_label, dst_ids) = visit_rel_nodes_mutation_input_union(
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
@@ -820,7 +785,7 @@ where
             info,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -900,7 +865,7 @@ where
 
         Ok(del_results)
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -923,12 +888,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_owned(), None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string(),
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -941,7 +906,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1016,12 +981,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_owned(), None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string(),
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -1035,7 +1000,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1058,12 +1023,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_owned(), None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string(),
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -1078,7 +1043,7 @@ where
 
         Ok((k.to_owned(), dst_ids))
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1220,12 +1185,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_owned(), None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string(),
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -1238,7 +1203,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1265,12 +1230,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(m) = input {
-        let (k, v) = m.into_iter().next().ok_or_else(|| {
-            Error::new(
-                ErrorKind::MissingProperty(info.name().to_owned(), None),
-                None,
-            )
-        })?;
+        let (k, v) = m
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ArgumentNotFound {
+                name: info.name().to_string(),
+            })?;
 
         let p = itd.prop(&k)?;
 
@@ -1284,7 +1249,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1409,10 +1374,13 @@ where
                 transaction,
             )
         } else {
-            Err(Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None).into())
+            Err(Error::ArgumentNotFound {
+                name: "update".to_string(),
+            }
+            .into())
         }
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
@@ -1486,22 +1454,13 @@ where
 
         Ok(results)
     } else {
-        Err(Error::new(ErrorKind::InputTypeMismatch(info.name().to_owned()), None).into())
+        Err(Error::TypeNotExpected.into())
     }
 }
 
 fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(), FieldError> {
-    let func = validators.get(v).ok_or_else(|| {
-        Error::new(
-            ErrorKind::ValidatorNotFound(
-                format!(
-                    "Could not find custom input validator: {validator_name}.",
-                    validator_name = v
-                ),
-                v.to_owned(),
-            ),
-            None,
-        )
+    let func = validators.get(v).ok_or_else(|| Error::ValidatorNotFound {
+        name: v.to_string(),
     })?;
 
     trace!(
@@ -1510,9 +1469,9 @@ fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(),
         input
     );
 
-    func(input).or_else(|e| match e.kind {
-        ErrorKind::ValidationError(v) => Err(FieldError::new(
-            v,
+    func(input).or_else(|e| match e {
+        Error::ValidationFailed { message } => Err(FieldError::new(
+            message,
             juniper::graphql_value!({ "internal_error": "Input validation failed" }),
         )),
         _ => Err(FieldError::from(e)),

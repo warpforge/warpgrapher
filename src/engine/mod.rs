@@ -2,7 +2,7 @@
 //! configuration, GraphQL schema generation, resolvers, and interface to the
 //! database.
 
-use super::error::{Error, ErrorKind};
+use super::error::Error;
 use config::{Config, Prop, Validators};
 use context::{GraphQLContext, RequestContext};
 use database::DatabasePool;
@@ -204,10 +204,7 @@ where
     /// ```
     pub fn build(self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
         // validate engine options
-        match EngineBuilder::validate_engine(&self.resolvers, &self.validators, &self.config) {
-            Ok(_) => (),
-            Err(e) => return Err(e),
-        };
+        EngineBuilder::validate_engine(&self.resolvers, &self.validators, &self.config)?;
 
         let root_node = create_root_node(&self.config)?;
 
@@ -230,24 +227,14 @@ where
         validators: &Validators,
         config: &Config,
     ) -> Result<(), Error> {
-        match config.validate() {
-            Ok(_) => (),
-            Err(e) => {
-                println!("Config validation failed: {:#?}", e);
-                return Err(e);
-            }
-        };
+        config.validate()?;
 
         //Validate Custom Endpoint defined in Config exists as a Resolver
         for e in config.endpoints() {
             if !resolvers.contains_key(e.name()) {
-                return Err(Error::new(
-                    ErrorKind::ResolverNotFound(
-                        format!("Engine could not find a Resolver for the Custom Endpoint: {endpoint_name}.", endpoint_name=e.name()),
-                        e.name().to_owned()
-                    ),
-                    None,
-                ));
+                return Err(Error::ResolverNotFound {
+                    name: e.name().to_string(),
+                });
             }
         }
 
@@ -266,57 +253,31 @@ where
             }
         }
         for dsp in dyn_scalar_props.iter() {
-            let resolver_name = dsp.resolver().clone().ok_or_else(|| {
-                Error::new(
-                    ErrorKind::ResolverNotFound(
-                        format!(
-                            "Failed to resolve custom prop: {prop_name}. Missing resolver name.",
-                            prop_name = dsp.name()
-                        ),
-                        dsp.name().to_string(),
-                    ),
-                    None,
-                )
-            })?;
+            let resolver_name = dsp
+                .resolver()
+                .clone()
+                .ok_or_else(|| Error::ResolverNotFound {
+                    name: dsp.name().to_string(),
+                })?;
             if !resolvers.contains_key(&resolver_name) {
-                return Err(Error::new(
-                    ErrorKind::ResolverNotFound(
-                        format!(
-                            "Engine could not find a resolver for the custom prop: {prop_name}.",
-                            prop_name = dsp.name()
-                        ),
-                        dsp.name().to_string(),
-                    ),
-                    None,
-                ));
+                return Err(Error::ResolverNotFound {
+                    name: dsp.name().to_string(),
+                });
             }
         }
 
         //Validate Custom Input Validator defined in Config exists as Validator
         for pwv in props_with_validator.iter() {
-            let validator_name = pwv.validator().clone().ok_or_else(|| {
-                Error::new(
-                    ErrorKind::ValidatorNotFound(
-                        format!(
-                            "Failed to find custom validator for prop: {prop_name}.",
-                            prop_name = pwv.name()
-                        ),
-                        pwv.name().to_string(),
-                    ),
-                    None,
-                )
-            })?;
+            let validator_name =
+                pwv.validator()
+                    .clone()
+                    .ok_or_else(|| Error::ValidatorNotFound {
+                        name: pwv.name().to_string(),
+                    })?;
             if !validators.contains_key(&validator_name) {
-                return Err(Error::new(
-                    ErrorKind::ValidatorNotFound(
-                        format!(
-                            "Engine could not find a validator for the custom prop: {prop_name}.",
-                            prop_name = pwv.name()
-                        ),
-                        pwv.name().to_string(),
-                    ),
-                    None,
-                ));
+                return Err(Error::ValidatorNotFound {
+                    name: pwv.name().to_string(),
+                });
             }
         }
 
@@ -414,13 +375,7 @@ where
 
         // run pre request plugin hooks
         for extension in &self.extensions {
-            match extension.pre_request_hook(self.global_ctx.clone(), Some(&mut req_ctx), &metadata)
-            {
-                Ok(_) => {}
-                Err(e) => {
-                    return Err(Error::new(ErrorKind::PreRequestHookExtensionError(e), None));
-                }
-            }
+            extension.pre_request_hook(self.global_ctx.clone(), Some(&mut req_ctx), &metadata)?;
         }
 
         // execute graphql query
@@ -438,32 +393,15 @@ where
         );
 
         // convert graphql response (json) to mutable serde_json::Value
-        let res_str: String = match serde_json::to_string(&res) {
-            Ok(s) => s,
-            Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
-        };
-        let mut res_value: serde_json::Value = match serde_json::from_str(&res_str) {
-            Ok(v) => v,
-            Err(e) => return Err(Error::new(ErrorKind::JsonStringConversionFailed(e), None)),
-        };
+        let res_str: String = serde_json::to_string(&res)?;
+        let mut res_value: serde_json::Value = serde_json::from_str(&res_str)?;
 
         // run post request plugin hooks
         for extension in &self.extensions {
-            match extension.post_request_hook(
-                self.global_ctx.clone(),
-                Some(&req_ctx),
-                &mut res_value,
-            ) {
-                Ok(_) => {}
-                Err(e) => {
-                    return Err(Error::new(
-                        ErrorKind::PostRequestHookExtensionError(e),
-                        None,
-                    ));
-                }
-            }
+            extension.post_request_hook(self.global_ctx.clone(), Some(&req_ctx), &mut res_value)?;
         }
 
+        debug!("Engine::execute -- res_value: {:#?}", res_value);
         Ok(res_value)
 
         // convert graphql response to string

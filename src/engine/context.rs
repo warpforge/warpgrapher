@@ -4,7 +4,7 @@ use crate::engine::config::Validators;
 use crate::engine::database::DatabasePool;
 use crate::engine::extensions::{Extension, Extensions};
 use crate::engine::objects::resolvers::{ResolverFunc, Resolvers};
-use crate::{Error, ErrorKind};
+use crate::Error;
 use juniper::Context;
 use std::fmt::Debug;
 use std::slice::Iter;
@@ -65,14 +65,8 @@ where
     pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, ReqCtx>, Error> {
         self.resolvers
             .get(name)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::ResolverNotFound(
-                        format!("Could not find custom endpoint resolver {}.", name),
-                        name.to_owned(),
-                    ),
-                    None,
-                )
+            .ok_or_else(|| Error::ResolverNotFound {
+                name: name.to_owned(),
             })
             .and_then(|b| Ok(b.as_ref()))
     }

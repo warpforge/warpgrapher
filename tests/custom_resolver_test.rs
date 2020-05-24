@@ -42,11 +42,10 @@ async fn custom_endpoint_returning_scalar() {
         .graphql("query { ProjectCount }", Some("1234"), None, "ProjectCount")
         .await
         .unwrap();
-    let count = result.get("ProjectCount").unwrap();
 
     // verify result
-    assert!(count.is_number());
-    assert_eq!(count, 2);
+    assert!(result.is_number());
+    assert_eq!(result, 2);
 
     // shutdown server
     assert!(server.shutdown().is_ok());
@@ -74,9 +73,8 @@ async fn custom_endpoint_returning_scalar_list() {
         )
         .await
         .unwrap();
-    let tags = result.get("GlobalTopTags").unwrap();
     assert_eq!(
-        *tags,
+        result,
         json!(["web", "database", "rust", "python", "graphql"])
     );
 
@@ -108,8 +106,7 @@ async fn custom_endpoint_returning_node() {
         )
         .await
         .unwrap();
-    let topdev = result.get("GlobalTopDev").unwrap();
-    assert_eq!(*topdev, json!({"name": "Joe"}));
+    assert_eq!(result, json!({"name": "Joe"}));
 
     // shutdown server
     assert!(server.shutdown().is_ok());
@@ -144,8 +141,7 @@ async fn custom_field_resolver_returning_scalar() {
         )
         .await
         .unwrap();
-    let project = result.get("Project").unwrap();
-    let points = project[0].get("points").unwrap();
+    let points = result[0].get("points").unwrap();
 
     // verify result
     assert!(points.is_number());

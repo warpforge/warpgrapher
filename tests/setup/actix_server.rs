@@ -59,7 +59,7 @@ pub(crate) fn start(
     resolvers: &Resolvers<AppGlobalCtx, AppRequestCtx>,
     validators: &Validators,
     extensions: &Extensions<AppGlobalCtx, AppRequestCtx>,
-    tx: Sender<Result<dev::Server, warpgrapher::Error>>,
+    tx: Sender<Result<dev::Server, std::io::Error>>,
 ) {
     let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config.clone(), database_pool)
         .with_version("1.0".to_string())
@@ -87,11 +87,7 @@ pub(crate) fn start(
     })
     .bind(&addr)
     .map_err(|e| {
-        let k = match e.kind() {
-            std::io::ErrorKind::AddrInUse => warpgrapher::ErrorKind::AddrInUse(e),
-            _ => warpgrapher::ErrorKind::AddrNotAvailable(e),
-        };
-        let _ = tx.send(Err(warpgrapher::Error::new(k, None)));
+        let _ = tx.send(Err(e));
     })
     .unwrap();
 

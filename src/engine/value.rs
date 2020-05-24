@@ -1,4 +1,4 @@
-use crate::{Error, ErrorKind};
+use crate::Error;
 #[cfg(feature = "cosmos")]
 use gremlin_client::{GValue, ToGValue, VertexProperty};
 use std::collections::HashMap;
@@ -74,110 +74,102 @@ impl TryFrom<GValue> for Value {
 
     fn try_from(gvalue: GValue) -> Result<Value, Error> {
         match gvalue {
-            GValue::Vertex(_v) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Vertex".to_string()),
-                None,
-            )),
-            GValue::Edge(_e) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Edge".to_string()),
-                None,
-            )),
+            GValue::Vertex(_v) => Err(Error::TypeConversionFailed {
+                src: "GValue::Vertex".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Edge(_e) => Err(Error::TypeConversionFailed {
+                src: "Gvalue::Edge".to_string(),
+                dst: "Value".to_string(),
+            }),
             GValue::VertexProperty(vp) => Ok(vp.try_into()?),
-            GValue::Property(_p) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Property".to_string()),
-                None,
-            )),
+            GValue::Property(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Property".to_string(),
+                dst: "Value".to_string(),
+            }),
             GValue::Uuid(u) => Ok(Value::String(u.to_hyphenated().to_string())),
             GValue::Int32(i) => Ok(Value::Int64(i as i64)),
             GValue::Int64(i) => Ok(Value::Int64(i)),
             GValue::Float(f) => Ok(Value::Float64(f as f64)),
             GValue::Double(f) => Ok(Value::Float64(f)),
-            GValue::Date(_d) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Date".to_string()),
-                None,
-            )),
-            GValue::List(_l) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::List".to_string()),
-                None,
-            )),
-            GValue::Set(_s) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Set".to_string()),
-                None,
-            )),
-            GValue::Map(_m) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Map".to_string()),
-                None,
-            )),
-            GValue::Token(_t) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Token".to_string()),
-                None,
-            )),
+            GValue::Date(_d) => Err(Error::TypeConversionFailed {
+                src: "GValue::Date".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::List(_l) => Err(Error::TypeConversionFailed {
+                src: "GValue::List".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Set(_s) => Err(Error::TypeConversionFailed {
+                src: "GValue::Set".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Map(_m) => Err(Error::TypeConversionFailed {
+                src: "GValue::Map".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Token(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::Token".to_string(),
+                dst: "Value".to_string(),
+            }),
             GValue::String(s) => Ok(Value::String(s)),
-            GValue::Path(_p) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Path".to_string()),
-                None,
-            )),
-            GValue::TraversalMetrics(_tm) => Err(Error::new(
-                ErrorKind::TypeConversionFailed(
-                    "Could not convert GValue::TraversalMetrics".to_string(),
-                ),
-                None,
-            )),
-            GValue::Metric(_m) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Metric".to_string()),
-                None,
-            )),
-            GValue::TraversalExplanation(_m) => Err(Error::new(
-                ErrorKind::TypeConversionFailed(
-                    "Could not convert GValue::TraversalExplanation".to_string(),
-                ),
-                None,
-            )),
-            GValue::IntermediateRepr(_ir) => Err(Error::new(
-                ErrorKind::TypeConversionFailed(
-                    "Could not convert GValue::IntermediateRepr".to_string(),
-                ),
-                None,
-            )),
-            GValue::P(_p) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::P".to_string()),
-                None,
-            )),
-            GValue::T(_t) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::T".to_string()),
-                None,
-            )),
-            GValue::Bytecode(_bc) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Bytecode".to_string()),
-                None,
-            )),
-            GValue::Traverser(_t) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Traverser".to_string()),
-                None,
-            )),
-            GValue::Scope(_s) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Scope".to_string()),
-                None,
-            )),
-            GValue::Order(_o) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Order".to_string()),
-                None,
-            )),
+            GValue::Path(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Path".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::TraversalMetrics(_tm) => Err(Error::TypeConversionFailed {
+                src: "GValue::TraversalMetrics".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Metric(_m) => Err(Error::TypeConversionFailed {
+                src: "GValue::Metric".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::TraversalExplanation(_m) => Err(Error::TypeConversionFailed {
+                src: "GVaue::TraversalExplanation".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::IntermediateRepr(_ir) => Err(Error::TypeConversionFailed {
+                src: "GValue::IntermediateRepr".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::P(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::P".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::T(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::T".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Bytecode(_bc) => Err(Error::TypeConversionFailed {
+                src: "GValue::Bytecode".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Traverser(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::Traverser".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Scope(_s) => Err(Error::TypeConversionFailed {
+                src: "GValue::Scope".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Order(_o) => Err(Error::TypeConversionFailed {
+                src: "GValue::Order".to_string(),
+                dst: "Value".to_string(),
+            }),
             GValue::Bool(b) => Ok(Value::Bool(b)),
-            GValue::TextP(_tp) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::TextP".to_string()),
-                None,
-            )),
-            GValue::Pop(_p) => Err(Error::new(
-                ErrorKind::TypeConversionFailed("Could not convert GValue::Pop".to_string()),
-                None,
-            )),
-            GValue::Cardinality(_c) => Err(Error::new(
-                ErrorKind::TypeConversionFailed(
-                    "Could not convert GValue::Cardinality".to_string(),
-                ),
-                None,
-            )),
+            GValue::TextP(_tp) => Err(Error::TypeConversionFailed {
+                src: "GValue::TextP".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Pop(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Pop".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Cardinality(_c) => Err(Error::TypeConversionFailed {
+                src: "GValue::Cardinality".to_string(),
+                dst: "Value".to_string(),
+            }),
         }
     }
 }
@@ -204,12 +196,10 @@ impl TryFrom<serde_json::Value> for Value {
                 } else if let Some(f) = n.as_f64() {
                     Ok(Value::Float64(f))
                 } else {
-                    Err(Error::new(
-                        ErrorKind::TypeConversionFailed(
-                            "Expected a serde_json Number to be an i64, u64, or f64.".to_string(),
-                        ),
-                        None,
-                    ))
+                    Err(Error::TypeConversionFailed {
+                        src: "serde_json::Value::Number".to_string(),
+                        dst: "Value".to_string(),
+                    })
                 }
             }
             serde_json::Value::String(s) => Ok(Value::String(s)),
@@ -231,11 +221,9 @@ impl TryFrom<VertexProperty> for Value {
     fn try_from(vp: VertexProperty) -> Result<Value, Error> {
         Ok(vp
             .take::<GValue>()
-            .map_err(|_e| {
-                Error::new(
-                    ErrorKind::TypeConversionFailed("VertexProperty".to_string()),
-                    None,
-                )
+            .map_err(|_e| Error::TypeConversionFailed {
+                src: "VertexProperty".to_string(),
+                dst: "Value".to_string(),
             })?
             .try_into()?)
     }
@@ -248,10 +236,10 @@ impl TryFrom<Value> for bool {
         if let Value::Bool(b) = value {
             Ok(b)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected a boolean.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "bool".to_string(),
+            })
         }
     }
 }
@@ -267,10 +255,10 @@ impl TryFrom<Value> for Vec<bool> {
             }
             Ok(v)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected a Value::Array.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Vec<bool>".to_string(),
+            })
         }
     }
 }
@@ -286,10 +274,10 @@ impl TryFrom<Value> for f64 {
         } else if let Value::Float64(f) = value {
             Ok(f)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected an f64.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "f64".to_string(),
+            })
         }
     }
 }
@@ -305,10 +293,10 @@ impl TryFrom<Value> for Vec<f64> {
             }
             Ok(v)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected a Value::Array.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Vec<f64>".to_string(),
+            })
         }
     }
 }
@@ -322,32 +310,26 @@ impl TryFrom<Value> for i32 {
                 if i >= (i32::min_value() as i64) && i <= (i32::max_value() as i64) {
                     Ok(i as i32)
                 } else {
-                    Err(Error::new(
-                        ErrorKind::TypeConversionFailed(
-                            "Expected an i64 or u64 within the i32 range.".to_string(),
-                        ),
-                        None,
-                    ))
+                    Err(Error::TypeConversionFailed {
+                        src: format!("{:#?}", value),
+                        dst: "i32".to_string(),
+                    })
                 }
             }
             Value::UInt64(i) => {
                 if i <= (i32::max_value() as u64) {
                     Ok(i as i32)
                 } else {
-                    Err(Error::new(
-                        ErrorKind::TypeConversionFailed(
-                            "Expected an i64 or u64 within the i32 range.".to_string(),
-                        ),
-                        None,
-                    ))
+                    Err(Error::TypeConversionFailed {
+                        src: format!("{:#?}", value),
+                        dst: "i32".to_string(),
+                    })
                 }
             }
-            _ => Err(Error::new(
-                ErrorKind::TypeConversionFailed(
-                    "Expected an i64 or u64 within the i32 range.".to_string(),
-                ),
-                None,
-            )),
+            _ => Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "i32".to_string(),
+            }),
         }
     }
 }
@@ -363,10 +345,10 @@ impl TryFrom<Value> for Vec<i32> {
             }
             Ok(v)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected a Value::Array.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Vec<i32".to_string(),
+            })
         }
     }
 }
@@ -378,10 +360,10 @@ impl TryFrom<Value> for String {
         if let Value::String(s) = value {
             Ok(s)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected an String.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "String".to_string(),
+            })
         }
     }
 }
@@ -403,10 +385,10 @@ impl TryFrom<Value> for Vec<String> {
             }
             Ok(v)
         } else {
-            Err(Error::new(
-                ErrorKind::TypeConversionFailed("Expected a Value::Array.".to_string()),
-                None,
-            ))
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Vec<String>".to_string(),
+            })
         }
     }
 }
@@ -425,13 +407,9 @@ impl TryFrom<Value> for serde_json::Value {
             }
             Value::Bool(b) => Ok(serde_json::Value::Bool(b)),
             Value::Float64(f) => Ok(serde_json::Value::Number(
-                serde_json::Number::from_f64(f).ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::TypeConversionFailed(
-                            "Expected f64 not to be infinite or NaN.".into(),
-                        ),
-                        None,
-                    )
+                serde_json::Number::from_f64(f).ok_or_else(|| Error::TypeConversionFailed {
+                    src: "Value::Float64".to_string(),
+                    dst: "serde_json::Number".to_string(),
                 })?,
             )),
             Value::Int64(i) => Ok(serde_json::Value::Number(i.into())),

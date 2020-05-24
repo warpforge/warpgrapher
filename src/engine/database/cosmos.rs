@@ -1,19 +1,34 @@
+//! Provides database interface types and functions for Cosmos DB
+
 use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction};
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
-use crate::{Error, ErrorKind};
-#[cfg(feature = "cosmos")]
-// use gremlin_client::process::traversal::traversal;
-#[cfg(feature = "cosmos")]
+use crate::Error;
 use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, ToGValue};
 use juniper::FieldError;
 use log::trace;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 
+/// A Cosmos DB endpoint collects the information necessary to generate a connection string and
+/// build a database connection pool.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use warpgrapher::Error;
+/// use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let ce = CosmosEndpoint::from_env()?;
+/// Ok(())
+/// # }
+/// ```
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CosmosEndpoint {
     host: String,
     port: u16,
@@ -22,6 +37,39 @@ pub struct CosmosEndpoint {
 }
 
 impl CosmosEndpoint {
+    /// Reads a set of environment variables to construct a [`CosmosEndpoint`]. The environment
+    /// variables are:actix
+    ///
+    /// * WG_COSMOS_HOST - the hostname for the Cosmos DB. For example,
+    /// *my-db*.gremlin.cosmos.azure.com
+    /// * WG_COSMOS_PORT - the port number for the Cosmos DB. For example, 443
+    /// * WG_COSMOS_LOGIN - the database and collection of the Cosmos DB. For example,
+    /// /dbs/*my-db-name*/colls/*my-collection-name*
+    /// * WG_COSMOS_PASS - the read/write key for the Cosmos DB.
+    ///
+    /// [`CosmosEndpoint`]: ./struct.CosmosEndpoint.html
+    ///
+    /// # Errors
+    ///
+    ///
+    /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
+    /// * [`EnvironmentVariableParseError`] - if an environment variable has the wrong type,
+    /// typically meaning that the WG_COSMOS_PORT variable cannot be parsed from a strign into an
+    /// integer
+    ///
+    /// [`EnvironmentVariableNotFound`]: ../../enum.ErrorKind.html
+    /// [`EnvironmentVariableParseError`]: ../../enum.ErrorKind.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let ce = CosmosEndpoint::from_env()?;
+    /// Ok(())
+    /// # }
+    /// ```
     pub fn from_env() -> Result<CosmosEndpoint, Error> {
         Ok(CosmosEndpoint {
             host: env_string("WG_COSMOS_HOST")?,
@@ -34,29 +82,26 @@ impl CosmosEndpoint {
 
 impl DatabaseEndpoint for CosmosEndpoint {
     fn pool(&self) -> Result<DatabasePool, Error> {
-        Ok(DatabasePool::Cosmos(
-            GremlinClient::connect(
-                ConnectionOptions::builder()
-                    .host(&self.host)
-                    .port(self.port)
-                    .pool_size(num_cpus::get().try_into().unwrap_or(8))
-                    .ssl(true)
-                    .serializer(GraphSON::V1)
-                    .deserializer(GraphSON::V1)
-                    .credentials(&self.login, &self.pass)
-                    .build(),
-            )
-            .map_err(|e| Error::new(ErrorKind::CouldNotBuildCosmosPool(e), None))?,
-        ))
+        Ok(DatabasePool::Cosmos(GremlinClient::connect(
+            ConnectionOptions::builder()
+                .host(&self.host)
+                .port(self.port)
+                .pool_size(num_cpus::get().try_into().unwrap_or(8))
+                .ssl(true)
+                .serializer(GraphSON::V1)
+                .deserializer(GraphSON::V1)
+                .credentials(&self.login, &self.pass)
+                .build(),
+        )?))
     }
 }
 
-pub(crate) struct CosmosTransaction {
+pub struct CosmosTransaction {
     client: GremlinClient,
 }
 
 impl CosmosTransaction {
-    pub(crate) fn new(client: GremlinClient) -> CosmosTransaction {
+    pub fn new(client: GremlinClient) -> CosmosTransaction {
         CosmosTransaction { client }
     }
 }
@@ -147,21 +192,16 @@ impl Transaction for CosmosTransaction {
                             check_query.push_str(&(String::from(", '") + &id_str + "'"));
                         }
                     } else {
-                        return Err(Error::new(
-                            ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                            None,
-                        )
-                        .into());
+                        return Err(Error::TypeNotExpected.into());
                     }
                 }
                 check_query.push_str(&(String::from(").outE('") + rel_name + "').count()"));
                 let check_results =
                     self.exec(&check_query, partition_key_opt, Some(props.clone()))?; // TODO -- remove cloning
                 if check_results.count()? > 0 || dst_id_vec.len() > 1 {
-                    return Err(Error::new(
-                        ErrorKind::RelAlreadyExists(rel_name.to_string()),
-                        None,
-                    )
+                    return Err(Error::RelDuplicated {
+                        rel_name: rel_name.to_string(),
+                    }
                     .into()); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
                 }
             }
@@ -179,11 +219,7 @@ impl Transaction for CosmosTransaction {
                         query.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -201,11 +237,7 @@ impl Transaction for CosmosTransaction {
                         query.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -226,11 +258,7 @@ impl Transaction for CosmosTransaction {
 
             self.exec(&query, partition_key_opt, Some(props))
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected ID array".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 
@@ -254,11 +282,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -270,11 +294,7 @@ impl Transaction for CosmosTransaction {
             v.push(GValue::Int32(length as i32));
             Ok(CosmosQueryResult::new(v))
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected ID array".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 
@@ -299,11 +319,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -315,11 +331,7 @@ impl Transaction for CosmosTransaction {
             v.push(GValue::Int32(length as i32));
             Ok(CosmosQueryResult::new(v))
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected ID array".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 
@@ -354,7 +366,7 @@ impl Transaction for CosmosTransaction {
 
             Ok(CosmosQueryResult::new(v))
         } else {
-            Err(Error::new(ErrorKind::MissingPartitionKey, None).into())
+            Err(Error::PartitionKeyRequired.into())
         }
     }
 
@@ -478,11 +490,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -534,11 +542,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
 
@@ -572,11 +576,7 @@ impl Transaction for CosmosTransaction {
 
             self.exec(&qs, partition_key_opt, Some(params))
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected ID array".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 
@@ -603,11 +603,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidType("Expected IDs to be strings".to_string()),
-                        None,
-                    )
-                    .into());
+                    return Err(Error::TypeNotExpected.into());
                 }
             }
             qs.push_str(")");
@@ -622,15 +618,33 @@ impl Transaction for CosmosTransaction {
 
             self.exec(&qs, partition_key_opt, Some(props))
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected ID array.".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 }
 
+/// Results of a query made to a Cosmod DB back-end
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use std::collections::HashMap;
+/// use warpgrapher::FieldError;
+/// use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool, Transaction, QueryResult};
+/// use warpgrapher::engine::database::cosmos::{CosmosEndpoint, CosmosQueryResult,
+///     CosmosTransaction};
+///
+/// # fn main() -> Result<(), FieldError> {
+/// let ce = CosmosEndpoint::from_env()?;
+/// let pool = ce.pool()?;
+/// if let DatabasePool::Cosmos(c) = pool {
+///        let mut transaction = CosmosTransaction::new(c.clone());
+///        let result = transaction.create_node("Project", &Some("1234".to_string()),
+///             HashMap::new())?;
+/// }
+/// Ok(())
+/// # }
+/// ```
 #[derive(Debug)]
 pub struct CosmosQueryResult {
     results: Vec<GValue>,
@@ -667,9 +681,7 @@ impl QueryResult for CosmosQueryResult {
                     if let GKey::String(s) = k {
                         hm.insert(s, v);
                     } else {
-                        return Err(
-                            Error::new(ErrorKind::InvalidType(format!("{:#?}", k)), None).into(),
-                        );
+                        return Err(Error::TypeNotExpected.into());
                     }
                 }
 
@@ -692,13 +704,8 @@ impl QueryResult for CosmosQueryResult {
                                     plist
                                         .into_iter()
                                         .next()
-                                        .ok_or_else(|| {
-                                            Error::new(
-                                                ErrorKind::MissingResultElement(
-                                                    "Vertex Property".to_string(),
-                                                ),
-                                                None,
-                                            )
+                                        .ok_or_else(|| Error::ResponseItemNotFound {
+                                            name: k.to_string(),
                                         })?
                                         .try_into()?,
                                 );
@@ -710,22 +717,16 @@ impl QueryResult for CosmosQueryResult {
                                 fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidType("Result Set".to_string()),
-                                None,
-                            )
-                            .into());
+                            return Err(Error::TypeNotExpected.into());
                         }
                     }
 
                     v.push(Node::new(label.to_owned(), fields))
                 } else {
-                    return Err(
-                        Error::new(ErrorKind::InvalidType("Result".to_string()), None).into(),
-                    );
+                    return Err(Error::TypeNotExpected.into());
                 }
             } else {
-                return Err(Error::new(ErrorKind::InvalidType("Result".to_string()), None).into());
+                return Err(Error::TypeNotExpected.into());
             }
         }
 
@@ -763,9 +764,7 @@ impl QueryResult for CosmosQueryResult {
                     if let GKey::String(s) = k {
                         hm.insert(s, v);
                     } else {
-                        return Err(
-                            Error::new(ErrorKind::InvalidType(format!("{:#?}", k)), None).into(),
-                        );
+                        return Err(Error::TypeNotExpected.into());
                     }
                 }
 
@@ -803,13 +802,8 @@ impl QueryResult for CosmosQueryResult {
                                     plist
                                         .into_iter()
                                         .next()
-                                        .ok_or_else(|| {
-                                            Error::new(
-                                                ErrorKind::MissingResultElement(
-                                                    "Vertex Property".to_string(),
-                                                ),
-                                                None,
-                                            )
+                                        .ok_or_else(|| Error::ResponseItemNotFound {
+                                            name: k.to_owned(),
                                         })?
                                         .try_into()?,
                                 );
@@ -821,11 +815,7 @@ impl QueryResult for CosmosQueryResult {
                                 src_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidType("Result Set".to_string()),
-                                None,
-                            )
-                            .into());
+                            return Err(Error::TypeNotExpected.into());
                         }
                     }
 
@@ -842,13 +832,8 @@ impl QueryResult for CosmosQueryResult {
                                     plist
                                         .into_iter()
                                         .next()
-                                        .ok_or_else(|| {
-                                            Error::new(
-                                                ErrorKind::MissingResultElement(
-                                                    "Vertex Property".to_string(),
-                                                ),
-                                                None,
-                                            )
+                                        .ok_or_else(|| Error::ResponseItemNotFound {
+                                            name: k.to_string(),
                                         })?
                                         .try_into()?,
                                 );
@@ -860,11 +845,7 @@ impl QueryResult for CosmosQueryResult {
                                 dst_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidType("Result Set".to_string()),
-                                None,
-                            )
-                            .into());
+                            return Err(Error::TypeNotExpected.into());
                         }
                     }
 
@@ -874,11 +855,7 @@ impl QueryResult for CosmosQueryResult {
                         if let GKey::String(k) = key {
                             rel_fields.insert(k.to_owned(), v.try_into()?);
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::InvalidType(format!("{:#?}", key)),
-                                None,
-                            )
-                            .into());
+                            return Err(Error::TypeNotExpected.into());
                         }
                     }
 
@@ -894,16 +871,13 @@ impl QueryResult for CosmosQueryResult {
                         Node::new(dst_label, dst_fields),
                     ));
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::MissingResultElement("Rel, src, or dst".to_string()),
-                        None,
-                    )
+                    return Err(Error::ResponseItemNotFound {
+                        name: "Rel, src, or dst".to_string(),
+                    }
                     .into());
                 }
             } else {
-                return Err(
-                    Error::new(ErrorKind::InvalidType(format!("{:#?}", result)), None).into(),
-                );
+                return Err(Error::TypeNotExpected.into());
             }
         }
 
@@ -927,16 +901,13 @@ impl QueryResult for CosmosQueryResult {
                 } else if let Some(GValue::String(id)) = map.get("rID") {
                     v.push(Value::String(id.to_string()));
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::MissingResultElement("ID".to_string()),
-                        None,
-                    )
+                    return Err(Error::ResponseItemNotFound {
+                        name: "ID".to_string(),
+                    }
                     .into());
                 }
             } else {
-                return Err(
-                    Error::new(ErrorKind::InvalidType(format!("{:#?}", result)), None).into(),
-                );
+                return Err(Error::TypeNotExpected.into());
             }
         }
         Ok(Value::Array(v))
@@ -950,11 +921,7 @@ impl QueryResult for CosmosQueryResult {
         } else if let Some(GValue::Int64(i)) = self.results.get(0) {
             Ok(*i as i32)
         } else {
-            Err(Error::new(
-                ErrorKind::InvalidType("Expected int64 for count".to_string()),
-                None,
-            )
-            .into())
+            Err(Error::TypeNotExpected.into())
         }
     }
 
@@ -969,5 +936,21 @@ impl QueryResult for CosmosQueryResult {
             self.results
         );
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CosmosEndpoint;
+    #[test]
+    fn test_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<CosmosEndpoint>();
+    }
+
+    #[test]
+    fn test_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<CosmosEndpoint>();
     }
 }
