@@ -77,6 +77,7 @@ where
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
     /// let mut client = Client::<(), ()>::new_with_local(engine);
+    /// # Ok(())
     /// # }
     /// ```
     pub fn new_with_local(engine: Engine<GlobalCtx, ReqCtx>) -> Client<GlobalCtx, ReqCtx> {
