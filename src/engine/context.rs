@@ -99,8 +99,16 @@ where
 {
 }
 
-pub trait RequestContext: Clone + Debug + Send + Sync {
+pub trait GlobalContext: 'static + Clone + Debug + Send + Sync {}
+
+impl GlobalContext for () {}
+
+pub trait RequestContext: 'static + Clone + Debug + Send + Sync {
     fn new() -> Self;
+}
+
+impl RequestContext for () {
+    fn new() {}
 }
 
 #[cfg(test)]

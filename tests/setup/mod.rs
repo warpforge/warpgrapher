@@ -5,6 +5,7 @@ use extension::MetadataExtension;
 use extension::{Metadata, MetadataExtensionCtx};
 #[cfg(feature = "cosmos")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::trace;
 #[cfg(feature = "neo4j")]
 use rusted_cypher::GraphClient;
@@ -17,7 +18,7 @@ use std::io::BufReader;
 use std::sync::Arc;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::config::Validators;
-use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::context::{GlobalContext, RequestContext};
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::cosmos::CosmosEndpoint;
 #[cfg(feature = "neo4j")]
@@ -249,6 +250,8 @@ pub(crate) fn clear_db() {
 pub struct AppGlobalCtx {
     version: String,
 }
+
+impl GlobalContext for AppGlobalCtx {}
 
 #[derive(Clone, Debug)]
 pub struct AppRequestCtx {

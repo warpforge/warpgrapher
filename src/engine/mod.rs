@@ -23,10 +23,6 @@ pub mod objects;
 pub mod schema;
 pub mod value;
 
-impl RequestContext for () {
-    fn new() {}
-}
-
 #[derive(Clone)]
 pub struct EngineBuilder<GlobalCtx = (), ReqCtx = ()>
 where

@@ -1,12 +1,11 @@
 //! This module provides the Warpgrapher client.
 
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::{Engine, Error, GraphQLRequest};
 use inflector::Inflector;
 use log::{debug, trace};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
-use std::fmt::Debug;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -23,10 +22,10 @@ use std::fmt::Debug;
 /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
 /// ```
 #[derive(Clone)]
-pub enum Client<GlobalCtx, ReqCtx>
+pub enum Client<GlobalCtx = (), ReqCtx = ()>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: RequestContext,
 {
     Http {
         endpoint: String,
@@ -38,8 +37,8 @@ where
 
 impl<GlobalCtx, ReqCtx> Client<GlobalCtx, ReqCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: RequestContext,
 {
     /// Takes the URL of a Warpgrapher service endpoint and returns a new ['Client'] initialized to
     /// query that endpoint.
@@ -55,7 +54,7 @@ where
     /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     /// ```
     pub fn new_with_http(endpoint: &str) -> Client<GlobalCtx, ReqCtx> {
-        trace!("Client::<(), ()>::new called -- endpoint: {}", endpoint);
+        trace!("Client::new_with_http called -- endpoint: {}", endpoint);
         Client::Http {
             endpoint: endpoint.to_string(),
         }
@@ -80,6 +79,7 @@ where
     /// let mut client = Client::<(), ()>::new_with_local(engine);
     /// ```
     pub fn new_with_local(engine: Engine<GlobalCtx, ReqCtx>) -> Client<GlobalCtx, ReqCtx> {
+        trace!("Client::new_with_local called");
         Client::Local {
             engine: Box::new(engine),
         }
@@ -126,7 +126,6 @@ where
     ///         "Project").await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn graphql(
         &mut self,
         query: &str,
@@ -221,7 +220,6 @@ where
     ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn create_node(
         &mut self,
         type_name: &str,
@@ -297,7 +295,6 @@ where
     ///     ).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn create_rel(
         &mut self,
         type_name: &str,
@@ -370,7 +367,6 @@ where
     ///         Some(&json!({"name": "MJOLNIR"})), None).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn delete_node(
         &mut self,
         type_name: &str,
@@ -449,7 +445,6 @@ where
     ///     ).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn delete_rel(
         &mut self,
         type_name: &str,
@@ -536,7 +531,6 @@ where
     /// }
     /// ```
     ///
-    #[allow(clippy::needless_doctest_main)]
     pub async fn read_node(
         &mut self,
         type_name: &str,
@@ -602,7 +596,6 @@ where
     ///         Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn read_rel(
         &mut self,
         type_name: &str,
@@ -672,7 +665,6 @@ where
     ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn update_node(
         &mut self,
         type_name: &str,
@@ -749,7 +741,6 @@ where
     ///     ).await;
     /// }
     /// ```
-    #[allow(clippy::needless_doctest_main)]
     pub async fn update_rel(
         &mut self,
         type_name: &str,
