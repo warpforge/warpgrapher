@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```rust
-/// use warpgrapher::client::Client;;
+/// # use warpgrapher::client::Client;;
 ///
 /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
 /// ```
@@ -49,7 +49,7 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::client::Client;
+    /// # use warpgrapher::client::Client;
     ///
     /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     /// ```
@@ -67,16 +67,17 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// use warpgrapher::client::Client;
-    /// use warpgrapher::Engine;
-    /// use warpgrapher::engine::config::Config;
-    /// use warpgrapher::engine::database::DatabasePool;
+    /// # use warpgrapher::client::Client;
+    /// # use warpgrapher::Engine;
+    /// # use warpgrapher::engine::config::Config;
+    /// # use warpgrapher::engine::database::DatabasePool;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let c = Config::new(1, Vec::new(), Vec::new());
-    /// let engine = Engine::new(c, DatabasePool::NoDatabase)
-    ///     .build().expect("Could not create warpgrapher engine");
+    /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
     /// let mut client = Client::<(), ()>::new_with_local(engine);
+    /// # }
     /// ```
     pub fn new_with_local(engine: Engine<GlobalCtx, ReqCtx>) -> Client<GlobalCtx, ReqCtx> {
         trace!("Client::new_with_local called");
@@ -115,16 +116,16 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use warpgrapher::client::Client;;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
-    ///     let query = "query { Project { id name } }";
-    ///     let results = client.graphql("query { Project { id name } }", Some("1234"), None,
-    ///         "Project").await;
-    /// }
+    /// let query = "query { Project { id name } }";
+    /// let results = client.graphql("query { Project { id name } }", Some("1234"), None,
+    ///     "Project").await;
+    /// # }
     /// ```
     pub async fn graphql(
         &mut self,
@@ -209,16 +210,16 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.create_node("Project", "id name description", Some("1234"),
-    ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
-    /// }
+    /// let projects = client.create_node("Project", "id name description", Some("1234"),
+    ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
+    /// # }
     /// ```
     pub async fn create_node(
         &mut self,
@@ -278,22 +279,22 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.create_rel("Project",
-    ///         "issues",
-    ///         "id props { since } src { id name } dst { id name }",
-    ///         Some("1234"),
-    ///         &json!({"name": "ProjectName"}),
-    ///         &json!({"props": {"since": "2000"},
-    ///                "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
-    ///     ).await;
-    /// }
+    /// let proj_issues = client.create_rel("Project",
+    ///     "issues",
+    ///     "id props { since } src { id name } dst { id name }",
+    ///     Some("1234"),
+    ///     &json!({"name": "ProjectName"}),
+    ///     &json!({"props": {"since": "2000"},
+    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
+    /// ).await;
+    /// # }
     /// ```
     pub async fn create_rel(
         &mut self,
@@ -356,16 +357,16 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use warpgrapher::client::Client;;
-    /// use serde_json::json;
+    /// # use warpgrapher::client::Client;;
+    /// # use serde_json::json;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.delete_node("Project", Some("1234"),
-    ///         Some(&json!({"name": "MJOLNIR"})), None).await;
-    /// }
+    /// let projects = client.delete_node("Project", Some("1234"),
+    ///     Some(&json!({"name": "MJOLNIR"})), None).await;
+    /// # }
     /// ```
     pub async fn delete_node(
         &mut self,
@@ -430,20 +431,20 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.delete_rel("Project", "issues",
-    ///        Some("1234"),
-    ///        Some(&json!({"props": {"since": "2000"}})),
-    ///        None,
-    ///        Some(&json!({"Bug": {}}))
-    ///     ).await;
-    /// }
+    /// let proj_issues = client.delete_rel("Project", "issues",
+    ///    Some("1234"),
+    ///    Some(&json!({"props": {"since": "2000"}})),
+    ///    None,
+    ///    Some(&json!({"Bug": {}}))
+    /// ).await;
+    /// # }
     /// ```
     pub async fn delete_rel(
         &mut self,
@@ -520,17 +521,16 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// use warpgrapher::client::Client;;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
-    ///     let projects = client.read_node("Project", "id name description", Some("1234"),
-    ///         None).await;
-    /// }
+    /// let projects = client.read_node("Project", "id name description", Some("1234"),
+    ///     None).await;
+    /// # }
     /// ```
-    ///
     pub async fn read_node(
         &mut self,
         type_name: &str,
@@ -585,16 +585,16 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.read_rel("Project", "issues", "id props { since }",
-    ///         Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
-    /// }
+    /// let proj_issues = client.read_rel("Project", "issues", "id props { since }",
+    ///     Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
+    /// # }
     /// ```
     pub async fn read_rel(
         &mut self,
@@ -654,16 +654,16 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
+    /// # #[tokio::main]
+    /// # async fn main() {
     ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let projects = client.update_node("Project", "id name status", Some("1234"),
     ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
-    /// }
+    /// # }
     /// ```
     pub async fn update_node(
         &mut self,
@@ -726,20 +726,20 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use serde_json::json;
-    /// use warpgrapher::client::Client;;
+    /// # use serde_json::json;
+    /// # use warpgrapher::client::Client;;
     ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
-    ///     let proj_issues = client.update_rel("Project", "issues",
-    ///         "id props {since} src {id name} dst {id name}",
-    ///         Some("1234"),
-    ///         Some(&json!({"props": {"since": "2000"}})),
-    ///         &json!({"props": {"since": "2010"}})
-    ///     ).await;
-    /// }
+    /// let proj_issues = client.update_rel("Project", "issues",
+    ///     "id props {since} src {id name} dst {id name}",
+    ///     Some("1234"),
+    ///     Some(&json!({"props": {"since": "2000"}})),
+    ///     &json!({"props": {"since": "2010"}})
+    /// ).await;
+    /// # }
     /// ```
     pub async fn update_rel(
         &mut self,

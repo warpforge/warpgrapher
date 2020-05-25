@@ -23,10 +23,10 @@ use std::fmt::Debug;
 /// use warpgrapher::Error;
 /// use warpgrapher::engine::database::cosmos::CosmosEndpoint;
 ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let ce = CosmosEndpoint::from_env()?;
-/// Ok(())
-/// # }
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let ce = CosmosEndpoint::from_env()?;
+///     Ok(())
+/// }
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CosmosEndpoint {
@@ -51,7 +51,6 @@ impl CosmosEndpoint {
     ///
     /// # Errors
     ///
-    ///
     /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
     /// * [`EnvironmentVariableParseError`] - if an environment variable has the wrong type,
     /// typically meaning that the WG_COSMOS_PORT variable cannot be parsed from a strign into an
@@ -65,10 +64,10 @@ impl CosmosEndpoint {
     /// ```rust,no_run
     /// use warpgrapher::engine::database::cosmos::CosmosEndpoint;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let ce = CosmosEndpoint::from_env()?;
-    /// Ok(())
-    /// # }
+    /// fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let ce = CosmosEndpoint::from_env()?;
+    ///     Ok(())
+    /// }
     /// ```
     pub fn from_env() -> Result<CosmosEndpoint, Error> {
         Ok(CosmosEndpoint {
