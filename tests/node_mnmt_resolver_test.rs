@@ -6,12 +6,9 @@ use serde_json::json;
 use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "cosmos")]
-use setup::server::test_server_cosmos;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "cosmos")]
@@ -20,13 +17,8 @@ async fn create_mnmt_new_nodes_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_mnmt_new_nodes(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -35,18 +27,13 @@ async fn create_mnmt_new_nodes_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_mnmt_new_nodes(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_new_nodes(mut client: Client) {
+async fn create_mnmt_new_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -197,13 +184,9 @@ async fn create_mnmt_existing_nodes_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_mnmt_existing_nodes(client).await;
 
-    assert!(server.shutdown().is_ok());
     println!("create_mnmt_new_nodes::end");
 }
 
@@ -213,18 +196,13 @@ async fn create_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_mnmt_existing_nodes(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_existing_nodes(mut client: Client) {
+async fn create_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let b0 = client
         .create_node(
             "Bug",
@@ -329,13 +307,9 @@ async fn read_mnmt_by_rel_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_mnmt_by_rel_props(client).await;
 
-    assert!(server.shutdown().is_ok());
     println!("create_mnmt_existing_nodes::end");
 }
 
@@ -345,18 +319,13 @@ async fn read_mnmt_by_rel_props_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_mnmt_by_rel_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_rel_props(mut client: Client) {
+async fn read_mnmt_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -421,13 +390,8 @@ async fn read_mnmt_by_dst_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_mnmt_by_dst_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -436,18 +400,13 @@ async fn read_mnmt_by_dst_props_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_mnmt_by_dst_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a destination node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_dst_props(mut client: Client) {
+async fn read_mnmt_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -524,13 +483,8 @@ async fn update_mnmt_new_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_new_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -539,18 +493,13 @@ async fn update_mnmt_new_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_new_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_new_node(mut client: Client) {
+async fn update_mnmt_new_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -621,13 +570,8 @@ async fn update_mnmt_existing_nodes_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_existing_nodes(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -636,18 +580,13 @@ async fn update_mnmt_existing_nodes_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_existing_nodes(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to add a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_existing_nodes(mut client: Client) {
+async fn update_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let b0 = client
         .create_node(
             "Bug",
@@ -730,13 +669,8 @@ async fn update_mnmt_relationship_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -745,18 +679,13 @@ async fn update_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_relationship(mut client: Client) {
+async fn update_mnmt_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -871,13 +800,8 @@ async fn update_only_correct_mnmt_relationship_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_only_correct_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -886,18 +810,13 @@ async fn update_only_correct_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_only_correct_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher only updates the correct matching relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_only_correct_mnmt_relationship(mut client: Client) {
+async fn update_only_correct_mnmt_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     client
         .create_node(
             "Project",
@@ -983,13 +902,8 @@ async fn delete_mnmt_relationship_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -998,18 +912,13 @@ async fn delete_mnmt_relationship_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mnmt_relationship(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can update a node to delete a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_relationship(mut client: Client) {
+async fn delete_mnmt_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -1106,13 +1015,8 @@ async fn delete_node_by_mnmt_rel_property_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_node_by_mnmt_rel_property(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -1121,18 +1025,13 @@ async fn delete_node_by_mnmt_rel_property_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_node_by_mnmt_rel_property(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node based on matching a property on a rel.
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_by_mnmt_rel_property(mut client: Client) {
+async fn delete_node_by_mnmt_rel_property(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -1189,13 +1088,8 @@ async fn delete_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -1204,18 +1098,13 @@ async fn delete_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can delete a node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node(mut client: Client) {
+async fn delete_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     client
         .create_node(
             "Project",

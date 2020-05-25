@@ -1,29 +1,24 @@
-#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 use std::fmt::Debug;
-#[cfg(feature = "neo4j")]
 use std::marker::PhantomData;
-#[cfg(feature = "neo4j")]
 use warpgrapher::engine::context::RequestContext;
-#[cfg(feature = "neo4j")]
 use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
-pub(crate) struct Metadata {
+pub struct Metadata {
     pub(crate) src_ip: String,
     pub(crate) src_useragent: String,
 }
 
 /// Trait that must be implemented by app's request context struct
-pub(crate) trait MetadataExtensionCtx {
+pub trait MetadataExtensionCtx {
     fn set_metadata(&mut self, metadata: Metadata);
 }
 
 /// Extension that adds metadata to request
-#[cfg(feature = "neo4j")]
 #[derive(Clone)]
-pub(crate) struct MetadataExtension<GlobalCtx, ReqCtx>
+pub struct MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
@@ -32,13 +27,13 @@ where
     _rctx: PhantomData<ReqCtx>,
 }
 
-#[cfg(feature = "neo4j")]
 impl<GlobalCtx, ReqCtx> MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext + MetadataExtensionCtx,
 {
-    pub(crate) fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
+    #[allow(dead_code)]
+    pub fn new() -> MetadataExtension<GlobalCtx, ReqCtx> {
         MetadataExtension {
             _gctx: PhantomData,
             _rctx: PhantomData,
@@ -46,7 +41,6 @@ where
     }
 }
 
-#[cfg(feature = "neo4j")]
 impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,

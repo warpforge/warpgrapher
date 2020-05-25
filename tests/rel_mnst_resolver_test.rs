@@ -5,12 +5,9 @@ use serde_json::json;
 use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "cosmos")]
-use setup::server::test_server_cosmos;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "neo4j")]
@@ -19,13 +16,8 @@ async fn create_mnst_new_rel_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_mnst_new_rel(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -34,18 +26,13 @@ async fn create_mnst_new_rel_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_mnst_new_rel(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnst_new_rel(mut client: Client) {
+async fn create_mnst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -132,13 +119,8 @@ async fn create_mnst_rel_existing_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_mnst_rel_existing_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -147,17 +129,12 @@ async fn create_mnst_rel_existing_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_mnst_rel_existing_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnst_rel_existing_node(mut client: Client) {
+async fn create_mnst_rel_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -269,13 +246,8 @@ async fn read_mnst_rel_by_rel_props_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_rel_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -284,17 +256,12 @@ async fn read_mnst_rel_by_rel_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_rel_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_rel_by_rel_props(mut client: Client) {
+async fn read_mnst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -352,13 +319,8 @@ async fn read_mnst_rel_by_src_props_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_src_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -367,17 +329,12 @@ async fn read_mnst_rel_by_src_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_src_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_rel_by_src_props(mut client: Client) {
+async fn read_mnst_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -441,13 +398,8 @@ async fn read_mnst_rel_by_dst_props_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_dst_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -456,17 +408,12 @@ async fn read_mnst_rel_by_dst_props_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_mnst_rel_by_dst_props(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_rel_by_dst_props(mut client: Client) {
+async fn read_mnst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -524,13 +471,8 @@ async fn update_mnst_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_rel_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -539,17 +481,12 @@ async fn update_mnst_rel_by_rel_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_rel_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_rel_by_rel_prop(mut client: Client) {
+async fn update_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -650,13 +587,8 @@ async fn update_mnst_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_src_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -665,17 +597,12 @@ async fn update_mnst_rel_by_src_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_src_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_rel_by_src_prop(mut client: Client) {
+async fn update_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -743,13 +670,8 @@ async fn update_mnst_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_dst_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -758,17 +680,12 @@ async fn update_mnst_rel_by_dst_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mnst_rel_by_dst_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_rel_by_dst_prop(mut client: Client) {
+async fn update_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -869,13 +786,8 @@ async fn delete_mnst_rel_by_rel_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_rel_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -884,17 +796,12 @@ async fn delete_mnst_rel_by_rel_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_rel_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnst_rel_by_rel_prop(mut client: Client) {
+async fn delete_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -972,13 +879,8 @@ async fn delete_mnst_rel_by_dst_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_dst_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -987,17 +889,12 @@ async fn delete_mnst_rel_by_dst_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_dst_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnst_rel_by_dst_prop(mut client: Client) {
+async fn delete_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -1075,13 +972,8 @@ async fn delete_mnst_rel_by_src_prop_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_src_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -1090,17 +982,12 @@ async fn delete_mnst_rel_by_src_prop_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mnst_rel_by_src_prop(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnst_rel_by_src_prop(mut client: Client) {
+async fn delete_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",

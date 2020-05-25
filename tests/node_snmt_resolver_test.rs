@@ -6,12 +6,9 @@ use serde_json::json;
 use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "cosmos")]
-use setup::server::test_server_cosmos;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "neo4j")]
@@ -20,13 +17,8 @@ async fn create_node_with_rel_to_new_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_node_with_rel_to_new(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -35,18 +27,13 @@ async fn create_node_with_rel_to_new_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_node_with_rel_to_new(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if a node is created with an SNMT rel to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_new(mut client: Client) {
+async fn create_node_with_rel_to_new(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     // create new Project with rel to new KanbanBoard
     let results0 = client
         .create_node(
@@ -155,13 +142,8 @@ async fn create_node_with_rel_to_existing_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_node_with_rel_to_existing(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -170,18 +152,13 @@ async fn create_node_with_rel_to_existing_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_node_with_rel_to_existing(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if a node is created with an SNMT rel to existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_existing(mut client: Client) {
+async fn create_node_with_rel_to_existing(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     // create new ScrumBoard
     let results0 = client
         .create_node(
@@ -277,13 +254,8 @@ async fn read_multiple_nodes_with_multiple_rels_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_multiple_nodes_with_multiple_rels(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -292,19 +264,14 @@ async fn read_multiple_nodes_with_multiple_rels_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_multiple_nodes_with_multiple_rels(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if multiple nodes with multiple rels are read and
 /// the relationships associate correctly
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_multiple_nodes_with_multiple_rels(mut client: Client) {
+async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     // create multiple nodes with multiple rels
     let results0 = client
         .create_node(
@@ -443,13 +410,8 @@ async fn read_node_with_matching_props_on_rel_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_node_with_matching_props_on_rel(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -458,18 +420,13 @@ async fn read_node_with_matching_props_on_rel_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_node_with_matching_props_on_rel(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if nodes matching props on a relationship are returned
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel(mut client: Client) {
+async fn read_node_with_matching_props_on_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     // create nodes with rel with props
     let results0 = client
         .create_node(
@@ -610,13 +567,8 @@ async fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_node_with_matching_props_on_rel_dst_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -625,19 +577,16 @@ async fn read_node_with_matching_props_on_rel_dst_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_node_with_matching_props_on_rel_dst_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if it returns nodes with relationship dst nodes
 /// with matching props
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client) {
+async fn read_node_with_matching_props_on_rel_dst_node(
+    mut client: Client<AppGlobalCtx, AppRequestCtx>,
+) {
     // create nodes with rel with props
     let _results0 = client
         .create_node(
@@ -737,13 +686,8 @@ async fn update_existing_node_with_rel_to_new_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_existing_node_with_rel_to_new_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -752,17 +696,14 @@ async fn update_existing_node_with_rel_to_new_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_existing_node_with_rel_to_new_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_new_node(mut client: Client) {
+async fn update_existing_node_with_rel_to_new_node(
+    mut client: Client<AppGlobalCtx, AppRequestCtx>,
+) {
     // create project node
     let _results0 = client
         .create_node(
@@ -861,13 +802,8 @@ async fn update_existing_node_with_rel_to_existing_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_existing_node_with_rel_to_existing_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -876,17 +812,14 @@ async fn update_existing_node_with_rel_to_existing_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_existing_node_with_rel_to_existing_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_existing_node(mut client: Client) {
+async fn update_existing_node_with_rel_to_existing_node(
+    mut client: Client<AppGlobalCtx, AppRequestCtx>,
+) {
     // create project node
     let _results0 = client
         .create_node(
@@ -984,13 +917,8 @@ async fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_node_with_matching_props_on_rel_dst_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -999,17 +927,14 @@ async fn delete_node_with_matching_props_on_rel_dst_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_node_with_matching_props_on_rel_dst_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client) {
+async fn delete_node_with_matching_props_on_rel_dst_node(
+    mut client: Client<AppGlobalCtx, AppRequestCtx>,
+) {
     // create project nodes
     let _results0 = client
         .create_node(
@@ -1069,13 +994,8 @@ async fn delete_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -1084,17 +1004,12 @@ async fn delete_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node(mut client: Client) {
+async fn delete_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     // create project nodes
     let _results0 = client
         .create_node(

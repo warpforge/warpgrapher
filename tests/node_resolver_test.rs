@@ -10,12 +10,9 @@ use setup::cosmos_test_client;
 use setup::neo4j_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_url;
-#[cfg(feature = "cosmos")]
-use setup::server::test_server_cosmos;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 /// Passes if the create mutation and the read query both succeed.
@@ -25,13 +22,8 @@ async fn create_single_node_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     create_single_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
@@ -41,18 +33,13 @@ async fn create_single_node_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     create_single_node(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn create_single_node(mut client: Client) {
+async fn create_single_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -104,13 +91,8 @@ async fn read_query_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     read_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -119,18 +101,13 @@ async fn read_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     read_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn read_query(mut client: Client) {
+async fn read_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -180,13 +157,8 @@ async fn handle_missing_properties_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     handle_missing_properties(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -195,19 +167,14 @@ async fn handle_missing_properties_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     handle_missing_properties(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
 #[allow(dead_code)]
-async fn handle_missing_properties(mut client: Client) {
+async fn handle_missing_properties(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -248,13 +215,8 @@ async fn update_mutation_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mutation(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -263,18 +225,13 @@ async fn update_mutation_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mutation(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn update_mutation(mut client: Client) {
+async fn update_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -354,13 +311,8 @@ async fn update_mutation_null_query_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     update_mutation_null_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -369,18 +321,13 @@ async fn update_mutation_null_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     update_mutation_null_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mutation_null_query(mut client: Client) {
+async fn update_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -453,13 +400,8 @@ async fn delete_mutation_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mutation(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -468,18 +410,13 @@ async fn delete_mutation_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mutation(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn delete_mutation(mut client: Client) {
+async fn delete_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -547,13 +484,8 @@ async fn delete_mutation_null_query_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     delete_mutation_null_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "cosmos")]
@@ -562,18 +494,13 @@ async fn delete_mutation_null_query_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
     delete_mutation_null_query(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mutation_null_query(mut client: Client) {
+async fn delete_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -644,20 +571,15 @@ async fn error_on_node_missing_id_neo4j() {
         .exec("CREATE (n:Project { name: 'Project One' })")
         .unwrap();
 
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
     error_on_node_missing_id(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if creating a node manually without an id throws an error upon access
 /// to that node.  There is no GraphSON variant of this test, because GraphSON
 /// data stores automatically assign a UUID id.
 #[allow(dead_code)]
-async fn error_on_node_missing_id(mut client: Client) {
+async fn error_on_node_missing_id(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let projects = client
         .read_node(
             "Project",

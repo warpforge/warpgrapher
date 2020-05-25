@@ -1,11 +1,12 @@
 //! This module provides the Warpgrapher client.
 
-use crate::Error;
+use crate::engine::context::RequestContext;
+use crate::{Engine, Error, GraphQLRequest};
 use inflector::Inflector;
 use log::{debug, trace};
-use serde_json::{json, Value};
-use std::collections::BTreeMap;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use serde_json::{from_value, json, Value};
+use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -19,14 +20,27 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 /// ```rust
 /// use warpgrapher::client::Client;;
 ///
-/// let mut client = Client::new("http://localhost:5000/graphql");
+/// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
 /// ```
-#[derive(Clone, Hash, Debug, Default)]
-pub struct Client {
-    endpoint: String,
+#[derive(Clone)]
+pub enum Client<GlobalCtx, ReqCtx>
+where
+    GlobalCtx: 'static + Clone + Sync + Send + Debug,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+{
+    Http {
+        endpoint: String,
+    },
+    Local {
+        engine: Box<Engine<GlobalCtx, ReqCtx>>,
+    },
 }
 
-impl Client {
+impl<GlobalCtx, ReqCtx> Client<GlobalCtx, ReqCtx>
+where
+    GlobalCtx: 'static + Clone + Sync + Send + Debug,
+    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+{
     /// Takes the URL of a Warpgrapher service endpoint and returns a new ['Client'] initialized to
     /// query that endpoint.
     ///
@@ -38,12 +52,36 @@ impl Client {
     /// ```rust
     /// use warpgrapher::client::Client;
     ///
-    /// let mut client = Client::new("http://localhost:5000/graphql");
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     /// ```
-    pub fn new(endpoint: &str) -> Client {
-        trace!("Client::new called -- endpoint: {}", endpoint);
-        Client {
+    pub fn new_with_http(endpoint: &str) -> Client<GlobalCtx, ReqCtx> {
+        trace!("Client::<(), ()>::new called -- endpoint: {}", endpoint);
+        Client::Http {
             endpoint: endpoint.to_string(),
+        }
+    }
+
+    /// Takes a Warpgrapher engine and returns a new ['Client'] initialized to query that engine
+    ///
+    /// [`Client`]: ./struct.Client.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use warpgrapher::client::Client;
+    /// use warpgrapher::Engine;
+    /// use warpgrapher::engine::config::Config;
+    /// use warpgrapher::engine::database::DatabasePool;
+    ///
+    /// let c = Config::new(1, Vec::new(), Vec::new());
+    /// let engine = Engine::new(c, DatabasePool::NoDatabase)
+    ///     .build().expect("Could not create warpgrapher engine");
+    ///
+    /// let mut client = Client::<(), ()>::new_with_local(engine);
+    /// ```
+    pub fn new_with_local(engine: Engine<GlobalCtx, ReqCtx>) -> Client<GlobalCtx, ReqCtx> {
+        Client::Local {
+            engine: Box::new(engine),
         }
     }
 
@@ -81,7 +119,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let query = "query { Project { id name } }";
     ///     let results = client.graphql("query { Project { id name } }", Some("1234"), None,
@@ -113,25 +151,22 @@ impl Client {
             }
         });
 
-        // send request
-        let client = reqwest::Client::new();
-        debug!(
-            "Client::graphql posting request -- endpoint: {} | req_body: {}",
-            self.endpoint, req_body
-        );
-        let raw_resp = client
-            .post(self.endpoint.as_str())
-            .json(&req_body)
-            .send()
-            .await;
-        debug!(
-            "Client::graphql receiving response -- response: {:#?}",
-            raw_resp
-        );
-        let resp = raw_resp?;
-
-        // parse result
-        let mut body = resp.json::<serde_json::Value>().await?;
+        debug!("Client::graphql making request -- req_body: {}", req_body);
+        let mut body = match self {
+            Client::Http { endpoint } => {
+                let client = reqwest::Client::new();
+                let response = client
+                    .post(endpoint.as_str())
+                    .json(&req_body)
+                    .send()
+                    .await?;
+                response.json::<serde_json::Value>().await?
+            }
+            Client::Local { engine } => {
+                let metadata: HashMap<String, String> = HashMap::new();
+                engine.execute(from_value::<GraphQLRequest>(req_body)?, metadata)?
+            }
+        };
         debug!("Client::graphql -- response body: {:#?}", body);
 
         body.as_object_mut()
@@ -180,7 +215,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let projects = client.create_node("Project", "id name description", Some("1234"),
     ///         &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
@@ -202,7 +237,7 @@ impl Client {
             input
         );
 
-        let query = Client::fmt_create_node_query(type_name, shape);
+        let query = Client::<(), ()>::fmt_create_node_query(type_name, shape);
         let result_field = type_name.to_string() + "Create";
         self.graphql(&query, partition_key, Some(input), &result_field)
             .await
@@ -250,7 +285,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.create_rel("Project",
     ///         "issues",
@@ -282,7 +317,7 @@ impl Client {
             create_input
         );
 
-        let query = Client::fmt_create_rel_query(type_name, rel_name, shape);
+        let query = Client::<(), ()>::fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         let result_field = type_name.to_string() + &rel_name.to_title_case() + "Create";
         self.graphql(&query, partition_key, Some(&input), &result_field)
@@ -329,7 +364,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let projects = client.delete_node("Project", Some("1234"),
     ///         Some(&json!({"name": "MJOLNIR"})), None).await;
@@ -351,7 +386,7 @@ impl Client {
             delete_input
         );
 
-        let query = Client::fmt_delete_node_query(type_name);
+        let query = Client::<(), ()>::fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         let result_field = type_name.to_string() + "Delete";
         self.graphql(&query, partition_key, Some(&input), &result_field)
@@ -404,7 +439,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.delete_rel("Project", "issues",
     ///        Some("1234"),
@@ -434,8 +469,8 @@ impl Client {
             dst_input
         );
 
-        let query = Client::fmt_delete_rel_query(type_name, rel_name);
-        let mut m = BTreeMap::new();
+        let query = Client::<(), ()>::fmt_delete_rel_query(type_name, rel_name);
+        let mut m = HashMap::new();
         if let Some(mi) = match_input {
             m.insert("match".to_string(), mi);
         }
@@ -494,7 +529,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let projects = client.read_node("Project", "id name description", Some("1234"),
     ///         None).await;
@@ -517,7 +552,7 @@ impl Client {
             input,
         );
 
-        let query = Client::fmt_read_node_query(type_name, shape);
+        let query = Client::<(), ()>::fmt_read_node_query(type_name, shape);
         self.graphql(&query, partition_key, input, type_name).await
     }
 
@@ -561,7 +596,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.read_rel("Project", "issues", "id props { since }",
     ///         Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
@@ -585,7 +620,7 @@ impl Client {
             input,
         );
 
-        let query = Client::fmt_read_rel_query(type_name, rel_name, shape);
+        let query = Client::<(), ()>::fmt_read_rel_query(type_name, rel_name, shape);
         let result_field = type_name.to_string() + &rel_name.to_title_case();
         self.graphql(&query, partition_key, input, &result_field)
             .await
@@ -631,7 +666,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     ///
     ///     let projects = client.update_node("Project", "id name status", Some("1234"),
     ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
@@ -655,7 +690,7 @@ impl Client {
             update_input
         );
 
-        let query = Client::fmt_update_node_query(type_name, shape);
+        let query = Client::<(), ()>::fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         let result_field = type_name.to_string() + "Update";
         self.graphql(&query, partition_key, Some(&input), &result_field)
@@ -704,7 +739,7 @@ impl Client {
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let mut client = Client::new("http:://localhost:5000/graphql");
+    ///     let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql");
     ///
     ///     let proj_issues = client.update_rel("Project", "issues",
     ///         "id props {since} src {id name} dst {id name}",
@@ -734,7 +769,7 @@ impl Client {
             update_input
         );
 
-        let query = Client::fmt_update_rel_query(type_name, rel_name, shape);
+        let query = Client::<(), ()>::fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         let result_field = type_name.to_string() + &rel_name.to_title_case() + "Update";
         self.graphql(&query, partition_key, Some(&input), &result_field)
@@ -824,12 +859,6 @@ impl Client {
     }
 }
 
-impl Display for Client {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", self.endpoint)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::Client;
@@ -837,15 +866,19 @@ mod tests {
     /// Passes if a new client is created with the endpoint passed into the constructor
     #[test]
     fn new() {
-        let endpoint = "http://localhost:5000/graphql";
-        let client = Client::new(&endpoint);
-        assert_eq!(client.endpoint, endpoint);
+        let ep = "http://localhost:5000/graphql";
+        let client = Client::<(), ()>::new_with_http(ep);
+        if let Client::Http { endpoint } = client {
+            assert_eq!(ep, endpoint);
+        } else {
+            unreachable!()
+        }
     }
 
     /// Passes if a client formats a read node query correctly
     #[test]
     fn fmt_read_node_query() {
-        let actual = Client::fmt_read_node_query("Project", "id");
+        let actual = Client::<(), ()>::fmt_read_node_query("Project", "id");
         let expected = r#"query Read($partitionKey: String, $input: ProjectQueryInput) { 
                 Project(partitionKey: $partitionKey, input: $input) { id }
             }"#;
@@ -855,7 +888,7 @@ mod tests {
     /// Passes if a client formats a create node query correctly
     #[test]
     fn fmt_create_node_query() {
-        let actual = Client::fmt_create_node_query("Project", "id");
+        let actual = Client::<(), ()>::fmt_create_node_query("Project", "id");
         let expected = r#"mutation Create($partitionKey: String, $input: ProjectCreateMutationInput!) { 
                 ProjectCreate(partitionKey: $partitionKey, input: $input) { id }
             }"#;
@@ -866,13 +899,13 @@ mod tests {
     #[test]
     fn test_send() {
         fn assert_send<T: Send>() {}
-        assert_send::<Client>();
+        assert_send::<Client<(), ()>>();
     }
 
     /// Passes if Client implements the Sync trait
     #[test]
     fn test_sync() {
         fn assert_sync<T: Sync>() {}
-        assert_sync::<Client>();
+        assert_sync::<Client<(), ()>>();
     }
 }

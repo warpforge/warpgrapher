@@ -3,8 +3,6 @@ mod setup;
 #[cfg(feature = "neo4j")]
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
-#[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client};
 
 #[cfg(feature = "neo4j")]
@@ -12,9 +10,7 @@ use setup::{clear_db, init, neo4j_test_client};
 async fn client_node_crud() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml");
 
     let p0 = client
         .create_node(
@@ -89,8 +85,6 @@ async fn client_node_crud() {
     assert!(d_projects.is_array());
     let d_projects_a = d_projects.as_array().unwrap();
     assert_eq!(d_projects_a.len(), 0);
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -98,9 +92,7 @@ async fn client_node_crud() {
 async fn client_rel_crud() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml");
 
     client
         .create_node(
@@ -203,6 +195,4 @@ async fn client_rel_crud() {
     assert!(d_rels.is_array());
     let d_rels_a = d_rels.as_array().unwrap();
     assert_eq!(d_rels_a.len(), 0);
-
-    assert!(server.shutdown().is_ok());
 }

@@ -5,12 +5,9 @@ use serde_json::json;
 use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "cosmos")]
-use setup::server::test_server_cosmos;
-#[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "cosmos")]
@@ -19,13 +16,8 @@ async fn scalar_lists_test_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/scalar_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml");
     scalar_lists_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -34,18 +26,13 @@ async fn scalar_lists_test_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml");
     scalar_lists_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_test(mut client: Client) {
+async fn scalar_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",
@@ -100,13 +87,8 @@ async fn scalar_lists_no_array_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/scalar_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml");
     scalar_lists_no_array_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -115,18 +97,13 @@ async fn scalar_lists_no_array_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/scalar_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml");
     scalar_lists_no_array_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_no_array_test(mut client: Client) {
+async fn scalar_lists_no_array_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",
@@ -169,13 +146,8 @@ async fn scalar_no_lists_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml");
     scalar_no_lists_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -184,18 +156,13 @@ async fn scalar_no_lists_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml");
     scalar_no_lists_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn scalar_no_lists_test(mut client: Client) {
+async fn scalar_no_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     assert!(client
         .create_node(
             "TestType",
@@ -251,13 +218,8 @@ async fn scalar_no_lists_no_array_cosmos() {
     init();
     clear_db();
 
-    let mut server = test_server_cosmos("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = cosmos_test_client();
+    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml");
     scalar_no_lists_no_array_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -266,18 +228,13 @@ async fn scalar_no_lists_no_array_neo4j() {
     init();
     clear_db();
 
-    let mut server = test_server_neo4j("./tests/fixtures/scalar_no_list.yml");
-    assert!(server.serve(false).is_ok());
-
-    let client = neo4j_test_client();
+    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml");
     scalar_no_lists_no_array_test(client).await;
-
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_no_lists_no_array_test(mut client: Client) {
+async fn scalar_no_lists_no_array_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",

@@ -3,8 +3,6 @@ mod setup;
 #[cfg(feature = "neo4j")]
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::server::test_server_neo4j;
-#[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client};
 
 /// Passes if the custom resolvers executes correctly
@@ -13,9 +11,7 @@ use setup::{clear_db, init, neo4j_test_client};
 async fn custom_endpoint_returning_scalar() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     // create new projects
     let _ = client
@@ -48,7 +44,6 @@ async fn custom_endpoint_returning_scalar() {
     assert_eq!(result, 2);
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -56,9 +51,7 @@ async fn custom_endpoint_returning_scalar() {
 async fn custom_endpoint_returning_scalar_list() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     let result = client
         .graphql(
@@ -79,7 +72,6 @@ async fn custom_endpoint_returning_scalar_list() {
     );
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -87,9 +79,7 @@ async fn custom_endpoint_returning_scalar_list() {
 async fn custom_endpoint_returning_node() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     let result = client
         .graphql(
@@ -109,7 +99,6 @@ async fn custom_endpoint_returning_node() {
     assert_eq!(result, json!({"name": "Joe"}));
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -117,9 +106,7 @@ async fn custom_endpoint_returning_node() {
 async fn custom_field_resolver_returning_scalar() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     // create new projects
     let _ = client
@@ -148,7 +135,6 @@ async fn custom_field_resolver_returning_scalar() {
     assert_eq!(*points, json!(138));
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -156,9 +142,7 @@ async fn custom_field_resolver_returning_scalar() {
 async fn custom_field_returning_scalar_list() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     let _ = client
         .create_node(
@@ -195,7 +179,6 @@ async fn custom_field_returning_scalar_list() {
     );
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -203,9 +186,7 @@ async fn custom_field_returning_scalar_list() {
 async fn custom_rel_returning_rel() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     let _ = client
         .create_node(
@@ -248,7 +229,6 @@ async fn custom_rel_returning_rel() {
     assert_eq!(*p0_topdevs_dst, json!({"name": "Joe"}));
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 #[cfg(feature = "neo4j")]
@@ -256,9 +236,7 @@ async fn custom_rel_returning_rel() {
 async fn custom_rel_returning_rel_list() {
     init();
     clear_db();
-    let mut client = neo4j_test_client();
-    let mut server = test_server_neo4j("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
 
     let _ = client
         .create_node(
@@ -307,5 +285,4 @@ async fn custom_rel_returning_rel_list() {
     assert_eq!(*i1, json!({"dst": {"name": "Fix type mismatch"}}));
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
