@@ -1,7 +1,7 @@
 //! Provides database interface types and functions for Cosmos DB
 
 use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction};
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -20,13 +20,13 @@ use std::fmt::Debug;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use warpgrapher::Error;
-/// use warpgrapher::engine::database::cosmos::CosmosEndpoint;
-///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+/// #
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let ce = CosmosEndpoint::from_env()?;
-///     Ok(())
-/// }
+/// #    Ok(())
+/// # }
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CosmosEndpoint {
@@ -95,6 +95,28 @@ impl DatabaseEndpoint for CosmosEndpoint {
     }
 }
 
+/// A Cosmos DB transaction is the interface for making queries against the back-end database.
+/// Notably, this struct is a little mis-named, at the moment, in that it doesn't provide any
+/// transactional ACID capabilities. It's just a placeholder for query capability, to follow the
+/// trait signatures. Later there may be an effort to support Cosmos DB optimitistic concurrency
+/// model.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+/// # use warpgrapher::engine::database::cosmos::{CosmosEndpoint, CosmosTransaction};
+/// #
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let ce = CosmosEndpoint::from_env()?;
+///     if let DatabasePool::Cosmos(client) = ce.pool()? {
+///         let transaction = CosmosTransaction::new(client.clone());
+///     }
+/// #   Ok(())
+/// # }
+/// ```
+#[derive(Clone, Debug)]
 pub struct CosmosTransaction {
     client: GremlinClient,
 }
@@ -107,7 +129,6 @@ impl CosmosTransaction {
 
 impl Transaction for CosmosTransaction {
     type ImplQueryResult = CosmosQueryResult;
-
     fn begin(&self) -> Result<(), FieldError> {
         Ok(())
     }
@@ -116,12 +137,17 @@ impl Transaction for CosmosTransaction {
         Ok(())
     }
 
-    fn create_node(
+    fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<CosmosQueryResult, FieldError> {
+        info: &Info,
+    ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         let mut params = HashMap::new();
         let mut query = String::from("g.addV('") + label + "')";
         query.push_str(".property('partitionKey', partitionKey)");
@@ -150,10 +176,15 @@ impl Transaction for CosmosTransaction {
         }
         query.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-        self.exec(&query, partition_key_opt, Some(params))
+        Ok(self
+            .exec(&query, partition_key_opt, Some(params))?
+            .nodes(label, info)?
+            .into_iter()
+            .next()
+            .unwrap())
     }
 
-    fn create_rels(
+    fn create_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         src_ids: Value,
@@ -162,9 +193,14 @@ impl Transaction for CosmosTransaction {
         rel_name: &str,
         params: &mut HashMap<String, Value>,
         partition_key_opt: &Option<String>,
+        props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError> {
-        trace!("CosmosTransaction::create_rels called.");
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
+        trace!("CosmosTransaction::create_rels called -- src_label: {}, src_ids: {:#?}, dst_label: {}, dst_ids: {:#?}, rel_name: {}, params: {:#?}, partition_key_opt: {:#?}.", src_label, src_ids, dst_label, dst_ids, rel_name, params, partition_key_opt);
 
         let mut props = HashMap::new();
         if let Some(Value::Map(pm)) = params.remove("props") {
@@ -191,6 +227,7 @@ impl Transaction for CosmosTransaction {
                             check_query.push_str(&(String::from(", '") + &id_str + "'"));
                         }
                     } else {
+                        trace!("src_id_vec element not a  string");
                         return Err(Error::TypeNotExpected.into());
                     }
                 }
@@ -218,6 +255,7 @@ impl Transaction for CosmosTransaction {
                         query.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
+                    trace!("dst_id_vec element not a  string");
                     return Err(Error::TypeNotExpected.into());
                 }
             }
@@ -236,6 +274,7 @@ impl Transaction for CosmosTransaction {
                         query.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
+                    trace!("src_id_vec element not a string");
                     return Err(Error::TypeNotExpected.into());
                 }
             }
@@ -255,8 +294,19 @@ impl Transaction for CosmosTransaction {
             query.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
             query.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
 
-            self.exec(&query, partition_key_opt, Some(props))
+            trace!("CosmosTransaction::rel_create about to exec query -- query: {}, partition_key_opt: {:#?}, props: {:#?}", query, partition_key_opt, props);
+
+            self.exec(&query, partition_key_opt, Some(props))?.rels(
+                src_label,
+                "",
+                rel_name,
+                dst_label,
+                "",
+                props_type_name,
+                info,
+            )
         } else {
+            trace!("src or dst argument not an array of strings");
             Err(Error::TypeNotExpected.into())
         }
     }
@@ -266,7 +316,7 @@ impl Transaction for CosmosTransaction {
         label: &str,
         ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<CosmosQueryResult, FieldError> {
+    ) -> Result<i32, FieldError> {
         if let Value::Array(idvec) = ids {
             let mut qs = String::from("g.V().hasLabel('") + label + "')";
             qs.push_str(".has('partitionKey', partitionKey)");
@@ -291,7 +341,7 @@ impl Transaction for CosmosTransaction {
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
-            Ok(CosmosQueryResult::new(v))
+            Ok(length as i32)
         } else {
             Err(Error::TypeNotExpected.into())
         }
@@ -303,7 +353,8 @@ impl Transaction for CosmosTransaction {
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<CosmosQueryResult, FieldError> {
+        _info: &Info,
+    ) -> Result<i32, FieldError> {
         if let Value::Array(idvec) = rel_ids {
             let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
             qs.push_str(".has('partitionKey', partitionKey)");
@@ -328,7 +379,7 @@ impl Transaction for CosmosTransaction {
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
-            Ok(CosmosQueryResult::new(v))
+            Ok(length as i32)
         } else {
             Err(Error::TypeNotExpected.into())
         }
@@ -519,13 +570,18 @@ impl Transaction for CosmosTransaction {
         Ok(())
     }
 
-    fn update_nodes(
+    fn update_nodes<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: &Option<String>,
-    ) -> Result<CosmosQueryResult, FieldError> {
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         trace!("transaction::update_nodes called, label: {}, ids: {:#?}, props: {:#?}, partition_key_opt: {:#?}", label, ids, props, partition_key_opt);
 
         if let Value::Array(idvec) = ids {
@@ -573,21 +629,28 @@ impl Transaction for CosmosTransaction {
             }
             qs.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-            self.exec(&qs, partition_key_opt, Some(params))
+            self.exec(&qs, partition_key_opt, Some(params))?
+                .nodes(label, info)
         } else {
             Err(Error::TypeNotExpected.into())
         }
     }
 
-    fn update_rels(
+    fn update_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<CosmosQueryResult, FieldError> {
-        trace!("CosmosTransaction::update_rels called, src_label: {}, rel_name: {}, rel_ids: {:#?}, partition_key_opt: {:#?}, props: {:#?}", src_label, rel_name, rel_ids, partition_key_opt, props);
+        props_type_name: Option<&str>,
+        info: &Info,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
+        trace!("CosmosTransaction::update_rels called, src_label: {}, rel_name: {}, rel_ids: {:#?}, partition_key_opt: {:#?}, props: {:#?}, props_type_name: {:#?}", src_label, rel_name, rel_ids, partition_key_opt, props, props_type_name);
 
         if let Value::Array(rel_id_vec) = rel_ids {
             let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
@@ -615,35 +678,21 @@ impl Transaction for CosmosTransaction {
             qs.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
             qs.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
 
-            self.exec(&qs, partition_key_opt, Some(props))
+            self.exec(&qs, partition_key_opt, Some(props))?.rels(
+                src_label,
+                "",
+                rel_name,
+                "",
+                "",
+                props_type_name,
+                info,
+            )
         } else {
             Err(Error::TypeNotExpected.into())
         }
     }
 }
 
-/// Results of a query made to a Cosmod DB back-end
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use std::collections::HashMap;
-/// use warpgrapher::FieldError;
-/// use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool, Transaction, QueryResult};
-/// use warpgrapher::engine::database::cosmos::{CosmosEndpoint, CosmosQueryResult,
-///     CosmosTransaction};
-///
-/// # fn main() -> Result<(), FieldError> {
-/// let ce = CosmosEndpoint::from_env()?;
-/// let pool = ce.pool()?;
-/// if let DatabasePool::Cosmos(c) = pool {
-///        let mut transaction = CosmosTransaction::new(c.clone());
-///        let result = transaction.create_node("Project", &Some("1234".to_string()),
-///             HashMap::new())?;
-/// }
-/// Ok(())
-/// # }
-/// ```
 #[derive(Debug)]
 pub struct CosmosQueryResult {
     results: Vec<GValue>,
@@ -656,14 +705,14 @@ impl CosmosQueryResult {
 }
 
 impl QueryResult for CosmosQueryResult {
-    fn nodes<GlobalCtx, ReqCtx>(
+    fn nodes<GlobalCtx, RequestCtx>(
         self,
         _name: &str,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
-        ReqCtx: RequestContext,
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
     {
         /*
         trace!(
@@ -734,7 +783,7 @@ impl QueryResult for CosmosQueryResult {
         Ok(v)
     }
 
-    fn rels<GlobalCtx, ReqCtx>(
+    fn rels<GlobalCtx, RequestCtx>(
         self,
         _src_name: &str,
         _src_suffix: &str,
@@ -743,17 +792,16 @@ impl QueryResult for CosmosQueryResult {
         _dst_suffix: &str,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
-        ReqCtx: RequestContext,
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
     {
-        /*
         trace!(
-            "CosmosQueryResult::rels self.results: {:#?}",
-            self.results
+            "CosmosQueryResult::rels -- self.results: {:#?}, props_type_name: {:#?}",
+            self.results,
+            props_type_name
         );
-        */
 
         let mut v = Vec::new();
         for result in self.results {
@@ -940,16 +988,28 @@ impl QueryResult for CosmosQueryResult {
 
 #[cfg(test)]
 mod tests {
-    use super::CosmosEndpoint;
+    use super::{CosmosEndpoint, CosmosTransaction};
     #[test]
-    fn test_send() {
+    fn test_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<CosmosEndpoint>();
     }
 
     #[test]
-    fn test_sync() {
+    fn test_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
         assert_sync::<CosmosEndpoint>();
+    }
+
+    #[test]
+    fn test_transaction_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<CosmosTransaction>();
+    }
+
+    #[test]
+    fn test_transaction_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<CosmosTransaction>();
     }
 }

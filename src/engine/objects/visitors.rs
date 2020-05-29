@@ -1,14 +1,13 @@
 use crate::engine::config::Validators;
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::database::{QueryResult, Transaction};
-use crate::engine::objects::Rel;
+use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::value::Value;
 use crate::error::Error;
 use juniper::{graphql_value, FieldError};
 use log::{debug, trace};
 use std::collections::HashMap;
-use std::fmt::Debug;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
 #[derive(Default)]
@@ -27,16 +26,18 @@ impl SuffixGenerator {
     }
 }
 
-pub(crate) fn visit_node_create_mutation_input<T>(
+pub(crate) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_node_create_mutation_input called -- label: {}, info.name: {}",
@@ -78,8 +79,8 @@ where
             }
         }
 
-        let results = transaction.create_node(label, partition_key_opt, props)?;
-        let ids = results.ids("n")?;
+        let results = transaction.create_node(label, partition_key_opt, props, info)?;
+        let ids = Value::Array(vec![results.fields.get("id").unwrap().clone()]);
 
         for (k, v) in inputs.into_iter() {
             let p = itd.prop(&k)?;
@@ -89,7 +90,7 @@ where
                 PropertyKind::Input => {
                     if let Value::Array(input_array) = v {
                         for val in input_array {
-                            let _ = visit_rel_create_mutation_input(
+                            let _ = visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                                 label,
                                 ids.clone(),
                                 p.name(),
@@ -97,11 +98,12 @@ where
                                 partition_key_opt,
                                 val,
                                 validators,
+                                None,
                                 transaction,
                             )?;
                         }
                     } else {
-                        let _ = visit_rel_create_mutation_input(
+                        let _ = visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                             label,
                             ids.clone(),
                             p.name(),
@@ -109,6 +111,7 @@ where
                             partition_key_opt,
                             v,
                             validators,
+                            None,
                             transaction,
                         )?;
                     }
@@ -131,7 +134,7 @@ pub(crate) fn visit_node_delete_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<i32, FieldError>
 where
     T: Transaction,
 {
@@ -196,7 +199,7 @@ fn visit_node_delete_mutation_input<T>(
     partition_key_opt: &Option<String>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<i32, FieldError>
 where
     T: Transaction,
 {
@@ -248,7 +251,7 @@ where
     transaction.delete_nodes(label, ids, partition_key_opt)
 }
 
-fn visit_node_input<T>(
+fn visit_node_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
     partition_key_opt: &Option<String>,
@@ -258,6 +261,8 @@ fn visit_node_input<T>(
 ) -> Result<Value, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_node_input Called -- label: {}, info.name: {}, input: {:#?}",
@@ -279,7 +284,11 @@ where
         let p = itd.prop(&k)?;
 
         match k.as_ref() {
-            "NEW" => visit_node_create_mutation_input(
+            "NEW" => Ok(Value::Array(vec![visit_node_create_mutation_input::<
+                T,
+                GlobalCtx,
+                RequestCtx,
+            >(
                 label,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -287,7 +296,11 @@ where
                 validators,
                 transaction,
             )?
-            .ids("n"),
+            .fields
+            .remove("id")
+            .ok_or_else(|| Error::ResponseItemNotFound {
+                name: "id".to_string(),
+            })?])),
             "EXISTING" => {
                 let mut sg = SuffixGenerator::new();
                 let mut params: HashMap<String, Value> = HashMap::new();
@@ -396,16 +409,18 @@ where
     )
 }
 
-pub(crate) fn visit_node_update_input<T>(
+pub(crate) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_node_update_input called -- info.name: {}, label {}, input: {:#?}",
@@ -464,7 +479,7 @@ where
     }
 }
 
-fn visit_node_update_mutation_input<T>(
+fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
@@ -472,9 +487,11 @@ fn visit_node_update_mutation_input<T>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_node_update_mutation_input called -- label: {}, ids: {:#?}, info.name: {}, input: {:#?}",
@@ -518,7 +535,7 @@ where
             }
         }
 
-        let results = transaction.update_nodes(label, ids, props, partition_key_opt)?;
+        let results = transaction.update_nodes(label, ids, props, partition_key_opt, info)?;
 
         for (k, v) in inputs.into_iter() {
             let p = itd.prop(&k)?;
@@ -528,9 +545,15 @@ where
                 PropertyKind::Input => {
                     if let Value::Array(input_array) = v {
                         for val in input_array {
-                            visit_rel_change_input(
+                            visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                                 label,
-                                results.ids("n")?,
+                                Value::Array(
+                                    results
+                                        .clone()
+                                        .into_iter()
+                                        .map(|n| n.fields.get("id").unwrap().clone())
+                                        .collect(),
+                                ),
                                 &k,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
@@ -540,9 +563,15 @@ where
                             )?;
                         }
                     } else {
-                        visit_rel_change_input(
+                        visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                             label,
-                            results.ids("n")?,
+                            Value::Array(
+                                results
+                                    .clone()
+                                    .into_iter()
+                                    .map(|n| n.fields.get("id").unwrap().clone())
+                                    .collect(),
+                            ),
                             &k,
                             &Info::new(p.type_name().to_owned(), info.type_defs()),
                             partition_key_opt,
@@ -563,7 +592,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_change_input<T>(
+fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Value,
     rel_name: &str,
@@ -572,9 +601,11 @@ fn visit_rel_change_input<T>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<(), FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
          "visit_rel_change_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
@@ -590,7 +621,7 @@ where
     if let Value::Map(mut m) = input {
         if let Some(v) = m.remove("ADD") {
             // Using remove to take ownership
-            visit_rel_create_mutation_input(
+            visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 src_ids,
                 rel_name,
@@ -598,8 +629,9 @@ where
                 partition_key_opt,
                 v,
                 validators,
+                None,
                 transaction,
-            )
+            )?;
         } else if let Some(v) = m.remove("DELETE") {
             // Using remove to take ownership
             visit_rel_delete_input(
@@ -610,10 +642,10 @@ where
                 partition_key_opt,
                 v,
                 transaction,
-            )
+            )?;
         } else if let Some(v) = m.remove("UPDATE") {
             // Using remove to take ownership
-            visit_rel_update_input(
+            visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 Some(src_ids),
                 rel_name,
@@ -621,21 +653,23 @@ where
                 partition_key_opt,
                 v,
                 validators,
+                None,
                 transaction,
-            )
+            )?;
         } else {
-            Err(Error::ArgumentNotFound {
+            return Err(Error::ArgumentNotFound {
                 name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
             }
-            .into())
+            .into());
         }
     } else {
-        Err(Error::TypeNotExpected.into())
+        return Err(Error::TypeNotExpected.into());
     }
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
+pub(crate) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     rel_name: &str,
     props_type_name: Option<&str>,
@@ -644,11 +678,11 @@ pub(crate) fn visit_rel_create_input<T, GlobalCtx, ReqCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
+) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
-    GlobalCtx: Debug,
-    ReqCtx: RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_rel_create_input called -- info.name: {}, rel_name {}, input: {:#?}",
@@ -702,11 +736,12 @@ where
                 partition_key_opt,
                 create_input,
                 validators,
+                props_type_name,
                 transaction,
-            )?
-            .rels(&src_label, "", rel_name, "dst", "", props_type_name, info),
+            ),
+            // .rels(&src_label, "", rel_name, "dst", "", props_type_name, info),
             Value::Array(create_input_array) => {
-                let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
+                let mut v: Vec<Rel<GlobalCtx, RequestCtx>> = Vec::new();
                 for create_input_value in create_input_array {
                     let result = visit_rel_create_mutation_input(
                         src_label,
@@ -716,11 +751,12 @@ where
                         partition_key_opt,
                         create_input_value,
                         validators,
+                        props_type_name,
                         transaction,
                     )?;
 
-                    for rel in
-                        result.rels(src_label, "", rel_name, "dst", "", props_type_name, info)?
+                    for rel in result
+                    // result.rels(src_label, "", rel_name, "dst", "", props_type_name, info)?
                     {
                         v.push(rel)
                     }
@@ -735,7 +771,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_create_mutation_input<T>(
+fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Value,
     rel_name: &str,
@@ -743,10 +779,13 @@ fn visit_rel_create_mutation_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
+    props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
             "visit_rel_create_mutation_input called -- src_label: {}, src_ids: {:#?}, rel_name: {}, info.name: {}, input: {:#?}",
@@ -766,7 +805,7 @@ where
             .ok_or_else(|| Error::ArgumentNotFound {
                 name: "dst".to_string(),
             })?;
-        let (dst_label, dst_ids) = visit_rel_nodes_mutation_input_union(
+        let (dst_label, dst_ids) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             dst,
@@ -774,7 +813,7 @@ where
             transaction,
         )?;
 
-        transaction.create_rels(
+        let result = transaction.create_rels(
             src_label,
             src_ids,
             &dst_label,
@@ -782,8 +821,13 @@ where
             rel_name,
             &mut m,
             partition_key_opt,
+            props_type_name,
             info,
-        )
+        );
+
+        trace!("visit_rel_create_mutation_input -- result: {:#?}", result);
+
+        result
     } else {
         Err(Error::TypeNotExpected.into())
     }
@@ -797,7 +841,7 @@ pub(crate) fn visit_rel_delete_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<i32, FieldError>
 where
     T: Transaction,
 {
@@ -838,7 +882,7 @@ where
         let rel_ids = read_results.ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?;
 
         let del_results =
-            transaction.delete_rels(src_label, rel_name, rel_ids, partition_key_opt)?;
+            transaction.delete_rels(src_label, rel_name, rel_ids, partition_key_opt, info)?;
 
         if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
@@ -875,7 +919,7 @@ fn visit_rel_dst_delete_mutation_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<i32, FieldError>
 where
     T: Transaction,
 {
@@ -960,16 +1004,18 @@ where
     }
 }
 
-fn visit_rel_dst_update_mutation_input<T>(
+fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
     ids: Value,
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_rel_dst_update_mutation_input called -- info.name: {}, ids: {:#?}, input: {:#?}",
@@ -1004,7 +1050,7 @@ where
     }
 }
 
-fn visit_rel_nodes_mutation_input_union<T>(
+fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
     info: &Info,
     partition_key_opt: &Option<String>,
     input: Value,
@@ -1013,6 +1059,8 @@ fn visit_rel_nodes_mutation_input_union<T>(
 ) -> Result<(String, Value), FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_rel_nodes_mutation_input_union called -- info.name: {}, input: {:#?}",
@@ -1032,7 +1080,7 @@ where
 
         let p = itd.prop(&k)?;
 
-        let dst_ids = visit_node_input(
+        let dst_ids = visit_node_input::<T, GlobalCtx, RequestCtx>(
             &k,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
@@ -1171,7 +1219,7 @@ fn visit_rel_src_delete_mutation_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<i32, FieldError>
 where
     T: Transaction,
 {
@@ -1207,7 +1255,7 @@ where
     }
 }
 
-fn visit_rel_src_update_mutation_input<T>(
+fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
@@ -1215,9 +1263,11 @@ fn visit_rel_src_update_mutation_input<T>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
          "visit_rel_src_update_mutation_input called -- info.name: {}, label: {}, ids: {:#?}, input: {:#?}",
@@ -1304,7 +1354,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn visit_rel_update_input<T>(
+pub(crate) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Option<Value>,
     rel_name: &str,
@@ -1312,10 +1362,13 @@ pub(crate) fn visit_rel_update_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
+    props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
          "visit_rel_update_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
@@ -1371,6 +1424,7 @@ where
                 partition_key_opt,
                 update,
                 validators,
+                props_type_name,
                 transaction,
             )
         } else {
@@ -1385,7 +1439,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_update_mutation_input<T>(
+fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Value,
     rel_name: &str,
@@ -1395,19 +1449,23 @@ fn visit_rel_update_mutation_input<T>(
     partition_key_opt: &Option<String>,
     input: Value,
     validators: &Validators,
+    props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
 where
     T: Transaction,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_mutation_input called -- info.name: {}, src_label: {}, src_ids: {:#?}, rel_name: {}, rel_ids: {:#?}, dst_ids: {:#?}, input: {:#?}",
+         "visit_rel_update_mutation_input called -- info.name: {}, src_label: {}, src_ids: {:#?}, rel_name: {}, rel_ids: {:#?}, dst_ids: {:#?}, props_type_name: {:#?}, input: {:#?}",
          info.name(),
          src_label,
          src_ids,
          rel_name,
          rel_ids,
          dst_ids,
+         props_type_name,
          input
      );
 
@@ -1422,14 +1480,21 @@ where
             }
         }
 
-        let results =
-            transaction.update_rels(src_label, rel_name, rel_ids, partition_key_opt, props)?;
+        let results = transaction.update_rels(
+            src_label,
+            rel_name,
+            rel_ids,
+            partition_key_opt,
+            props,
+            props_type_name,
+            info,
+        )?;
 
         trace!("visit_rel_update_mutation_input results: {:#?}", results);
 
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership
-            visit_rel_src_update_mutation_input(
+            visit_rel_src_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 src_ids,
                 &Info::new(itd.prop("src")?.type_name().to_owned(), info.type_defs()),
@@ -1442,7 +1507,7 @@ where
 
         if let Some(dst) = m.remove("dst") {
             // calling remove to take ownership
-            visit_rel_dst_update_mutation_input(
+            visit_rel_dst_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 dst_ids,
                 &Info::new(itd.prop("dst")?.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,

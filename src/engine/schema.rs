@@ -6,7 +6,7 @@ use super::config::{
     Config, Endpoint, EndpointClass, GraphqlType, Prop, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
@@ -2133,7 +2133,7 @@ pub(super) fn create_root_node<GlobalCtx, ReqCtx>(
     c: &Config,
 ) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
 where
-    GlobalCtx: Debug,
+    GlobalCtx: GlobalContext,
     ReqCtx: RequestContext,
 {
     // Runtime performance could be optimized by generating the entirety of the

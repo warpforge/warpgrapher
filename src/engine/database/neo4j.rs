@@ -1,5 +1,5 @@
 use super::{env_string, DatabaseEndpoint, DatabasePool, QueryResult};
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -69,12 +69,17 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         }
     }
 
-    fn create_node(
+    fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Neo4jQueryResult, FieldError> {
+        info: &Info,
+    ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         let query = String::from("CREATE (n:")
             + label
             + " { id: randomUUID() })\n"
@@ -93,10 +98,10 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             "Neo4jTransaction::create_node raw results: {:#?}",
             raw_results
         );
-        raw_results
+        Ok(raw_results?.nodes(label, info)?.into_iter().next().unwrap())
     }
 
-    fn create_rels(
+    fn create_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         src_ids: Value,
@@ -105,8 +110,13 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         rel_name: &str,
         params: &mut HashMap<String, Value>,
         partition_key_opt: &Option<String>,
+        props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError> {
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         let mut props = HashMap::new();
         if let Some(Value::Map(pm)) = params.remove("props") {
             // remove rather than get to take ownership
@@ -195,7 +205,15 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             results
         );
 
-        Ok(results)
+        Ok(results.rels(
+            src_label,
+            "",
+            rel_name,
+            dst_label,
+            "",
+            props_type_name,
+            info,
+        )?)
     }
 
     fn delete_nodes(
@@ -203,7 +221,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         label: &str,
         ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Neo4jQueryResult, FieldError> {
+    ) -> Result<i32, FieldError> {
         let query = String::from("MATCH (n:")
             + label
             + ")\n"
@@ -214,17 +232,17 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         params.insert("ids".to_owned(), ids);
 
         trace!(
-            "visit_node_delete_mutation_input query, params: {:#?}, {:#?}",
+            "Neo4jTransaction::delete_nodes query, params: {:#?}, {:#?}",
             query,
             params
         );
         let results = self.exec(&query, partition_key_opt, Some(params))?;
         trace!(
-            "visit_node_delete_mutation_input Query results: {:#?}",
+            "Neo4jTransaction::delete_nodes Query results: {:#?}",
             results
         );
 
-        Ok(results)
+        Ok(results.count()?)
     }
 
     fn delete_rels(
@@ -233,7 +251,8 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Neo4jQueryResult, FieldError> {
+        _info: &Info,
+    ) -> Result<i32, FieldError> {
         let del_query = String::from("MATCH (")
             + src_label
             + ":"
@@ -257,7 +276,9 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             "visit_rel_delete_input query, params: {:#?}, {:#?}",
             del_query, del_params
         );
-        self.exec(&del_query, partition_key_opt, Some(del_params))
+        Ok(self
+            .exec(&del_query, partition_key_opt, Some(del_params))?
+            .count()?)
     }
 
     fn exec(
@@ -526,13 +547,18 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         }
     }
 
-    fn update_nodes(
+    fn update_nodes<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: &Option<String>,
-    ) -> Result<Neo4jQueryResult, FieldError> {
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         let mut params: HashMap<String, Value> = HashMap::new();
         params.insert("ids".to_owned(), ids);
         params.insert("props".to_owned(), props.into());
@@ -548,17 +574,23 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         let results = self.exec(&query, partition_key_opt, Some(params));
         trace!("update_nodes Query results: {:#?}", results);
 
-        results
+        results?.nodes(label, info)
     }
 
-    fn update_rels(
+    fn update_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Neo4jQueryResult, FieldError> {
+        props_type_name: Option<&str>,
+        info: &Info,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
         let query = String::from("MATCH (")
             + src_label
             + ":"
@@ -597,7 +629,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             results
         );
 
-        Ok(results)
+        results.rels(src_label, "", rel_name, "", "", props_type_name, info)
     }
 }
 
@@ -619,7 +651,7 @@ impl QueryResult for Neo4jQueryResult {
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
+        GlobalCtx: GlobalContext,
         ReqCtx: RequestContext,
     {
         trace!("Neo4jQueryResult::nodes called, result: {:#?}", self.result);
@@ -666,7 +698,7 @@ impl QueryResult for Neo4jQueryResult {
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
+        GlobalCtx: GlobalContext,
         ReqCtx: RequestContext,
     {
         trace!("Neo4jQueryResult::rels called, src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name: {:#?}, {:#?}, {:#?}, {:#?}, {:#?}, {:#?}", src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name);

@@ -4,7 +4,7 @@
 
 use super::error::Error;
 use config::{Config, Prop, Validators};
-use context::{GraphQLContext, RequestContext};
+use context::{GlobalContext, GraphQLContext, RequestContext};
 use database::DatabasePool;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
@@ -12,7 +12,7 @@ use log::debug;
 use objects::resolvers::Resolvers;
 use schema::{create_root_node, RootRef};
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display, Formatter};
 use std::option::Option;
 
 pub mod config;
@@ -24,24 +24,24 @@ pub mod schema;
 pub mod value;
 
 #[derive(Clone)]
-pub struct EngineBuilder<GlobalCtx = (), ReqCtx = ()>
+pub struct EngineBuilder<GlobalCtx = (), RequestCtx = ()>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     config: Config,
     db_pool: DatabasePool,
     global_ctx: Option<GlobalCtx>,
-    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    resolvers: Resolvers<GlobalCtx, RequestCtx>,
     validators: Validators,
-    extensions: Extensions<GlobalCtx, ReqCtx>,
+    extensions: Extensions<GlobalCtx, RequestCtx>,
     version: Option<String>,
 }
 
-impl<GlobalCtx, ReqCtx> EngineBuilder<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> EngineBuilder<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     /// Adds a global context to the engine
     ///
@@ -52,21 +52,27 @@ where
     /// use warpgrapher::engine::Engine;
     /// use warpgrapher::engine::config::Config;
     /// use warpgrapher::engine::database::DatabasePool;
+    /// use warpgrapher::engine::context::GlobalContext;
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct AppGlobalCtx {
     ///     global_var: String    
     /// }
+    /// 
+    /// impl GlobalContext for AppGlobalCtx {}
     ///
     /// let global_ctx = AppGlobalCtx { global_var: "Hello World".to_owned() };
-    ///
+    /// 
     /// let config = Config::default();
     ///
     /// let mut engine = Engine::<AppGlobalCtx, ()>::new(config, DatabasePool::NoDatabase)
     ///     .with_global_ctx(global_ctx)
     ///     .build().unwrap();
     /// ```
-    pub fn with_global_ctx(mut self, global_ctx: GlobalCtx) -> EngineBuilder<GlobalCtx, ReqCtx> {
+    pub fn with_global_ctx(
+        mut self,
+        global_ctx: GlobalCtx,
+    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
         self.global_ctx = Some(global_ctx);
         self
     }
@@ -92,8 +98,8 @@ where
     /// ```
     pub fn with_resolvers(
         mut self,
-        resolvers: Resolvers<GlobalCtx, ReqCtx>,
-    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        resolvers: Resolvers<GlobalCtx, RequestCtx>,
+    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
         self.resolvers = resolvers;
         self
     }
@@ -116,7 +122,10 @@ where
     ///     .with_validators(validators)
     ///     .build().unwrap();
     /// ```
-    pub fn with_validators(mut self, validators: Validators) -> EngineBuilder<GlobalCtx, ReqCtx> {
+    pub fn with_validators(
+        mut self,
+        validators: Validators,
+    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
         self.validators = validators;
         self
     }
@@ -142,8 +151,8 @@ where
     /// ```
     pub fn with_extensions(
         mut self,
-        extensions: Extensions<GlobalCtx, ReqCtx>,
-    ) -> EngineBuilder<GlobalCtx, ReqCtx> {
+        extensions: Extensions<GlobalCtx, RequestCtx>,
+    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
         self.extensions = extensions;
         self
     }
@@ -164,7 +173,7 @@ where
     ///     .with_version("1.0.0".to_owned())
     ///     .build().unwrap();
     /// ```
-    pub fn with_version(mut self, version: String) -> EngineBuilder<GlobalCtx, ReqCtx> {
+    pub fn with_version(mut self, version: String) -> EngineBuilder<GlobalCtx, RequestCtx> {
         self.version = Some(version);
         self
     }
@@ -198,13 +207,13 @@ where
     /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .build().unwrap();
     /// ```
-    pub fn build(self) -> Result<Engine<GlobalCtx, ReqCtx>, Error> {
+    pub fn build(self) -> Result<Engine<GlobalCtx, RequestCtx>, Error> {
         // validate engine options
         EngineBuilder::validate_engine(&self.resolvers, &self.validators, &self.config)?;
 
         let root_node = create_root_node(&self.config)?;
 
-        let engine = Engine::<GlobalCtx, ReqCtx> {
+        let engine = Engine::<GlobalCtx, RequestCtx> {
             config: self.config.clone(),
             db_pool: self.db_pool,
             global_ctx: self.global_ctx,
@@ -219,7 +228,7 @@ where
     }
 
     pub fn validate_engine(
-        resolvers: &Resolvers<GlobalCtx, ReqCtx>,
+        resolvers: &Resolvers<GlobalCtx, RequestCtx>,
         validators: &Validators,
         config: &Config,
     ) -> Result<(), Error> {
@@ -307,25 +316,25 @@ where
 ///
 /// ```
 #[derive(Clone)]
-pub struct Engine<GlobalCtx = (), ReqCtx = ()>
+pub struct Engine<GlobalCtx = (), RequestCtx = ()>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     config: Config,
     db_pool: DatabasePool,
     global_ctx: Option<GlobalCtx>,
-    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    resolvers: Resolvers<GlobalCtx, RequestCtx>,
     validators: Validators,
-    extensions: Extensions<GlobalCtx, ReqCtx>,
+    extensions: Extensions<GlobalCtx, RequestCtx>,
     version: Option<String>,
-    root_node: RootRef<GlobalCtx, ReqCtx>,
+    root_node: RootRef<GlobalCtx, RequestCtx>,
 }
 
-impl<GlobalCtx, ReqCtx> Engine<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> Engine<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     /// Creates a new [`Engine`], with required parameters config and database
     /// and allows optional parameters to be added using a builder pattern.
@@ -347,8 +356,11 @@ where
     /// ```
 
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(config: Config, database_pool: DatabasePool) -> EngineBuilder<GlobalCtx, ReqCtx> {
-        EngineBuilder::<GlobalCtx, ReqCtx> {
+    pub fn new(
+        config: Config,
+        database_pool: DatabasePool,
+    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
+        EngineBuilder::<GlobalCtx, RequestCtx> {
             config,
             db_pool: database_pool,
             global_ctx: None,
@@ -367,7 +379,7 @@ where
         debug!("\nRequest: {:#?}\n", req);
 
         // initialize empty request context
-        let mut req_ctx = ReqCtx::new();
+        let mut req_ctx = RequestCtx::new();
 
         // run pre request plugin hooks
         for extension in &self.extensions {
@@ -377,7 +389,7 @@ where
         // execute graphql query
         let res = req.execute(
             &self.root_node,
-            &GraphQLContext::<GlobalCtx, ReqCtx>::new(
+            &GraphQLContext::<GlobalCtx, RequestCtx>::new(
                 self.db_pool.clone(),
                 self.resolvers.clone(),
                 self.validators.clone(),
@@ -409,6 +421,31 @@ where
 
         Ok(body)
         */
+    }
+}
+
+impl<GlobalCtx, RequestCtx> Display for Engine<GlobalCtx, RequestCtx>
+where
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        write!(f, "{:#?}", self)
+    }
+}
+
+impl<GlobalCtx, RequestCtx> Debug for Engine<GlobalCtx, RequestCtx>
+where
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
+{
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        f.debug_struct("Engine")
+            .field("config", &self.config)
+            .field("db_pool", &self.db_pool)
+            .field("global_ctx", &self.global_ctx)
+            .field("version", &self.version)
+            .finish()
     }
 }
 

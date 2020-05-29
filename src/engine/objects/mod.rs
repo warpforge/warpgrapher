@@ -4,7 +4,7 @@ mod visitors;
 
 use super::context::GraphQLContext;
 use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 #[cfg(feature = "cosmos")]
 use crate::engine::database::cosmos::CosmosTransaction;
 #[cfg(feature = "neo4j")]
@@ -38,20 +38,20 @@ use std::marker::PhantomData;
 pub use juniper::GraphQLType;
 
 #[derive(Debug)]
-pub enum Object<'a, GlobalCtx: Debug, ReqCtx: RequestContext> {
-    Node(&'a Node<GlobalCtx, ReqCtx>),
-    Rel(&'a Rel<GlobalCtx, ReqCtx>),
+pub enum Object<'a, GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+    Node(&'a Node<GlobalCtx, RequestCtx>),
+    Rel(&'a Rel<GlobalCtx, RequestCtx>),
 }
 
-#[derive(Debug)]
-struct Input<GlobalCtx, ReqCtx> {
+#[derive(Clone, Debug)]
+struct Input<GlobalCtx, RequestCtx> {
     value: Value,
     _gctx: PhantomData<GlobalCtx>,
-    _rctx: PhantomData<ReqCtx>,
+    _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx, ReqCtx> Input<GlobalCtx, ReqCtx> {
-    fn new(value: Value) -> Input<GlobalCtx, ReqCtx> {
+impl<GlobalCtx, RequestCtx> Input<GlobalCtx, RequestCtx> {
+    fn new(value: Value) -> Input<GlobalCtx, RequestCtx> {
         Input {
             value,
             _gctx: PhantomData,
@@ -60,10 +60,10 @@ impl<GlobalCtx, ReqCtx> Input<GlobalCtx, ReqCtx> {
     }
 }
 
-impl<GlobalCtx, ReqCtx> FromInputValue for Input<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> FromInputValue for Input<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: Debug + RequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
         serde_json::to_value(v)
@@ -73,12 +73,12 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx> GraphQLType for Input<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> GraphQLType for Input<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: Debug + RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, ReqCtx>;
+    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -126,19 +126,19 @@ where
                 ("String", false, true) => registry.arg::<Option<Vec<String>>>(p.name(), &()),
                 ("String", true, false) => registry.arg::<String>(p.name(), &()),
                 ("String", true, true) => registry.arg::<Vec<String>>(p.name(), &()),
-                (_, false, false) => registry.arg::<Option<Input<GlobalCtx, ReqCtx>>>(
+                (_, false, false) => registry.arg::<Option<Input<GlobalCtx, RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, false, true) => registry.arg::<Option<Vec<Input<GlobalCtx, ReqCtx>>>>(
+                (_, false, true) => registry.arg::<Option<Vec<Input<GlobalCtx, RequestCtx>>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, false) => registry.arg::<Input<GlobalCtx, ReqCtx>>(
+                (_, true, false) => registry.arg::<Input<GlobalCtx, RequestCtx>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, true) => registry.arg::<Vec<Input<GlobalCtx, ReqCtx>>>(
+                (_, true, true) => registry.arg::<Vec<Input<GlobalCtx, RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
@@ -146,32 +146,32 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_input_object_type::<Input<GlobalCtx, ReqCtx>>(info, &args)
+            .build_input_object_type::<Input<GlobalCtx, RequestCtx>>(info, &args)
             .into_meta()
     }
 }
 
-#[derive(Debug)]
-pub struct Node<GlobalCtx, ReqCtx>
+#[derive(Clone, Debug)]
+pub struct Node<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: Debug + RequestContext,
 {
     concrete_typename: String,
     fields: HashMap<String, Value>,
     _gctx: PhantomData<GlobalCtx>,
-    _rctx: PhantomData<ReqCtx>,
+    _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx, ReqCtx> Node<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> Node<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     pub(crate) fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
-    ) -> Node<GlobalCtx, ReqCtx> {
+    ) -> Node<GlobalCtx, RequestCtx> {
         Node {
             concrete_typename,
             fields,
@@ -193,7 +193,7 @@ where
             Some(union_types) => union_types
                 .clone()
                 .map(|ut| {
-                    registry.get_type::<Node<GlobalCtx, ReqCtx>>(&Info::new(
+                    registry.get_type::<Node<GlobalCtx, RequestCtx>>(&Info::new(
                         ut.to_string(),
                         info.type_defs(),
                     ))
@@ -201,7 +201,7 @@ where
                 .collect::<Vec<_>>(),
         };
         registry
-            .build_union_type::<Node<GlobalCtx, ReqCtx>>(info, &types)
+            .build_union_type::<Node<GlobalCtx, RequestCtx>>(info, &types)
             .into_meta()
     }
 
@@ -242,40 +242,42 @@ where
                     ("String", true, false, _) => registry.field::<String>(p.name(), &()),
                     ("String", true, true, _) => registry.field::<Vec<String>>(p.name(), &()),
                     (_, false, false, PropertyKind::Rel(_)) => {
-                        registry.field::<Option<Rel<GlobalCtx, ReqCtx>>>(
+                        registry.field::<Option<Rel<GlobalCtx, RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         )
                     }
-                    (_, false, false, _) => registry.field::<Option<Node<GlobalCtx, ReqCtx>>>(
+                    (_, false, false, _) => registry.field::<Option<Node<GlobalCtx, RequestCtx>>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
                     (_, false, true, PropertyKind::Rel(_)) => {
-                        registry.field::<Option<Vec<&Rel<GlobalCtx, ReqCtx>>>>(
+                        registry.field::<Option<Vec<&Rel<GlobalCtx, RequestCtx>>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         )
                     }
-                    (_, false, true, _) => registry.field::<Option<Vec<&Node<GlobalCtx, ReqCtx>>>>(
-                        p.name(),
-                        &Info::new(p.type_name().to_string(), info.type_defs()),
-                    ),
+                    (_, false, true, _) => registry
+                        .field::<Option<Vec<&Node<GlobalCtx, RequestCtx>>>>(
+                            p.name(),
+                            &Info::new(p.type_name().to_string(), info.type_defs()),
+                        ),
                     (_, true, false, PropertyKind::Rel(_)) => registry
-                        .field::<Rel<GlobalCtx, ReqCtx>>(
+                        .field::<Rel<GlobalCtx, RequestCtx>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         ),
-                    (_, true, false, _) => registry.field::<Node<GlobalCtx, ReqCtx>>(
+                    (_, true, false, _) => registry.field::<Node<GlobalCtx, RequestCtx>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
-                    (_, true, true, PropertyKind::Rel(_)) => registry
-                        .field::<Vec<&Rel<GlobalCtx, ReqCtx>>>(
+                    (_, true, true, PropertyKind::Rel(_)) => {
+                        registry.field::<Vec<&Rel<GlobalCtx, RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
-                        ),
-                    (_, true, true, _) => registry.field::<Vec<&Node<GlobalCtx, ReqCtx>>>(
+                        )
+                    }
+                    (_, true, true, _) => registry.field::<Vec<&Node<GlobalCtx, RequestCtx>>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
@@ -317,13 +319,13 @@ where
                             f.argument(registry.arg::<String>(name, &()))
                         }
                         ("input", type_name, ArgumentKind::Optional) => {
-                            f.argument(registry.arg::<Option<Input<GlobalCtx, ReqCtx>>>(
+                            f.argument(registry.arg::<Option<Input<GlobalCtx, RequestCtx>>>(
                                 "input",
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
                         ("input", type_name, ArgumentKind::Required) => {
-                            f.argument(registry.arg::<Input<GlobalCtx, ReqCtx>>(
+                            f.argument(registry.arg::<Input<GlobalCtx, RequestCtx>>(
                                 "input",
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
@@ -337,7 +339,7 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_object_type::<Node<GlobalCtx, ReqCtx>>(info, &fields)
+            .build_object_type::<Node<GlobalCtx, RequestCtx>>(info, &fields)
             .into_meta()
     }
 
@@ -364,7 +366,7 @@ where
 
         let td = info.type_def()?;
         let p = td.prop(field_name)?;
-        let input_opt: Option<Input<GlobalCtx, ReqCtx>> = args.get("input");
+        let input_opt: Option<Input<GlobalCtx, RequestCtx>> = args.get("input");
         // The partition key is only in the arguments for the outermost query or mutation.
         // For lower-level field resolution, the partition key is read from the field of the parent.
         // An alternate design would've been to carry the partitionKey in context, but this way
@@ -504,19 +506,24 @@ where
                     transaction,
                 )
             }
-            PropertyKind::Scalar => resolve_scalar_field(info, field_name, &self.fields, executor),
+            PropertyKind::Scalar => resolve_scalar_field::<GlobalCtx, RequestCtx>(
+                info,
+                field_name,
+                &self.fields,
+                executor,
+            ),
             PropertyKind::Union => Err(Error::TypeNotExpected.into()),
             PropertyKind::VersionQuery => resolve_static_version_query(info, args, executor),
         }
     }
 }
 
-impl<GlobalCtx, ReqCtx> GraphQLType for Node<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> GraphQLType for Node<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, ReqCtx>;
+    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -555,8 +562,8 @@ where
         });
 
         match nt.type_kind() {
-            TypeKind::Union => Node::<GlobalCtx, ReqCtx>::union_meta(nt, info, registry),
-            _ => Node::<GlobalCtx, ReqCtx>::object_meta(nt, info, registry),
+            TypeKind::Union => Node::<GlobalCtx, RequestCtx>::union_meta(nt, info, registry),
+            _ => Node::<GlobalCtx, RequestCtx>::object_meta(nt, info, registry),
         }
     }
 
@@ -642,31 +649,31 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct Rel<GlobalCtx, ReqCtx>
+#[derive(Clone, Debug)]
+pub struct Rel<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: Debug + RequestContext,
 {
     id: Value,
-    props: Option<Node<GlobalCtx, ReqCtx>>,
-    src: Node<GlobalCtx, ReqCtx>,
-    dst: Node<GlobalCtx, ReqCtx>,
+    props: Option<Node<GlobalCtx, RequestCtx>>,
+    src: Node<GlobalCtx, RequestCtx>,
+    dst: Node<GlobalCtx, RequestCtx>,
     _gctx: PhantomData<GlobalCtx>,
-    _rctx: PhantomData<ReqCtx>,
+    _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx: Debug, ReqCtx> Rel<GlobalCtx, ReqCtx>
+impl<GlobalCtx: GlobalContext, RequestCtx> Rel<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: Debug + RequestContext,
 {
     pub(crate) fn new(
         id: Value,
-        props: Option<Node<GlobalCtx, ReqCtx>>,
-        src: Node<GlobalCtx, ReqCtx>,
-        dst: Node<GlobalCtx, ReqCtx>,
-    ) -> Rel<GlobalCtx, ReqCtx> {
+        props: Option<Node<GlobalCtx, RequestCtx>>,
+        src: Node<GlobalCtx, RequestCtx>,
+        dst: Node<GlobalCtx, RequestCtx>,
+    ) -> Rel<GlobalCtx, RequestCtx> {
         Rel {
             id,
             props,
@@ -678,12 +685,12 @@ where
     }
 }
 
-impl<GlobalCtx, ReqCtx> GraphQLType for Rel<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, ReqCtx>;
+    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -728,19 +735,19 @@ where
                 ("ID", false, true) => registry.field::<Option<Vec<ID>>>(p.name(), &()),
                 ("ID", true, false) => registry.field::<ID>(p.name(), &()),
                 ("ID", true, true) => registry.field::<Vec<ID>>(p.name(), &()),
-                (_, false, false) => registry.field::<Option<Node<GlobalCtx, ReqCtx>>>(
+                (_, false, false) => registry.field::<Option<Node<GlobalCtx, RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, false, true) => registry.field::<Option<Vec<&Node<GlobalCtx, ReqCtx>>>>(
+                (_, false, true) => registry.field::<Option<Vec<&Node<GlobalCtx, RequestCtx>>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, false) => registry.field::<Node<GlobalCtx, ReqCtx>>(
+                (_, true, false) => registry.field::<Node<GlobalCtx, RequestCtx>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, true) => registry.field::<Vec<&Node<GlobalCtx, ReqCtx>>>(
+                (_, true, true) => registry.field::<Vec<&Node<GlobalCtx, RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
@@ -748,7 +755,7 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_object_type::<Rel<GlobalCtx, ReqCtx>>(info, &fields)
+            .build_object_type::<Rel<GlobalCtx, RequestCtx>>(info, &fields)
             .into_meta()
     }
 

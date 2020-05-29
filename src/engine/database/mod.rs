@@ -3,7 +3,7 @@ pub mod cosmos;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
 
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -52,14 +52,18 @@ pub trait Transaction {
     type ImplQueryResult: QueryResult + Debug;
     fn begin(&self) -> Result<(), FieldError>;
     fn commit(&mut self) -> Result<(), FieldError>;
-    fn create_node(
+    fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
+        info: &Info,
+    ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
     #[allow(clippy::too_many_arguments)]
-    fn create_rels(
+    fn create_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         src_ids: Value,
@@ -68,42 +72,57 @@ pub trait Transaction {
         rel_name: &str,
         params: &mut HashMap<String, Value>, // TODO Pass props instead of params
         partition_key_opt: &Option<String>,
+        props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
     fn delete_nodes(
         &mut self,
         label: &str,
         ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
+    ) -> Result<i32, FieldError>;
     fn delete_rels(
         &mut self,
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
+        info: &Info,
+    ) -> Result<i32, FieldError>;
     fn exec(
         &mut self,
         query: &str,
         partition_key_opt: &Option<String>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
-    fn update_nodes(
+    fn update_nodes<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: &Option<String>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
-    fn update_rels(
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
+    #[allow(clippy::too_many_arguments)]
+    fn update_rels<GlobalCtx, RequestCtx>(
         &mut self,
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
         partition_key_opt: &Option<String>,
         props: HashMap<String, Value>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
+        props_type_name: Option<&str>,
+        info: &Info,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
     fn node_query_string(
@@ -139,17 +158,17 @@ pub trait Transaction {
 }
 
 pub trait QueryResult: Debug {
-    fn nodes<GlobalCtx, ReqCtx>(
+    fn nodes<GlobalCtx, RequestCtx>(
         self,
         name: &str,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, FieldError>
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
-        ReqCtx: RequestContext;
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
-    fn rels<GlobalCtx, ReqCtx>(
+    fn rels<GlobalCtx, RequestCtx>(
         self,
         src_name: &str,
         src_suffix: &str,
@@ -158,10 +177,10 @@ pub trait QueryResult: Debug {
         dst_suffix: &str,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where
-        GlobalCtx: Debug,
-        ReqCtx: RequestContext;
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
     fn ids(&self, column_name: &str) -> Result<Value, FieldError>;
     fn count(&self) -> Result<i32, FieldError>;
     fn len(&self) -> i32;

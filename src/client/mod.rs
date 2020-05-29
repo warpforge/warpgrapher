@@ -6,6 +6,7 @@ use inflector::Inflector;
 use log::{debug, trace};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
+use std::fmt::Display;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -21,7 +22,7 @@ use std::collections::HashMap;
 ///
 /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Client<GlobalCtx = (), ReqCtx = ()>
 where
     GlobalCtx: GlobalContext,
@@ -848,6 +849,15 @@ where
             rel_name = rel_name.to_title_case(),
             shape = shape
         )
+    }
+}
+
+impl Display for Client {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
+        match self {
+            Self::Http { endpoint } => write!(f, "{}", endpoint),
+            Self::Local { engine } => write!(f, "{}", engine),
+        }
     }
 }
 

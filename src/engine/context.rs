@@ -14,25 +14,25 @@ use std::sync::Arc;
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
 ///
 /// ['GraphQLContext']: ./struct/GraphQLContext.html
-pub struct GraphQLContext<GlobalCtx, ReqCtx>
+pub struct GraphQLContext<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     /// Connection pool database
     pool: DatabasePool,
-    resolvers: Resolvers<GlobalCtx, ReqCtx>,
+    resolvers: Resolvers<GlobalCtx, RequestCtx>,
     validators: Validators,
-    extensions: Extensions<GlobalCtx, ReqCtx>,
+    extensions: Extensions<GlobalCtx, RequestCtx>,
     global_ctx: Option<GlobalCtx>,
-    req_ctx: Option<ReqCtx>,
+    req_ctx: Option<RequestCtx>,
     version: Option<String>,
 }
 
-impl<GlobalCtx, ReqCtx> GraphQLContext<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> GraphQLContext<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
     /// Takes a DatabasePool and returns a
     /// ['GraphQLContext'] containing that connection pool.
@@ -40,13 +40,13 @@ where
     /// ['GraphQLContext']: ./struct/GraphQLContext.html
     pub fn new(
         pool: DatabasePool,
-        resolvers: Resolvers<GlobalCtx, ReqCtx>,
+        resolvers: Resolvers<GlobalCtx, RequestCtx>,
         validators: Validators,
-        extensions: Extensions<GlobalCtx, ReqCtx>,
+        extensions: Extensions<GlobalCtx, RequestCtx>,
         global_ctx: Option<GlobalCtx>,
-        req_ctx: Option<ReqCtx>,
+        req_ctx: Option<RequestCtx>,
         version: Option<String>,
-    ) -> GraphQLContext<GlobalCtx, ReqCtx> {
+    ) -> GraphQLContext<GlobalCtx, RequestCtx> {
         GraphQLContext {
             pool,
             resolvers,
@@ -62,7 +62,7 @@ where
         &self.pool
     }
 
-    pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, ReqCtx>, Error> {
+    pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, RequestCtx>, Error> {
         self.resolvers
             .get(name)
             .ok_or_else(|| Error::ResolverNotFound {
@@ -79,7 +79,7 @@ where
         &self.version
     }
 
-    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, ReqCtx> + Send + Sync>> {
+    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, RequestCtx> + Send + Sync>> {
         self.extensions.iter()
     }
 
@@ -87,15 +87,15 @@ where
         &self.global_ctx
     }
 
-    pub fn request_context(&self) -> &Option<ReqCtx> {
+    pub fn request_context(&self) -> &Option<RequestCtx> {
         &self.req_ctx
     }
 }
 
-impl<GlobalCtx, ReqCtx> Context for GraphQLContext<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> Context for GraphQLContext<GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
 }
 

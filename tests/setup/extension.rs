@@ -17,7 +17,7 @@ pub trait MetadataExtensionCtx {
 }
 
 /// Extension that adds metadata to request
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MetadataExtension<GlobalCtx, ReqCtx>
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,

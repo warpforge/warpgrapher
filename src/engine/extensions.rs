@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 /// Trait implemented by warpgrapher extensions. Exposes hook points that allow
 /// external logic to be executed during various points in the warpgrapher cycle
-pub trait Extension<GlobalCtx, ReqCtx>
+pub trait Extension<GlobalCtx, ReqCtx>: Debug
 where
     GlobalCtx: 'static + Clone + Sync + Send + Debug,
     ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
