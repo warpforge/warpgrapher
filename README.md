@@ -21,7 +21,7 @@ The project is currently in development. Prior to reaching v1.0.0:
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-warpgrapher = "0.2.0"
+warpgrapher = { version = "0.2.0", features = ["cosmos","neo4j"] }
 ```
 
 # Getting Started
@@ -150,6 +150,15 @@ cargo fmt
 
 ```bash
 book/build.sh
+```
+
+## Check API Docs for Dead Links
+
+Reorganizing types and functions in a crate can leave dead cross-reference links in the 
+documentation. Use the cargo-deadlinks subcommand to check for these dead links.
+
+```bash
+cargo deadlinks
 ```
 
 ## Review Against API Style GUide

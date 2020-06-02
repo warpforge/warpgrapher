@@ -416,7 +416,7 @@ impl Transaction for CosmosTransaction {
 
             Ok(CosmosQueryResult::new(v))
         } else {
-            Err(Error::PartitionKeyRequired.into())
+            Err(Error::PartitionKeyNotFound.into())
         }
     }
 

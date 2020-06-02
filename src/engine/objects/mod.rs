@@ -403,7 +403,7 @@ where
             ),
             PropertyKind::Input => Err(Error::TypeNotExpected.into()),
             PropertyKind::NodeCreateMutation => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_node_create_mutation(
@@ -416,7 +416,7 @@ where
                 )
             }
             PropertyKind::NodeDeleteMutation(deltype) => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_node_delete_mutation(
@@ -430,7 +430,7 @@ where
                 )
             }
             PropertyKind::NodeUpdateMutation => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_node_update_mutation(
@@ -462,7 +462,7 @@ where
                 transaction,
             ),
             PropertyKind::RelCreateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_rel_create_mutation(
@@ -477,7 +477,7 @@ where
                 )
             }
             PropertyKind::RelDeleteMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_rel_delete_mutation(
@@ -492,7 +492,7 @@ where
                 )
             }
             PropertyKind::RelUpdateMutation(src_label, rel_name) => {
-                let input = input_opt.ok_or_else(|| Error::ArgumentNotFound {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_rel_update_mutation(

@@ -146,7 +146,7 @@ fn load_config(config: &str) -> Config {
 #[cfg(feature = "neo4j")]
 pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
-    let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
+    let config = Config::from_file(config_path).expect("Failed to load config file");
 
     let database_pool = Neo4jEndpoint::from_env().unwrap().pool().unwrap();
 
@@ -191,7 +191,7 @@ pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRe
 pub(crate) fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
-    let config = Config::from_file(config_path.to_string()).expect("Failed to load config file");
+    let config = Config::from_file(config_path).expect("Failed to load config file");
 
     let database_pool = CosmosEndpoint::from_env().unwrap().pool().unwrap();
 

@@ -1,4 +1,4 @@
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GlobalContext, RequestContext};
 use std::collections::hash_map::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -7,13 +7,13 @@ use std::sync::Arc;
 /// external logic to be executed during various points in the warpgrapher cycle
 pub trait Extension<GlobalCtx, ReqCtx>: Debug
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: RequestContext,
 {
     fn pre_request_hook(
         &self,
-        _global_ctx: Option<GlobalCtx>,
-        _req_ctx: Option<&mut ReqCtx>,
+        _global_ctx: Option<&GlobalCtx>,
+        _req_ctx: &mut ReqCtx,
         _headers: &HashMap<String, String>,
     ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         Ok(())
@@ -21,8 +21,8 @@ where
 
     fn post_request_hook(
         &self,
-        _global_ctx: Option<GlobalCtx>,
-        _req_ctx: Option<&ReqCtx>,
+        _global_ctx: Option<&GlobalCtx>,
+        _req_ctx: &ReqCtx,
         _response: &mut serde_json::Value,
     ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
         Ok(())

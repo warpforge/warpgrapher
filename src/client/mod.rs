@@ -13,65 +13,68 @@ use std::fmt::Display;
 /// The [`Client`] provides a set of CRUD operations that will
 /// automatically generate GraphQL queries that conform to the wargrapher API
 ///
-/// [`Client`]: ./struct.Client.html
+/// [`Client`]: ./enum.Client.html
 ///
 /// # Examples
 ///
 /// ```rust
-/// # use warpgrapher::client::Client;;
+/// # use warpgrapher::Client;;
 ///
-/// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
+/// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
 /// ```
 #[derive(Clone, Debug)]
-pub enum Client<GlobalCtx = (), ReqCtx = ()>
+pub enum Client<GlobalCtx = (), RequestCtx = ()>
 where
     GlobalCtx: GlobalContext,
-    ReqCtx: RequestContext,
+    RequestCtx: RequestContext,
 {
     Http {
         endpoint: String,
     },
     Local {
-        engine: Box<Engine<GlobalCtx, ReqCtx>>,
+        engine: Box<Engine<GlobalCtx, RequestCtx>>,
     },
 }
 
-impl<GlobalCtx, ReqCtx> Client<GlobalCtx, ReqCtx>
+impl<GlobalCtx, RequestCtx> Client<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
-    ReqCtx: RequestContext,
+    RequestCtx: RequestContext,
 {
     /// Takes the URL of a Warpgrapher service endpoint and returns a new ['Client'] initialized to
-    /// query that endpoint.
+    /// query that endpoint.  The type parameters are only relevant for a local instance of the
+    /// Warpgrapher engine, not for a remote HTTP client, so pass () for both type parameters, as
+    /// shown in the example below.
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// [`Client`]: ./enum.Client.html
     ///
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::client::Client;
+    /// # use warpgrapher::Client;
     ///
     /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql");
     /// ```
-    pub fn new_with_http(endpoint: &str) -> Client<GlobalCtx, ReqCtx> {
+    pub fn new_with_http(endpoint: &str) -> Client<(), ()> {
         trace!("Client::new_with_http called -- endpoint: {}", endpoint);
+
         Client::Http {
             endpoint: endpoint.to_string(),
         }
     }
 
-    /// Takes a Warpgrapher engine and returns a new ['Client'] initialized to query that engine
+    /// Takes a Warpgrapher engine and returns a new ['Client'] initialized to query that engine.
+    /// The type parameters are the [`GlobalContext`] and [`RequestContext`] used by the engine.
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// [`Client`]: ./enum.Client.html
+    /// [`GlobalContext`]: ../engine/context/trait.GlobalContext.html
+    /// [`RequestContext`]: ../engine/context/trait.RequestContext.html
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::client::Client;
-    /// # use warpgrapher::Engine;
-    /// # use warpgrapher::engine::config::Config;
-    /// # use warpgrapher::engine::database::DatabasePool;
+    /// # use warpgrapher::{Client, Config, DatabasePool, Engine};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let c = Config::new(1, Vec::new(), Vec::new());
@@ -81,8 +84,9 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new_with_local(engine: Engine<GlobalCtx, ReqCtx>) -> Client<GlobalCtx, ReqCtx> {
+    pub fn new_with_local(engine: Engine<GlobalCtx, RequestCtx>) -> Client<GlobalCtx, RequestCtx> {
         trace!("Client::new_with_local called");
+
         Client::Local {
             engine: Box::new(engine),
         }
@@ -100,7 +104,7 @@ where
     /// to the graph query
     /// * result_field - name of the field under 'data' that holds the GraphQL response
     ///
-    /// [`Client`]: ./struct.Client.html
+    /// [`Client`]: ./enum.Client.html
     ///
     /// # Return
     ///
@@ -118,7 +122,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -166,7 +170,7 @@ where
             }
             Client::Local { engine } => {
                 let metadata: HashMap<String, String> = HashMap::new();
-                engine.execute(from_value::<GraphQLRequest>(req_body)?, metadata)?
+                engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata)?
             }
         };
         debug!("Client::graphql -- response body: {:#?}", body);
@@ -213,7 +217,7 @@ where
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -282,7 +286,7 @@ where
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -359,7 +363,7 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     /// # use serde_json::json;
     ///
     /// # #[tokio::main]
@@ -434,7 +438,7 @@ where
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -523,7 +527,7 @@ where
     /// # Examples
     ///
     /// ```no_run
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -588,7 +592,7 @@ where
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -657,7 +661,7 @@ where
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -729,7 +733,7 @@ where
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::client::Client;;
+    /// # use warpgrapher::Client;;
     ///
     /// # #[tokio::main]
     /// # async fn main() {

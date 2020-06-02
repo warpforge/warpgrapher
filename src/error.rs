@@ -2,7 +2,7 @@
 
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinError;
-use std::fmt::{Display, Formatter, Result as FmtResult};
+use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 
 /// Error type for Warpgrapher
@@ -17,21 +17,17 @@ use std::num::ParseIntError;
 /// ```
 #[derive(Debug)]
 pub enum Error {
-    /// Returned if a GraphQL query is missing an expected argument. For example, if a create
-    /// mutation call were missing its input argument. Also returned if an input argument is
-    /// missing an expected field.
-    ArgumentNotFound { name: String },
-
     /// Returned if a [`Client`] is unable to submit a request to the server, such as due to a
     /// network or server error, or the response cannot be parsed as valid JSON. Inspect the
     /// [`reqwest::Error`] included as a source error for additional detail.
     ///
-    /// [`Client`]: ./client/struct.Client.html
+    /// [`Client`]: ./client/enum.Client.html
     ClientRequestFailed { source: reqwest::Error },
 
     /// Returned if two Warpgrapher endpoints or two Warpgrapher types are defined with the same
     /// name. The `type_name` field contains the name of the duplicated type.
     ConfigItemDuplicated { type_name: String },
+
     /// Returned if a Warpgrapher endpoint or type is defined with a name that is a reserved
     /// word, such as "ID" or a GraphQL scalar. The field `type_name` is the name that triggered the
     /// error.
@@ -48,7 +44,7 @@ pub enum Error {
     /// [`Config`]: ../engine/config/struct.Config.html
     ConfigVersionMismatched { expected: i32, found: i32 },
 
-    /// Returned if a client for a cosmos database pool cannot be built
+    /// Returned if a client for a Cosmos database pool cannot be built
     #[cfg(feature = "cosmos")]
     CosmosPoolNotBuilt {
         source: Box<gremlin_client::GremlinError>,
@@ -59,7 +55,7 @@ pub enum Error {
     DatabaseNotFound,
 
     /// Returned if a `Config` fails to deserialize because the provided data does not match the
-    /// expected structure
+    /// expected data structure
     ///
     /// [`Config`]: ../engine/config/struct.Config.html
     DeserializationFailed { source: serde_yaml::Error },
@@ -77,19 +73,25 @@ pub enum Error {
         source: Box<dyn std::error::Error + Sync + Send>,
     },
 
+    /// Returned if a GraphQL query is missing an expected argument. For example, if a create
+    /// mutation call were missing its input argument. Also returned if an input argument is
+    /// missing an expected field.
+    InputItemNotFound { name: String },
+
     /// Returned if a neo4j database pool cannot be built
     #[cfg(feature = "neo4j")]
     Neo4jPoolNotBuilt { source: r2d2::Error },
+
     /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
     /// Cosmos DB
-    PartitionKeyRequired,
+    PartitionKeyNotFound,
 
     /// Returned if a [`Client`] receives a valid JSON response that does not contain the
     /// expected 'data' or 'errors' objects.
     ///
     /// The [`serde_json::Value`] tuple value contains the deserialized JSON response.
     ///
-    /// [`Client`]: ../client/struct.Client.html
+    /// [`Client`]: ./client/enum.Client.html
     PayloadNotFound { response: serde_json::Value },
 
     /// Returned if a query tries to create a single-node relationship on a node that already has
@@ -104,7 +106,7 @@ pub enum Error {
     ResolverNotFound { name: String },
 
     /// Returned if a database query is missing a set of results altogether, where one is expected.
-    /// This likely indicates an intenral bug. Thus, if you happen to see it, please open an issue
+    /// This likely indicates an internal bug. Thus, if you happen to see it, please open an issue
     /// at the Warpgrapher project.
     ResponseSetNotFound,
 
@@ -116,6 +118,7 @@ pub enum Error {
 
     /// Returned if a GraphQL response cannot be converted to a serde_json::Value
     SerializationFailed { source: serde_json::Error },
+
     /// Returned if Warpgrapher fails to find an element within a schema, such as a type or
     /// property. This is very unlikely to be returned as a result of problems with inputs to the
     /// engine and most likely indicates an internal bug. Thus, if you happen to see it, please
@@ -132,12 +135,12 @@ pub enum Error {
     /// be converted.
     TypeConversionFailed { src: String, dst: String },
 
-    /// Returned in multiple circumstances if the type information associated with a value is
+    /// Returned in multiple circumstances if the type information associated with a [`Value`] is
     /// inconsistent with the type required. Examples include:
     ///
     /// * a Warpgrapher [`Value`] enum doesn't match the variant expected for a given property, such
     /// as an ID represented by something other than a string value
-    /// * a configuration schema is parsed incorrectly, resulting in an unexpected GraphQL endpoing
+    /// * a configuration schema is parsed incorrectly, resulting in an unexpected GraphQL endpoint
     /// input argument
     ///
     /// This error could be returned if a custom resolver creates a node or relationship with a
@@ -146,7 +149,7 @@ pub enum Error {
     /// that case, this error most likely indicates an internal bug for which an issue should be
     /// opened at the Warpgrapher project.
     ///
-    /// [`Value`]: ../engine/value/struct.Value.html
+    /// [`Value`]: ./engine/value/enum.Value.html
     TypeNotExpected,
 
     /// This error is returned by a custom input validator when the validation fails. The message
@@ -159,12 +162,9 @@ pub enum Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            Error::ArgumentNotFound { name } => {
-                write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
-            }
-            Error::ClientRequestFailed { source } => {
+           Error::ClientRequestFailed { source } => {
                 write!(f, "Client request failed. Source error: {}", source)
             }
             Error::ConfigItemDuplicated { type_name } => {
@@ -198,11 +198,14 @@ impl Display for Error {
             Error::ExtensionFailed { source } => {
                 write!(f, "Extension returned an error: {}", source)
             }
+            Error::InputItemNotFound { name } => {
+                write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
+            }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool. Source error: {}", source)
             }
-            Error::PartitionKeyRequired => {
+            Error::PartitionKeyNotFound => {
                 write!(f, "Partition keys are required when using Cosmos DB.")
             }
             Error::PayloadNotFound { response } => {
@@ -248,7 +251,6 @@ impl Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Error::ArgumentNotFound { name: _ } => None,
             Error::ClientRequestFailed { source } => Some(source),
             Error::ConfigItemDuplicated { type_name: _ } => None,
             Error::ConfigItemReserved { type_name: _ } => None,
@@ -264,9 +266,10 @@ impl std::error::Error for Error {
             Error::EnvironmentVariableNotFound { name: _ } => None,
             Error::EnvironmentVariableNotParsed { source } => Some(source),
             Error::ExtensionFailed { source } => Some(source.as_ref()),
+            Error::InputItemNotFound { name: _ } => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
-            Error::PartitionKeyRequired => None,
+            Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
             Error::RelDuplicated { rel_name: _ } => None,
             Error::ResolverNotFound { name: _ } => None,

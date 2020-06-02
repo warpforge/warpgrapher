@@ -19,6 +19,7 @@ pub use juniper::FieldError;
 
 pub use client::Client;
 pub use engine::config::Config;
+pub use engine::database::DatabasePool;
 pub use engine::Engine;
 pub use error::Error;
 

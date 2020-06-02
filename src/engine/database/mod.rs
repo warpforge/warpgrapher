@@ -44,6 +44,12 @@ pub enum DatabasePool {
     NoDatabase,
 }
 
+impl Default for DatabasePool {
+    fn default() -> Self {
+        DatabasePool::NoDatabase
+    }
+}
+
 pub trait DatabaseEndpoint {
     fn pool(&self) -> Result<DatabasePool, Error>;
 }

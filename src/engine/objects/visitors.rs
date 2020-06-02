@@ -181,7 +181,7 @@ where
             partition_key_opt,
             Some(m.remove("delete").ok_or_else(|| {
                 // remove used to take ownership
-                Error::ArgumentNotFound {
+                Error::InputItemNotFound {
                     name: "input::delete".to_string(),
                 }
             })?),
@@ -277,7 +277,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string() + "::NEW or ::EXISTING",
             })?;
 
@@ -467,7 +467,7 @@ where
             partition_key_opt,
             m.remove("modify").ok_or_else(|| {
                 // remove() used here to take ownership of the "modify" value, not borrow it
-                Error::ArgumentNotFound {
+                Error::InputItemNotFound {
                     name: "input::modify".to_string(),
                 }
             })?,
@@ -657,7 +657,7 @@ where
                 transaction,
             )?;
         } else {
-            return Err(Error::ArgumentNotFound {
+            return Err(Error::InputItemNotFound {
                 name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
             }
             .into());
@@ -721,7 +721,7 @@ where
 
         let create_input = m.remove("create").ok_or_else(|| {
             // Using remove to take ownership
-            Error::ArgumentNotFound {
+            Error::InputItemNotFound {
                 name: "input::create".to_string(),
             }
         })?;
@@ -802,7 +802,7 @@ where
     if let Value::Map(mut m) = input {
         let dst = m
             .remove("dst") // Using remove to take ownership
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: "dst".to_string(),
             })?;
         let (dst_label, dst_ids) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
@@ -935,7 +935,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string(),
             })?;
 
@@ -1030,7 +1030,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string(),
             })?;
 
@@ -1074,7 +1074,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string(),
             })?;
 
@@ -1236,7 +1236,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string(),
             })?;
 
@@ -1283,7 +1283,7 @@ where
         let (k, v) = m
             .into_iter()
             .next()
-            .ok_or_else(|| Error::ArgumentNotFound {
+            .ok_or_else(|| Error::InputItemNotFound {
                 name: info.name().to_string(),
             })?;
 
@@ -1428,7 +1428,7 @@ where
                 transaction,
             )
         } else {
-            Err(Error::ArgumentNotFound {
+            Err(Error::InputItemNotFound {
                 name: "update".to_string(),
             }
             .into())

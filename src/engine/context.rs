@@ -13,7 +13,7 @@ use std::sync::Arc;
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the Neo4J database in to the resolvers.
 ///
-/// ['GraphQLContext']: ./struct/GraphQLContext.html
+/// ['GraphQLContext']: ./struct.GraphQLContext.html
 pub struct GraphQLContext<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
@@ -37,7 +37,7 @@ where
     /// Takes a DatabasePool and returns a
     /// ['GraphQLContext'] containing that connection pool.
     ///
-    /// ['GraphQLContext']: ./struct/GraphQLContext.html
+    /// ['GraphQLContext']: ./struct.GraphQLContext.html
     pub fn new(
         pool: DatabasePool,
         resolvers: Resolvers<GlobalCtx, RequestCtx>,
