@@ -1,6 +1,6 @@
 # Dynamic Relationships
 
-Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic rels allows values to be computed at request time. 
+Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. 
 
 ## Usage
 
@@ -10,11 +10,11 @@ Dynamic relationships are similiar to Dynamic Props. Instead of returning values
 version: 1
 model: 
  - name: Project
-   props: []
-   rels:
+   properties: []
+   relationships:
     - name: topcontributor
       nodes: [User]
-      props: []
+      properties: []
       resolver: project_topcontributor
 ```
 

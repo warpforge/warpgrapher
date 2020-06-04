@@ -3,7 +3,7 @@ model:
 
   # User
   - name: User
-    props:
+    properties:
       - name: name
         type: String
         required: true
@@ -11,7 +11,7 @@ model:
 
   # Project
   - name: Project
-    props:
+    properties:
       - name: name
         type: String
       - name: description
@@ -31,9 +31,9 @@ model:
         type: String
         list: true
         resolver: ProjectTopTags
-    rels:
+    relationships:
       - name: owner
-        props:
+        properties:
           - name: since
             type: String
         nodes: [User]
@@ -56,31 +56,31 @@ model:
   
   # Feature
   - name: Feature
-    props:
+    properties:
       - name: name
         type: String
   
   # Bug
   - name: Bug
-    props:
+    properties:
       - name: name
         type: String
   
   # KanbanBoard
   - name: KanbanBoard
-    props:
+    properties:
       - name: name
         type: String
   
   # ScrumBoard
   - name: ScrumBoard
-    props:
+    properties:
       - name: name
         type: String
   
   # Commit
   - name: Commit
-    props:
+    properties:
       - name: hash
         type: String
 

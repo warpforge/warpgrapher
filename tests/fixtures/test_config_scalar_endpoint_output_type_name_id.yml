@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: User
-    props:
+    properties:
       - name: name
         type: String
 endpoints:
@@ -16,5 +16,5 @@ endpoints:
       list: false
       type:
         name: ID
-        props: []
-        rels: []
+        properties: []
+        relationships: []

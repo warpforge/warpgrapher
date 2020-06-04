@@ -3,14 +3,14 @@ model:
 
   # User
   - name: User
-    props:
+    properties:
       - name: name
         type: String
         required: true
 
   # Project
   - name: Project
-    props:
+    properties:
       - name: name
         type: String
       - name: description
@@ -23,25 +23,25 @@ model:
         type: Float
       - name: active
         type: Boolean
-    rels:
+    relationships:
       - name: owner
-        props:
+        properties:
           - name: since
             type: String
         nodes: [User]
       - name: board
         nodes: [KanbanBoard, ScrumBoard]
-        props:
+        properties:
           - name: publicized
             type: Boolean
       - name: activity
         nodes: [Commit]
-        props:
+        properties:
             - name: repo
               type: String
         list: true
       - name: issues
-        props:
+        properties:
           - name: since
             type: String
         nodes: [Feature, Bug]
@@ -49,7 +49,7 @@ model:
   
   # Feature
   - name: Feature
-    props:
+    properties:
       - name: name
         type: String
       - name: points
@@ -57,7 +57,7 @@ model:
   
   # Bug
   - name: Bug
-    props:
+    properties:
       - name: name
         type: String
       - name: critical
@@ -65,18 +65,18 @@ model:
   
   # KanbanBoard
   - name: KanbanBoard
-    props:
+    properties:
       - name: name
         type: String
   
   # ScrumBoard
   - name: ScrumBoard
-    props:
+    properties:
       - name: name
         type: String
   
   # Commit
   - name: Commit
-    props:
+    properties:
       - name: hash
         type: String

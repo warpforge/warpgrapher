@@ -1,9 +1,9 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
-use crate::engine::config::Validators;
 use crate::engine::database::DatabasePool;
 use crate::engine::extensions::{Extension, Extensions};
 use crate::engine::objects::resolvers::{ResolverFunc, Resolvers};
+use crate::engine::validators::Validators;
 use crate::Error;
 use juniper::Context;
 use std::fmt::Debug;
@@ -117,13 +117,13 @@ mod tests {
     #[cfg(feature = "neo4j")]
     use super::GraphQLContext;
     #[cfg(feature = "neo4j")]
-    use crate::engine::config::Validators;
-    #[cfg(feature = "neo4j")]
     use crate::engine::database::neo4j::Neo4jEndpoint;
     #[cfg(feature = "neo4j")]
     use crate::engine::database::DatabaseEndpoint;
     #[cfg(feature = "neo4j")]
     use crate::engine::objects::resolvers::Resolvers;
+    #[cfg(feature = "neo4j")]
+    use crate::engine::validators::Validators;
 
     #[cfg(feature = "neo4j")]
     fn init() {

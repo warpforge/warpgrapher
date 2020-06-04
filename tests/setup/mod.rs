@@ -11,13 +11,13 @@ use log::trace;
 use rusted_cypher::GraphClient;
 #[cfg(feature = "neo4j")]
 use std::collections::HashMap;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use std::convert::TryInto;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
 #[cfg(feature = "neo4j")]
 use std::sync::Arc;
-#[cfg(feature = "neo4j")]
-use warpgrapher::engine::config::Validators;
 use warpgrapher::engine::context::{GlobalContext, RequestContext};
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::cosmos::CosmosEndpoint;
@@ -33,12 +33,14 @@ use warpgrapher::engine::extensions::Extensions;
 use warpgrapher::engine::objects::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::resolvers::{GraphNode, GraphRel, ResolverContext};
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "neo4j")]
 use warpgrapher::ExecutionResult;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
-use warpgrapher::{Config, Error};
+use warpgrapher::{Configuration, Error};
 
 #[allow(dead_code)]
 pub(crate) fn init() {
@@ -136,7 +138,7 @@ fn cosmos_gql_endpoint() -> String {
 }
 
 #[allow(dead_code)]
-fn load_config(config: &str) -> Config {
+fn load_config(config: &str) -> Configuration {
     let cf = File::open(config).expect("Could not open test model config file.");
     let cr = BufReader::new(cf);
     serde_yaml::from_reader(cr).expect("Could not deserialize configuration file.")
@@ -146,7 +148,10 @@ fn load_config(config: &str) -> Config {
 #[cfg(feature = "neo4j")]
 pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
-    let config = Config::from_file(config_path).expect("Failed to load config file");
+    let config: Configuration = File::open(config_path)
+        .expect("Failed to load config file")
+        .try_into()
+        .unwrap();
 
     let database_pool = Neo4jEndpoint::from_env().unwrap().pool().unwrap();
 
@@ -191,7 +196,10 @@ pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRe
 pub(crate) fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
-    let config = Config::from_file(config_path).expect("Failed to load config file");
+    let config: Configuration = File::open(config_path)
+        .expect("Failed to load config file")
+        .try_into()
+        .unwrap();
 
     let database_pool = CosmosEndpoint::from_env().unwrap().pool().unwrap();
 

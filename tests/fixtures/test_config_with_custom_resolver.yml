@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: "Leaf"
-    props:
+    properties:
       - name: "color"
         required: true
         type: "String"
@@ -13,12 +13,12 @@ model:
       - name: "shape"
         required: false
         type: "String"
-    rels:
+    relationships:
       - name: "stem"
         list: false
         nodes: 
           - "Leaf"
-        props:
+        properties:
           - name: "length"
             type: String
             required: false

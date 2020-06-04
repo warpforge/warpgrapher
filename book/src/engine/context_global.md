@@ -55,14 +55,14 @@ static CONFIG : &'static str = "
 version: 1
 model:
   - name: User
-    props:
+    properties:
       - name: email
         type: String
   - name: Team
-    props:
+    properties:
       - name: name
         type: String
-    rels:
+    relationships:
       - name: users
         nodes: [User]
 endpoints:

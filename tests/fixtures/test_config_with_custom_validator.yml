@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: "Leaf"
-    props:
+    properties:
       - name: "color"
         required: true
         type: "String"
@@ -14,12 +14,12 @@ model:
         required: false
         type: "String"
         validator: "MyValidator"
-    rels:
+    relationships:
       - name: "stem"
         list: false
         nodes: 
           - "Leaf"
-        props:
+        properties:
           - name: "length"
             type: String
             required: false

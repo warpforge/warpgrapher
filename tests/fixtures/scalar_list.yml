@@ -2,7 +2,7 @@ version: 1
 model:
 
   - name: TestType
-    props:
+    properties:
       - name: string_list
         type: String
         list: true

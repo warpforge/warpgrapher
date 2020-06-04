@@ -10,7 +10,7 @@ model:
 
   # User
   - name: User
-    props:
+    properties:
       - name: username
         type: String
       - name: email
@@ -18,10 +18,10 @@ model:
 
   # Team
   - name: Team
-    props:
+    properties:
       - name: teamname
         type: String
-    rels:
+    relationships:
       - name: members
         nodes: [User]
         list: true
@@ -30,7 +30,7 @@ model:
 ### Programmatic Config
 
 ```rust
-use warpgrapher::engine::config::{Config, Prop, Relationship, Type};
+use warpgrapher::engine::config::{Config, Property, Relationship, Type};
 
 let config = Config::new(
     1,
@@ -39,7 +39,7 @@ let config = Config::new(
         Type::new(
             "User".to_string(),
             vec![
-                Prop::new(
+                Property::new(
                     "username".to_string(),
                     "String".to_string(),
                     false,
@@ -47,7 +47,7 @@ let config = Config::new(
                     None,
                     None,
                 ),
-                Prop::new(
+                Property::new(
                     "email".to_string(),
                     "String".to_string(),
                     false,
@@ -62,7 +62,7 @@ let config = Config::new(
         // Team
         Type::new(
             "Team".to_string(),
-            vec![Prop::new(
+            vec![Property::new(
                 "teamname".to_string(),
                 "String".to_string(),
                 false,

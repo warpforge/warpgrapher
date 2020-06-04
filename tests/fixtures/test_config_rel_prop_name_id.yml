@@ -3,12 +3,12 @@
 version: 2
 model:
   - name: User
-    props:
+    properties:
       - name: name
         required: true
         type: "String"
   - name: Project
-    props:
+    properties:
       - name: name
         type: String
       - name: description
@@ -23,9 +23,9 @@ model:
         type: Boolean
       - name: points
         type: Int 
-    rels:
+    relationships:
       - name: owner
-        props:
+        properties:
           - name: ID 
             type: Int 
         nodes: [User]

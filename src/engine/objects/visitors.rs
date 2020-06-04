@@ -1,8 +1,8 @@
-use crate::engine::config::Validators;
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::database::{QueryResult, Transaction};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
+use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
 use juniper::{graphql_value, FieldError};

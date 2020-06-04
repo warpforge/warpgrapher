@@ -3,7 +3,7 @@
 //! and resolvers for common create, read, update, and delete operations.
 
 use super::config::{
-    Config, Endpoint, EndpointClass, GraphqlType, Prop, Relationship, Type, TypeDef,
+    Configuration, Endpoint, EndpointClass, GraphqlType, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
 use crate::engine::context::{GlobalContext, RequestContext};
@@ -39,7 +39,7 @@ pub(crate) enum PropertyKind {
     NodeDeleteMutation(String), // String is node label of the node to be deleted
     Object,
     Rel(String), // String is the name of the rel, which is trivially the field name
-    // for rels on objects, but not obvious for root relationship query
+    // for relationships on objects, but not obvious for root relationship query
     // endpoints
     RelCreateMutation(String, String), // (src_node_label, rel_name)
     RelUpdateMutation(String, String), // (src_node_label, rel_name)
@@ -275,9 +275,13 @@ impl Argument {
     }
 }
 
-/// Takes a vector of WG Props and returns a map of Property structs that
+/// Takes a vector of WG Properties and returns a map of Property structs that
 /// represent the property fields in a graphql schema component
-fn generate_props(props: &[Prop], id: bool, object: bool) -> HashMap<String, Property> {
+fn generate_props(
+    props: &[crate::engine::config::Property],
+    id: bool,
+    object: bool,
+) -> HashMap<String, Property> {
     let mut hm = HashMap::new();
 
     // if the ID field was specified, add it
@@ -349,8 +353,8 @@ fn fmt_node_object_name(t: &Type) -> String {
 ///     owner: ProjectOwnerRel
 /// }
 fn generate_node_object(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.props_as_slice(), true, true);
-    for r in t.rels() {
+    let mut props = generate_props(&t.properties_as_slice(), true, true);
+    for r in t.relationships() {
         let mut arguments = HashMap::new();
         arguments.insert(
             "input".to_string(),
@@ -402,8 +406,8 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerQueryInput
 /// }
 fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.props_as_slice(), true, false);
-    for r in t.rels() {
+    let mut props = generate_props(&t.properties_as_slice(), true, false);
+    for r in t.relationships() {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -440,8 +444,8 @@ fn fmt_node_create_mutation_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerMutationInput
 /// }
 fn generate_node_create_mutation_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.props_as_slice(), false, false);
-    for r in t.rels() {
+    let mut props = generate_props(t.properties_as_slice(), false, false);
+    for r in t.relationships() {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -483,8 +487,8 @@ fn fmt_node_update_mutation_input_name(t: &Type) -> String {
 ///     issues: ProjectIssuesChangeInput
 /// }
 fn generate_node_update_mutation_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.props_as_slice(), false, false);
-    for r in t.rels() {
+    let mut props = generate_props(t.properties_as_slice(), false, false);
+    for r in t.relationships() {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -642,7 +646,7 @@ fn fmt_node_delete_mutation_input_name(t: &Type) -> String {
 /// }
 fn generate_node_delete_mutation_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
-    for r in t.rels() {
+    for r in t.relationships() {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -858,7 +862,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
         Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()).with_required(true),
     );
 
-    if !r.props_as_slice().is_empty() {
+    if !r.properties_as_slice().is_empty() {
         props.insert(
             "props".to_owned(),
             Property::new(
@@ -914,7 +918,7 @@ fn generate_rel_props_object(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_object_name(t, r),
         TypeKind::Object,
-        generate_props(r.props_as_slice(), false, true),
+        generate_props(r.properties_as_slice(), false, true),
     )
 }
 
@@ -941,7 +945,7 @@ fn generate_rel_nodes_union(t: &Type, r: &Relationship) -> NodeType {
         TypeKind::Union,
         HashMap::new(),
     );
-    nt.union_types = Some(r.nodes_to_vec());
+    nt.union_types = Some(r.nodes().cloned().collect());
     nt
 }
 
@@ -978,7 +982,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
         "id".to_owned(),
         Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()),
     );
-    if !r.props_as_slice().is_empty() {
+    if !r.properties_as_slice().is_empty() {
         props.insert(
             "props".to_owned(),
             Property::new(
@@ -1033,7 +1037,7 @@ fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    if !r.props_as_slice().is_empty() {
+    if !r.properties_as_slice().is_empty() {
         props.insert(
             "props".to_owned(),
             Property::new(
@@ -1139,7 +1143,7 @@ fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    if !r.props_as_slice().is_empty() {
+    if !r.properties_as_slice().is_empty() {
         props.insert(
             "props".to_owned(),
             Property::new(
@@ -1274,7 +1278,7 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_input_name(t, r),
         TypeKind::Input,
-        generate_props(r.props_as_slice(), false, false),
+        generate_props(r.properties_as_slice(), false, false),
     )
 }
 
@@ -1850,8 +1854,8 @@ fn generate_custom_endpoint(e: &Endpoint) -> Property {
 }
 
 fn generate_custom_endpoint_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.props_as_slice(), false, false);
-    for r in t.rels() {
+    let mut props = generate_props(t.properties_as_slice(), false, false);
+    for r in t.relationships() {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -1875,7 +1879,7 @@ fn generate_static_version_query() -> Property {
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &Config) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
@@ -1947,7 +1951,7 @@ fn generate_schema(c: &Config) -> HashMap<String, NodeType> {
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        for r in t.rels() {
+        for r in t.relationships() {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);
             nthm.insert(rel_object.type_name.to_owned(), rel_object);
@@ -2130,7 +2134,7 @@ fn generate_schema(c: &Config) -> HashMap<String, NodeType> {
 /// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
 ///
 pub(super) fn create_root_node<GlobalCtx, ReqCtx>(
-    c: &Config,
+    c: &Configuration,
 ) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
 where
     GlobalCtx: GlobalContext,
@@ -2887,7 +2891,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_object_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(fmt_rel_object_name(&project_type, &project_owner_rel) == "ProjectOwnerRel");
     }
 
@@ -2904,7 +2911,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_object = generate_rel_object(&project_type, &project_owner_rel);
         let project_owner_id = project_owner_object.props.get("id").unwrap();
         assert!(project_owner_id.name == "id");
@@ -2943,7 +2953,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_object = generate_rel_object(&project_type, &project_board_rel);
         let project_board_id = project_board_object.props.get("id").unwrap();
         assert!(project_board_id.name == "id");
@@ -2974,7 +2987,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_props_object_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_props_object_name(&project_type, &project_owner_rel) == "ProjectOwnerProps"
         );
@@ -2990,7 +3006,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_props_object =
             generate_rel_props_object(&project_type, &project_owner_rel);
         assert!(project_owner_props_object.props.len() == 1);
@@ -3007,7 +3026,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_nodes_union_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_nodes_union_name(&project_type, &project_owner_rel) == "ProjectOwnerNodesUnion"
         );
@@ -3020,7 +3042,10 @@ mod tests {
             union ProjectOwnerNodesUnion = User
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_nodes_union = generate_rel_nodes_union(&project_type, &project_owner_rel);
         assert!(project_owner_nodes_union.type_name == "ProjectOwnerNodesUnion");
         assert!(project_owner_nodes_union.type_kind == TypeKind::Union);
@@ -3032,7 +3057,10 @@ mod tests {
             union ProjectBoardNodesUnion = ScrumBoard | KanbanBoard
         */
         let project_type = mock_project_type();
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_nodes_union = generate_rel_nodes_union(&project_type, &project_board_rel);
         assert!(project_board_nodes_union.type_name == "ProjectBoardNodesUnion");
         assert!(project_board_nodes_union.type_kind == TypeKind::Union);
@@ -3047,7 +3075,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_query_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_query_input_name(&project_type, &project_owner_rel) == "ProjectOwnerQueryInput"
         );
@@ -3066,7 +3097,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_query_input = generate_rel_query_input(&project_type, &project_owner_rel);
         // id
         let project_owner_id = project_owner_query_input.props.get("id").unwrap();
@@ -3108,7 +3142,10 @@ mod tests {
                 dst: ProjectBoardDstQueryInput
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_query_input = generate_rel_query_input(&project_type, &project_board_rel);
         // id
         let project_board_id = project_board_query_input.props.get("id").unwrap();
@@ -3142,7 +3179,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_create_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerCreateMutationInput"
@@ -3159,7 +3199,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_mutation_input =
             generate_rel_create_mutation_input(&project_type, &project_owner_rel);
         assert!(project_owner_mutation_input.type_name == "ProjectOwnerCreateMutationInput");
@@ -3184,7 +3227,10 @@ mod tests {
                 dst: ProjectBoardNodesMutationInputUnion
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_mutation_input =
             generate_rel_create_mutation_input(&project_type, &project_board_rel);
         assert!(project_board_mutation_input.type_name == "ProjectBoardCreateMutationInput");
@@ -3205,7 +3251,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_change_input_name() {
         let project_type = mock_project_type();
-        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
+        let project_issues_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "issues")
+            .unwrap();
         assert!(
             fmt_rel_change_input_name(&project_type, &project_issues_rel)
                 == "ProjectIssuesChangeInput"
@@ -3223,7 +3272,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
+        let project_issues_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "issues")
+            .unwrap();
         let project_issues_change_input =
             generate_rel_change_input(&project_type, &project_issues_rel);
         assert!(project_issues_change_input.type_name == "ProjectIssuesChangeInput");
@@ -3257,7 +3309,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerUpdateMutationInput"
@@ -3275,7 +3330,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_update_mutation_input =
             generate_rel_update_mutation_input(&project_type, &project_owner_rel);
         assert!(project_owner_update_mutation_input.type_name == "ProjectOwnerUpdateMutationInput");
@@ -3318,7 +3376,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_update_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_src_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcUpdateMutationInput"
@@ -3334,7 +3395,10 @@ mod tests {
                 Project: ProjectUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_src_update_mutation_input =
             generate_rel_src_update_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3356,7 +3420,10 @@ mod tests {
                 Project: ProjectUpdateMutationInput
             }
         */
-        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
+        let project_issues_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "issues")
+            .unwrap();
         let project_issues_src_update_mutation_input =
             generate_rel_src_update_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -3384,7 +3451,10 @@ mod tests {
                 User: UserUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_dst_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstUpdateMutationInput"
@@ -3400,7 +3470,10 @@ mod tests {
                 User: UserUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_dst_update_mutation_input =
             generate_rel_dst_update_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3423,7 +3496,10 @@ mod tests {
                 Feature: FeatureUpdateMutationInput
             }
         */
-        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
+        let project_issues_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "issues")
+            .unwrap();
         let project_issues_dst_update_mutation_input =
             generate_rel_dst_update_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -3456,7 +3532,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_props_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_props_input_name(&project_type, &project_owner_rel) == "ProjectOwnerPropsInput"
         );
@@ -3471,7 +3550,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_props_input = generate_rel_props_input(&project_type, &project_owner_rel);
         assert!(project_owner_props_input.type_name == "ProjectOwnerPropsInput");
         assert!(project_owner_props_input.type_kind == TypeKind::Input);
@@ -3489,12 +3571,18 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_query_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_src_query_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcQueryInput"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_src_query_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardSrcQueryInput"
@@ -3505,12 +3593,18 @@ mod tests {
     #[test]
     fn test_fmt_rel_dst_query_input_name_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_dst_query_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstQueryInput"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_dst_query_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardDstQueryInput"
@@ -3526,7 +3620,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_nodes_query_input_union =
             generate_rel_dst_query_input(&project_type, &project_owner_rel);
         assert!(project_owner_nodes_query_input_union.type_name == "ProjectOwnerDstQueryInput");
@@ -3548,7 +3645,10 @@ mod tests {
                 ScrumBoard: ScrumBoardQueryInput
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_nodes_query_input_union =
             generate_rel_dst_query_input(&project_type, &project_board_rel);
         assert!(project_board_nodes_query_input_union.type_name == "ProjectBoardDstQueryInput");
@@ -3580,12 +3680,18 @@ mod tests {
     #[test]
     fn test_fmt_rel_nodes_mutation_input_union_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_nodes_mutation_input_union_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerNodesMutationInputUnion"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_nodes_mutation_input_union_name(&project_type, &project_board_rel)
                 == "ProjectBoardNodesMutationInputUnion"
@@ -3601,7 +3707,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_nodes_mutation_input_union =
             generate_rel_nodes_mutation_input_union(&project_type, &project_owner_rel);
         assert!(
@@ -3626,7 +3735,10 @@ mod tests {
                 ScrumBoard: ScrumBoardInput
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_nodes_mutation_input_union =
             generate_rel_nodes_mutation_input_union(&project_type, &project_board_rel);
         assert!(
@@ -3661,12 +3773,18 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_create_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerCreateInput"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_create_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardCreateInput"
@@ -3684,7 +3802,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_create_input =
             generate_rel_create_input(&project_type, &project_owner_rel);
         assert!(project_owner_create_input.type_name == "ProjectOwnerCreateInput");
@@ -3710,7 +3831,10 @@ mod tests {
                 create: ProjectBoardCreateMutationInput
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_create_input =
             generate_rel_create_input(&project_type, &project_board_rel);
         assert!(project_board_create_input.type_name == "ProjectBoardCreateInput");
@@ -3736,12 +3860,18 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_update_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerUpdateInput"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_update_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardUpdateInput"
@@ -3759,7 +3889,10 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_update_input =
             generate_rel_update_input(&project_type, &project_owner_rel);
         assert!(project_owner_update_input.type_name == "ProjectOwnerUpdateInput");
@@ -3785,7 +3918,10 @@ mod tests {
                 update: ProjectBoardUpdateMutationInput!
             }
         */
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         let project_board_update_input =
             generate_rel_update_input(&project_type, &project_board_rel);
         assert!(project_board_update_input.type_name == "ProjectBoardUpdateInput");
@@ -3810,7 +3946,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_delete_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_delete_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDeleteInput"
@@ -3827,7 +3966,10 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_delete_input =
             generate_rel_delete_input(&project_type, &project_owner_rel);
         assert!(project_owner_delete_input.type_name == "ProjectOwnerDeleteInput");
@@ -3857,7 +3999,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_delete_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_src_delete_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcDeleteMutationInput"
@@ -3872,7 +4017,10 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_src_delete_mutation_input =
             generate_rel_src_delete_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3895,7 +4043,10 @@ mod tests {
     #[test]
     fn test_fmt_rel_dst_delete_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_dst_delete_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstDeleteMutationInput"
@@ -3910,7 +4061,10 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_dst_delete_mutation_input =
             generate_rel_dst_delete_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3935,7 +4089,10 @@ mod tests {
             Feature: FeatureDeleteMutationInput
         }
         */
-        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
+        let project_issues_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "issues")
+            .unwrap();
         let project_issues_dst_delete_mutation_input =
             generate_rel_dst_delete_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -3969,9 +4126,15 @@ mod tests {
     #[test]
     fn test_fmt_rel_read_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(fmt_rel_read_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwner");
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(fmt_rel_read_endpoint_name(&project_type, &project_board_rel) == "ProjectBoard");
     }
 
@@ -3982,7 +4145,10 @@ mod tests {
             ProjectOwner(input: ProjectOwnerQueryInput): [ProjectOwnerRel]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_read_endpoint =
             generate_rel_read_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_read_endpoint.name == "ProjectOwner");
@@ -4005,11 +4171,17 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_create_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerCreate"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_create_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardCreate"
         );
@@ -4022,7 +4194,10 @@ mod tests {
             ProjectOwnerCreate(input: ProjectOwnerCreateInput): ProjectOwnerRel
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_create_endpoint =
             generate_rel_create_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_create_endpoint.name == "ProjectOwnerCreate");
@@ -4047,11 +4222,17 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_update_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerUpdate"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_update_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardUpdate"
         );
@@ -4064,7 +4245,10 @@ mod tests {
             ProjectOwnerUpdate(input: ProjectOwnerUpdateInput): [ProjectOwnerRel]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_update_endpoint =
             generate_rel_update_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_update_endpoint.name == "ProjectOwnerUpdate");
@@ -4089,11 +4273,17 @@ mod tests {
     #[test]
     fn test_fmt_rel_delete_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         assert!(
             fmt_rel_delete_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerDelete"
         );
-        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
+        let project_board_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "board")
+            .unwrap();
         assert!(
             fmt_rel_delete_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardDelete"
         );
@@ -4106,7 +4296,10 @@ mod tests {
             ProjectOwnerDelete (input: ProjectOwnerDeleteInput): [Project]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
+        let project_owner_rel = project_type
+            .relationships()
+            .find(|&r| r.name() == "owner")
+            .unwrap();
         let project_owner_delete_endpoint =
             generate_rel_delete_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_delete_endpoint.name == "ProjectOwnerDelete");
@@ -4212,7 +4405,7 @@ mod tests {
 
     /// Passes if the right schema elements are generated
     #[test]
-    fn test_wg_rels_endpoints_filter() {}
+    fn test_wg_relationships_endpoints_filter() {}
 
     /// Passes if the root node is created
     #[test]

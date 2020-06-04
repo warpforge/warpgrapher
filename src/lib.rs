@@ -18,7 +18,7 @@ pub use juniper::ExecutionResult;
 pub use juniper::FieldError;
 
 pub use client::Client;
-pub use engine::config::Config;
+pub use engine::config::Configuration;
 pub use engine::database::DatabasePool;
 pub use engine::Engine;
 pub use error::Error;

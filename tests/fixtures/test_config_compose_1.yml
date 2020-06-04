@@ -3,27 +3,27 @@
 version: 2
 model:
   - name: Feature
-    props:
+    properties:
       - name: name
         type: String
 
   - name: Bug
-    props:
+    properties:
       - name: name
         type: String
 
   - name: KanbanBoard
-    props:
+    properties:
       - name: name
         type: String
 
   - name: ScrumBoard
-    props:
+    properties:
       - name: name
         type: String
 
   - name: Commit
-    props:
+    properties:
       - name: hash
         type: String
       

@@ -74,10 +74,10 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::{Client, Config, DatabasePool, Engine};
+    /// # use warpgrapher::{Client, Configuration, DatabasePool, Engine};
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let c = Config::new(1, Vec::new(), Vec::new());
+    /// let c = Configuration::new(1, Vec::new(), Vec::new());
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
     /// let mut client = Client::<(), ()>::new_with_local(engine);

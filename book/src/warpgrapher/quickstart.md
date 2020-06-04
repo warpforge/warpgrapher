@@ -27,16 +27,16 @@ model:
 
   # User
   - name: User
-    props:
+    properties:
       - name: email
         type: String
 
   # Team
   - name: Team
-    props:
+    properties:
       - name: name
         type: String
-    rels:
+    relationships:
       - name: users
         nodes: [User]
 ```

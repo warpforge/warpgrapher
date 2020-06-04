@@ -1,5 +1,5 @@
 name: Project
-props:
+properties:
   - name: name
     type: String
   - name: description
@@ -12,9 +12,9 @@ props:
     type: Float
   - name: active
     type: Boolean
-rels:
+relationships:
   - name: owner
-    props:
+    properties:
       - name: since
         type: String
     nodes: [User]
