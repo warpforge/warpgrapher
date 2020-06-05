@@ -517,7 +517,6 @@ mod tests {
     }
 
     /// Passes if the engine can be created.
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     #[test]
     fn engine_new() {
         init();
