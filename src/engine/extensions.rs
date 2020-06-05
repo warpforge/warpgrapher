@@ -10,7 +10,12 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
+/// ```rust
+///
+/// # use std::collections::HashMap;
+/// # use std::marker::PhantomData;
 /// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
 /// pub struct MetadataExtension<GlobalCtx, RequestCtx>
@@ -39,6 +44,7 @@ use std::sync::Arc;
 ///        Ok(())
 ///     }
 /// }
+/// ```
 pub trait Extension<GlobalCtx, RequestCtx>: Debug + Send + Sync
 where
     GlobalCtx: GlobalContext,
@@ -65,7 +71,14 @@ where
 
 /// Type alias for a thread-safe Extension vector.
 ///
+/// # Examples
+///
+/// ```rust
+/// # use std::collections::HashMap;
+/// # use std::marker::PhantomData;
+/// # use std::sync::Arc;
 /// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
 /// pub struct MetadataExtension<GlobalCtx, RequestCtx>
@@ -95,5 +108,7 @@ where
 ///     }
 /// }
 ///
-/// let extensions: Extensions<AppGlobalCtx, AppRequestCtx> = vec![Arc::new(metadata_extension)];
+/// let metadata_extension = MetadataExtension { _gctx: PhantomData, _rctx: PhantomData };
+/// let extensions: Extensions<(), ()> = vec![Arc::new(metadata_extension)];
+/// ```
 pub type Extensions<GlobalCtx, RequestCtx> = Vec<Arc<dyn Extension<GlobalCtx, RequestCtx>>>;
