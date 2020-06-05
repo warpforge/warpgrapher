@@ -317,7 +317,7 @@ where
     /// # #[cfg(feature = "neo4j")]
     /// let extensions = gqlctx.extensions();
     /// ```
-    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, RequestCtx> + Send + Sync>> {
+    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, RequestCtx>>> {
         self.extensions.iter()
     }
 
