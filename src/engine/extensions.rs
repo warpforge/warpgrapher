@@ -37,11 +37,11 @@ use std::sync::Arc;
 ///    fn pre_request_hook(
 ///         &self,
 ///         _global_ctx: Option<&GlobalCtx>,
-///         _request_ctx: &mut RequestCtx,
+///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
-///     ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
-///        Ok(())
+///        Ok(request_ctx)
 ///     }
 /// }
 /// ```
@@ -53,19 +53,19 @@ where
     fn pre_request_hook(
         &self,
         _global_ctx: Option<&GlobalCtx>,
-        _request_ctx: &mut RequestCtx,
+        request_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
-    ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
-        Ok(())
+    ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(request_ctx)
     }
 
     fn post_request_hook(
         &self,
         _global_ctx: Option<&GlobalCtx>,
         _request_ctx: &RequestCtx,
-        _response: &mut serde_json::Value,
-    ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
-        Ok(())
+        response: serde_json::Value,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error + Sync + Send>> {
+        Ok(response)
     }
 }
 
@@ -100,11 +100,11 @@ where
 ///    fn pre_request_hook(
 ///         &self,
 ///         _global_ctx: Option<&GlobalCtx>,
-///         _request_ctx: &mut RequestCtx,
+///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
-///     ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
-///        Ok(())
+///        Ok(request_ctx)
 ///     }
 /// }
 ///

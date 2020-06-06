@@ -52,13 +52,14 @@ where
     fn pre_request_hook(
         &self,
         _global_ctx: Option<&GlobalCtx>,
-        req_ctx: &mut RequestCtx,
+        mut req_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
-    ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+    ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
         req_ctx.set_metadata(Metadata {
             src_ip: "1.2.3.4".to_string(),
             src_useragent: "Firefox-123".to_string(),
         });
-        Ok(())
+
+        Ok(req_ctx)
     }
 }

@@ -272,33 +272,53 @@ where
         self.config.validate()?;
 
         // Validate Custom Endpoint defined in Configuration exists as a Resolver
-        for e in self.config.endpoints() {
-            if !self.resolvers.contains_key(e.name()) {
-                return Err(Error::ResolverNotFound {
-                    name: e.name().to_string(),
-                });
-            }
-        }
-
-        for t in self.config.types() {
-            // Validate Custom Prop defined in Configuration exists as a Resolver
-            for r in t.properties().filter_map(|p| p.resolver().as_ref()) {
-                if !self.resolvers.contains_key(r) {
-                    return Err(Error::ResolverNotFound {
-                        name: r.to_string(),
-                    });
+        self.config
+            .endpoints()
+            .map(|e| {
+                if !self.resolvers.contains_key(e.name()) {
+                    Err(Error::ResolverNotFound {
+                        name: e.name().to_string(),
+                    })
+                } else {
+                    Ok(())
                 }
-            }
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
-            // Validate that custom validator defined in Configuration exists as a Validator
-            for v in t.properties().filter_map(|p| p.validator().as_ref()) {
-                if !self.validators.contains_key(v) {
-                    return Err(Error::ValidatorNotFound {
-                        name: v.to_string(),
-                    });
-                }
-            }
-        }
+        self.config
+            .types()
+            .map(|t| {
+                // Validate that custom resolver defined in Configuration exists as a Resolver
+                t.properties()
+                    .filter_map(|p| p.resolver().as_ref())
+                    .map(|r| {
+                        if !self.resolvers.contains_key(r) {
+                            Err(Error::ResolverNotFound {
+                                name: r.to_string(),
+                            })
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?;
+
+                // Validate that custom validator defined in Configuration exists as a Validator
+                t.properties()
+                    .filter_map(|p| p.validator().as_ref())
+                    .map(|v| {
+                        if !self.validators.contains_key(v) {
+                            Err(Error::ValidatorNotFound {
+                                name: v.to_string(),
+                            })
+                        } else {
+                            Ok(())
+                        }
+                    })
+                    .collect::<Result<Vec<_>, Error>>()?;
+
+                Ok(())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
         // validation passed
         Ok(())
@@ -437,13 +457,13 @@ where
             req, metadata
         );
 
-        // initialize empty request context
-        let mut req_ctx = RequestCtx::new();
-
         // run pre request plugin hooks
-        for extension in &self.extensions {
-            extension.pre_request_hook(self.global_ctx.as_ref(), &mut req_ctx, &metadata)?;
-        }
+        let req_ctx = self
+            .extensions
+            .iter()
+            .try_fold(RequestCtx::new(), |req_ctx, e| {
+                e.pre_request_hook(self.global_ctx.as_ref(), req_ctx, &metadata)
+            })?;
 
         // execute graphql query
         let res = req.execute(
@@ -460,15 +480,15 @@ where
         );
 
         // convert graphql response (json) to mutable serde_json::Value
-        let mut res_value = serde_json::to_value(&res)?;
+        let res_value = serde_json::to_value(&res)?;
 
         // run post request plugin hooks
-        for extension in &self.extensions {
-            extension.post_request_hook(self.global_ctx.as_ref(), &req_ctx, &mut res_value)?;
-        }
+        let ret_value = self.extensions.iter().try_fold(res_value, |res_value, e| {
+            e.post_request_hook(self.global_ctx.as_ref(), &req_ctx, res_value)
+        })?;
 
-        debug!("Engine::execute -- res_value: {:#?}", res_value);
-        Ok(res_value)
+        debug!("Engine::execute -- ret_value: {:#?}", ret_value);
+        Ok(ret_value)
     }
 }
 

@@ -144,65 +144,73 @@ impl Configuration {
 
         let scalar_names = ["Int", "Float", "Boolean", "String", "ID"];
 
-        for t in &self.model {
-            // Check for duplicate types
-            if self.model.iter().filter(|m| m.name == t.name).count() > 1 {
-                return Err(Error::ConfigItemDuplicated {
-                    type_name: t.name.to_string(),
-                });
-            }
+        self.model
+            .iter()
+            .map(|t| {
+                if self.model.iter().filter(|t2| t2.name == t.name).count() > 1 {
+                    return Err(Error::ConfigItemDuplicated {
+                        type_name: t.name.to_string(),
+                    });
+                }
 
-            // Check for types using reserved names (GraphQL scalars)
-            if scalar_names.iter().any(|s| s == &t.name) {
-                return Err(Error::ConfigItemReserved {
-                    type_name: t.name.clone(),
-                });
-            }
+                if scalar_names.iter().any(|s| s == &t.name) {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: t.name.clone(),
+                    });
+                }
 
-            if t.properties.iter().any(|p| p.name().to_uppercase() == "ID") {
-                return Err(Error::ConfigItemReserved {
-                    type_name: "ID".to_string(),
-                });
-            }
+                if t.properties.iter().any(|p| p.name().to_uppercase() == "ID") {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "ID".to_string(),
+                    });
+                }
 
-            if t.relationships
-                .iter()
-                .any(|r| r.properties.iter().any(|p| p.name().to_uppercase() == "ID"))
-            {
-                return Err(Error::ConfigItemReserved {
-                    type_name: "ID".to_string(),
-                });
-            }
-        }
+                if t.relationships
+                    .iter()
+                    .any(|r| r.properties.iter().any(|p| p.name().to_uppercase() == "ID"))
+                {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "ID".to_string(),
+                    });
+                }
 
-        for ep in &self.endpoints {
-            // Check for duplicate endpoints
-            if self.endpoints.iter().filter(|e| e.name == ep.name).count() > 1 {
-                return Err(Error::ConfigItemDuplicated {
-                    type_name: ep.name.to_string(),
-                });
-            }
+                Ok(())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
-            // Check for endpoint custom input using reserved names (GraphQL scalars)
-            if let Some(input) = &ep.input {
-                if let TypeDef::Custom(t) = &input.type_def {
+        self.endpoints
+            .iter()
+            .map(|ep| {
+                // Check for duplicate endpoints
+                if self.endpoints.iter().filter(|e| e.name == ep.name).count() > 1 {
+                    return Err(Error::ConfigItemDuplicated {
+                        type_name: ep.name.to_string(),
+                    });
+                }
+
+                // Check for endpoint custom input using reserved names (GraphQL scalars)
+                if let Some(input) = &ep.input {
+                    if let TypeDef::Custom(t) = &input.type_def {
+                        if scalar_names.iter().any(|s| s == &t.name) {
+                            return Err(Error::ConfigItemReserved {
+                                type_name: t.name.to_string(),
+                            });
+                        }
+                    }
+                }
+
+                // Check for endpoint custom input using reserved names (GraphQL scalars)
+                if let TypeDef::Custom(t) = &ep.output.type_def {
                     if scalar_names.iter().any(|s| s == &t.name) {
                         return Err(Error::ConfigItemReserved {
                             type_name: t.name.to_string(),
                         });
                     }
                 }
-            }
 
-            // Check for endpoint custom input using reserved names (GraphQL scalars)
-            if let TypeDef::Custom(t) = &ep.output.type_def {
-                if scalar_names.iter().any(|s| s == &t.name) {
-                    return Err(Error::ConfigItemReserved {
-                        type_name: t.name.to_string(),
-                    });
-                }
-            }
-        }
+                Ok(())
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
 
         Ok(())
     }
@@ -1288,27 +1296,26 @@ pub fn compose(configs: Vec<Configuration>) -> Result<Configuration, Error> {
     let mut model: Vec<Type> = Vec::new();
     let mut endpoints: Vec<Endpoint> = Vec::new();
 
-    for c in configs {
-        match version {
-            None => version = Some(c.version()),
-            Some(v) => {
-                if v != c.version {
-                    return Err(Error::ConfigVersionMismatched {
-                        expected: v,
-                        found: c.version,
-                    });
+    configs
+        .into_iter()
+        .map(|mut c| {
+            match version {
+                None => version = Some(c.version()),
+                Some(v) => {
+                    if v != c.version {
+                        return Err(Error::ConfigVersionMismatched {
+                            expected: v,
+                            found: c.version,
+                        });
+                    }
                 }
             }
-        }
 
-        for m in c.model.into_iter() {
-            model.push(m);
-        }
-
-        for e in c.endpoints.into_iter() {
-            endpoints.push(e);
-        }
-    }
+            model.append(&mut c.model);
+            endpoints.append(&mut c.endpoints);
+            Ok(())
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
 
     // There will be no version number if the vector of Configurations is empty, in which case
     // we might as well use the latest version

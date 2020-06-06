@@ -4,6 +4,17 @@ use gremlin_client::{GValue, ToGValue, VertexProperty};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
+/// Intermediate data structure for serialized values, allowing for translation between the values
+/// returned by the back-end database (serde_json for Neo4j, and a library-specific seralized
+/// format for Cosmos DB), and the serde_json format used to return data to the client.
+///
+/// # Examples
+///
+/// ```rust
+/// # use warpgrapher::engine::value::Value;
+///
+/// let v = Value::Bool(true);
+/// ```
 #[derive(Clone, Debug)]
 pub enum Value {
     Array(Vec<Value>),
@@ -42,23 +53,18 @@ impl PartialEq for Value {
 impl ToGValue for Value {
     fn to_gvalue(&self) -> GValue {
         match self {
-            Value::Array(a) => {
-                let mut v = Vec::new();
-                for val in a {
-                    v.push(val.to_gvalue());
-                }
-                GValue::List(gremlin_client::List::new(v))
-            }
+            Value::Array(a) => GValue::List(gremlin_client::List::new(
+                a.iter().map(|val| val.to_gvalue()).collect(),
+            )),
             Value::Bool(b) => b.to_gvalue(),
             Value::Float64(f) => f.to_gvalue(),
             Value::Int64(i) => i.to_gvalue(),
-            Value::Map(hm) => {
-                let mut m = HashMap::new();
-                for (k, v) in hm.iter() {
-                    m.insert(k.to_string(), v.to_gvalue());
-                }
-                GValue::Map(m.into())
-            }
+            Value::Map(hm) => GValue::Map(
+                hm.iter()
+                    .map(|(k, v)| (k.to_string(), v.to_gvalue()))
+                    .collect::<HashMap<String, GValue>>()
+                    .into(),
+            ),
             Value::Null => GValue::String("".to_string()),
             Value::String(s) => s.to_gvalue(),
             // Note, the conversion of a UInt64 to an Int64 may be lossy, but GValue has
@@ -179,13 +185,11 @@ impl TryFrom<serde_json::Value> for Value {
 
     fn try_from(value: serde_json::Value) -> Result<Value, Error> {
         match value {
-            serde_json::Value::Array(a) => {
-                let mut v = Vec::new();
-                for val in a {
-                    v.push(val.try_into()?);
-                }
-                Ok(Value::Array(v))
-            }
+            serde_json::Value::Array(a) => Ok(Value::Array(
+                a.into_iter()
+                    .map(|val| val.try_into())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )),
             serde_json::Value::Bool(b) => Ok(Value::Bool(b)),
             serde_json::Value::Null => Ok(Value::Null),
             serde_json::Value::Number(n) => {
@@ -203,13 +207,14 @@ impl TryFrom<serde_json::Value> for Value {
                 }
             }
             serde_json::Value::String(s) => Ok(Value::String(s)),
-            serde_json::Value::Object(m) => {
-                let mut hm = HashMap::new();
-                for (k, v) in m.into_iter() {
-                    hm.insert(k, v.try_into()?);
-                }
-                Ok(Value::Map(hm))
-            }
+            serde_json::Value::Object(m) => Ok(Value::Map(
+                m.into_iter()
+                    .map(|(k, v)| {
+                        let val = v.try_into()?;
+                        Ok((k, val))
+                    })
+                    .collect::<Result<HashMap<String, Value>, Error>>()?,
+            )),
         }
     }
 }
@@ -248,12 +253,10 @@ impl TryFrom<Value> for Vec<bool> {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<Vec<bool>, Self::Error> {
-        let mut v = Vec::new();
         if let Value::Array(a) = value {
-            for val in a {
-                v.push(val.try_into()?)
-            }
-            Ok(v)
+            a.into_iter()
+                .map(|v| v.try_into())
+                .collect::<Result<Vec<_>, Error>>()
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -286,12 +289,10 @@ impl TryFrom<Value> for Vec<f64> {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<Vec<f64>, Self::Error> {
-        let mut v = Vec::new();
         if let Value::Array(a) = value {
-            for val in a {
-                v.push(val.try_into()?)
-            }
-            Ok(v)
+            a.into_iter()
+                .map(|v| v.try_into())
+                .collect::<Result<Vec<_>, Error>>()
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -338,12 +339,10 @@ impl TryFrom<Value> for Vec<i32> {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<Vec<i32>, Self::Error> {
-        let mut v = Vec::new();
         if let Value::Array(a) = value {
-            for val in a {
-                v.push(val.try_into()?)
-            }
-            Ok(v)
+            a.into_iter()
+                .map(|v| v.try_into())
+                .collect::<Result<Vec<_>, Error>>()
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -372,18 +371,16 @@ impl TryFrom<Value> for Vec<String> {
     type Error = Error;
 
     fn try_from(value: Value) -> Result<Vec<String>, Self::Error> {
-        let mut v = Vec::new();
         if let Value::Array(a) = value {
             match a.get(0) {
-                Some(Value::Null) => (), // If the array composed of null values, return an empty vector, indicating null to Juniper.
-                _ => {
-                    // If the array has anything other than a null, try to do the conversation to a String Vector.
-                    for val in a {
-                        v.push(val.try_into()?)
-                    }
-                }
+                // If the array null values, return an empty vector, indicating null to Juniper.
+                Some(Value::Null) => Ok(Vec::new()),
+                // If the array is other than null, try to do the conversation to a String Vector.
+                _ => a
+                    .into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<Result<Vec<_>, Error>>(),
             }
-            Ok(v)
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -398,13 +395,11 @@ impl TryFrom<Value> for serde_json::Value {
 
     fn try_from(value: Value) -> Result<serde_json::Value, Error> {
         match value {
-            Value::Array(a) => {
-                let mut v = Vec::new();
-                for val in a {
-                    v.push(val.try_into()?)
-                }
-                Ok(serde_json::Value::Array(v))
-            }
+            Value::Array(a) => Ok(serde_json::Value::Array(
+                a.into_iter()
+                    .map(|v| v.try_into())
+                    .collect::<Result<Vec<_>, Error>>()?,
+            )),
             Value::Bool(b) => Ok(serde_json::Value::Bool(b)),
             Value::Float64(f) => Ok(serde_json::Value::Number(
                 serde_json::Number::from_f64(f).ok_or_else(|| Error::TypeConversionFailed {
@@ -413,16 +408,36 @@ impl TryFrom<Value> for serde_json::Value {
                 })?,
             )),
             Value::Int64(i) => Ok(serde_json::Value::Number(i.into())),
-            Value::Map(hm) => {
-                let mut m = serde_json::Map::new();
-                for (k, v) in hm.into_iter() {
-                    m.insert(k.to_string(), v.try_into()?);
-                }
-                Ok(serde_json::Value::Object(m))
-            }
+            Value::Map(hm) => Ok(serde_json::Value::Object(
+                hm.into_iter()
+                    .map(|(k, v)| {
+                        let val = v.try_into()?;
+                        Ok((k, val))
+                    })
+                    .collect::<Result<serde_json::Map<String, serde_json::Value>, Error>>()?,
+            )),
             Value::Null => Ok(serde_json::Value::Null),
             Value::String(s) => Ok(serde_json::Value::String(s)),
             Value::UInt64(i) => Ok(serde_json::Value::Number(i.into())),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Value;
+
+    /// Passes if the Value implements the Send trait
+    #[test]
+    fn test_value_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Value>();
+    }
+
+    /// Passes if Value implements the Sync trait
+    #[test]
+    fn test_value_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<Value>();
     }
 }

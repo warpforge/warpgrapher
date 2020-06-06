@@ -20,18 +20,20 @@ use std::sync::Arc;
 ///
 /// ```rust,norun
 /// # #[cfg(feature = "neo4j")]
+/// # use warpgrapher::engine::database::DatabaseEndpoint;
 /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 /// # use warpgrapher::engine::objects::resolvers::Resolvers;
 /// # use warpgrapher::engine::validators::Validators;
 /// # use warpgrapher::engine::context::GraphQLContext;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # #[cfg(feature = "neo4j")]
-/// let ne = Neo4jEndpoint::from_env().unwrap();
+/// let ne = Neo4jEndpoint::from_env()?;
 /// let resolvers: Resolvers<(), ()> = Resolvers::new();
 /// let validators: Validators = Validators::new();
 /// # #[cfg(feature = "neo4j")]
 /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-///     ne.pool().unwrap(),
+///     ne.pool()?,
 ///     resolvers,
 ///     validators,
 ///     vec![],
@@ -39,6 +41,8 @@ use std::sync::Arc;
 ///     Some(()),
 ///     None,
 /// );
+/// # Ok(())
+/// # }
 /// ```
 pub struct GraphQLContext<GlobalCtx, RequestCtx>
 where
@@ -90,18 +94,20 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -109,6 +115,8 @@ where
     ///     Some(()),
     ///     None,
     /// );
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn new(
         pool: DatabasePool,
@@ -136,18 +144,20 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -158,6 +168,8 @@ where
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let db_pool = gqlctx.pool();
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn pool(&self) -> &DatabasePool {
         &self.pool
@@ -174,10 +186,12 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::objects::resolvers::{Resolvers, ResolverContext};
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::ExecutionResult;
     ///
     /// # #[cfg(feature = "neo4j")]
     /// pub fn project_count(context: ResolverContext<(), ()>) -> ExecutionResult {
@@ -191,16 +205,17 @@ where
     ///     }
     /// }
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let mut resolvers: Resolvers<(), ()> = Resolvers::new();
     /// # #[cfg(feature = "neo4j")]
     /// resolvers.insert("ProjectCount".to_string(), Box::new(project_count));
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -211,6 +226,8 @@ where
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx = gqlctx.resolver("CustomResolver");
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, RequestCtx>, Error> {
         self.resolvers
@@ -227,18 +244,20 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -249,6 +268,8 @@ where
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let validators = gqlctx.validators();
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn validators(&self) -> &Validators {
         &self.validators
@@ -260,18 +281,20 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -281,7 +304,9 @@ where
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// assert!(Some("0.0.0".to_string()), gqlctx.version());
+    /// assert_eq!(&Some("0.0.0".to_string()), gqlctx.version());
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn version(&self) -> &Option<String> {
         &self.version
@@ -294,18 +319,20 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -316,6 +343,8 @@ where
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let extensions = gqlctx.extensions();
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, RequestCtx>>> {
         self.extensions.iter()
@@ -327,6 +356,7 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
@@ -351,23 +381,26 @@ where
     ///    }
     /// }
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppLocalCtx> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(AppGlobalCtx { }),
+    ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let global_context = gqlctx.global_context();
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn global_context(&self) -> &Option<GlobalCtx> {
         &self.global_ctx
@@ -379,6 +412,7 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::objects::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
@@ -403,23 +437,26 @@ where
     ///    }
     /// }
     ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env().unwrap();
+    /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppLocalCtx> = GraphQLContext::new(
-    ///     ne.pool().unwrap(),
+    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
+    ///     ne.pool()?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(AppGlobalCtx { }),
+    ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
     /// let request_context = gqlctx.request_context();
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn request_context(&self) -> &Option<RequestCtx> {
         &self.request_ctx
@@ -518,11 +555,11 @@ mod tests {
     fn engine_new() {
         init();
 
-        let ne = Neo4jEndpoint::from_env().unwrap();
+        let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
         let resolvers: Resolvers<(), ()> = Resolvers::new();
         let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-            ne.pool().unwrap(),
+            ne.pool().expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,
             vec![],
