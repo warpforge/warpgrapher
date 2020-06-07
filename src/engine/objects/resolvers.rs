@@ -618,7 +618,7 @@ where
     // transaction.begin()?;
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
 
     let raw_result = visit_node_create_mutation_input(
@@ -668,7 +668,7 @@ where
 
     let mut sg = SuffixGenerator::new();
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
     let var_suffix = sg.suffix();
 
@@ -722,7 +722,7 @@ where
     let mut sg = SuffixGenerator::new();
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
 
     let var_suffix = sg.suffix();
@@ -798,7 +798,7 @@ where
     let validators = &executor.context().validators();
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
 
     transaction.begin()?;
@@ -850,7 +850,7 @@ where
     );
 
     let td = info.type_def()?;
-    let _p = td.prop(field_name)?;
+    let _p = td.property(field_name)?;
 
     if td.type_name() == "Query" {
         resolve_node_read_query(
@@ -894,7 +894,7 @@ where
     let validators = &executor.context().validators();
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
     let rtd = info.type_def_by_name(p.type_name())?;
 
@@ -904,7 +904,7 @@ where
         // The conversion from Error to None using ok() is actually okay here,
         // as it's expected that some relationship types may not have props defined
         // in their schema, in which case the missing property is fine.
-        rtd.prop("props").map(|pp| pp.type_name()).ok(),
+        rtd.property("props").map(|pp| pp.type_name()).ok(),
         &Info::new(itd.type_name().to_owned(), info.type_defs()),
         partition_key_opt,
         input.value,
@@ -922,7 +922,7 @@ where
     trace!("resolve_rel_create_mutation Rels: {:#?}", rels);
 
     let mutations = info.type_def_by_name("Mutation")?;
-    let endpoint_td = mutations.prop(field_name)?;
+    let endpoint_td = mutations.property(field_name)?;
 
     if endpoint_td.list() {
         executor.resolve(
@@ -962,7 +962,7 @@ where
     );
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
 
     let raw_results = visit_rel_delete_input(
@@ -1015,7 +1015,7 @@ where
     );
 
     let td = info.type_def()?;
-    let _p = td.prop(field_name)?;
+    let _p = td.property(field_name)?;
 
     resolve_rel_read_query(
         field_name,
@@ -1046,7 +1046,7 @@ where
     );
 
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
 
     executor.resolve(
         &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1083,12 +1083,12 @@ where
 
     let mut sg = SuffixGenerator::new();
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
     let rtd = info.type_def_by_name(&p.type_name())?;
-    let props_prop = rtd.prop("props");
-    let src_prop = rtd.prop("src")?;
-    let dst_prop = rtd.prop("dst")?;
+    let props_prop = rtd.property("props");
+    let src_prop = rtd.property("src")?;
+    let dst_prop = rtd.property("dst")?;
 
     let mut params: HashMap<String, Value> = HashMap::new();
 
@@ -1191,12 +1191,12 @@ where
 
     let validators = &executor.context().validators();
     let td = info.type_def()?;
-    let p = td.prop(field_name)?;
+    let p = td.property(field_name)?;
     let itd = p.input_type_definition(info)?;
     let rtd = info.type_def_by_name(&p.type_name())?;
-    let props_prop = rtd.prop("props");
-    let _src_prop = rtd.prop("src")?;
-    // let dst_prop = rtd.prop("dst")?;
+    let props_prop = rtd.property("props");
+    let _src_prop = rtd.property("src")?;
+    // let dst_prop = rtd.property("dst")?;
 
     let raw_result = visit_rel_update_input(
         src_label,

@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: Int
-    properties:
+    props:
       - name: name
         type: String
 endpoints:

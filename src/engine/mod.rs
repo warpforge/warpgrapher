@@ -289,7 +289,7 @@ where
             .types()
             .map(|t| {
                 // Validate that custom resolver defined in Configuration exists as a Resolver
-                t.properties()
+                t.props()
                     .filter_map(|p| p.resolver().as_ref())
                     .map(|r| {
                         if !self.resolvers.contains_key(r) {
@@ -303,7 +303,7 @@ where
                     .collect::<Result<Vec<_>, Error>>()?;
 
                 // Validate that custom validator defined in Configuration exists as a Validator
-                t.properties()
+                t.props()
                     .filter_map(|p| p.validator().as_ref())
                     .map(|v| {
                         if !self.validators.contains_key(v) {

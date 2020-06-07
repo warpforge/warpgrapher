@@ -10,7 +10,7 @@ model:
 
   # User
   - name: User
-    properties:
+    props:
       - name: username
         type: String
       - name: email
@@ -18,10 +18,10 @@ model:
 
   # Team
   - name: Team
-    properties:
+    props:
       - name: teamname
         type: String
-    relationships:
+    rels:
       - name: members
         nodes: [User]
         list: true

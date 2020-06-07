@@ -14,7 +14,7 @@ model:
 
   # Team
   - name: Team
-    properties:
+    props:
     - name: name
       type: String
     - name: size

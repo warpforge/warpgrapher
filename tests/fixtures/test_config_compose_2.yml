@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: Project
-    properties:
+    props:
       - name: name
         type: String
       - name: description
@@ -16,9 +16,9 @@ model:
         type: Float
       - name: active
         type: Boolean
-    relationships:
+    rels:
       - name: owner
-        properties:
+        props:
           - name: since
             type: string 
         nodes: [User]

@@ -10,7 +10,7 @@ When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relation
 version: 1
 model: 
  - name: Project
-   properties: 
+   props: 
     - name: points
       type: int
       resolver: project_points

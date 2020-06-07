@@ -49,7 +49,7 @@ where
 
     if let Value::Map(ref m) = input {
         for k in m.keys() {
-            let p = itd.prop(k)?;
+            let p = itd.property(k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -66,7 +66,7 @@ where
         let mut props: HashMap<String, Value> = HashMap::new();
         let mut inputs: HashMap<String, Value> = HashMap::new();
         for (k, v) in m.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -83,7 +83,7 @@ where
         let ids = Value::Array(vec![results.fields.get("id").unwrap().clone()]);
 
         for (k, v) in inputs.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {} // Handled earlier
@@ -158,7 +158,10 @@ where
             // "",
             &mut params,
             sg,
-            &Info::new(itd.prop("match")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("match")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
             transaction,
@@ -177,7 +180,10 @@ where
         visit_node_delete_mutation_input(
             label,
             ids,
-            &Info::new(itd.prop("delete")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("delete")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             Some(m.remove("delete").ok_or_else(|| {
                 // remove used to take ownership
@@ -213,7 +219,7 @@ where
 
     if let Some(Value::Map(m)) = input {
         for (k, v) in m.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Input => {
@@ -281,7 +287,7 @@ where
                 name: info.name().to_string() + "::NEW or ::EXISTING",
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         match k.as_ref() {
             "NEW" => Ok(Value::Array(vec![visit_node_create_mutation_input::<
@@ -367,7 +373,7 @@ where
     let mut props = HashMap::new();
     if let Some(Value::Map(m)) = input {
         for (k, v) in m.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Scalar => {
@@ -444,7 +450,10 @@ where
             // "",
             &mut params,
             &mut sg,
-            &Info::new(itd.prop("match")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("match")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
             transaction,
@@ -463,7 +472,10 @@ where
         visit_node_update_mutation_input(
             label,
             ids,
-            &Info::new(itd.prop("modify")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("modify")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("modify").ok_or_else(|| {
                 // remove() used here to take ownership of the "modify" value, not borrow it
@@ -505,7 +517,7 @@ where
 
     if let Value::Map(ref m) = input {
         for k in m.keys() {
-            let p = itd.prop(k)?;
+            let p = itd.property(k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -522,7 +534,7 @@ where
         let mut props = HashMap::new();
         let mut inputs = HashMap::new();
         for (k, v) in m.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -538,7 +550,7 @@ where
         let results = transaction.update_nodes(label, ids, props, partition_key_opt, info)?;
 
         for (k, v) in inputs.into_iter() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             match p.kind() {
                 PropertyKind::Scalar | PropertyKind::DynamicScalar => {} // Properties handled above
@@ -625,7 +637,10 @@ where
                 src_label,
                 src_ids,
                 rel_name,
-                &Info::new(itd.prop("ADD")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("ADD")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 v,
                 validators,
@@ -638,7 +653,10 @@ where
                 src_label,
                 Some(src_ids),
                 rel_name,
-                &Info::new(itd.prop("DELETE")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("DELETE")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 v,
                 transaction,
@@ -649,7 +667,10 @@ where
                 src_label,
                 Some(src_ids),
                 rel_name,
-                &Info::new(itd.prop("UPDATE")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("UPDATE")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 v,
                 validators,
@@ -706,7 +727,10 @@ where
             // "",
             &mut params,
             &mut sg,
-            &Info::new(itd.prop("match")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("match")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("match"), // Remove used to take ownership
             transaction,
@@ -732,7 +756,10 @@ where
                 src_label,
                 ids,
                 rel_name,
-                &Info::new(itd.prop("create")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("create")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 create_input,
                 validators,
@@ -747,7 +774,10 @@ where
                         src_label,
                         ids.clone(),
                         rel_name,
-                        &Info::new(itd.prop("create")?.type_name().to_owned(), info.type_defs()),
+                        &Info::new(
+                            itd.property("create")?.type_name().to_owned(),
+                            info.type_defs(),
+                        ),
                         partition_key_opt,
                         create_input_value,
                         validators,
@@ -797,7 +827,7 @@ where
         );
 
     let itd = info.type_def()?;
-    let dst_prop = itd.prop("dst")?;
+    let dst_prop = itd.property("dst")?;
 
     if let Value::Map(mut m) = input {
         let dst = m
@@ -872,7 +902,10 @@ where
             // "",
             &mut params,
             &mut sg,
-            &Info::new(itd.prop("match")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("match")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("match"), // remove rather than get to take ownership
             transaction,
@@ -889,7 +922,10 @@ where
             visit_rel_src_delete_mutation_input(
                 src_label,
                 read_results.ids(&(src_label.to_string() + &src_suffix))?,
-                &Info::new(itd.prop("src")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("src")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 src,
                 transaction,
@@ -900,7 +936,10 @@ where
             // Uses remove to take ownership
             visit_rel_dst_delete_mutation_input(
                 read_results.ids(&(String::from("dst") + &dst_suffix))?,
-                &Info::new(itd.prop("dst")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("dst")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 dst,
                 transaction,
@@ -939,7 +978,7 @@ where
                 name: info.name().to_string(),
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         visit_node_delete_mutation_input(
             &k,
@@ -981,7 +1020,7 @@ where
 
     if let Some(Value::Map(m)) = input {
         if let Some((k, v)) = m.into_iter().next() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             Ok(Some(visit_node_query_input(
                 label,
@@ -1034,7 +1073,7 @@ where
                 name: info.name().to_string(),
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         visit_node_update_mutation_input(
             &k,
@@ -1078,7 +1117,7 @@ where
                 name: info.name().to_string(),
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         let dst_ids = visit_node_input::<T, GlobalCtx, RequestCtx>(
             &k,
@@ -1129,8 +1168,8 @@ where
     );
 
     let itd = info.type_def()?;
-    let src_prop = itd.prop("src")?;
-    let dst_prop = itd.prop("dst")?;
+    let src_prop = itd.property("src")?;
+    let dst_prop = itd.property("dst")?;
 
     let mut props = HashMap::new();
     if let Some(Value::Map(mut m)) = input_opt {
@@ -1240,7 +1279,7 @@ where
                 name: info.name().to_string(),
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         visit_node_delete_mutation_input(
             label,
@@ -1287,7 +1326,7 @@ where
                 name: info.name().to_string(),
             })?;
 
-        let p = itd.prop(&k)?;
+        let p = itd.property(&k)?;
 
         visit_node_update_mutation_input(
             label,
@@ -1330,7 +1369,7 @@ where
 
     if let Some(Value::Map(m)) = input {
         if let Some((k, v)) = m.into_iter().next() {
-            let p = itd.prop(&k)?;
+            let p = itd.property(&k)?;
 
             Ok(Some(visit_node_query_input(
                 label,
@@ -1397,7 +1436,10 @@ where
             // "",
             &mut params,
             &mut sg,
-            &Info::new(itd.prop("match")?.type_name().to_owned(), info.type_defs()),
+            &Info::new(
+                itd.property("match")?.type_name().to_owned(),
+                info.type_defs(),
+            ),
             partition_key_opt,
             m.remove("match"), // uses remove to take ownership
             transaction,
@@ -1420,7 +1462,10 @@ where
                 rel_name,
                 read_results.ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
                 read_results.ids(&(String::from("dst") + &dst_suffix))?,
-                &Info::new(itd.prop("update")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("update")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 update,
                 validators,
@@ -1497,7 +1542,10 @@ where
             visit_rel_src_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 src_ids,
-                &Info::new(itd.prop("src")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("src")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 src,
                 validators,
@@ -1509,7 +1557,10 @@ where
             // calling remove to take ownership
             visit_rel_dst_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 dst_ids,
-                &Info::new(itd.prop("dst")?.type_name().to_owned(), info.type_defs()),
+                &Info::new(
+                    itd.property("dst")?.type_name().to_owned(),
+                    info.type_defs(),
+                ),
                 partition_key_opt,
                 dst,
                 validators,

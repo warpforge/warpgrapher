@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: User
-    properties:
+    props:
       - name: name
         type: String
 endpoints:
@@ -13,8 +13,8 @@ endpoints:
       list: false
       type: 
         name: Boolean
-        properties: []
-        relationships: []
+        props: []
+        rels: []
     output:
       list: false
       type: String

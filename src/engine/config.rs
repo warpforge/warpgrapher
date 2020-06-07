@@ -159,15 +159,15 @@ impl Configuration {
                     });
                 }
 
-                if t.properties.iter().any(|p| p.name().to_uppercase() == "ID") {
+                if t.props.iter().any(|p| p.name().to_uppercase() == "ID") {
                     return Err(Error::ConfigItemReserved {
                         type_name: "ID".to_string(),
                     });
                 }
 
-                if t.relationships
+                if t.rels
                     .iter()
-                    .any(|r| r.properties.iter().any(|p| p.name().to_uppercase() == "ID"))
+                    .any(|r| r.props.iter().any(|p| p.name().to_uppercase() == "ID"))
                 {
                     return Err(Error::ConfigItemReserved {
                         type_name: "ID".to_string(),
@@ -886,7 +886,7 @@ pub struct Relationship {
 
     /// Properties of the relationship
     #[serde(default)]
-    properties: Vec<Property>,
+    props: Vec<Property>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
@@ -929,7 +929,7 @@ impl Relationship {
         name: String,
         list: bool,
         nodes: Vec<String>,
-        properties: Vec<Property>,
+        props: Vec<Property>,
         endpoints: EndpointsFilter,
         resolver: Option<String>,
     ) -> Relationship {
@@ -937,7 +937,7 @@ impl Relationship {
             name,
             list,
             nodes,
-            properties,
+            props,
             endpoints,
             resolver,
         }
@@ -1026,10 +1026,10 @@ impl Relationship {
     /// let r = Relationship::new("RelName".to_string(), true, vec!["User".to_string()], vec![],
     ///     EndpointsFilter::all(), None);
     ///
-    /// assert_eq!(0, r.properties_as_slice().len())
+    /// assert_eq!(0, r.props_as_slice().len())
     /// ```
-    pub fn properties_as_slice(&self) -> &[Property] {
-        &self.properties
+    pub fn props_as_slice(&self) -> &[Property] {
+        &self.props
     }
 
     /// Returns an option for a string containing the name of a custom resolver, if this
@@ -1073,11 +1073,11 @@ pub struct Type {
     name: String,
 
     /// Vector of properties on this type
-    properties: Vec<Property>,
+    props: Vec<Property>,
 
     /// Vector of relationships on this type
     #[serde(default)]
-    relationships: Vec<Relationship>,
+    rels: Vec<Relationship>,
 
     /// Filter of endpoints that determines which CRUD endpoints will be
     /// auto generated for the relationship
@@ -1092,9 +1092,9 @@ impl Type {
     ///
     /// * name - the name of the type, which will be recorded as the label on a node in the graph
     /// back-end
-    /// * properties - a vector of [`Property`] structs describing the properties on the node
-    /// * relationships - a vector of [`Relationship`] structs describing the outgoing
-    /// relationships from this node type
+    /// * props - a vector of [`Property`] structs describing the properties on the node
+    /// * rels - a vector of [`Relationship`] structs describing the outgoing relationships from
+    /// this node type
     /// * endpoints - an [`EndpointsFilter`] struct describing which CRUD operations should be
     /// generated automatically for this node type.
     ///
@@ -1117,14 +1117,14 @@ impl Type {
     /// ```
     pub fn new(
         name: String,
-        properties: Vec<Property>,
-        relationships: Vec<Relationship>,
+        props: Vec<Property>,
+        rels: Vec<Relationship>,
         endpoints: EndpointsFilter,
     ) -> Type {
         Type {
             name,
-            properties,
-            relationships,
+            props,
+            rels,
             endpoints,
         }
     }
@@ -1191,10 +1191,10 @@ impl Type {
     ///     EndpointsFilter::all()
     /// );
     ///
-    /// assert_eq!("name", t.properties().next().expect("Expected property").name());
+    /// assert_eq!("name", t.props().next().expect("Expected property").name());
     /// ```
-    pub fn properties(&self) -> Iter<Property> {
-        self.properties.iter()
+    pub fn props(&self) -> Iter<Property> {
+        self.props.iter()
     }
 
     /// Returns a slice of the [`Property`] structs defining properties on this node type.
@@ -1213,10 +1213,10 @@ impl Type {
     ///     EndpointsFilter::all()
     /// );
     ///
-    /// assert_eq!("name", t.properties_as_slice()[0].name());
+    /// assert_eq!("name", t.props_as_slice()[0].name());
     /// ```
-    pub fn properties_as_slice(&self) -> &[Property] {
-        &self.properties
+    pub fn props_as_slice(&self) -> &[Property] {
+        &self.props
     }
 
     /// Returns an iterator over the [`Relationship`] structs defining relationships originating
@@ -1238,10 +1238,10 @@ impl Type {
     ///     EndpointsFilter::all()
     /// );
     ///
-    /// assert_eq!("rel_name", t.relationships().next().expect("Expected relationship").name());
+    /// assert_eq!("rel_name", t.rels().next().expect("Expected relationship").name());
     /// ```
-    pub fn relationships(&self) -> Iter<Relationship> {
-        self.relationships.iter()
+    pub fn rels(&self) -> Iter<Relationship> {
+        self.rels.iter()
     }
 }
 
@@ -1747,8 +1747,8 @@ mod tests {
         );
 
         assert!(t.name == "User");
-        assert!(t.properties.get(0).unwrap().name == "name");
-        assert!(t.properties.get(1).unwrap().name == "role");
+        assert!(t.props.get(0).unwrap().name == "name");
+        assert!(t.props.get(1).unwrap().name == "role");
     }
 
     #[allow(clippy::match_wild_err_arm)]

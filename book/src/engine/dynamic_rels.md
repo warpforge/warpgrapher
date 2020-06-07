@@ -10,11 +10,11 @@ Dynamic relationships are similiar to Dynamic Props. Instead of returning values
 version: 1
 model: 
  - name: Project
-   properties: []
-   relationships:
+   props: []
+   rels:
     - name: topcontributor
       nodes: [User]
-      properties: []
+      props: []
       resolver: project_topcontributor
 ```
 

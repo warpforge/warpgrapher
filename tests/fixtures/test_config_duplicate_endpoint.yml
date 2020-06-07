@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: User
-    properties:
+    props:
       - name: name
         type: String
 endpoints:

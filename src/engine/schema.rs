@@ -10,6 +10,7 @@ use crate::engine::context::{GlobalContext, RequestContext};
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
+use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Values;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -17,47 +18,13 @@ use std::panic::catch_unwind;
 use std::slice::Iter;
 use std::sync::Arc;
 
-pub(super) type RootRef<GlobalCtx, ReqCtx> =
-    Arc<RootNode<'static, Node<GlobalCtx, ReqCtx>, Node<GlobalCtx, ReqCtx>>>;
-
-//#[derive(Debug, PartialEq)]
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum ArgumentKind {
-    Required,
-    Optional,
-}
-
-//#[derive(Debug, PartialEq)]
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub(crate) enum PropertyKind {
-    CustomResolver,
-    DynamicScalar,
-    DynamicRel(String),
-    Input,
-    NodeCreateMutation,
-    NodeUpdateMutation,
-    NodeDeleteMutation(String), // String is node label of the node to be deleted
-    Object,
-    Rel(String), // String is the name of the rel, which is trivially the field name
-    // for relationships on objects, but not obvious for root relationship query
-    // endpoints
-    RelCreateMutation(String, String), // (src_node_label, rel_name)
-    RelUpdateMutation(String, String), // (src_node_label, rel_name)
-    RelDeleteMutation(String, String), // (src_node_label, rel_name)
-    Scalar,
-    Union,
-    VersionQuery,
-}
-
-#[derive(Debug, PartialEq)]
-pub(crate) enum TypeKind {
-    Input,
-    Object,
-    Rel,
-    Union,
-}
-
-#[derive(Debug)]
+/// Carries the type information in the GraphQL schema, derived from the [`Configuration`] used to
+/// set up the Warpgrapher [`Engine`]. Used by Warpgrapher in auto-generated resolvers for CRUD
+/// operations.
+///
+/// [`Configuration`]: ../config/struct.Configuration.html
+/// [`Engine`]: ../struct.Engine.html
+#[derive(Clone, Debug, PartialEq)]
 pub struct Info {
     name: String,
     type_defs: Arc<HashMap<String, NodeType>>,
@@ -89,7 +56,43 @@ impl Info {
     }
 }
 
-#[derive(Debug, PartialEq)]
+pub(super) type RootRef<GlobalCtx, RequestCtx> =
+    Arc<RootNode<'static, Node<GlobalCtx, RequestCtx>, Node<GlobalCtx, RequestCtx>>>;
+
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub(crate) enum ArgumentKind {
+    Required,
+    Optional,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub(crate) enum PropertyKind {
+    CustomResolver,
+    DynamicScalar,
+    DynamicRel { rel_name: String },
+    Input,
+    NodeCreateMutation,
+    NodeUpdateMutation,
+    NodeDeleteMutation { label: String },
+    Object,
+    Rel { rel_name: String },
+    RelCreateMutation { src_label: String, rel_name: String },
+    RelUpdateMutation { src_label: String, rel_name: String },
+    RelDeleteMutation { src_label: String, rel_name: String },
+    Scalar,
+    Union,
+    VersionQuery,
+}
+
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub(crate) enum TypeKind {
+    Input,
+    Object,
+    Rel,
+    Union,
+}
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub(crate) struct NodeType {
     props: HashMap<String, Property>,
     type_kind: TypeKind,
@@ -107,45 +110,32 @@ impl NodeType {
         }
     }
 
-    pub(crate) fn prop(&self, field_name: &str) -> Result<&Property, Error> {
+    pub(crate) fn property(&self, property_name: &str) -> Result<&Property, Error> {
         self.props
-            .get(field_name)
+            .get(property_name)
             .ok_or_else(|| Error::SchemaItemNotFound {
-                name: self.type_name.to_string() + "::" + field_name,
+                name: self.type_name.to_string() + "::" + property_name,
             })
     }
-    /*
-    fn prop_by_type(&self, type_name: &str) -> Result<&Property, Error> {
-        self.props
-            .iter()
-            .find(|(_k, v)| v.type_name == type_name)
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::MissingSchemaElement(
-                        self.type_name.to_owned() + " property with type of " + type_name,
-                    ),
-                    None,
-                )
-            })
-            .and_then(|(_k, v)| Ok(v))
-    }
-    */
-    pub(crate) fn prop_values(&self) -> Values<String, Property> {
+
+    pub(crate) fn props(&self) -> Values<String, Property> {
         self.props.values()
     }
+
     pub(crate) fn type_kind(&self) -> &TypeKind {
         &self.type_kind
     }
+
     pub(crate) fn type_name(&self) -> &str {
         &self.type_name
     }
+
     pub(crate) fn union_types(&self) -> Option<Iter<String>> {
         self.union_types.as_ref().map(|uts| uts.iter())
     }
 }
 
-//#[derive(Debug, PartialEq)]
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub(crate) struct Property {
     name: String,
     kind: PropertyKind,
@@ -171,45 +161,8 @@ impl Property {
         }
     }
 
-    pub(crate) fn argument_values(&self) -> Values<String, Argument> {
+    pub(crate) fn arguments(&self) -> Values<String, Argument> {
         self.arguments.values()
-    }
-
-    pub(crate) fn required(&self) -> bool {
-        self.required
-    }
-
-    pub(crate) fn type_name(&self) -> &str {
-        &self.type_name
-    }
-
-    fn with_required(mut self, required: bool) -> Self {
-        self.required = required;
-        self
-    }
-
-    fn with_list(mut self, list: bool) -> Self {
-        self.list = list;
-        self
-    }
-
-    fn with_arguments(mut self, arguments: HashMap<String, Argument>) -> Self {
-        self.arguments = arguments;
-        self
-    }
-
-    fn with_resolver(mut self, resolver: &str) -> Self {
-        self.resolver = Some(resolver.to_string());
-        self
-    }
-
-    fn with_validator(mut self, validator: Option<String>) -> Self {
-        self.validator = validator;
-        self
-    }
-
-    pub(crate) fn list(&self) -> bool {
-        self.list
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
@@ -217,7 +170,7 @@ impl Property {
         self.arguments
             .get("input")
             .ok_or_else(|| Error::SchemaItemNotFound {
-                name: "Input for ".to_string() + &self.name,
+                name: "input".to_string(),
             })
             .and_then(|input_arg| {
                 info.type_defs
@@ -232,6 +185,10 @@ impl Property {
         &self.kind
     }
 
+    pub(crate) fn list(&self) -> bool {
+        self.list
+    }
+
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
@@ -240,13 +197,46 @@ impl Property {
         &self.resolver
     }
 
+    pub(crate) fn required(&self) -> bool {
+        self.required
+    }
+
+    pub(crate) fn type_name(&self) -> &str {
+        &self.type_name
+    }
+
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn validator(&self) -> &Option<String> {
         &self.validator
     }
+
+    fn with_arguments(mut self, arguments: HashMap<String, Argument>) -> Self {
+        self.arguments = arguments;
+        self
+    }
+
+    fn with_list(mut self, list: bool) -> Self {
+        self.list = list;
+        self
+    }
+
+    fn with_required(mut self, required: bool) -> Self {
+        self.required = required;
+        self
+    }
+
+    fn with_resolver(mut self, resolver: &str) -> Self {
+        self.resolver = Some(resolver.to_string());
+        self
+    }
+
+    fn with_validator(mut self, validator: Option<String>) -> Self {
+        self.validator = validator;
+        self
+    }
 }
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) struct Argument {
     name: String,
     kind: ArgumentKind,
@@ -262,12 +252,12 @@ impl Argument {
         }
     }
 
-    pub(crate) fn name(&self) -> &str {
-        &self.name
-    }
-
     pub(crate) fn kind(&self) -> &ArgumentKind {
         &self.kind
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.name
     }
 
     pub(crate) fn type_name(&self) -> &str {
@@ -287,14 +277,14 @@ fn generate_props(
     // if the ID field was specified, add it
     if id {
         hm.insert(
-            "id".to_owned(),
-            Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned())
+            "id".to_string(),
+            Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string())
                 .with_required(object),
         );
     }
 
     // insert properties into hashmap
-    for p in props {
+    props.iter().for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(
@@ -324,7 +314,7 @@ fn generate_props(
                 );
             }
         };
-    }
+    });
 
     hm
 }
@@ -353,8 +343,9 @@ fn fmt_node_object_name(t: &Type) -> String {
 ///     owner: ProjectOwnerRel
 /// }
 fn generate_node_object(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.properties_as_slice(), true, true);
-    for r in t.relationships() {
+    let mut props = generate_props(&t.props_as_slice(), true, true);
+
+    t.rels().for_each(|r| {
         let mut arguments = HashMap::new();
         arguments.insert(
             "input".to_string(),
@@ -368,8 +359,12 @@ fn generate_node_object(t: &Type) -> NodeType {
         let mut p = Property::new(
             r.name().to_string(),
             match r.resolver() {
-                None => PropertyKind::Rel(r.name().to_string()),
-                Some(_) => PropertyKind::DynamicRel(r.name().to_string()),
+                None => PropertyKind::Rel {
+                    rel_name: r.name().to_string(),
+                },
+                Some(_) => PropertyKind::DynamicRel {
+                    rel_name: r.name().to_string(),
+                },
             },
             fmt_rel_object_name(t, &r),
         )
@@ -381,13 +376,14 @@ fn generate_node_object(t: &Type) -> NodeType {
         }
 
         props.insert(r.name().to_string(), p);
-    }
+    });
+
     NodeType::new(t.name().to_string(), TypeKind::Object, props)
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeQueryInput
 fn fmt_node_query_input_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "QueryInput".to_string())
+    t.name().to_string() + "QueryInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeQueryInput
@@ -406,8 +402,9 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerQueryInput
 /// }
 fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.properties_as_slice(), true, false);
-    for r in t.relationships() {
+    let mut props = generate_props(&t.props_as_slice(), true, false);
+
+    t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -417,17 +414,14 @@ fn generate_node_query_input(t: &Type) -> NodeType {
             )
             .with_list(r.list()),
         );
-    }
+    });
+
     NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props)
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
 fn fmt_node_create_mutation_input_name(t: &Type) -> String {
-    format!(
-        "{}{}",
-        t.name().to_string(),
-        "CreateMutationInput".to_string()
-    )
+    t.name().to_string() + "CreateMutationInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeCreateMutationInput
@@ -444,8 +438,9 @@ fn fmt_node_create_mutation_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerMutationInput
 /// }
 fn generate_node_create_mutation_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.properties_as_slice(), false, false);
-    for r in t.relationships() {
+    let mut props = generate_props(t.props_as_slice(), false, false);
+
+    t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -455,7 +450,8 @@ fn generate_node_create_mutation_input(t: &Type) -> NodeType {
             )
             .with_list(r.list()),
         );
-    }
+    });
+
     NodeType::new(
         fmt_node_create_mutation_input_name(t),
         TypeKind::Input,
@@ -465,11 +461,7 @@ fn generate_node_create_mutation_input(t: &Type) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
 fn fmt_node_update_mutation_input_name(t: &Type) -> String {
-    format!(
-        "{}{}",
-        t.name().to_string(),
-        "UpdateMutationInput".to_string()
-    )
+    t.name().to_string() + "UpdateMutationInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeUpdateMutationInput
@@ -487,8 +479,9 @@ fn fmt_node_update_mutation_input_name(t: &Type) -> String {
 ///     issues: ProjectIssuesChangeInput
 /// }
 fn generate_node_update_mutation_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.properties_as_slice(), false, false);
-    for r in t.relationships() {
+    let mut props = generate_props(t.props_as_slice(), false, false);
+
+    t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -498,7 +491,8 @@ fn generate_node_update_mutation_input(t: &Type) -> NodeType {
             )
             .with_list(r.list()),
         );
-    }
+    });
+
     NodeType::new(
         fmt_node_update_mutation_input_name(t),
         TypeKind::Input,
@@ -508,7 +502,7 @@ fn generate_node_update_mutation_input(t: &Type) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeInput
 fn fmt_node_input_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "Input".to_string())
+    t.name().to_string() + "Input"
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeInput
@@ -527,7 +521,7 @@ fn fmt_node_input_name(t: &Type) -> String {
 fn generate_node_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "EXISTING".to_owned(),
+        "EXISTING".to_string(),
         Property::new(
             "EXISTING".to_string(),
             PropertyKind::Input,
@@ -535,7 +529,7 @@ fn generate_node_input(t: &Type) -> NodeType {
         ),
     );
     props.insert(
-        "NEW".to_owned(),
+        "NEW".to_string(),
         Property::new(
             "NEW".to_string(),
             PropertyKind::Input,
@@ -547,7 +541,7 @@ fn generate_node_input(t: &Type) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeUpdateInput
 fn fmt_node_update_input_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "UpdateInput".to_string())
+    t.name().to_string() + "UpdateInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeUpdateInput
@@ -566,7 +560,7 @@ fn fmt_node_update_input_name(t: &Type) -> String {
 fn generate_node_update_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "match".to_owned(),
+        "match".to_string(),
         Property::new(
             "match".to_string(),
             PropertyKind::Input,
@@ -574,7 +568,7 @@ fn generate_node_update_input(t: &Type) -> NodeType {
         ),
     );
     props.insert(
-        "modify".to_owned(),
+        "modify".to_string(),
         Property::new(
             "modify".to_string(),
             PropertyKind::Input,
@@ -586,7 +580,7 @@ fn generate_node_update_input(t: &Type) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
 fn fmt_node_delete_input_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "DeleteInput".to_string())
+    t.name().to_string() + "DeleteInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeDeleteInput
@@ -605,7 +599,7 @@ fn fmt_node_delete_input_name(t: &Type) -> String {
 fn generate_node_delete_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "match".to_owned(),
+        "match".to_string(),
         Property::new(
             "match".to_string(),
             PropertyKind::Input,
@@ -613,7 +607,7 @@ fn generate_node_delete_input(t: &Type) -> NodeType {
         ),
     );
     props.insert(
-        "delete".to_owned(),
+        "delete".to_string(),
         Property::new(
             "delete".to_string(),
             PropertyKind::Input,
@@ -625,11 +619,7 @@ fn generate_node_delete_input(t: &Type) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteMutationInput
 fn fmt_node_delete_mutation_input_name(t: &Type) -> String {
-    format!(
-        "{}{}",
-        t.name().to_string(),
-        "DeleteMutationInput".to_string()
-    )
+    t.name().to_string() + "DeleteMutationInput"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeDeleteMutationInput
@@ -646,7 +636,7 @@ fn fmt_node_delete_mutation_input_name(t: &Type) -> String {
 /// }
 fn generate_node_delete_mutation_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
-    for r in t.relationships() {
+    t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -656,7 +646,7 @@ fn generate_node_delete_mutation_input(t: &Type) -> NodeType {
             )
             .with_list(r.list()),
         );
-    }
+    });
     NodeType::new(
         fmt_node_delete_mutation_input_name(t),
         TypeKind::Input,
@@ -706,7 +696,7 @@ fn generate_node_read_endpoint(t: &Type) -> Property {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
 fn fmt_node_create_endpoint_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "Create".to_string())
+    t.name().to_string() + "Create"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeCreateEndpoint
@@ -745,7 +735,7 @@ fn generate_node_create_endpoint(t: &Type) -> Property {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateEndpoint
 fn fmt_node_update_endpoint_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "Update".to_string())
+    t.name().to_string() + "Update"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeUpdateEndpoint:
@@ -785,7 +775,7 @@ fn generate_node_update_endpoint(t: &Type) -> Property {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteEndpoint
 fn fmt_node_delete_endpoint_name(t: &Type) -> String {
-    format!("{}{}", t.name().to_string(), "Delete".to_string())
+    t.name().to_string() + "Delete"
 }
 
 /// Takes a WG type and returns a NodeType representing a GqlNodeDeleteEndpoint
@@ -816,7 +806,9 @@ fn generate_node_delete_endpoint(t: &Type) -> Property {
 
     Property::new(
         fmt_node_delete_endpoint_name(t),
-        PropertyKind::NodeDeleteMutation(fmt_node_object_name(t)),
+        PropertyKind::NodeDeleteMutation {
+            label: fmt_node_object_name(t),
+        },
         "Int".to_string(),
     )
     .with_arguments(arguments)
@@ -824,12 +816,7 @@ fn generate_node_delete_endpoint(t: &Type) -> Property {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelObject
 fn fmt_rel_object_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "Rel".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "Rel"
 }
 
 /// Takes a WG rel an returns the name of the rel. In reality, this just makes
@@ -858,13 +845,13 @@ fn fmt_rel_name(r: &Relationship) -> String {
 fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "id".to_owned(),
-        Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()).with_required(true),
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
     );
 
-    if !r.properties_as_slice().is_empty() {
+    if !r.props_as_slice().is_empty() {
         props.insert(
-            "props".to_owned(),
+            "props".to_string(),
             Property::new(
                 "props".to_string(),
                 PropertyKind::Object,
@@ -873,7 +860,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
         );
     }
     props.insert(
-        "src".to_owned(),
+        "src".to_string(),
         Property::new(
             "src".to_string(),
             PropertyKind::Object,
@@ -882,7 +869,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
         .with_required(true),
     );
     props.insert(
-        "dst".to_owned(),
+        "dst".to_string(),
         Property::new(
             "dst".to_string(),
             PropertyKind::Union,
@@ -895,12 +882,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsObject
 fn fmt_rel_props_object_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "Props".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "Props"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsObject
@@ -918,18 +900,13 @@ fn generate_rel_props_object(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_object_name(t, r),
         TypeKind::Object,
-        generate_props(r.properties_as_slice(), false, true),
+        generate_props(r.props_as_slice(), false, true),
     )
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesUnion
 fn fmt_rel_nodes_union_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "NodesUnion".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "NodesUnion"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelNodesUnion
@@ -951,12 +928,7 @@ fn generate_rel_nodes_union(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelQueryInput
 fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "QueryInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "QueryInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelQueryInput
@@ -979,12 +951,12 @@ fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
 fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "id".to_owned(),
-        Property::new("id".to_owned(), PropertyKind::Scalar, "ID".to_owned()),
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()),
     );
-    if !r.properties_as_slice().is_empty() {
+    if !r.props_as_slice().is_empty() {
         props.insert(
-            "props".to_owned(),
+            "props".to_string(),
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
@@ -993,7 +965,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
         );
     }
     props.insert(
-        "src".to_owned(),
+        "src".to_string(),
         Property::new(
             "src".to_string(),
             PropertyKind::Input,
@@ -1001,7 +973,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "dst".to_owned(),
+        "dst".to_string(),
         Property::new(
             "dst".to_string(),
             PropertyKind::Input,
@@ -1013,12 +985,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateMutationInput
 fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "CreateMutationInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "CreateMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelCreateMutationInput
@@ -1037,9 +1004,9 @@ fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    if !r.properties_as_slice().is_empty() {
+    if !r.props_as_slice().is_empty() {
         props.insert(
-            "props".to_owned(),
+            "props".to_string(),
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
@@ -1048,7 +1015,7 @@ fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
         );
     }
     props.insert(
-        "dst".to_owned(),
+        "dst".to_string(),
         Property::new(
             "dst".to_string(),
             PropertyKind::Input,
@@ -1065,12 +1032,7 @@ fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
 fn fmt_rel_change_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "ChangeInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "ChangeInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelChangeInput
@@ -1091,7 +1053,7 @@ fn fmt_rel_change_input_name(t: &Type, r: &Relationship) -> String {
 fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "ADD".to_owned(),
+        "ADD".to_string(),
         Property::new(
             "ADD".to_string(),
             PropertyKind::Input,
@@ -1099,7 +1061,7 @@ fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "UPDATE".to_owned(),
+        "UPDATE".to_string(),
         Property::new(
             "UPDATE".to_string(),
             PropertyKind::Input,
@@ -1107,7 +1069,7 @@ fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "DELETE".to_owned(),
+        "DELETE".to_string(),
         Property::new(
             "DELETE".to_string(),
             PropertyKind::Input,
@@ -1118,12 +1080,7 @@ fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
 }
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
 fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "UpdateMutationInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "UpdateMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelUpdateMutationInput
@@ -1143,9 +1100,9 @@ fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    if !r.properties_as_slice().is_empty() {
+    if !r.props_as_slice().is_empty() {
         props.insert(
-            "props".to_owned(),
+            "props".to_string(),
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
@@ -1154,7 +1111,7 @@ fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
         );
     }
     props.insert(
-        "src".to_owned(),
+        "src".to_string(),
         Property::new(
             "src".to_string(),
             PropertyKind::Input,
@@ -1162,7 +1119,7 @@ fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "dst".to_owned(),
+        "dst".to_string(),
         Property::new(
             "dst".to_string(),
             PropertyKind::Input,
@@ -1178,12 +1135,7 @@ fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcUpdateMutationInput
 fn fmt_rel_src_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "SrcUpdateMutationInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "SrcUpdateMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelSrcUpdateMutationInput
@@ -1216,12 +1168,7 @@ fn generate_rel_src_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstUpdateMutationInput
 fn fmt_rel_dst_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "DstUpdateMutationInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "DstUpdateMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelDstUpdateMutationInput
@@ -1237,16 +1184,16 @@ fn fmt_rel_dst_update_mutation_input_name(t: &Type, r: &Relationship) -> String 
 /// }
 fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes() {
+    r.nodes().for_each(|node| {
         props.insert(
-            node.clone(),
+            node.to_string(),
             Property::new(
-                node.clone(),
+                node.to_string(),
                 PropertyKind::Input,
-                format!("{}UpdateMutationInput", node),
+                node.to_string() + "UpdateMutationInput",
             ),
         );
-    }
+    });
     NodeType::new(
         fmt_rel_dst_update_mutation_input_name(t, r),
         TypeKind::Input,
@@ -1255,12 +1202,7 @@ fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 }
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
 fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "PropsInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "PropsInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsInput
@@ -1278,18 +1220,13 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_input_name(t, r),
         TypeKind::Input,
-        generate_props(r.properties_as_slice(), false, false),
+        generate_props(r.props_as_slice(), false, false),
     )
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
 fn fmt_rel_src_query_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "SrcQueryInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "SrcQueryInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelSrcQueryInput
@@ -1310,7 +1247,7 @@ fn generate_rel_src_query_input(t: &Type, r: &Relationship) -> NodeType {
         Property::new(
             t.name().to_string(),
             PropertyKind::Input,
-            format!("{}QueryInput", t.name()),
+            t.name().to_string() + "QueryInput",
         ),
     );
     NodeType::new(fmt_rel_src_query_input_name(t, r), TypeKind::Input, props)
@@ -1318,12 +1255,7 @@ fn generate_rel_src_query_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstQueryInput
 fn fmt_rel_dst_query_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "DstQueryInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "DstQueryInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelDstQueryInput
@@ -1339,28 +1271,23 @@ fn fmt_rel_dst_query_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_dst_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes() {
+    r.nodes().for_each(|node| {
         props.insert(
-            node.clone(),
+            node.to_string(),
             Property::new(
-                node.clone(),
+                node.to_string(),
                 PropertyKind::Input,
                 //fmt_node_query_input_name(t, r),
-                format!("{}QueryInput", node),
+                node.to_string() + "QueryInput",
             ),
         );
-    }
+    });
     NodeType::new(fmt_rel_dst_query_input_name(t, r), TypeKind::Input, props)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesMutationInputUnion
 fn fmt_rel_nodes_mutation_input_union_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "NodesMutationInputUnion".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "NodesMutationInputUnion"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelNodesMutationInput
@@ -1376,12 +1303,16 @@ fn fmt_rel_nodes_mutation_input_union_name(t: &Type, r: &Relationship) -> String
 /// }
 fn generate_rel_nodes_mutation_input_union(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes() {
+    r.nodes().for_each(|node| {
         props.insert(
-            node.clone(),
-            Property::new(node.clone(), PropertyKind::Input, format!("{}Input", node)),
+            node.to_string(),
+            Property::new(
+                node.to_string(),
+                PropertyKind::Input,
+                node.to_string() + "Input",
+            ),
         );
-    }
+    });
     NodeType::new(
         fmt_rel_nodes_mutation_input_union_name(t, r),
         TypeKind::Input,
@@ -1391,12 +1322,7 @@ fn generate_rel_nodes_mutation_input_union(t: &Type, r: &Relationship) -> NodeTy
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateInput
 fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "CreateInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "CreateInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelCreateInput
@@ -1415,7 +1341,7 @@ fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
 fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "match".to_owned(),
+        "match".to_string(),
         Property::new(
             "match".to_string(),
             PropertyKind::Input,
@@ -1423,7 +1349,7 @@ fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "create".to_owned(),
+        "create".to_string(),
         Property::new(
             "create".to_string(),
             PropertyKind::Input,
@@ -1436,12 +1362,7 @@ fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateInput
 fn fmt_rel_update_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case(),
-        "UpdateInput".to_string()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "UpdateInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelUpdateInput
@@ -1460,7 +1381,7 @@ fn fmt_rel_update_input_name(t: &Type, r: &Relationship) -> String {
 fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "match".to_owned(),
+        "match".to_string(),
         Property::new(
             "match".to_string(),
             PropertyKind::Input,
@@ -1468,7 +1389,7 @@ fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "update".to_owned(),
+        "update".to_string(),
         Property::new(
             "update".to_string(),
             PropertyKind::Input,
@@ -1481,11 +1402,7 @@ fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
 fn fmt_rel_delete_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}DeleteInput",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "DeleteInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelDeleteInput
@@ -1506,7 +1423,7 @@ fn fmt_rel_delete_input_name(t: &Type, r: &Relationship) -> String {
 fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "match".to_owned(),
+        "match".to_string(),
         Property::new(
             "match".to_string(),
             PropertyKind::Input,
@@ -1514,7 +1431,7 @@ fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "src".to_owned(),
+        "src".to_string(),
         Property::new(
             "src".to_string(),
             PropertyKind::Input,
@@ -1522,7 +1439,7 @@ fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     props.insert(
-        "dst".to_owned(),
+        "dst".to_string(),
         Property::new(
             "dst".to_string(),
             PropertyKind::Input,
@@ -1534,11 +1451,7 @@ fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
 
 /// Takes a WG type and returns the name of the corresponding GqlRelSrcDeleteMutationInput
 fn fmt_rel_src_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}SrcDeleteMutationInput",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "SrcDeleteMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelSrcDeleteMutationInput
@@ -1571,11 +1484,7 @@ fn generate_rel_src_delete_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
 fn fmt_rel_dst_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}DstDeleteMutationInput",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "DstDeleteMutationInput"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelDstDeleteMutationInput
@@ -1591,16 +1500,16 @@ fn fmt_rel_dst_delete_mutation_input_name(t: &Type, r: &Relationship) -> String 
 /// }
 fn generate_rel_dst_delete_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
-    for node in r.nodes() {
+    r.nodes().for_each(|node| {
         props.insert(
-            node.clone(),
+            node.to_string(),
             Property::new(
-                node.clone(),
+                node.to_string(),
                 PropertyKind::Input,
-                format!("{}DeleteMutationInput", node),
+                node.to_string() + "DeleteMutationInput",
             ),
         );
-    }
+    });
     NodeType::new(
         fmt_rel_dst_delete_mutation_input_name(t, r),
         TypeKind::Input,
@@ -1610,11 +1519,7 @@ fn generate_rel_dst_delete_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelReadEndpoint
 fn fmt_rel_read_endpoint_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case()
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelReadEndpoint
@@ -1645,7 +1550,9 @@ fn generate_rel_read_endpoint(t: &Type, r: &Relationship) -> Property {
 
     Property::new(
         fmt_rel_read_endpoint_name(t, r),
-        PropertyKind::Rel(r.name().to_string()),
+        PropertyKind::Rel {
+            rel_name: r.name().to_string(),
+        },
         fmt_rel_object_name(t, r),
     )
     .with_list(true)
@@ -1654,11 +1561,7 @@ fn generate_rel_read_endpoint(t: &Type, r: &Relationship) -> Property {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateEndpoint
 fn fmt_rel_create_endpoint_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}Create",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "Create"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelCreateEndpoint
@@ -1689,7 +1592,10 @@ fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
 
     Property::new(
         fmt_rel_create_endpoint_name(t, r),
-        PropertyKind::RelCreateMutation(fmt_node_object_name(t), fmt_rel_name(r)),
+        PropertyKind::RelCreateMutation {
+            src_label: fmt_node_object_name(t),
+            rel_name: fmt_rel_name(r),
+        },
         fmt_rel_object_name(t, r),
     )
     .with_list(r.list())
@@ -1698,11 +1604,7 @@ fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateEndpoint
 fn fmt_rel_update_endpoint_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}Update",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "Update"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelUpdateEndpoint
@@ -1733,7 +1635,10 @@ fn generate_rel_update_endpoint(t: &Type, r: &Relationship) -> Property {
 
     Property::new(
         fmt_rel_update_endpoint_name(t, r),
-        PropertyKind::RelUpdateMutation(fmt_node_object_name(t), fmt_rel_name(r)),
+        PropertyKind::RelUpdateMutation {
+            src_label: fmt_node_object_name(t),
+            rel_name: fmt_rel_name(r),
+        },
         fmt_rel_object_name(t, r),
     )
     .with_list(true)
@@ -1742,11 +1647,7 @@ fn generate_rel_update_endpoint(t: &Type, r: &Relationship) -> Property {
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDeleteEndpoint
 fn fmt_rel_delete_endpoint_name(t: &Type, r: &Relationship) -> String {
-    format!(
-        "{}{}Delete",
-        t.name().to_string(),
-        r.name().to_string().to_title_case()
-    )
+    t.name().to_string() + &r.name().to_string().to_title_case() + "Delete"
 }
 
 /// Takes a WG Type and Rel and returns a NodeType representing a GqlRelDeleteEndpoint
@@ -1777,7 +1678,10 @@ fn generate_rel_delete_endpoint(t: &Type, r: &Relationship) -> Property {
 
     Property::new(
         fmt_rel_delete_endpoint_name(t, r),
-        PropertyKind::RelDeleteMutation(fmt_node_object_name(t), fmt_rel_name(r)),
+        PropertyKind::RelDeleteMutation {
+            src_label: fmt_node_object_name(t),
+            rel_name: fmt_rel_name(r),
+        },
         "Int".to_string(),
     )
     .with_arguments(arguments)
@@ -1786,52 +1690,50 @@ fn generate_rel_delete_endpoint(t: &Type, r: &Relationship) -> Property {
 /// Takes a WG Endpoint and returns a NodeType representing a root endpoint
 fn generate_custom_endpoint(e: &Endpoint) -> Property {
     let mut arguments = HashMap::new();
-    match e.input() {
-        None => {}
-        Some(input) => {
-            let is_required = if input.required() {
-                ArgumentKind::Required
-            } else {
-                ArgumentKind::Optional
-            };
-            arguments.insert(
-                "partitionKey".to_string(),
-                Argument::new(
-                    "partitionKey".to_string(),
-                    ArgumentKind::Optional,
-                    "String".to_string(),
-                ),
-            );
+    if let Some(input) = e.input() {
+        let is_required = if input.required() {
+            ArgumentKind::Required
+        } else {
+            ArgumentKind::Optional
+        };
 
-            match input.type_def() {
-                TypeDef::Scalar(s) => match s {
-                    GraphqlType::Boolean => arguments.insert(
-                        "input".to_string(),
-                        Argument::new("input".to_string(), is_required, "Boolean".to_string()),
-                    ),
-                    GraphqlType::Float => arguments.insert(
-                        "input".to_string(),
-                        Argument::new("input".to_string(), is_required, "Float".to_string()),
-                    ),
-                    GraphqlType::Int => arguments.insert(
-                        "input".to_string(),
-                        Argument::new("input".to_string(), is_required, "Int".to_string()),
-                    ),
-                    GraphqlType::String => arguments.insert(
-                        "input".to_string(),
-                        Argument::new("input".to_string(), is_required, "String".to_string()),
-                    ),
-                },
-                TypeDef::Existing(e) => arguments.insert(
+        arguments.insert(
+            "partitionKey".to_string(),
+            Argument::new(
+                "partitionKey".to_string(),
+                ArgumentKind::Optional,
+                "String".to_string(),
+            ),
+        );
+
+        match input.type_def() {
+            TypeDef::Scalar(s) => match s {
+                GraphqlType::Boolean => arguments.insert(
                     "input".to_string(),
-                    Argument::new("input".to_string(), is_required, e.clone()),
+                    Argument::new("input".to_string(), is_required, "Boolean".to_string()),
                 ),
-                TypeDef::Custom(c) => arguments.insert(
+                GraphqlType::Float => arguments.insert(
                     "input".to_string(),
-                    Argument::new("input".to_string(), is_required, c.name().to_string()),
+                    Argument::new("input".to_string(), is_required, "Float".to_string()),
                 ),
-            };
-        }
+                GraphqlType::Int => arguments.insert(
+                    "input".to_string(),
+                    Argument::new("input".to_string(), is_required, "Int".to_string()),
+                ),
+                GraphqlType::String => arguments.insert(
+                    "input".to_string(),
+                    Argument::new("input".to_string(), is_required, "String".to_string()),
+                ),
+            },
+            TypeDef::Existing(e) => arguments.insert(
+                "input".to_string(),
+                Argument::new("input".to_string(), is_required, e.clone()),
+            ),
+            TypeDef::Custom(c) => arguments.insert(
+                "input".to_string(),
+                Argument::new("input".to_string(), is_required, c.name().to_string()),
+            ),
+        };
     }
 
     Property::new(
@@ -1854,8 +1756,8 @@ fn generate_custom_endpoint(e: &Endpoint) -> Property {
 }
 
 fn generate_custom_endpoint_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.properties_as_slice(), false, false);
-    for r in t.relationships() {
+    let mut props = generate_props(t.props_as_slice(), false, false);
+    t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
             Property::new(
@@ -1865,15 +1767,15 @@ fn generate_custom_endpoint_input(t: &Type) -> NodeType {
             )
             .with_list(r.list()),
         );
-    }
+    });
     NodeType::new(t.name().to_string(), TypeKind::Input, props)
 }
 
 fn generate_static_version_query() -> Property {
     Property::new(
-        "_version".to_owned(),
+        "_version".to_string(),
         PropertyKind::VersionQuery,
-        "String".to_owned(),
+        "String".to_string(),
     )
 }
 
@@ -1885,45 +1787,45 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
     let mut query_props = HashMap::new();
 
     // generate graphql schema components for warpgrapher types
-    for t in c.types() {
+    c.types().for_each(|t| {
         // GqlNodeType
         let node_type = generate_node_object(t);
-        nthm.insert(node_type.type_name.to_owned(), node_type);
+        nthm.insert(node_type.type_name.to_string(), node_type);
 
         // GqlNodeQueryInput
         let node_query_input = generate_node_query_input(t);
-        nthm.insert(node_query_input.type_name.to_owned(), node_query_input);
+        nthm.insert(node_query_input.type_name.to_string(), node_query_input);
 
         // GqlNodeCreateMutationInput
         let node_create_mutation_input = generate_node_create_mutation_input(t);
         nthm.insert(
-            node_create_mutation_input.type_name.to_owned(),
+            node_create_mutation_input.type_name.to_string(),
             node_create_mutation_input,
         );
 
         // GqlNodeUpdateMutationInput
         let node_update_mutation_input = generate_node_update_mutation_input(t);
         nthm.insert(
-            node_update_mutation_input.type_name.to_owned(),
+            node_update_mutation_input.type_name.to_string(),
             node_update_mutation_input,
         );
 
         // GqlNodeInput
         let node_input = generate_node_input(t);
-        nthm.insert(node_input.type_name.to_owned(), node_input);
+        nthm.insert(node_input.type_name.to_string(), node_input);
 
         // GqlNodeUpdateInput
         let node_update_input = generate_node_update_input(t);
-        nthm.insert(node_update_input.type_name.to_owned(), node_update_input);
+        nthm.insert(node_update_input.type_name.to_string(), node_update_input);
 
         // GqlNodeDeleteInput
         let node_delete_input = generate_node_delete_input(t);
-        nthm.insert(node_delete_input.type_name.to_owned(), node_delete_input);
+        nthm.insert(node_delete_input.type_name.to_string(), node_delete_input);
 
         // GqlNodeDeleteMutationInput
         let node_delete_mutation_input = generate_node_delete_mutation_input(t);
         nthm.insert(
-            node_delete_mutation_input.type_name.to_owned(),
+            node_delete_mutation_input.type_name.to_string(),
             node_delete_mutation_input,
         );
 
@@ -1951,103 +1853,103 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        for r in t.relationships() {
+        t.rels().for_each(|r| {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);
-            nthm.insert(rel_object.type_name.to_owned(), rel_object);
+            nthm.insert(rel_object.type_name.to_string(), rel_object);
 
             // GqlRelPropsObject
             let rel_props_object = generate_rel_props_object(t, r);
-            nthm.insert(rel_props_object.type_name.to_owned(), rel_props_object);
+            nthm.insert(rel_props_object.type_name.to_string(), rel_props_object);
 
             // GqlRelNodesUnion
             let rel_nodes_union = generate_rel_nodes_union(t, r);
-            nthm.insert(rel_nodes_union.type_name.to_owned(), rel_nodes_union);
+            nthm.insert(rel_nodes_union.type_name.to_string(), rel_nodes_union);
 
             // GqlRelQueryInput
             let rel_query_input = generate_rel_query_input(t, r);
-            nthm.insert(rel_query_input.type_name.to_owned(), rel_query_input);
+            nthm.insert(rel_query_input.type_name.to_string(), rel_query_input);
 
             // GqlRelCreateMutationInput
             let rel_create_mutation_input = generate_rel_create_mutation_input(t, r);
             nthm.insert(
-                rel_create_mutation_input.type_name.to_owned(),
+                rel_create_mutation_input.type_name.to_string(),
                 rel_create_mutation_input,
             );
 
             // GqlRelChangeInput
             let rel_change_input = generate_rel_change_input(t, r);
-            nthm.insert(rel_change_input.type_name.to_owned(), rel_change_input);
+            nthm.insert(rel_change_input.type_name.to_string(), rel_change_input);
 
             // GqlRelUpdateMutationInput
             let rel_update_mutation_input = generate_rel_update_mutation_input(t, r);
             nthm.insert(
-                rel_update_mutation_input.type_name.to_owned(),
+                rel_update_mutation_input.type_name.to_string(),
                 rel_update_mutation_input,
             );
 
             // GqlRelSrcUpdateMutationInput
             let rel_src_update_mutation_input = generate_rel_src_update_mutation_input(t, r);
             nthm.insert(
-                rel_src_update_mutation_input.type_name.to_owned(),
+                rel_src_update_mutation_input.type_name.to_string(),
                 rel_src_update_mutation_input,
             );
 
             // GqlRelDstUpdateMutationInput
             let rel_dst_update_mutation_input = generate_rel_dst_update_mutation_input(t, r);
             nthm.insert(
-                rel_dst_update_mutation_input.type_name.to_owned(),
+                rel_dst_update_mutation_input.type_name.to_string(),
                 rel_dst_update_mutation_input,
             );
 
             // GqlRelPropsInput
             let rel_props_input = generate_rel_props_input(t, r);
-            nthm.insert(rel_props_input.type_name.to_owned(), rel_props_input);
+            nthm.insert(rel_props_input.type_name.to_string(), rel_props_input);
 
             // GqlRelSrcQueryInput
             let rel_src_query_input = generate_rel_src_query_input(t, r);
             nthm.insert(
-                rel_src_query_input.type_name.to_owned(),
+                rel_src_query_input.type_name.to_string(),
                 rel_src_query_input,
             );
 
             // GqlRelDstQueryInput
             let rel_dst_query_input = generate_rel_dst_query_input(t, r);
             nthm.insert(
-                rel_dst_query_input.type_name.to_owned(),
+                rel_dst_query_input.type_name.to_string(),
                 rel_dst_query_input,
             );
 
             // GqlRelNodesMutationInputUnion
             let rel_nodes_mutation_input_union = generate_rel_nodes_mutation_input_union(t, r);
             nthm.insert(
-                rel_nodes_mutation_input_union.type_name.to_owned(),
+                rel_nodes_mutation_input_union.type_name.to_string(),
                 rel_nodes_mutation_input_union,
             );
 
             // GqlRelCreateInput
             let rel_create_input = generate_rel_create_input(t, r);
-            nthm.insert(rel_create_input.type_name.to_owned(), rel_create_input);
+            nthm.insert(rel_create_input.type_name.to_string(), rel_create_input);
 
             // GqlRelUpdateInput
             let rel_update_input = generate_rel_update_input(t, r);
-            nthm.insert(rel_update_input.type_name.to_owned(), rel_update_input);
+            nthm.insert(rel_update_input.type_name.to_string(), rel_update_input);
 
             // GqlRelDeleteInput
             let rel_delete_input = generate_rel_delete_input(t, r);
-            nthm.insert(rel_delete_input.type_name.to_owned(), rel_delete_input);
+            nthm.insert(rel_delete_input.type_name.to_string(), rel_delete_input);
 
             // GqlRelSrcDeleteMutationInput
             let rel_src_delete_mutation_input = generate_rel_src_delete_mutation_input(t, r);
             nthm.insert(
-                rel_src_delete_mutation_input.type_name.to_owned(),
+                rel_src_delete_mutation_input.type_name.to_string(),
                 rel_src_delete_mutation_input,
             );
 
             // GqlRelDstDeleteMutationInput
             let rel_dst_delete_mutation_input = generate_rel_dst_delete_mutation_input(t, r);
             nthm.insert(
-                rel_dst_delete_mutation_input.type_name.to_owned(),
+                rel_dst_delete_mutation_input.type_name.to_string(),
                 rel_dst_delete_mutation_input,
             );
 
@@ -2074,11 +1976,11 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
                 let rel_delete_endpoint = generate_rel_delete_endpoint(t, r);
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
-        }
-    }
+        });
+    });
 
     // generate graphql schema components for custom endpoints and associated types
-    for e in c.endpoints() {
+    c.endpoints().for_each(|e| {
         // add custom endpoint
         let endpoint = generate_custom_endpoint(e);
         match e.class() {
@@ -2101,22 +2003,22 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
         // add custom output type if provided
         if let TypeDef::Custom(t) = &e.output().type_def() {
             let node_type = generate_node_object(&t);
-            nthm.insert(node_type.type_name.to_owned(), node_type);
+            nthm.insert(node_type.type_name.to_string(), node_type);
         }
-    }
+    });
 
     // static endpoints
     query_props.insert("_version".to_string(), generate_static_version_query());
 
     // insert
     nthm.insert(
-        "Mutation".to_owned(),
-        NodeType::new("Mutation".to_owned(), TypeKind::Object, mutation_props),
+        "Mutation".to_string(),
+        NodeType::new("Mutation".to_string(), TypeKind::Object, mutation_props),
     );
 
     nthm.insert(
-        "Query".to_owned(),
-        NodeType::new("Query".to_owned(), TypeKind::Object, query_props),
+        "Query".to_string(),
+        NodeType::new("Query".to_string(), TypeKind::Object, query_props),
     );
 
     nthm
@@ -2133,12 +2035,12 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
 /// [`Error`]: ../error/struct.Error.html
 /// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
 ///
-pub(super) fn create_root_node<GlobalCtx, ReqCtx>(
+pub(super) fn create_root_node<GlobalCtx, RequestCtx>(
     c: &Configuration,
-) -> Result<RootRef<GlobalCtx, ReqCtx>, Error>
+) -> Result<RootRef<GlobalCtx, RequestCtx>, Error>
 where
     GlobalCtx: GlobalContext,
-    ReqCtx: RequestContext,
+    RequestCtx: RequestContext,
 {
     // Runtime performance could be optimized by generating the entirety of the
     // schema in one loop iteration over the configuration. In fact, that's how
@@ -2150,12 +2052,12 @@ where
 
     let nthm = generate_schema(c);
     let nts = Arc::new(nthm);
-    let root_mutation_info = Info::new("Mutation".to_owned(), nts.clone());
-    let root_query_info = Info::new("Query".to_owned(), nts);
+    let root_mutation_info = Info::new("Mutation".to_string(), nts.clone());
+    let root_query_info = Info::new("Query".to_string(), nts);
     catch_unwind(|| {
         Arc::new(RootNode::new_with_info(
-            Node::new("Query".to_owned(), HashMap::new()),
-            Node::new("Mutation".to_owned(), HashMap::new()),
+            Node::new("Query".to_string(), HashMap::new()),
+            Node::new("Mutation".to_string(), HashMap::new()),
             root_query_info,
             root_mutation_info,
         ))
@@ -2314,7 +2216,7 @@ mod tests {
         let project_owner = project_node_object.props.get("owner").unwrap();
         assert!(project_owner.name() == "owner");
         assert!(match &project_owner.kind {
-            PropertyKind::Rel(r) => r == "owner",
+            PropertyKind::Rel { rel_name } => rel_name == "owner",
             _ => false,
         });
         assert!(project_owner.type_name == "ProjectOwnerRel");
@@ -2329,7 +2231,7 @@ mod tests {
         let project_board = project_node_object.props.get("board").unwrap();
         assert!(project_board.name == "board");
         assert!(match &project_board.kind {
-            PropertyKind::Rel(r) => r == "board",
+            PropertyKind::Rel { rel_name } => rel_name == "board",
             _ => false,
         });
         assert!(project_board.type_name == "ProjectBoardRel");
@@ -2344,7 +2246,7 @@ mod tests {
         let project_commits = project_node_object.props.get("commits").unwrap();
         assert!(project_commits.name == "commits");
         assert!(match &project_commits.kind {
-            PropertyKind::Rel(r) => r == "commits",
+            PropertyKind::Rel { rel_name } => rel_name == "commits",
             _ => false,
         });
         assert!(project_commits.type_name == "ProjectCommitsRel");
@@ -2359,7 +2261,7 @@ mod tests {
         let project_issues = project_node_object.props.get("issues").unwrap();
         assert!(project_issues.name == "issues");
         assert!(match &project_issues.kind {
-            PropertyKind::Rel(r) => r == "issues",
+            PropertyKind::Rel { rel_name } => rel_name == "issues",
             _ => false,
         });
         assert!(project_issues.type_name == "ProjectIssuesRel");
@@ -2873,7 +2775,7 @@ mod tests {
         let project_delete_endpoint = generate_node_delete_endpoint(&project_type);
         assert!(project_delete_endpoint.name == "ProjectDelete");
         assert!(match &project_delete_endpoint.kind {
-            PropertyKind::NodeDeleteMutation(s) => s == "Project",
+            PropertyKind::NodeDeleteMutation { label } => label == "Project",
             _ => false,
         });
         assert!(project_delete_endpoint.type_name == "Int");
@@ -2891,10 +2793,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_object_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(fmt_rel_object_name(&project_type, &project_owner_rel) == "ProjectOwnerRel");
     }
 
@@ -2911,10 +2810,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_object = generate_rel_object(&project_type, &project_owner_rel);
         let project_owner_id = project_owner_object.props.get("id").unwrap();
         assert!(project_owner_id.name == "id");
@@ -2953,10 +2849,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_object = generate_rel_object(&project_type, &project_board_rel);
         let project_board_id = project_board_object.props.get("id").unwrap();
         assert!(project_board_id.name == "id");
@@ -2987,10 +2880,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_props_object_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_props_object_name(&project_type, &project_owner_rel) == "ProjectOwnerProps"
         );
@@ -3006,10 +2896,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_props_object =
             generate_rel_props_object(&project_type, &project_owner_rel);
         assert!(project_owner_props_object.props.len() == 1);
@@ -3026,10 +2913,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_nodes_union_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_nodes_union_name(&project_type, &project_owner_rel) == "ProjectOwnerNodesUnion"
         );
@@ -3042,10 +2926,7 @@ mod tests {
             union ProjectOwnerNodesUnion = User
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_nodes_union = generate_rel_nodes_union(&project_type, &project_owner_rel);
         assert!(project_owner_nodes_union.type_name == "ProjectOwnerNodesUnion");
         assert!(project_owner_nodes_union.type_kind == TypeKind::Union);
@@ -3057,10 +2938,7 @@ mod tests {
             union ProjectBoardNodesUnion = ScrumBoard | KanbanBoard
         */
         let project_type = mock_project_type();
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_nodes_union = generate_rel_nodes_union(&project_type, &project_board_rel);
         assert!(project_board_nodes_union.type_name == "ProjectBoardNodesUnion");
         assert!(project_board_nodes_union.type_kind == TypeKind::Union);
@@ -3075,10 +2953,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_query_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_query_input_name(&project_type, &project_owner_rel) == "ProjectOwnerQueryInput"
         );
@@ -3097,10 +2972,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_query_input = generate_rel_query_input(&project_type, &project_owner_rel);
         // id
         let project_owner_id = project_owner_query_input.props.get("id").unwrap();
@@ -3110,7 +2982,7 @@ mod tests {
         assert!(!project_owner_id.required);
         assert!(!project_owner_id.list);
         assert!(project_owner_id.arguments.is_empty());
-        // props
+        // properties
         let project_owner_props = project_owner_query_input.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
         assert!(project_owner_props.kind == PropertyKind::Input);
@@ -3142,10 +3014,7 @@ mod tests {
                 dst: ProjectBoardDstQueryInput
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_query_input = generate_rel_query_input(&project_type, &project_board_rel);
         // id
         let project_board_id = project_board_query_input.props.get("id").unwrap();
@@ -3155,7 +3024,7 @@ mod tests {
         assert!(!project_board_id.required);
         assert!(!project_board_id.list);
         assert!(project_board_id.arguments.is_empty());
-        // props
+        // properties
         assert!(project_board_query_input.props.get("props").is_none());
         // src
         let project_board_src = project_board_query_input.props.get("src").unwrap();
@@ -3179,10 +3048,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_create_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerCreateMutationInput"
@@ -3199,14 +3065,11 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_mutation_input =
             generate_rel_create_mutation_input(&project_type, &project_owner_rel);
         assert!(project_owner_mutation_input.type_name == "ProjectOwnerCreateMutationInput");
-        // props
+        // properties
         let project_owner_props = project_owner_mutation_input.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
         assert!(project_owner_props.kind == PropertyKind::Input);
@@ -3227,14 +3090,11 @@ mod tests {
                 dst: ProjectBoardNodesMutationInputUnion
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_mutation_input =
             generate_rel_create_mutation_input(&project_type, &project_board_rel);
         assert!(project_board_mutation_input.type_name == "ProjectBoardCreateMutationInput");
-        // props
+        // properties
         let project_board_props = project_board_mutation_input.props.get("props");
         assert!(project_board_props.is_none());
         // dst
@@ -3251,10 +3111,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_change_input_name() {
         let project_type = mock_project_type();
-        let project_issues_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "issues")
-            .unwrap();
+        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
         assert!(
             fmt_rel_change_input_name(&project_type, &project_issues_rel)
                 == "ProjectIssuesChangeInput"
@@ -3272,10 +3129,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_issues_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "issues")
-            .unwrap();
+        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
         let project_issues_change_input =
             generate_rel_change_input(&project_type, &project_issues_rel);
         assert!(project_issues_change_input.type_name == "ProjectIssuesChangeInput");
@@ -3309,10 +3163,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerUpdateMutationInput"
@@ -3330,14 +3181,11 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_update_mutation_input =
             generate_rel_update_mutation_input(&project_type, &project_owner_rel);
         assert!(project_owner_update_mutation_input.type_name == "ProjectOwnerUpdateMutationInput");
-        // props
+        // properties
         let props = project_owner_update_mutation_input
             .props
             .get("props")
@@ -3376,10 +3224,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_update_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_src_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcUpdateMutationInput"
@@ -3395,10 +3240,7 @@ mod tests {
                 Project: ProjectUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_src_update_mutation_input =
             generate_rel_src_update_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3420,10 +3262,7 @@ mod tests {
                 Project: ProjectUpdateMutationInput
             }
         */
-        let project_issues_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "issues")
-            .unwrap();
+        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
         let project_issues_src_update_mutation_input =
             generate_rel_src_update_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -3451,10 +3290,7 @@ mod tests {
                 User: UserUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_dst_update_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstUpdateMutationInput"
@@ -3470,10 +3306,7 @@ mod tests {
                 User: UserUpdateMutationInput
             }
         */
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_dst_update_mutation_input =
             generate_rel_dst_update_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -3496,10 +3329,7 @@ mod tests {
                 Feature: FeatureUpdateMutationInput
             }
         */
-        let project_issues_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "issues")
-            .unwrap();
+        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
         let project_issues_dst_update_mutation_input =
             generate_rel_dst_update_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -3532,10 +3362,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_props_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_props_input_name(&project_type, &project_owner_rel) == "ProjectOwnerPropsInput"
         );
@@ -3550,10 +3377,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_props_input = generate_rel_props_input(&project_type, &project_owner_rel);
         assert!(project_owner_props_input.type_name == "ProjectOwnerPropsInput");
         assert!(project_owner_props_input.type_kind == TypeKind::Input);
@@ -3571,18 +3395,12 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_query_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_src_query_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcQueryInput"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_src_query_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardSrcQueryInput"
@@ -3593,18 +3411,12 @@ mod tests {
     #[test]
     fn test_fmt_rel_dst_query_input_name_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_dst_query_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstQueryInput"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_dst_query_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardDstQueryInput"
@@ -3620,10 +3432,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_nodes_query_input_union =
             generate_rel_dst_query_input(&project_type, &project_owner_rel);
         assert!(project_owner_nodes_query_input_union.type_name == "ProjectOwnerDstQueryInput");
@@ -3645,10 +3454,7 @@ mod tests {
                 ScrumBoard: ScrumBoardQueryInput
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_nodes_query_input_union =
             generate_rel_dst_query_input(&project_type, &project_board_rel);
         assert!(project_board_nodes_query_input_union.type_name == "ProjectBoardDstQueryInput");
@@ -3680,18 +3486,12 @@ mod tests {
     #[test]
     fn test_fmt_rel_nodes_mutation_input_union_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_nodes_mutation_input_union_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerNodesMutationInputUnion"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_nodes_mutation_input_union_name(&project_type, &project_board_rel)
                 == "ProjectBoardNodesMutationInputUnion"
@@ -3707,10 +3507,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_nodes_mutation_input_union =
             generate_rel_nodes_mutation_input_union(&project_type, &project_owner_rel);
         assert!(
@@ -3735,10 +3532,7 @@ mod tests {
                 ScrumBoard: ScrumBoardInput
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_nodes_mutation_input_union =
             generate_rel_nodes_mutation_input_union(&project_type, &project_board_rel);
         assert!(
@@ -3773,18 +3567,12 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_create_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerCreateInput"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_create_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardCreateInput"
@@ -3802,10 +3590,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_create_input =
             generate_rel_create_input(&project_type, &project_owner_rel);
         assert!(project_owner_create_input.type_name == "ProjectOwnerCreateInput");
@@ -3831,10 +3616,7 @@ mod tests {
                 create: ProjectBoardCreateMutationInput
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_create_input =
             generate_rel_create_input(&project_type, &project_board_rel);
         assert!(project_board_create_input.type_name == "ProjectBoardCreateInput");
@@ -3860,18 +3642,12 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_update_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerUpdateInput"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_update_input_name(&project_type, &project_board_rel)
                 == "ProjectBoardUpdateInput"
@@ -3889,10 +3665,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_update_input =
             generate_rel_update_input(&project_type, &project_owner_rel);
         assert!(project_owner_update_input.type_name == "ProjectOwnerUpdateInput");
@@ -3918,10 +3691,7 @@ mod tests {
                 update: ProjectBoardUpdateMutationInput!
             }
         */
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         let project_board_update_input =
             generate_rel_update_input(&project_type, &project_board_rel);
         assert!(project_board_update_input.type_name == "ProjectBoardUpdateInput");
@@ -3946,10 +3716,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_delete_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_delete_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDeleteInput"
@@ -3966,10 +3733,7 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_delete_input =
             generate_rel_delete_input(&project_type, &project_owner_rel);
         assert!(project_owner_delete_input.type_name == "ProjectOwnerDeleteInput");
@@ -3999,10 +3763,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_src_delete_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_src_delete_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerSrcDeleteMutationInput"
@@ -4017,10 +3778,7 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_src_delete_mutation_input =
             generate_rel_src_delete_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -4043,10 +3801,7 @@ mod tests {
     #[test]
     fn test_fmt_rel_dst_delete_mutation_input_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_dst_delete_mutation_input_name(&project_type, &project_owner_rel)
                 == "ProjectOwnerDstDeleteMutationInput"
@@ -4061,10 +3816,7 @@ mod tests {
         }
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_dst_delete_mutation_input =
             generate_rel_dst_delete_mutation_input(&project_type, &project_owner_rel);
         assert!(
@@ -4089,10 +3841,7 @@ mod tests {
             Feature: FeatureDeleteMutationInput
         }
         */
-        let project_issues_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "issues")
-            .unwrap();
+        let project_issues_rel = project_type.rels().find(|&r| r.name() == "issues").unwrap();
         let project_issues_dst_delete_mutation_input =
             generate_rel_dst_delete_mutation_input(&project_type, &project_issues_rel);
         assert!(
@@ -4126,15 +3875,9 @@ mod tests {
     #[test]
     fn test_fmt_rel_read_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(fmt_rel_read_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwner");
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(fmt_rel_read_endpoint_name(&project_type, &project_board_rel) == "ProjectBoard");
     }
 
@@ -4145,15 +3888,12 @@ mod tests {
             ProjectOwner(input: ProjectOwnerQueryInput): [ProjectOwnerRel]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_read_endpoint =
             generate_rel_read_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_read_endpoint.name == "ProjectOwner");
         assert!(match &project_owner_read_endpoint.kind {
-            PropertyKind::Rel(r) => r == "owner",
+            PropertyKind::Rel { rel_name } => rel_name == "owner",
             _ => false,
         });
         assert!(project_owner_read_endpoint.type_name == "ProjectOwnerRel");
@@ -4171,17 +3911,11 @@ mod tests {
     #[test]
     fn test_fmt_rel_create_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_create_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerCreate"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_create_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardCreate"
         );
@@ -4194,15 +3928,15 @@ mod tests {
             ProjectOwnerCreate(input: ProjectOwnerCreateInput): ProjectOwnerRel
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_create_endpoint =
             generate_rel_create_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_create_endpoint.name == "ProjectOwnerCreate");
         assert!(match &project_owner_create_endpoint.kind {
-            PropertyKind::RelCreateMutation(n, r) => n == "Project" && r == "owner",
+            PropertyKind::RelCreateMutation {
+                src_label,
+                rel_name,
+            } => src_label == "Project" && rel_name == "owner",
             _ => false,
         });
         assert!(project_owner_create_endpoint.type_name == "ProjectOwnerRel");
@@ -4222,17 +3956,11 @@ mod tests {
     #[test]
     fn test_fmt_rel_update_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_update_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerUpdate"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_update_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardUpdate"
         );
@@ -4245,15 +3973,15 @@ mod tests {
             ProjectOwnerUpdate(input: ProjectOwnerUpdateInput): [ProjectOwnerRel]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_update_endpoint =
             generate_rel_update_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_update_endpoint.name == "ProjectOwnerUpdate");
         assert!(match &project_owner_update_endpoint.kind {
-            PropertyKind::RelUpdateMutation(n, r) => n == "Project" && r == "owner",
+            PropertyKind::RelUpdateMutation {
+                src_label,
+                rel_name,
+            } => src_label == "Project" && rel_name == "owner",
             _ => false,
         });
         assert!(project_owner_update_endpoint.type_name == "ProjectOwnerRel");
@@ -4273,17 +4001,11 @@ mod tests {
     #[test]
     fn test_fmt_rel_delete_endpoint_name() {
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         assert!(
             fmt_rel_delete_endpoint_name(&project_type, &project_owner_rel) == "ProjectOwnerDelete"
         );
-        let project_board_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "board")
-            .unwrap();
+        let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
         assert!(
             fmt_rel_delete_endpoint_name(&project_type, &project_board_rel) == "ProjectBoardDelete"
         );
@@ -4296,15 +4018,15 @@ mod tests {
             ProjectOwnerDelete (input: ProjectOwnerDeleteInput): [Project]
         */
         let project_type = mock_project_type();
-        let project_owner_rel = project_type
-            .relationships()
-            .find(|&r| r.name() == "owner")
-            .unwrap();
+        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_delete_endpoint =
             generate_rel_delete_endpoint(&project_type, &project_owner_rel);
         assert!(project_owner_delete_endpoint.name == "ProjectOwnerDelete");
         assert!(match &project_owner_delete_endpoint.kind {
-            PropertyKind::RelDeleteMutation(n, r) => n == "Project" && r == "owner",
+            PropertyKind::RelDeleteMutation {
+                src_label,
+                rel_name,
+            } => src_label == "Project" && rel_name == "owner",
             _ => false,
         });
         assert!(project_owner_delete_endpoint.type_name == "Int");
@@ -4405,7 +4127,7 @@ mod tests {
 
     /// Passes if the right schema elements are generated
     #[test]
-    fn test_wg_relationships_endpoints_filter() {}
+    fn test_wg_rels_endpoints_filter() {}
 
     /// Passes if the root node is created
     #[test]
@@ -4423,5 +4145,19 @@ mod tests {
         let config = mock_project_config();
         let root_node = create_root_node::<(), ()>(&config);
         assert!(root_node.is_err());
+    }
+
+    /// Passes if Info implements the Send trait
+    #[test]
+    fn test_info_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Info>();
+    }
+
+    /// Passes if Info implements the Sync trait
+    #[test]
+    fn test_info_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<Info>();
     }
 }

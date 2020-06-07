@@ -100,7 +100,7 @@ where
             panic!(e)
         });
 
-        let mut props = nt.prop_values().collect::<Vec<&Property>>();
+        let mut props = nt.props().collect::<Vec<&Property>>();
         props.sort_by_key(|p| p.name());
 
         let args = props
@@ -210,7 +210,7 @@ where
         DefaultScalarValue: 'r,
     {
         trace!("Node::object_meta -- nt.type_name(): {}", nt.type_name());
-        let mut props = nt.prop_values().collect::<Vec<&Property>>();
+        let mut props = nt.props().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| p.name());
 
         let fields = props
@@ -241,17 +241,16 @@ where
                     }
                     ("String", true, false, _) => registry.field::<String>(p.name(), &()),
                     ("String", true, true, _) => registry.field::<Vec<String>>(p.name(), &()),
-                    (_, false, false, PropertyKind::Rel(_)) => {
-                        registry.field::<Option<Rel<GlobalCtx, RequestCtx>>>(
+                    (_, false, false, PropertyKind::Rel { rel_name: _ }) => registry
+                        .field::<Option<Rel<GlobalCtx, RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
-                        )
-                    }
+                        ),
                     (_, false, false, _) => registry.field::<Option<Node<GlobalCtx, RequestCtx>>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
-                    (_, false, true, PropertyKind::Rel(_)) => {
+                    (_, false, true, PropertyKind::Rel { rel_name: _ }) => {
                         registry.field::<Option<Vec<&Rel<GlobalCtx, RequestCtx>>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
@@ -262,16 +261,17 @@ where
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         ),
-                    (_, true, false, PropertyKind::Rel(_)) => registry
-                        .field::<Rel<GlobalCtx, RequestCtx>>(
+                    (_, true, false, PropertyKind::Rel { rel_name: _ }) => {
+                        registry.field::<Rel<GlobalCtx, RequestCtx>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
-                        ),
+                        )
+                    }
                     (_, true, false, _) => registry.field::<Node<GlobalCtx, RequestCtx>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
-                    (_, true, true, PropertyKind::Rel(_)) => {
+                    (_, true, true, PropertyKind::Rel { rel_name: _ }) => {
                         registry.field::<Vec<&Rel<GlobalCtx, RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
@@ -283,7 +283,7 @@ where
                     ),
                 };
 
-                for arg in p.argument_values() {
+                for arg in p.arguments() {
                     f = match (arg.name(), arg.type_name(), arg.kind()) {
                         (name, "Boolean", ArgumentKind::Optional) => {
                             f.argument(registry.arg::<Option<bool>>(name, &()))
@@ -365,7 +365,7 @@ where
         );
 
         let td = info.type_def()?;
-        let p = td.prop(field_name)?;
+        let p = td.property(field_name)?;
         let input_opt: Option<Input<GlobalCtx, RequestCtx>> = args.get("input");
         // The partition key is only in the arguments for the outermost query or mutation.
         // For lower-level field resolution, the partition key is read from the field of the parent.
@@ -393,7 +393,7 @@ where
                 args,
                 executor,
             ),
-            PropertyKind::DynamicRel(rel_name) => resolve_custom_rel(
+            PropertyKind::DynamicRel { rel_name } => resolve_custom_rel(
                 info,
                 rel_name,
                 &p.resolver(),
@@ -415,13 +415,13 @@ where
                     transaction,
                 )
             }
-            PropertyKind::NodeDeleteMutation(deltype) => {
+            PropertyKind::NodeDeleteMutation { label } => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
                 resolve_node_delete_mutation(
                     field_name,
-                    &deltype,
+                    &label,
                     info,
                     partition_key_opt,
                     input,
@@ -451,7 +451,7 @@ where
                 executor,
                 transaction,
             ),
-            PropertyKind::Rel(rel_name) => resolve_rel_field(
+            PropertyKind::Rel { rel_name } => resolve_rel_field(
                 field_name,
                 self.fields.get("id").cloned(),
                 rel_name,
@@ -461,7 +461,10 @@ where
                 executor,
                 transaction,
             ),
-            PropertyKind::RelCreateMutation(src_label, rel_name) => {
+            PropertyKind::RelCreateMutation {
+                src_label,
+                rel_name,
+            } => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
@@ -476,7 +479,10 @@ where
                     transaction,
                 )
             }
-            PropertyKind::RelDeleteMutation(src_label, rel_name) => {
+            PropertyKind::RelDeleteMutation {
+                src_label,
+                rel_name,
+            } => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
@@ -491,7 +497,10 @@ where
                     transaction,
                 )
             }
-            PropertyKind::RelUpdateMutation(src_label, rel_name) => {
+            PropertyKind::RelUpdateMutation {
+                src_label,
+                rel_name,
+            } => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
@@ -725,7 +734,7 @@ where
             panic!(e)
         });
 
-        let mut props = nt.prop_values().collect::<Vec<&Property>>();
+        let mut props = nt.props().collect::<Vec<&Property>>();
         props.sort_by_key(|&p| p.name());
 
         let fields = props
@@ -778,7 +787,7 @@ where
         );
 
         let td = info.type_def()?;
-        let p = td.prop(field_name)?;
+        let p = td.property(field_name)?;
 
         let r = match (p.kind(), &field_name) {
             (PropertyKind::DynamicScalar, _) => resolve_custom_field(

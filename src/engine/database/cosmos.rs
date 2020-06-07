@@ -212,7 +212,7 @@ impl Transaction for CosmosTransaction {
 
         if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) = (src_ids, dst_ids) {
             let src_td = info.type_def_by_name(src_label)?;
-            let src_prop = src_td.prop(rel_name)?;
+            let src_prop = src_td.property(rel_name)?;
 
             if !src_prop.list() {
                 let mut check_query = String::from("g.V()");
@@ -746,7 +746,7 @@ impl QueryResult for CosmosQueryResult {
 
                     for (key, property_list) in props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !type_def.prop(&k)?.list() {
+                            if k == "partitionKey" || !type_def.property(&k)?.list() {
                                 fields.insert(
                                     k.to_owned(),
                                     plist
@@ -843,7 +843,7 @@ impl QueryResult for CosmosQueryResult {
 
                     for (key, property_list) in src_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !src_type_def.prop(&k)?.list() {
+                            if k == "partitionKey" || !src_type_def.property(&k)?.list() {
                                 src_fields.insert(
                                     k.to_owned(),
                                     plist
@@ -873,7 +873,7 @@ impl QueryResult for CosmosQueryResult {
 
                     for (key, property_list) in dst_props.into_iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
-                            if k == "partitionKey" || !dst_type_def.prop(&k)?.list() {
+                            if k == "partitionKey" || !dst_type_def.property(&k)?.list() {
                                 dst_fields.insert(
                                     k.to_owned(),
                                     plist

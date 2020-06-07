@@ -12,7 +12,7 @@ Warpgrapher's RequestContext feature allows request-specific data to be made ava
 version: 1
 model: 
   - name: User
-    properties:
+    props:
       - name: name
         type: String
 endpoints: 

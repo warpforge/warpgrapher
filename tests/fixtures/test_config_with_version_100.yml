@@ -3,6 +3,6 @@
 version: 100
 model:
   - name: Comment
-    properties:
+    props:
       - name: title
         type: String

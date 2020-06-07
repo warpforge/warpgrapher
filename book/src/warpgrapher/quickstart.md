@@ -27,16 +27,16 @@ model:
 
   # User
   - name: User
-    properties:
+    props:
       - name: email
         type: String
 
   # Team
   - name: Team
-    properties:
+    props:
       - name: name
         type: String
-    relationships:
+    rels:
       - name: users
         nodes: [User]
 ```
@@ -238,7 +238,7 @@ Like before, you should see the newly created `Team` node:
 
 #### Add `User` to `Team`
 
-GraphQL and Neo4j are all about relationships. Create a `users` relationship between the `Team` and `User` nodes:
+GraphQL and Neo4j are all about relatinships. Create a `users` relationship between the `Team` and `User` nodes:
 
 ```
 mutation {

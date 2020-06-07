@@ -3,14 +3,14 @@ model:
 
   # User
   - name: User
-    properties:
+    props:
       - name: name
         type: String
         required: true
 
   # Project
   - name: Project
-    properties:
+    props:
       - name: name
         type: String
       - name: description
@@ -23,9 +23,9 @@ model:
         type: Float
       - name: active
         type: Boolean
-    relationships:
+    rels:
       - name: owner
-        properties:
+        props:
           - name: since
             type: String
         nodes: [User]
@@ -40,31 +40,31 @@ model:
   
   # Feature
   - name: Feature
-    properties:
+    props:
       - name: name
         type: String
   
   # Bug
   - name: Bug
-    properties:
+    props:
       - name: name
         type: String
   
   # KanbanBoard
   - name: KanbanBoard
-    properties:
+    props:
       - name: name
         type: String
   
   # ScrumBoard
   - name: ScrumBoard
-    properties:
+    props:
       - name: name
         type: String
   
   # Commit
   - name: Commit
-    properties:
+    props:
       - name: hash
         type: String
 

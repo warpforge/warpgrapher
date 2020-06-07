@@ -3,7 +3,7 @@
 version: 2
 model:
   - name: Boolean
-    properties:
+    props:
       - name: name
         type: String
 endpoints:

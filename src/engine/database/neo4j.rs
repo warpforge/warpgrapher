@@ -130,7 +130,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         {
             // TODO remove clone
             let src_td = info.type_def_by_name(src_label)?;
-            let src_prop = src_td.prop(rel_name)?;
+            let src_prop = src_td.property(rel_name)?;
 
             if !src_prop.list() {
                 let check_query = String::from("MATCH (")
@@ -668,7 +668,7 @@ impl QueryResult for Neo4jQueryResult {
             let mut fields = HashMap::new();
             let type_def = info.type_def_by_name(&label)?;
             for (k, v) in m.into_iter() {
-                let prop_def = type_def.prop(&k)?;
+                let prop_def = type_def.property(&k)?;
                 if prop_def.list() {
                     if let serde_json::Value::Array(_) = v {
                         fields.insert(k, v.try_into()?);
@@ -719,7 +719,7 @@ impl QueryResult for Neo4jQueryResult {
                     let mut src_fields = HashMap::new();
                     let type_def = info.type_def_by_name(&src_label)?;
                     for (k, v) in src_map.into_iter() {
-                        let prop_def = type_def.prop(&k)?;
+                        let prop_def = type_def.property(&k)?;
                         if prop_def.list() {
                             if let serde_json::Value::Array(_) = v {
                                 src_fields.insert(k, v.try_into()?);
@@ -745,7 +745,7 @@ impl QueryResult for Neo4jQueryResult {
                             let mut dst_fields = HashMap::new();
                             let type_def = info.type_def_by_name(&dst_label)?;
                             for (k, v) in dst_map.into_iter() {
-                                let prop_def = type_def.prop(&k)?;
+                                let prop_def = type_def.property(&k)?;
                                 if prop_def.list() {
                                     if let serde_json::Value::Array(_) = v {
                                         dst_fields.insert(k, v.try_into()?);
