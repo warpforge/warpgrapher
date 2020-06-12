@@ -61,7 +61,7 @@ pub trait Transaction {
     fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
@@ -77,7 +77,7 @@ pub trait Transaction {
         dst_ids: Value,
         rel_name: &str,
         params: &mut HashMap<String, Value>, // TODO Pass props instead of params
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
@@ -88,20 +88,20 @@ pub trait Transaction {
         &mut self,
         label: &str,
         ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
     ) -> Result<i32, FieldError>;
     fn delete_rels(
         &mut self,
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<i32, FieldError>;
     fn exec(
         &mut self,
         query: &str,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
     fn update_nodes<GlobalCtx, RequestCtx>(
@@ -109,7 +109,7 @@ pub trait Transaction {
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
     where
@@ -121,7 +121,7 @@ pub trait Transaction {
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         info: &Info,
@@ -131,22 +131,21 @@ pub trait Transaction {
         RequestCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
-    fn node_query_string(
+    fn node_query(
         &mut self,
         rel_query_fragments: Vec<String>,
-        params: &mut HashMap<String, Value>,
+        params: HashMap<String, Value>,
         label: &str,
         var_suffix: &str,
         union_type: bool,
         return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<String, FieldError>;
+    ) -> Result<(String, HashMap<String, Value>), FieldError>;
 
     #[allow(clippy::too_many_arguments)]
     fn rel_query_string(
         &mut self,
-        // query: &str,
         src_label: &str,
         src_suffix: &str,
         src_ids_opt: Option<Value>,
@@ -157,8 +156,8 @@ pub trait Transaction {
         dst_query: Option<String>,
         return_rel: bool,
         props: HashMap<String, Value>,
-        params: &mut HashMap<String, Value>,
-    ) -> Result<String, FieldError>;
+        params: HashMap<String, Value>,
+    ) -> Result<(String, HashMap<String, Value>), FieldError>;
 
     fn rollback(&mut self) -> Result<(), FieldError>;
 }
@@ -182,6 +181,7 @@ pub trait QueryResult: Debug {
         dst_name: &str,
         dst_suffix: &str,
         props_type_name: Option<&str>,
+        partition_key_opt: Option<Value>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where

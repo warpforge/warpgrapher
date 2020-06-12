@@ -1,6 +1,7 @@
 use crate::Error;
 #[cfg(feature = "cosmos")]
 use gremlin_client::{GValue, ToGValue, VertexProperty};
+use juniper::{DefaultScalarValue, FromInputValue, InputValue};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
@@ -30,6 +31,21 @@ pub enum Value {
 impl From<HashMap<String, Value>> for Value {
     fn from(map: HashMap<String, Value>) -> Self {
         Value::Map(map)
+    }
+}
+
+impl FromInputValue for Value {
+    fn from_input_value(v: &InputValue) -> Option<Self> {
+        if let InputValue::Scalar(scalar) = v {
+            Some(match scalar {
+                DefaultScalarValue::Int(i) => Value::Int64(*i as i64),
+                DefaultScalarValue::Float(f) => Value::Float64(*f),
+                DefaultScalarValue::String(s) => Value::String(s.to_string()),
+                DefaultScalarValue::Boolean(b) => Value::Bool(*b),
+            })
+        } else {
+            None
+        }
     }
 }
 

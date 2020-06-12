@@ -2,7 +2,7 @@
 //! context contains a connection pool for the Neo4J database.
 use crate::engine::database::DatabasePool;
 use crate::engine::extensions::{Extension, Extensions};
-use crate::engine::objects::resolvers::{ResolverFunc, Resolvers};
+use crate::engine::resolvers::{ResolverFunc, Resolvers};
 use crate::engine::validators::Validators;
 use crate::Error;
 use juniper::Context;
@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// # use warpgrapher::engine::database::DatabaseEndpoint;
 /// # #[cfg(feature = "neo4j")]
 /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-/// # use warpgrapher::engine::objects::resolvers::Resolvers;
+/// # use warpgrapher::engine::resolvers::Resolvers;
 /// # use warpgrapher::engine::validators::Validators;
 /// # use warpgrapher::engine::context::GraphQLContext;
 ///
@@ -85,11 +85,11 @@ where
     /// used to respond to the version static endpoint
     ///
     /// [`DatabasePool`]: ../database/enum.DatabasePool.html
-    /// [`Resolvers`]: ../objects/resolvers/type.Resolvers.html
-    /// [`Validators`]: ../validators/type.Validators.html
     /// [`Extensions`]: ../extensions/type.Extensions.html
     /// [`GlobalContext`]: ./trait.GlobalContext.html
     /// [`RequestContext`]: ./trait.RequestContext.html
+    /// [`Resolvers`]: ../resolvers/type.Resolvers.html
+    /// [`Validators`]: ../validators/type.Validators.html
     ///
     /// # Examples
     ///
@@ -98,7 +98,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
@@ -149,7 +149,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
@@ -192,18 +192,18 @@ where
     /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::{Resolvers, ResolverContext};
+    /// # use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade};
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::ExecutionResult;
+    /// # use warpgrapher::engine::resolvers::ExecutionResult;
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// pub fn project_count(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     if let DatabasePool::Neo4j(p) = context.executor().context().pool() {
+    /// pub fn project_count(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
     ///         let db = p.get()?;
     ///         let query = "MATCH (n:Project) RETURN (n)";
     ///         let results = db.exec(query)?;
-    ///         context.resolve_scalar(results.data.len() as i32)
+    ///         facade.resolve_scalar(results.data.len() as i32)
     ///     } else {
     ///         panic!("Unsupported database.");
     ///     }
@@ -251,7 +251,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
@@ -289,7 +289,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
@@ -328,7 +328,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     ///
@@ -366,7 +366,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::{GlobalContext, GraphQLContext, RequestContext};
     ///
@@ -423,7 +423,7 @@ where
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::{GlobalContext, GraphQLContext, RequestContext};
     ///
@@ -552,7 +552,7 @@ mod tests {
     use super::GraphQLContext;
     use crate::engine::database::neo4j::Neo4jEndpoint;
     use crate::engine::database::DatabaseEndpoint;
-    use crate::engine::objects::resolvers::Resolvers;
+    use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
 
     fn init() {

@@ -72,7 +72,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
@@ -109,7 +109,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         dst_ids: Value,
         rel_name: &str,
         params: &mut HashMap<String, Value>,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
@@ -212,6 +212,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             dst_label,
             "",
             props_type_name,
+            partition_key_opt.cloned(),
             info,
         )?)
     }
@@ -220,7 +221,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         &mut self,
         label: &str,
         ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
     ) -> Result<i32, FieldError> {
         let query = String::from("MATCH (n:")
             + label
@@ -250,7 +251,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         _info: &Info,
     ) -> Result<i32, FieldError> {
         let del_query = String::from("MATCH (")
@@ -284,7 +285,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     fn exec(
         &mut self,
         query: &str,
-        _partition_key_opt: &Option<String>,
+        _partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Neo4jQueryResult, FieldError> {
         debug!(
@@ -307,18 +308,17 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn node_query_string(
+    fn node_query(
         &mut self,
-        // query_string: &str,
         rel_query_fragments: Vec<String>,
-        params: &mut HashMap<String, Value>,
+        mut params: HashMap<String, Value>,
         label: &str,
         var_suffix: &str,
         union_type: bool,
         return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<String, FieldError> {
+    ) -> Result<(String, HashMap<String, Value>), FieldError> {
         trace!(
             "transaction::node_query_string called, union_type: {:#?}",
             union_type
@@ -378,7 +378,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             );
         }
 
-        Ok(qs)
+        Ok((qs, params))
     }
 
     fn rel_query_string(
@@ -394,8 +394,8 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         dst_query_opt: Option<String>,
         return_rel: bool,
         props: HashMap<String, Value>,
-        params: &mut HashMap<String, Value>,
-    ) -> Result<String, FieldError> {
+        mut params: HashMap<String, Value>,
+    ) -> Result<(String, HashMap<String, Value>), FieldError> {
         let mut qs = String::new();
 
         qs.push_str(
@@ -535,7 +535,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         }
 
         trace!("visit_rel_query_input -- query_string: {}", qs);
-        Ok(qs)
+        Ok((qs, params))
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {
@@ -552,7 +552,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
     where
@@ -582,7 +582,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         info: &Info,
@@ -629,7 +629,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             results
         );
 
-        results.rels(src_label, "", rel_name, "", "", props_type_name, info)
+        results.rels(src_label, "", rel_name, "", "", props_type_name, partition_key_opt.cloned(), info)
     }
 }
 
@@ -695,6 +695,7 @@ impl QueryResult for Neo4jQueryResult {
         dst_name: &str,
         dst_suffix: &str,
         props_type_name: Option<&str>,
+        partition_key_opt: Option<Value>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
@@ -767,6 +768,7 @@ impl QueryResult for Neo4jQueryResult {
                                     })?
                                     .clone()
                                     .try_into()?,
+                                partition_key_opt.clone(),
                                 match props_type_name {
                                     Some(p_type_name) => {
                                         let map: HashMap<String, serde_json::Value> =

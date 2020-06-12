@@ -30,14 +30,14 @@ use warpgrapher::engine::database::DatabasePool;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::extensions::Extensions;
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::objects::resolvers::Resolvers;
+use warpgrapher::engine::resolvers::ExecutionResult;
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::objects::resolvers::{GraphNode, GraphRel, ResolverContext};
+use warpgrapher::engine::resolvers::ResolverFacade;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
-#[cfg(feature = "neo4j")]
-use warpgrapher::ExecutionResult;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
@@ -331,13 +331,13 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_count(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    if let DatabasePool::Neo4j(p) = context.executor().context().pool() {
+    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
         let db = p.get()?;
         let query = "MATCH (n:Project) RETURN (n);";
         let results = db.exec(query)?;
-        context.resolve_scalar(results.data.len() as i32)
+        facade.resolve_scalar(results.data.len() as i32)
     } else {
         panic!("Unsupported database.");
     }
@@ -346,64 +346,68 @@ pub(crate) fn project_count(
 /// custom endpoint returning scalar_list:
 #[cfg(feature = "neo4j")]
 pub(crate) fn global_top_tags(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    context.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
+    facade.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
 }
 
 /// custom endpoint returning node
 #[cfg(feature = "neo4j")]
 pub(crate) fn global_top_dev(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     trace!("global_top_dev called");
     let mut hm = HashMap::new();
     hm.insert("name".to_string(), Value::String("Joe".to_string()));
-    context.resolve_node(GraphNode::new("User", &hm))
+    facade.resolve_node(&facade.create_node("User", hm))
 }
 
 /*
 /// custom endpoint returning node_list
-pub fn global_top_issues(context: ResolverContext<AppGlobalCtx, AppRequestCtx>) {
+pub fn global_top_issues(facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>) {
     // TODO: add real database query
-    context.resolve_node_list()
+    facade.resolve_node_list()
 }
 */
 
 /// custom field returning scalar
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_points(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    context.resolve_scalar(138)
+    facade.resolve_scalar(138)
 }
 
 /// custom field returning scalar_list
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_top_tags(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    context.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
+    facade.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
 }
 
 /// custom rel returning rel
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_top_dev(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     let mut hm = HashMap::new();
     hm.insert("name".to_string(), Value::String("Joe".to_string()));
-    context.resolve_rel(GraphRel::new(
-        "1234567890",
-        None,
-        GraphNode::new("User", &hm),
-    ))
+    facade.resolve_rel(
+        &facade
+            .create_rel(
+                Value::String("1234567890".to_string()),
+                None,
+                facade.create_node("User", hm),
+            )
+            .expect("Expected new rel"),
+    )
 }
 
 /// custom rel returning rel_list
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_top_issues(
-    context: ResolverContext<AppGlobalCtx, AppRequestCtx>,
+    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     let mut hm1 = HashMap::new();
     hm1.insert(
@@ -415,8 +419,20 @@ pub(crate) fn project_top_issues(
         "name".to_string(),
         Value::String("Fix type mismatch".to_string()),
     );
-    context.resolve_rel_list(vec![
-        GraphRel::new("1234567890", None, GraphNode::new("Feature", &hm1)),
-        GraphRel::new("0987654321", None, GraphNode::new("Bug", &hm2)),
+    facade.resolve_rel_list(vec![
+        &facade
+            .create_rel(
+                Value::String("1234567890".to_string()),
+                None,
+                facade.create_node("Feature", hm1),
+            )
+            .expect("Expected rel"),
+        &facade
+            .create_rel(
+                Value::String("0987654321".to_string()),
+                None,
+                facade.create_node("Bug", hm2),
+            )
+            .expect("Expected rel"),
     ])
 }

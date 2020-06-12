@@ -140,7 +140,7 @@ impl Transaction for CosmosTransaction {
     fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
@@ -192,7 +192,7 @@ impl Transaction for CosmosTransaction {
         dst_ids: Value,
         rel_name: &str,
         params: &mut HashMap<String, Value>,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
@@ -303,6 +303,7 @@ impl Transaction for CosmosTransaction {
                 dst_label,
                 "",
                 props_type_name,
+                partition_key_opt.cloned(),
                 info,
             )
         } else {
@@ -315,7 +316,7 @@ impl Transaction for CosmosTransaction {
         &mut self,
         label: &str,
         ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
     ) -> Result<i32, FieldError> {
         if let Value::Array(idvec) = ids {
             let mut qs = String::from("g.V().hasLabel('") + label + "')";
@@ -352,7 +353,7 @@ impl Transaction for CosmosTransaction {
         _src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         _info: &Info,
     ) -> Result<i32, FieldError> {
         if let Value::Array(idvec) = rel_ids {
@@ -388,7 +389,7 @@ impl Transaction for CosmosTransaction {
     fn exec(
         &mut self,
         query: &str,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<CosmosQueryResult, FieldError> {
         trace!(
@@ -421,18 +422,18 @@ impl Transaction for CosmosTransaction {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn node_query_string(
+    fn node_query(
         &mut self,
         // query_string: &str,
         rel_query_fragments: Vec<String>,
-        params: &mut HashMap<String, Value>,
+        mut params: HashMap<String, Value>,
         label: &str,
         _var_suffix: &str,
         union_type: bool,
         return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<String, FieldError> {
+    ) -> Result<(String, HashMap<String, Value>), FieldError> {
         trace!(
             "transaction::node_query_string called, label: {}, union_type: {:#?}, return_node: {:#?}, param_suffix: {}",
             label, union_type, return_node, param_suffix
@@ -482,12 +483,11 @@ impl Transaction for CosmosTransaction {
         }
 
         trace!("node_query_string -- query_string: {}", qs);
-        Ok(qs)
+        Ok((qs, params))
     }
 
     fn rel_query_string(
         &mut self,
-        // query: &str,
         src_label: &str,
         src_suffix: &str,
         src_ids_opt: Option<Value>,
@@ -498,8 +498,8 @@ impl Transaction for CosmosTransaction {
         dst_query_opt: Option<String>,
         return_rel: bool,
         props: HashMap<String, Value>,
-        params: &mut HashMap<String, Value>,
-    ) -> Result<String, FieldError> {
+        mut params: HashMap<String, Value>,
+    ) -> Result<(String, HashMap<String, Value>), FieldError> {
         let mut qs = String::new();
 
         if return_rel {
@@ -563,7 +563,7 @@ impl Transaction for CosmosTransaction {
         }
 
         trace!("rel_query_string -- query_string: {}", qs);
-        Ok(qs)
+        Ok((qs, params))
     }
 
     fn rollback(&mut self) -> Result<(), FieldError> {
@@ -575,7 +575,7 @@ impl Transaction for CosmosTransaction {
         label: &str,
         ids: Value,
         props: HashMap<String, Value>,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
     where
@@ -641,7 +641,7 @@ impl Transaction for CosmosTransaction {
         src_label: &str,
         rel_name: &str,
         rel_ids: Value,
-        partition_key_opt: &Option<String>,
+        partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         info: &Info,
@@ -685,6 +685,7 @@ impl Transaction for CosmosTransaction {
                 "",
                 "",
                 props_type_name,
+                partition_key_opt.cloned(),
                 info,
             )
         } else {
@@ -791,6 +792,7 @@ impl QueryResult for CosmosQueryResult {
         _dst_name: &str,
         _dst_suffix: &str,
         props_type_name: Option<&str>,
+        partition_key_opt: Option<Value>,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where
@@ -908,6 +910,7 @@ impl QueryResult for CosmosQueryResult {
 
                     v.push(Rel::new(
                         Value::String(rel_id),
+                        partition_key_opt.clone(),
                         match props_type_name {
                             Some(p_type_name) => {
                                 Some(Node::new(p_type_name.to_string(), rel_fields))

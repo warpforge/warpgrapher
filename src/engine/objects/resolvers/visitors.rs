@@ -11,25 +11,25 @@ use std::collections::HashMap;
 
 /// Genererates unique suffixes for the variable names used in Cypher queries
 #[derive(Default)]
-pub(crate) struct SuffixGenerator {
+pub(super) struct SuffixGenerator {
     seed: i32,
 }
 
 impl SuffixGenerator {
-    pub(crate) fn new() -> SuffixGenerator {
+    pub(super) fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
     }
 
-    pub(crate) fn suffix(&mut self) -> String {
+    pub(super) fn suffix(&mut self) -> String {
         self.seed += 1;
         String::from("_") + &self.seed.to_string()
     }
 }
 
-pub(crate) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -126,12 +126,12 @@ where
     }
 }
 
-pub(crate) fn visit_node_delete_input<T>(
+pub(super) fn visit_node_delete_input<T>(
     label: &str,
     var_suffix: &str,
     sg: &mut SuffixGenerator,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
 ) -> Result<i32, FieldError>
@@ -148,15 +148,12 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(mut m) = input {
-        let mut params: HashMap<String, Value> = HashMap::new();
-
-        let query = visit_node_query_input(
+        let (query, params) = visit_node_query_input(
             label,
             var_suffix,
             false,
             true,
-            // "",
-            &mut params,
+            HashMap::new(),
             sg,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -202,7 +199,7 @@ fn visit_node_delete_mutation_input<T>(
     label: &str,
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
 ) -> Result<i32, FieldError>
@@ -260,7 +257,7 @@ where
 fn visit_node_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -309,15 +306,13 @@ where
             })?])),
             "EXISTING" => {
                 let mut sg = SuffixGenerator::new();
-                let mut params: HashMap<String, Value> = HashMap::new();
                 let var_suffix = sg.suffix();
-                let query = visit_node_query_input(
+                let (query, params) = visit_node_query_input(
                     label,
                     &var_suffix,
                     false,
                     true,
-                    // "",
-                    &mut params,
+                    HashMap::new(),
                     &mut sg,
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                     partition_key_opt,
@@ -345,80 +340,95 @@ where
 }
 
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub(crate) fn visit_node_query_input<T>(
+pub(super) fn visit_node_query_input<T>(
     label: &str,
-    var_suffix: &str,
+    suffix: &str,
     union_type: bool,
     return_node: bool,
-    // query: &str,
-    params: &mut HashMap<String, Value>,
+    params: HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<String, FieldError>
+) -> Result<(String, HashMap<String, Value>), FieldError>
 where
     T: Transaction,
 {
     trace!(
              "visit_node_query_input called -- label: {}, var_suffix: {}, union_type: {}, return_node: {}, info.name: {}, input: {:#?}",
-             label, var_suffix, union_type, return_node, info.name(), input,
+             label, suffix, union_type, return_node, info.name(), input,
          );
     // let mut qs = String::from(query);
     let itd = info.type_def()?;
     let param_suffix = sg.suffix();
 
-    let mut rel_query_fragments = Vec::new();
     let mut props = HashMap::new();
     if let Some(Value::Map(m)) = input {
-        for (k, v) in m.into_iter() {
-            let p = itd.property(&k)?;
+        let (rel_query_fragments, local_params) =
+            m.into_iter()
+                .try_fold((Vec::new(), params), |(mut rqf, params), (k, v)| {
+                    itd.property(&k).map_err(|e| e.into()).and_then(|p| {
+                        match p.kind() {
+                            PropertyKind::Scalar => {
+                                props.insert(k, v);
+                                Ok((rqf, params))
+                            }
+                            PropertyKind::Input => {
+                                visit_rel_query_input(
+                                    label,
+                                    suffix,
+                                    None,
+                                    &k,
+                                    "dst",
+                                    &sg.suffix(),
+                                    false,
+                                    // &qs,
+                                    params,
+                                    sg,
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    Some(v),
+                                    transaction,
+                                )
+                                .map(|(qs, params)| {
+                                    rqf.push(qs);
+                                    (rqf, params)
+                                })
+                            }
+                            _ => Err(FieldError::from(Error::TypeNotExpected)),
+                        }
+                    })
+                })?;
 
-            match p.kind() {
-                PropertyKind::Scalar => {
-                    props.insert(k, v);
-                }
-                PropertyKind::Input => {
-                    rel_query_fragments.push(visit_rel_query_input(
-                        label,
-                        var_suffix,
-                        None,
-                        &k,
-                        "dst",
-                        &sg.suffix(),
-                        false,
-                        // &qs,
-                        params,
-                        sg,
-                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                        partition_key_opt,
-                        Some(v),
-                        transaction,
-                    )?);
-                }
-                _ => return Err(Error::TypeNotExpected.into()),
-            }
-        }
+        transaction.node_query(
+            rel_query_fragments,
+            local_params,
+            label,
+            suffix,
+            union_type,
+            return_node,
+            &param_suffix,
+            props,
+        )
+    } else {
+        transaction.node_query(
+            Vec::new(),
+            params,
+            label,
+            suffix,
+            union_type,
+            return_node,
+            &param_suffix,
+            props,
+        )
     }
-
-    transaction.node_query_string(
-        // &qs,
-        rel_query_fragments,
-        params,
-        label,
-        var_suffix,
-        union_type,
-        return_node,
-        &param_suffix,
-        props,
-    )
 }
 
-pub(crate) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -440,15 +450,13 @@ where
 
     if let Value::Map(mut m) = input {
         let var_suffix = sg.suffix();
-        let mut params: HashMap<String, Value> = HashMap::new();
 
-        let query = visit_node_query_input(
+        let (query, params) = visit_node_query_input(
             label,
             &var_suffix,
             false,
             true,
-            // "",
-            &mut params,
+            HashMap::new(),
             &mut sg,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -495,7 +503,7 @@ fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -609,7 +617,7 @@ fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
     src_ids: Value,
     rel_name: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -690,12 +698,12 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     rel_name: &str,
     props_type_name: Option<&str>,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -717,15 +725,13 @@ where
 
     if let Value::Map(mut m) = input {
         let var_suffix = sg.suffix();
-        let mut params = HashMap::new();
 
-        let query = visit_node_query_input(
+        let (query, params) = visit_node_query_input(
             src_label,
             &var_suffix,
             false,
             true,
-            // "",
-            &mut params,
+            HashMap::new(),
             &mut sg,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -806,7 +812,7 @@ fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     src_ids: Value,
     rel_name: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     props_type_name: Option<&str>,
@@ -863,12 +869,12 @@ where
     }
 }
 
-pub(crate) fn visit_rel_delete_input<T>(
+pub(super) fn visit_rel_delete_input<T>(
     src_label: &str,
     src_ids_opt: Option<Value>,
     rel_name: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
 ) -> Result<i32, FieldError>
@@ -888,10 +894,9 @@ where
     let itd = info.type_def()?;
     let src_suffix = sg.suffix();
     let dst_suffix = sg.suffix();
-    let mut params = HashMap::new();
 
     if let Value::Map(mut m) = input {
-        let read_query = visit_rel_query_input(
+        let (read_query, params) = visit_rel_query_input(
             src_label,
             &src_suffix,
             src_ids_opt,
@@ -900,7 +905,7 @@ where
             &dst_suffix,
             true,
             // "",
-            &mut params,
+            HashMap::new(),
             &mut sg,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -955,7 +960,7 @@ where
 fn visit_rel_dst_delete_mutation_input<T>(
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
 ) -> Result<i32, FieldError>
@@ -998,13 +1003,13 @@ fn visit_rel_dst_query_input<T>(
     label: &str,
     var_suffix: &str,
     // query: &str,
-    params: &mut HashMap<String, Value>,
+    params: HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<Option<String>, FieldError>
+) -> Result<(Option<String>, HashMap<String, Value>), FieldError>
 where
     T: Transaction,
 {
@@ -1022,7 +1027,7 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = itd.property(&k)?;
 
-            Ok(Some(visit_node_query_input(
+            let (t1, t2) = visit_node_query_input(
                 label,
                 var_suffix,
                 true,
@@ -1034,19 +1039,21 @@ where
                 partition_key_opt,
                 Some(v),
                 transaction,
-            )?))
+            )?;
+
+            Ok((Some(t1), t2))
         } else {
-            Ok(None)
+            Ok((None, params))
         }
     } else {
-        Ok(None)
+        Ok((None, params))
     }
 }
 
 fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -1091,7 +1098,7 @@ where
 
 fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -1135,7 +1142,7 @@ where
 }
 
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub(crate) fn visit_rel_query_input<T>(
+pub(super) fn visit_rel_query_input<T>(
     src_label: &str,
     src_suffix: &str,
     src_ids_opt: Option<Value>,
@@ -1143,14 +1150,13 @@ pub(crate) fn visit_rel_query_input<T>(
     dst_var: &str,
     dst_suffix: &str,
     return_rel: bool,
-    // query: &str,
-    params: &mut HashMap<String, Value>,
+    params: HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input_opt: Option<Value>,
     transaction: &mut T,
-) -> Result<String, FieldError>
+) -> Result<(String, HashMap<String, Value>), FieldError>
 where
     T: Transaction,
 {
@@ -1172,6 +1178,7 @@ where
     let dst_prop = itd.property("dst")?;
 
     let mut props = HashMap::new();
+    let local_params = params;
     if let Some(Value::Map(mut m)) = input_opt {
         // uses remove in order to take ownership
         if let Some(id) = m.remove("id") {
@@ -1186,12 +1193,12 @@ where
         }
 
         // Remove used to take ownership
-        let src_query_opt = if let Some(src) = m.remove("src") {
+        let (src_query_opt, local_params) = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
                 src_label,
                 src_suffix,
                 // &query,
-                params,
+                local_params,
                 sg,
                 &Info::new(src_prop.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -1199,16 +1206,16 @@ where
                 transaction,
             )?
         } else {
-            None
+            (None, local_params)
         };
 
         // Remove used to take ownership
-        let dst_query_opt = if let Some(dst) = m.remove("dst") {
+        let (dst_query_opt, local_params) = if let Some(dst) = m.remove("dst") {
             visit_rel_dst_query_input(
                 dst_var,
                 dst_suffix,
                 // &query,
-                params,
+                local_params,
                 sg,
                 &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -1216,7 +1223,7 @@ where
                 transaction,
             )?
         } else {
-            None
+            (None, local_params)
         };
 
         transaction.rel_query_string(
@@ -1231,7 +1238,7 @@ where
             dst_query_opt,
             return_rel,
             props,
-            params,
+            local_params,
         )
     } else {
         transaction.rel_query_string(
@@ -1246,7 +1253,7 @@ where
             None,
             return_rel,
             props,
-            params,
+            local_params,
         )
     }
 }
@@ -1255,7 +1262,7 @@ fn visit_rel_src_delete_mutation_input<T>(
     label: &str,
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
 ) -> Result<i32, FieldError>
@@ -1298,7 +1305,7 @@ fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     transaction: &mut T,
@@ -1346,14 +1353,13 @@ where
 fn visit_rel_src_query_input<T>(
     label: &str,
     label_suffix: &str,
-    // query: &str,
-    params: &mut HashMap<String, Value>,
+    params: HashMap<String, Value>,
     sg: &mut SuffixGenerator,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<Option<String>, FieldError>
+) -> Result<(Option<String>, HashMap<String, Value>), FieldError>
 where
     T: Transaction,
 {
@@ -1371,7 +1377,7 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = itd.property(&k)?;
 
-            Ok(Some(visit_node_query_input(
+            let (t1, t2) = visit_node_query_input(
                 label,
                 label_suffix,
                 false,
@@ -1383,22 +1389,24 @@ where
                 partition_key_opt,
                 Some(v),
                 transaction,
-            )?))
+            )?;
+
+            Ok((Some(t1), t2))
         } else {
-            Ok(None)
+            Ok((None, params))
         }
     } else {
-        Ok(None)
+        Ok((None, params))
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Option<Value>,
     rel_name: &str,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     props_type_name: Option<&str>,
@@ -1420,12 +1428,11 @@ where
 
     let mut sg = SuffixGenerator::new();
     let itd = info.type_def()?;
-    let mut params = HashMap::new();
     let src_suffix = sg.suffix();
     let dst_suffix = sg.suffix();
 
     if let Value::Map(mut m) = input {
-        let read_query = visit_rel_query_input(
+        let (read_query, params) = visit_rel_query_input(
             src_label,
             &src_suffix,
             src_ids,
@@ -1433,8 +1440,7 @@ where
             "dst",
             &dst_suffix,
             true,
-            // "",
-            &mut params,
+            HashMap::new(),
             &mut sg,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -1491,7 +1497,7 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     rel_ids: Value,
     dst_ids: Value,
     info: &Info,
-    partition_key_opt: &Option<String>,
+    partition_key_opt: Option<&Value>,
     input: Value,
     validators: &Validators,
     props_type_name: Option<&str>,

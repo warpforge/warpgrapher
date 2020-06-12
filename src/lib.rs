@@ -14,7 +14,6 @@
 
 pub use juniper::http::playground::playground_source;
 pub use juniper::http::GraphQLRequest;
-pub use juniper::ExecutionResult;
 pub use juniper::FieldError;
 
 pub use client::Client;

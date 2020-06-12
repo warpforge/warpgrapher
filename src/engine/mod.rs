@@ -8,7 +8,7 @@ use database::DatabasePool;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
-use objects::resolvers::Resolvers;
+use resolvers::Resolvers;
 use schema::{create_root_node, RootRef};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
@@ -20,6 +20,7 @@ pub mod context;
 pub mod database;
 pub mod extensions;
 pub mod objects;
+pub mod resolvers;
 pub mod schema;
 pub mod validators;
 pub mod value;
@@ -99,7 +100,7 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
-    /// # use warpgrapher::engine::objects::resolvers::Resolvers;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let resolvers = Resolvers::<(), ()>::new();
@@ -228,12 +229,12 @@ where
     /// [`ConfigItemReserved`]: ../error/enum.Error.html#variant.ConfigItemReserved
     /// [`Error`]: ../error/enum.Error.html
     /// [`ResolverNotFound`]: ../error/enum.Error.html#variant.ResolverNotFound
-    /// [`ResolverFunc`]: ./objects/resolvers/type.ResolverFunc.html
-    /// [`Resolvers`]: ./objects/resolvers/type.Resolvers.html
+    /// [`ResolverFunc`]: ./resolvers/type.ResolverFunc.html
+    /// [`Resolvers`]: ./resolvers/type.Resolvers.html
     /// [`SchemaItemNotFound`]: ../error/enum.Error.html#variant.SchemaItemNotFound
     /// [`ValidatorNotFound`]: ../error/enum.Error.html#variant.ValidatorNotFound
-    /// [`ValidatorFunc`]: ./config/type.ValidatorFunc.html
-    /// [`Validators`]: ./config/type.Validators.html
+    /// [`ValidatorFunc`]: ./validators/type.ValidatorFunc.html
+    /// [`Validators`]: ./validators/type.Validators.html
     /// [`with_resolvers`]: ./struct.EngineBuilder.html#method.with_resolvers
     /// [`with_validators`]: ./struct.EngineBuilder.html#method.with_validators
     ///
@@ -524,7 +525,7 @@ where
 mod tests {
     use super::EngineBuilder;
     use crate::engine::database::DatabasePool;
-    use crate::engine::objects::resolvers::{ResolverContext, Resolvers};
+    use crate::engine::resolvers::{ResolverFacade, Resolvers};
     use crate::engine::validators::Validators;
     use crate::engine::value::Value;
     use crate::{Configuration, Engine, Error};
@@ -726,8 +727,8 @@ mod tests {
         .is_err());
     }
 
-    pub fn my_resolver(context: ResolverContext<(), ()>) -> ExecutionResult {
-        context.resolve_scalar(1 as i32)
+    pub fn my_resolver(executor: ResolverFacade<(), ()>) -> ExecutionResult {
+        executor.resolve_scalar(1 as i32)
     }
 
     fn my_validator(_value: &Value) -> Result<(), Error> {
