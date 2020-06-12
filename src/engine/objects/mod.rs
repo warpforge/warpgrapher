@@ -15,7 +15,7 @@ use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::Transaction;
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -399,12 +399,9 @@ where
         let mut resolver = Resolver::new(partition_key_opt, executor, transaction);
 
         match p.kind() {
-            PropertyKind::CustomResolver => resolver.resolve_custom_endpoint(
-                info,
-                field_name,
-                Object::Node(self),
-                args,
-            ),
+            PropertyKind::CustomResolver => {
+                resolver.resolve_custom_endpoint(info, field_name, Object::Node(self), args)
+            }
             PropertyKind::DynamicScalar => resolver.resolve_custom_field(
                 info,
                 field_name,
@@ -412,50 +409,29 @@ where
                 Object::Node(self),
                 args,
             ),
-            PropertyKind::DynamicRel { rel_name } => resolver.resolve_custom_rel(
-                info,
-                rel_name,
-                &p.resolver(),
-                Object::Node(self),
-                args,
-            ),
+            PropertyKind::DynamicRel { rel_name } => {
+                resolver.resolve_custom_rel(info, rel_name, &p.resolver(), Object::Node(self), args)
+            }
             PropertyKind::Input => Err(Error::TypeNotExpected.into()),
             PropertyKind::NodeCreateMutation => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_node_create_mutation(
-                    field_name,
-                    info,
-                    input,
-                )
+                resolver.resolve_node_create_mutation(field_name, info, input)
             }
             PropertyKind::NodeDeleteMutation { label } => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_node_delete_mutation(
-                    field_name,
-                    &label,
-                    info,
-                    input,
-                )
+                resolver.resolve_node_delete_mutation(field_name, &label, info, input)
             }
             PropertyKind::NodeUpdateMutation => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_node_update_mutation(
-                    field_name,
-                    info,
-                    input,
-                )
+                resolver.resolve_node_update_mutation(field_name, info, input)
             }
-            PropertyKind::Object => resolver.resolve_node_read_query(
-                field_name,
-                info,
-                input_opt,
-            ),
+            PropertyKind::Object => resolver.resolve_node_read_query(field_name, info, input_opt),
             PropertyKind::Rel { rel_name } => resolver.resolve_rel_field(
                 field_name,
                 self.fields.get("id").cloned(),
@@ -470,13 +446,7 @@ where
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_rel_create_mutation(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                )
+                resolver.resolve_rel_create_mutation(field_name, src_label, rel_name, info, input)
             }
             PropertyKind::RelDeleteMutation {
                 src_label,
@@ -485,13 +455,7 @@ where
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_rel_delete_mutation(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                )
+                resolver.resolve_rel_delete_mutation(field_name, src_label, rel_name, info, input)
             }
             PropertyKind::RelUpdateMutation {
                 src_label,
@@ -500,19 +464,9 @@ where
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
                 })?;
-                resolver.resolve_rel_update_mutation(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                )
+                resolver.resolve_rel_update_mutation(field_name, src_label, rel_name, info, input)
             }
-            PropertyKind::Scalar => resolver.resolve_scalar_field(
-                info,
-                field_name,
-                &self.fields,
-            ),
+            PropertyKind::Scalar => resolver.resolve_scalar_field(info, field_name, &self.fields),
             PropertyKind::Union => Err(Error::TypeNotExpected.into()),
             PropertyKind::VersionQuery => resolver.resolve_static_version_query(info, args),
         }
@@ -695,7 +649,12 @@ where
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     fn resolve_field_with_transaction<T: Transaction>(
-        &self, info: &<Self as GraphQLType>::TypeInfo, field_name: &str, args: &Arguments, executor: &Executor<<Self as GraphQLType>::Context>, transaction: &mut T
+        &self,
+        info: &<Self as GraphQLType>::TypeInfo,
+        field_name: &str,
+        args: &Arguments,
+        executor: &Executor<<Self as GraphQLType>::Context>,
+        transaction: &mut T,
     ) -> ExecutionResult {
         let p = info.type_def()?.property(field_name)?;
 

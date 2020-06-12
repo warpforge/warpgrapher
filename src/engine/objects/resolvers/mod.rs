@@ -76,7 +76,7 @@ where
         ))
     }
 
-    pub(super) fn resolve_custom_field (
+    pub(super) fn resolve_custom_field(
         &mut self,
         info: &Info,
         field_name: &str,
@@ -106,7 +106,7 @@ where
         ))
     }
 
-    pub(super) fn resolve_custom_rel (
+    pub(super) fn resolve_custom_rel(
         &mut self,
         info: &Info,
         rel_name: &str,
@@ -136,13 +136,12 @@ where
         ))
     }
 
-    pub(super) fn resolve_node_create_mutation (
+    pub(super) fn resolve_node_create_mutation(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
-    ) -> ExecutionResult
-    {
+    ) -> ExecutionResult {
         trace!(
             "resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
             info.name(),
@@ -218,7 +217,7 @@ where
         self.executor.resolve_with_ctx(&(), &results?)
     }
 
-    pub(super) fn resolve_node_read_query (
+    pub(super) fn resolve_node_read_query(
         &mut self,
         field_name: &str,
         info: &Info,
@@ -250,7 +249,9 @@ where
             input_opt.map(|i| i.value),
             self.transaction,
         )?;
-        let results = self.transaction.exec(&query, self.partition_key_opt, Some(params));
+        let results = self
+            .transaction
+            .exec(&query, self.partition_key_opt, Some(params));
         trace!("resolve_node_read_query -- results: {:#?}", results);
 
         if results.is_ok() {
@@ -437,13 +438,7 @@ where
         let td = info.type_def()?;
         let _p = td.property(field_name)?;
 
-        self.resolve_rel_read_query(
-            field_name,
-            id_opt,
-            rel_name,
-            info,
-            input_opt,
-        )
+        self.resolve_rel_read_query(field_name, id_opt, rel_name, info, input_opt)
     }
 
     pub(super) fn resolve_rel_props(
@@ -518,7 +513,9 @@ where
             "resolve_rel_read_query Query query, params: {:#?} {:#?}",
             query, params
         );
-        let raw_results = self.transaction.exec(&query, self.partition_key_opt, Some(params));
+        let raw_results = self
+            .transaction
+            .exec(&query, self.partition_key_opt, Some(params));
         // debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
         if raw_results.is_ok() {
@@ -656,24 +653,25 @@ where
             },
             |v| match v {
                 Value::Null => self.executor.resolve_with_ctx(&(), &None::<String>),
-                Value::Bool(_) => {
-                    self.executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?)
-                }
-                Value::Int64(_) | Value::UInt64(_) => {
-                    self.executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?)
-                }
-                Value::Float64(_) => {
-                    self.executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?)
-                }
-                Value::String(_) => {
-                    self.executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?)
-                }
+                Value::Bool(_) => self
+                    .executor
+                    .resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?),
+                Value::Int64(_) | Value::UInt64(_) => self
+                    .executor
+                    .resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?),
+                Value::Float64(_) => self
+                    .executor
+                    .resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?),
+                Value::String(_) => self
+                    .executor
+                    .resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
                 Value::Array(a) => match a.get(0) {
-                    Some(Value::Null) | Some(Value::String(_)) => self.executor
+                    Some(Value::Null) | Some(Value::String(_)) => self
+                        .executor
                         .resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
-                    Some(Value::Bool(_)) => {
-                        self.executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?)
-                    }
+                    Some(Value::Bool(_)) => self
+                        .executor
+                        .resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
                     Some(Value::Int64(_)) | Some(Value::UInt64(_)) | Some(Value::Float64(_)) => {
                         let r = TryInto::<Vec<i32>>::try_into(v.clone());
                         if r.is_ok() {

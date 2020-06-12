@@ -629,7 +629,16 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             results
         );
 
-        results.rels(src_label, "", rel_name, "", "", props_type_name, partition_key_opt.cloned(), info)
+        results.rels(
+            src_label,
+            "",
+            rel_name,
+            "",
+            "",
+            props_type_name,
+            partition_key_opt.cloned(),
+            info,
+        )
     }
 }
 
