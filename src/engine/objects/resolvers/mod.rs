@@ -1,8 +1,6 @@
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use super::Input;
 use super::Node;
 use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::{QueryResult, Transaction};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
@@ -10,19 +8,16 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::debug;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input, SuffixGenerator,
 };
 
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 mod visitors;
 
 pub(super) struct Resolver<'r, GlobalCtx, RequestCtx, T>
@@ -141,7 +136,6 @@ where
         ))
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_node_create_mutation (
         &mut self,
         field_name: &str,
@@ -182,7 +176,6 @@ where
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_node_delete_mutation(
         &mut self,
         field_name: &str,
@@ -225,7 +218,6 @@ where
         self.executor.resolve_with_ctx(&(), &results?)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_node_read_query (
         &mut self,
         field_name: &str,
@@ -282,7 +274,6 @@ where
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_node_update_mutation(
         &mut self,
         field_name: &str,
@@ -322,7 +313,6 @@ where
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_rel_create_mutation(
         &mut self,
         field_name: &str,
@@ -385,7 +375,6 @@ where
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_rel_delete_mutation(
         &mut self,
         field_name: &str,
@@ -427,7 +416,6 @@ where
         self.executor.resolve_with_ctx(&(), &results)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_rel_field(
         &mut self,
         field_name: &str,
@@ -479,7 +467,6 @@ where
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     fn resolve_rel_read_query(
         &mut self,
         field_name: &str,
@@ -581,7 +568,6 @@ where
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_rel_update_mutation(
         &mut self,
         field_name: &str,
@@ -706,7 +692,6 @@ where
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_static_version_query(
         &mut self,
         _info: &Info,

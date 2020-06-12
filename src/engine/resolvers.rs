@@ -62,6 +62,7 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn new(
         field_name: String,
         info: &'a Info,

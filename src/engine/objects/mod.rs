@@ -2,6 +2,7 @@
 //! auto-generated CRUD query endpoints. Optionally, these structured are available for use by
 //! custom resolver code, as well.
 
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 pub mod resolvers;
 
 use super::context::GraphQLContext;
@@ -14,6 +15,7 @@ use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::Transaction;
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -24,6 +26,7 @@ use juniper::{
     Selection, ID,
 };
 use log::{error, trace};
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use resolvers::Resolver;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -581,9 +584,10 @@ where
             name: info.name().to_string(),
         })?;
         trace!(
-            "Node::resolve_field called -- sn: {}, field_name: {}",
+            "Node::resolve_field called -- sn: {}, field_name: {}, args: {:#?}",
             sn,
-            field_name
+            field_name,
+            args
         );
 
         match &executor.context().pool() {
@@ -689,6 +693,7 @@ where
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     fn resolve_field_with_transaction<T: Transaction>(
         &self, info: &<Self as GraphQLType>::TypeInfo, field_name: &str, args: &Arguments, executor: &Executor<<Self as GraphQLType>::Context>, transaction: &mut T
     ) -> ExecutionResult {
@@ -823,9 +828,10 @@ where
             name: info.name().to_string(),
         })?;
         trace!(
-            "Rel::resolve_field called -- sn: {}, field_name: {}",
+            "Rel::resolve_field called -- sn: {}, field_name: {}, args: {:#?}",
             sn,
-            field_name
+            field_name,
+            args,
         );
 
         match &executor.context().pool() {
