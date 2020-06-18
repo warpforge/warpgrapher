@@ -310,12 +310,12 @@ where
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// assert_eq!(&Some("0.0.0".to_string()), gqlctx.version());
+    /// assert_eq!(Some(&"0.0.0".to_string()), gqlctx.version());
     /// # Ok(())
     /// # }
     /// ```
-    pub fn version(&self) -> &Option<String> {
-        &self.version
+    pub fn version(&self) -> Option<&String> {
+        self.version.as_ref()
     }
 
     /// Returns an iterator over the registered extensions, each offering potentially a pre-request
@@ -410,8 +410,8 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn global_context(&self) -> &Option<GlobalCtx> {
-        &self.global_ctx
+    pub fn global_context(&self) -> Option<&GlobalCtx> {
+        self.global_ctx.as_ref()
     }
 
     /// Returns the request-specific context
@@ -467,8 +467,8 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn request_context(&self) -> &Option<RequestCtx> {
-        &self.request_ctx
+    pub fn request_context(&self) -> Option<&RequestCtx> {
+        self.request_ctx.as_ref()
     }
 }
 

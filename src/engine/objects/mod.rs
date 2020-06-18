@@ -28,6 +28,7 @@ use juniper::{
 use log::{error, trace};
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use resolvers::Resolver;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -405,12 +406,12 @@ where
             PropertyKind::DynamicScalar => resolver.resolve_custom_field(
                 info,
                 field_name,
-                &p.resolver(),
+                p.resolver(),
                 Object::Node(self),
                 args,
             ),
             PropertyKind::DynamicRel { rel_name } => {
-                resolver.resolve_custom_rel(info, rel_name, &p.resolver(), Object::Node(self), args)
+                resolver.resolve_custom_rel(info, rel_name, p.resolver(), Object::Node(self), args)
             }
             PropertyKind::Input => Err(Error::TypeNotExpected.into()),
             PropertyKind::NodeCreateMutation => {
@@ -610,7 +611,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Rel<GlobalCtx, RequestCtx>
+pub struct Rel<'a, GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -618,13 +619,13 @@ where
     id: Value,
     partition_key: Option<Value>,
     props: Option<Node<GlobalCtx, RequestCtx>>,
-    src: Node<GlobalCtx, RequestCtx>,
-    dst: Node<GlobalCtx, RequestCtx>,
+    src: Cow<'a, Node<GlobalCtx, RequestCtx>>,
+    dst: Cow<'a, Node<GlobalCtx, RequestCtx>>,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx: GlobalContext, RequestCtx> Rel<GlobalCtx, RequestCtx>
+impl<'a, GlobalCtx, RequestCtx> Rel<'a, GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -633,9 +634,9 @@ where
         id: Value,
         partition_key: Option<Value>,
         props: Option<Node<GlobalCtx, RequestCtx>>,
-        src: Node<GlobalCtx, RequestCtx>,
-        dst: Node<GlobalCtx, RequestCtx>,
-    ) -> Rel<GlobalCtx, RequestCtx> {
+        src: Cow<'a, Node<GlobalCtx, RequestCtx>>,
+        dst: Cow<'a, Node<GlobalCtx, RequestCtx>>,
+    ) -> Rel<'a, GlobalCtx, RequestCtx> {
         Rel {
             id,
             partition_key,
@@ -679,7 +680,7 @@ where
             },
             (PropertyKind::Object, &"src") => executor.resolve(
                 &Info::new(self.src.concrete_typename.to_owned(), info.type_defs()),
-                &self.src,
+                self.src.as_ref(),
             ),
             (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
                 name: field_name.to_string(),
@@ -700,7 +701,7 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>
+impl<'a, GlobalCtx, RequestCtx> GraphQLType for Rel<'a, GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,

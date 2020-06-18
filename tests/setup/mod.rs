@@ -398,7 +398,7 @@ pub(crate) fn project_top_dev(
             .create_rel(
                 Value::String("1234567890".to_string()),
                 None,
-                facade.create_node("User", hm),
+                &facade.create_node("User", hm),
             )
             .expect("Expected new rel"),
     )
@@ -424,14 +424,14 @@ pub(crate) fn project_top_issues(
             .create_rel(
                 Value::String("1234567890".to_string()),
                 None,
-                facade.create_node("Feature", hm1),
+                &facade.create_node("Feature", hm1),
             )
             .expect("Expected rel"),
         &facade
             .create_rel(
                 Value::String("0987654321".to_string()),
                 None,
-                facade.create_node("Bug", hm2),
+                &facade.create_node("Bug", hm2),
             )
             .expect("Expected rel"),
     ])

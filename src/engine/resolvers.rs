@@ -8,6 +8,7 @@ use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
 use inflector::Inflector;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub use juniper::{Arguments, ExecutionResult, Executor};
@@ -24,7 +25,7 @@ pub enum Object<'a, GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     /// Wraps a [`Rel`] being passed to a custom resolver
     ///
     /// [`Rel`] ../objects/struct.Rel.html
-    Rel(&'a Rel<GlobalCtx, RequestCtx>),
+    Rel(&'a Rel<'a, GlobalCtx, RequestCtx>),
 }
 
 /// Type alias for custom resolver functions. Takes a [`ResolverFacade`] and returns an
@@ -155,24 +156,27 @@ where
     ///
     ///     let dst = facade.create_node("User", HashMap::new());
     ///
-    ///     let rel = facade.create_rel(id, Some(props), dst)?;
+    ///     let rel = facade.create_rel(id, Some(props), &dst)?;
     ///
     ///     facade.resolve_rel(&rel)
     /// }
     /// ```
-    pub fn create_rel(
+    pub fn create_rel<'b>(
         &self,
         id: Value,
         props: Option<HashMap<String, Value>>,
-        dst: Node<GlobalCtx, RequestCtx>,
-    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+        dst: &'b Node<GlobalCtx, RequestCtx>,
+    ) -> Result<Rel<'b, GlobalCtx, RequestCtx>, Error>
+    where
+        'a: 'b,
+    {
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
                 id,
                 self.partition_key_opt.cloned(),
                 props.map(|p| Node::new("props".to_string(), p)),
-                parent_node.clone(),
-                dst,
+                Cow::Borrowed(parent_node),
+                Cow::Borrowed(dst),
             ))
         } else {
             Err(Error::TypeNotExpected)
@@ -237,7 +241,7 @@ where
     /// }
     /// ```
     pub fn global_context(&self) -> Option<&GlobalCtx> {
-        self.executor.context().global_context().as_ref()
+        self.executor.context().global_context()
     }
 
     /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
@@ -325,12 +329,9 @@ where
     /// ```
     pub fn resolve_scalar_list<T>(&self, v: Vec<T>) -> ExecutionResult
     where
-        T: std::convert::Into<juniper::DefaultScalarValue> + Clone,
+        T: std::convert::Into<juniper::DefaultScalarValue>,
     {
-        let x = v
-            .iter()
-            .map(|i| juniper::Value::scalar::<T>((*i).clone()))
-            .collect();
+        let x = v.into_iter().map(juniper::Value::scalar::<T>).collect();
         let list = juniper::Value::List(x);
         Ok(list)
     }
@@ -384,7 +385,7 @@ where
     ///     // return rel
     ///     facade.resolve_rel(&facade.create_rel(
     ///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///         Some(hm1), facade.create_node("user", hm2))?)
+    ///         Some(hm1), &facade.create_node("user", hm2))?)
     /// }
     /// ```
     pub fn resolve_rel(&self, rel: &Rel<GlobalCtx, RequestCtx>) -> ExecutionResult {
@@ -425,10 +426,10 @@ where
     ///     facade.resolve_rel_list(vec![
     ///         &facade.create_rel(
     ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm1), facade.create_node("User", hm2))?,
+    ///             Some(hm1), &facade.create_node("User", hm2))?,
     ///         &facade.create_rel(
     ///             Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm3), facade.create_node("user", hm4))?
+    ///             Some(hm3), &facade.create_node("user", hm4))?
     ///     ])
     /// }
     /// ```
@@ -456,6 +457,6 @@ where
     /// }
     /// ```
     pub fn request_context(&self) -> Option<&RequestCtx> {
-        self.executor.context().request_context().as_ref()
+        self.executor.context().request_context()
     }
 }

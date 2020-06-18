@@ -80,7 +80,7 @@ where
         &mut self,
         info: &Info,
         field_name: &str,
-        resolver: &Option<String>,
+        resolver: Option<&String>,
         parent: Object<GlobalCtx, RequestCtx>,
         args: &Arguments,
     ) -> ExecutionResult {
@@ -110,7 +110,7 @@ where
         &mut self,
         info: &Info,
         rel_name: &str,
-        resolver: &Option<String>,
+        resolver: Option<&String>,
         parent: Object<GlobalCtx, RequestCtx>,
         args: &Arguments,
     ) -> ExecutionResult {
@@ -251,7 +251,7 @@ where
         )?;
         let results = self
             .transaction
-            .exec(&query, self.partition_key_opt, Some(params));
+            .exec(&query, None, self.partition_key_opt, Some(params));
         trace!("resolve_node_read_query -- results: {:#?}", results);
 
         if results.is_ok() {
@@ -337,7 +337,7 @@ where
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(p.type_name())?;
 
-        let raw_result = visit_rel_create_input(
+        let raw_result = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
@@ -357,11 +357,11 @@ where
             self.transaction.rollback()?;
         }
 
-        let rels = raw_result?;
-        trace!("resolve_rel_create_mutation Rels: {:#?}", rels);
-
         let mutations = info.type_def_by_name("Mutation")?;
         let endpoint_td = mutations.property(field_name)?;
+
+        let mut result = raw_result?;
+        let rels = result.rels(info)?;
 
         if endpoint_td.list() {
             self.executor.resolve(
@@ -485,7 +485,7 @@ where
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(&p.type_name())?;
-        let props_prop = rtd.property("props");
+        let _props_prop = rtd.property("props");
         let src_prop = rtd.property("src")?;
         let dst_prop = rtd.property("dst")?;
 
@@ -513,9 +513,12 @@ where
             "resolve_rel_read_query Query query, params: {:#?} {:#?}",
             query, params
         );
-        let raw_results = self
-            .transaction
-            .exec(&query, self.partition_key_opt, Some(params));
+        let raw_results = self.transaction.exec(
+            &query,
+            Some(p.type_name()),
+            self.partition_key_opt,
+            Some(params),
+        );
         // debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
         if raw_results.is_ok() {
@@ -524,35 +527,17 @@ where
             self.transaction.rollback()?;
         }
 
-        let results = raw_results?;
+        let mut results = raw_results?;
         // trace!("resolve_rel_read_query Results: {:#?}", results);
 
         trace!("resolve_rel_read_query calling rels.");
         if p.list() {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results.rels(
-                    &src_prop.type_name(),
-                    &src_suffix,
-                    rel_name,
-                    &dst_prop.type_name(),
-                    &dst_suffix,
-                    props_prop.map(|_| p.type_name()).ok(),
-                    self.partition_key_opt.cloned(),
-                    info,
-                )?,
+                &results.rels(info)?,
             )
         } else {
-            let v = results.rels(
-                &src_prop.type_name(),
-                &src_suffix,
-                rel_name,
-                &dst_prop.type_name(),
-                &dst_suffix,
-                props_prop.map(|_| p.type_name()).ok(),
-                self.partition_key_opt.cloned(),
-                info,
-            )?;
+            let v = results.rels(info)?;
 
             if v.len() > 1 {
                 return Err(Error::TypeNotExpected.into());
@@ -590,7 +575,7 @@ where
         let _src_prop = rtd.property("src")?;
         // let dst_prop = rtd.property("dst")?;
 
-        let raw_result = visit_rel_update_input(
+        let raw_result = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,
             rel_name,
@@ -609,22 +594,22 @@ where
             self.transaction.rollback()?;
         }
 
-        let results = raw_result?;
+        let mut results = raw_result?;
 
         trace!("resolve_rel_update_mutation calling rels");
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results, /*
-                      .rels(
-                          &src_prop.type_name(),
-                          "",
-                          rel_name,
-                          "dst",
-                          "",
-                          props_prop.map(|_| p.type_name()).ok(),
-                          info,
-                      )?,
-                      */
+            &results.rels(info)?, /*
+                                  .rels(
+                                      &src_prop.type_name(),
+                                      "",
+                                      rel_name,
+                                      "dst",
+                                      "",
+                                      props_prop.map(|_| p.type_name()).ok(),
+                                      info,
+                                  )?,
+                                  */
         )
     }
 
@@ -696,7 +681,7 @@ where
         _args: &Arguments,
     ) -> ExecutionResult {
         match &self.executor.context().version() {
-            Some(v) => Ok(juniper::Value::scalar(v.clone())),
+            Some(v) => Ok(juniper::Value::scalar(v.to_string())),
             None => Ok(juniper::Value::Null),
         }
     }

@@ -55,28 +55,22 @@ impl Into<Value> for UserProfile {
 #[derive(Clone)]
 pub struct SampleExtension<GlobalCtx, ReqCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static + Clone + Sync + Send + Debug + WarpgrapherRequestContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: RequestContext,
 {
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<ReqCtx>,
 }
 
 // trait that must be implemented by the warpgrapher app's request context.
-pub trait SampleExtensionReqContext {
+pub trait SampleExtensionReqContext: RequestContext {
     fn set_user(&mut self, user: UserProfile) -> ();
 }
 
 impl<GlobalCtx, ReqCtx> SampleExtension<GlobalCtx, ReqCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static
-        + Clone
-        + Sync
-        + Send
-        + Debug
-        + WarpgrapherRequestContext
-        + SampleExtensionReqContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: SampleExtensionReqContext,
 {
     pub fn new() -> SampleExtension<GlobalCtx, ReqCtx> {
         SampleExtension {
@@ -88,14 +82,8 @@ where
 
 impl<GlobalCtx, ReqCtx> Extension<GlobalCtx, ReqCtx> for SampleExtension<GlobalCtx, ReqCtx>
 where
-    GlobalCtx: 'static + Clone + Sync + Send + Debug,
-    ReqCtx: 'static
-        + Clone
-        + Sync
-        + Send
-        + Debug
-        + WarpgrapherRequestContext
-        + SampleExtensionReqContext,
+    GlobalCtx: GlobalContext,
+    ReqCtx: SampleExtensionReqContext,
 {
     fn pre_request_hook(
         &self,

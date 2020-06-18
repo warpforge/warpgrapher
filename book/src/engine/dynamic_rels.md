@@ -22,7 +22,7 @@ model:
 
 ```rust
 fn resolve_project_topcontributor(
-    context: ResolverContext<AppGlobalContext, ()>
+    facade: ResolverFacade<AppGlobalContext, ()>
 ) -> ExecutionResult {
 
     // compute ...
@@ -30,9 +30,9 @@ fn resolve_project_topcontributor(
     hm.insert("id".to_string(), Value::String("1234567890".to_string()));
     hm.insert("name".to_string(), Value::String("Joe".to_string()));
 
-    let rel = GraphRel::new("1234567890", None, GraphNode::new("User", &hm));
+    let rel = facade.create_rel("1234567890", None, &facade.create_node("User", &hm));
     
-    context.resolve_scalar(rel)
+    facade.resolve_scalar(rel)
 }
 ```
 

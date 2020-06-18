@@ -38,8 +38,8 @@ let engine: Engine<(), AppRequestContext> = Engine::new(config, db)
 #### 3. Access Context inside resolver
 
 ```rust
-fn resolve(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
-    let request_ctx = context.get_request_context()?;
+fn resolve(facade: ResolverFacade<(), AppRequestContext>) -> ExecutionResult {
+    let request_ctx = facade.request_context()?;
 
     // use request_ctx
 }
@@ -51,7 +51,7 @@ fn resolve(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
 use std::collections::HashMap;
 use warpgrapher::{Engine, Config};
 use warpgrapher::engine::databases::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::objects::resolvers::{Resolvers, ResolverContext, ExecutionResult};
+use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade, ExecutionResult};
 use warpgrapher::GraphQLRequest;
 
 #[derive(Clone, Debug)]
@@ -72,8 +72,8 @@ impl warpgrapher::engine::context::RequestContext for AppRequestContext {
 }
 
 /// This function will return the randomly generated request id
-fn resolve_request_debug(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
-    let request_ctx = context.get_request_context()?;
+fn resolve_request_debug(context: ResolverFacade<(), AppRequestContext>) -> ExecutionResult {
+    let request_ctx = context.request_context()?;
     context.resolve_scalar(request_ctx.request_id.clone())
 }
 

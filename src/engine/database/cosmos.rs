@@ -10,6 +10,7 @@ use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, T
 use juniper::FieldError;
 use log::trace;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -177,7 +178,7 @@ impl Transaction for CosmosTransaction {
         query.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
         Ok(self
-            .exec(&query, partition_key_opt, Some(params))?
+            .exec(&query, None, partition_key_opt, Some(params))?
             .nodes(label, info)?
             .into_iter()
             .next()
@@ -195,7 +196,7 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -232,8 +233,12 @@ impl Transaction for CosmosTransaction {
                     }
                 }
                 check_query.push_str(&(String::from(").outE('") + rel_name + "').count()"));
-                let check_results =
-                    self.exec(&check_query, partition_key_opt, Some(props.clone()))?; // TODO -- remove cloning
+                let check_results = self.exec(
+                    &check_query,
+                    props_type_name,
+                    partition_key_opt,
+                    Some(props.clone()),
+                )?; // TODO -- remove cloning
                 if check_results.count()? > 0 || dst_id_vec.len() > 1 {
                     return Err(Error::RelDuplicated {
                         rel_name: rel_name.to_string(),
@@ -296,16 +301,8 @@ impl Transaction for CosmosTransaction {
 
             trace!("CosmosTransaction::rel_create about to exec query -- query: {}, partition_key_opt: {:#?}, props: {:#?}", query, partition_key_opt, props);
 
-            self.exec(&query, partition_key_opt, Some(props))?.rels(
-                src_label,
-                "",
-                rel_name,
-                dst_label,
-                "",
-                props_type_name,
-                partition_key_opt.cloned(),
-                info,
-            )
+            self.exec(&query, props_type_name, partition_key_opt, Some(props))
+        // .rels(info)
         } else {
             trace!("src or dst argument not an array of strings");
             Err(Error::TypeNotExpected.into())
@@ -338,7 +335,7 @@ impl Transaction for CosmosTransaction {
 
             qs.push_str(").drop()");
 
-            self.exec(&qs, partition_key_opt, None)?;
+            self.exec(&qs, None, partition_key_opt, None)?;
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
@@ -376,7 +373,7 @@ impl Transaction for CosmosTransaction {
 
             qs.push_str(").drop()");
 
-            self.exec(&qs, partition_key_opt, None)?;
+            self.exec(&qs, None, partition_key_opt, None)?;
 
             let mut v: Vec<GValue> = Vec::new();
             v.push(GValue::Int32(length as i32));
@@ -389,6 +386,7 @@ impl Transaction for CosmosTransaction {
     fn exec(
         &mut self,
         query: &str,
+        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<CosmosQueryResult, FieldError> {
@@ -415,7 +413,11 @@ impl Transaction for CosmosTransaction {
                 v.push(r?);
             }
 
-            Ok(CosmosQueryResult::new(v))
+            Ok(CosmosQueryResult::new(
+                props_type_name,
+                partition_key_opt,
+                v,
+            ))
         } else {
             Err(Error::PartitionKeyNotFound.into())
         }
@@ -629,7 +631,7 @@ impl Transaction for CosmosTransaction {
             }
             qs.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-            self.exec(&qs, partition_key_opt, Some(params))?
+            self.exec(&qs, None, partition_key_opt, Some(params))?
                 .nodes(label, info)
         } else {
             Err(Error::TypeNotExpected.into())
@@ -644,8 +646,8 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
-        info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+        _info: &Info,
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -678,16 +680,8 @@ impl Transaction for CosmosTransaction {
             qs.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
             qs.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
 
-            self.exec(&qs, partition_key_opt, Some(props))?.rels(
-                src_label,
-                "",
-                rel_name,
-                "",
-                "",
-                props_type_name,
-                partition_key_opt.cloned(),
-                info,
-            )
+            self.exec(&qs, props_type_name, partition_key_opt, Some(props))
+        // .rels(info)
         } else {
             Err(Error::TypeNotExpected.into())
         }
@@ -696,16 +690,30 @@ impl Transaction for CosmosTransaction {
 
 #[derive(Debug)]
 pub struct CosmosQueryResult {
+    partition_key_opt: Option<Value>,
+    props_type_name: Option<String>,
     results: Vec<GValue>,
 }
 
 impl CosmosQueryResult {
-    fn new(results: Vec<GValue>) -> CosmosQueryResult {
-        CosmosQueryResult { results }
+    fn new(
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        results: Vec<GValue>,
+    ) -> CosmosQueryResult {
+        CosmosQueryResult {
+            partition_key_opt: partition_key_opt.cloned(),
+            props_type_name: props_type_name.map(|s| s.to_string()),
+            results,
+        }
     }
 }
 
 impl QueryResult for CosmosQueryResult {
+    fn merge(&mut self, mut r: Self) {
+        self.results.append(&mut r.results);
+    }
+
     fn nodes<GlobalCtx, RequestCtx>(
         self,
         _name: &str,
@@ -785,14 +793,7 @@ impl QueryResult for CosmosQueryResult {
     }
 
     fn rels<GlobalCtx, RequestCtx>(
-        self,
-        _src_name: &str,
-        _src_suffix: &str,
-        _rel_name: &str,
-        _dst_name: &str,
-        _dst_suffix: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<Value>,
+        &mut self,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where
@@ -800,16 +801,15 @@ impl QueryResult for CosmosQueryResult {
         RequestCtx: RequestContext,
     {
         trace!(
-            "CosmosQueryResult::rels -- self.results: {:#?}, props_type_name: {:#?}",
+            "CosmosQueryResult::rels -- self.results: {:#?}",
             self.results,
-            props_type_name
         );
 
         let mut v = Vec::new();
-        for result in self.results {
+        for result in &self.results {
             if let GValue::Map(m) = result {
                 let mut hm = HashMap::new();
-                for (k, v) in m.into_iter() {
+                for (k, v) in m.iter() {
                     if let GKey::String(s) = k {
                         hm.insert(s, v);
                     } else {
@@ -828,38 +828,39 @@ impl QueryResult for CosmosQueryResult {
                     Some(GValue::String(dst_label)),
                     Some(GValue::Map(dst_props)),
                 ) = (
-                    hm.remove("rID"),
-                    hm.remove("rLabel"),
-                    hm.remove("rProps"),
-                    hm.remove("srcID"),
-                    hm.remove("srcLabel"),
-                    hm.remove("srcProps"),
-                    hm.remove("dstID"),
-                    hm.remove("dstLabel"),
-                    hm.remove("dstProps"),
+                    hm.get(&"rID".to_string()),
+                    hm.get(&"rLabel".to_string()),
+                    hm.get(&"rProps".to_string()),
+                    hm.get(&"srcID".to_string()),
+                    hm.get(&"srcLabel".to_string()),
+                    hm.get(&"srcProps".to_string()),
+                    hm.get(&"dstID".to_string()),
+                    hm.get(&"dstLabel".to_string()),
+                    hm.get(&"dstProps".to_string()),
                 ) {
                     let src_type_def = info.type_def_by_name(&src_label)?;
 
                     let mut src_fields = HashMap::new();
                     src_fields.insert("id".to_string(), Value::String(src_id.to_owned()));
 
-                    for (key, property_list) in src_props.into_iter() {
+                    for (key, property_list) in src_props.iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
                             if k == "partitionKey" || !src_type_def.property(&k)?.list() {
                                 src_fields.insert(
                                     k.to_owned(),
                                     plist
-                                        .into_iter()
+                                        .iter()
                                         .next()
                                         .ok_or_else(|| Error::ResponseItemNotFound {
                                             name: k.to_owned(),
                                         })?
+                                        .clone()
                                         .try_into()?,
                                 );
                             } else {
                                 let mut prop_vals = Vec::new();
-                                for val in plist.into_iter() {
-                                    prop_vals.push(val.try_into()?);
+                                for val in plist.iter() {
+                                    prop_vals.push(val.clone().try_into()?);
                                 }
                                 src_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
@@ -873,23 +874,24 @@ impl QueryResult for CosmosQueryResult {
                     let mut dst_fields = HashMap::new();
                     dst_fields.insert("id".to_string(), Value::String(dst_id.to_owned()));
 
-                    for (key, property_list) in dst_props.into_iter() {
+                    for (key, property_list) in dst_props.iter() {
                         if let (GKey::String(k), GValue::List(plist)) = (key, property_list) {
                             if k == "partitionKey" || !dst_type_def.property(&k)?.list() {
                                 dst_fields.insert(
                                     k.to_owned(),
                                     plist
-                                        .into_iter()
+                                        .iter()
                                         .next()
                                         .ok_or_else(|| Error::ResponseItemNotFound {
                                             name: k.to_string(),
                                         })?
+                                        .clone()
                                         .try_into()?,
                                 );
                             } else {
                                 let mut prop_vals = Vec::new();
-                                for val in plist.into_iter() {
-                                    prop_vals.push(val.try_into()?);
+                                for val in plist.iter() {
+                                    prop_vals.push(val.clone().try_into()?);
                                 }
                                 dst_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
@@ -900,25 +902,25 @@ impl QueryResult for CosmosQueryResult {
 
                     let mut rel_fields = HashMap::new();
                     rel_fields.insert("id".to_string(), Value::String(rel_id.to_owned()));
-                    for (key, v) in rel_props.into_iter() {
+                    for (key, v) in rel_props.iter() {
                         if let GKey::String(k) = key {
-                            rel_fields.insert(k.to_owned(), v.try_into()?);
+                            rel_fields.insert(k.to_owned(), v.clone().try_into()?);
                         } else {
                             return Err(Error::TypeNotExpected.into());
                         }
                     }
 
                     v.push(Rel::new(
-                        Value::String(rel_id),
-                        partition_key_opt.clone(),
-                        match props_type_name {
+                        Value::String(rel_id.to_string()),
+                        self.partition_key_opt.clone(),
+                        match &self.props_type_name {
                             Some(p_type_name) => {
                                 Some(Node::new(p_type_name.to_string(), rel_fields))
                             }
                             None => None,
                         },
-                        Node::new(src_label, src_fields),
-                        Node::new(dst_label, dst_fields),
+                        Cow::Owned(Node::new(src_label.to_string(), src_fields)),
+                        Cow::Owned(Node::new(dst_label.to_string(), dst_fields)),
                     ));
                 } else {
                     return Err(Error::ResponseItemNotFound {

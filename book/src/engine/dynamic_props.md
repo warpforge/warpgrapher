@@ -20,13 +20,13 @@ model:
 
 ```rust
 fn resolve_projectpoints(
-    context: ResolverContext<AppGlobalContext, ()>
+    context: ResolverFacade<AppGlobalContext, ()>
 ) -> ExecutionResult {
 
     // compute value ...
     let value = 
     
-    context.resolve_scalar(value)
+    facade.resolve_scalar(value)
 }
 ```
 

@@ -10,6 +10,7 @@ use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::cypher::result::CypherResult;
 use rusted_cypher::cypher::transaction::{Started, Transaction};
 use rusted_cypher::Statement;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -93,7 +94,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             query,
             params
         );
-        let raw_results = self.exec(&query, partition_key_opt, Some(params));
+        let raw_results = self.exec(&query, None, partition_key_opt, Some(params));
         trace!(
             "Neo4jTransaction::create_node raw results: {:#?}",
             raw_results
@@ -112,7 +113,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -148,8 +149,12 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
                     + ") as count";
                 let mut check_params: HashMap<String, Value> = HashMap::new();
                 check_params.insert("aid".to_owned(), Value::Array(src_id_vec)); // TODO -- remove cloning
-                let check_results =
-                    self.exec(&check_query, partition_key_opt, Some(check_params))?;
+                let check_results = self.exec(
+                    &check_query,
+                    props_type_name,
+                    partition_key_opt,
+                    Some(check_params),
+                )?;
                 if check_results.count()? > 0 || dst_id_vec.len() > 1 {
                     return Err(Error::RelDuplicated {
                         rel_name: rel_name.to_string(),
@@ -199,22 +204,14 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        let results = self.exec(&query, props_type_name, partition_key_opt, Some(params))?;
         debug!(
             "visit_rel_create_mutation_input Query results: {:#?}",
             results
         );
 
-        Ok(results.rels(
-            src_label,
-            "",
-            rel_name,
-            dst_label,
-            "",
-            props_type_name,
-            partition_key_opt.cloned(),
-            info,
-        )?)
+        // Ok(results.rels(info)?)
+        Ok(results)
     }
 
     fn delete_nodes(
@@ -237,7 +234,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             query,
             params
         );
-        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        let results = self.exec(&query, None, partition_key_opt, Some(params))?;
         trace!(
             "Neo4jTransaction::delete_nodes Query results: {:#?}",
             results
@@ -278,14 +275,15 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             del_query, del_params
         );
         Ok(self
-            .exec(&del_query, partition_key_opt, Some(del_params))?
+            .exec(&del_query, None, partition_key_opt, Some(del_params))?
             .count()?)
     }
 
     fn exec(
         &mut self,
         query: &str,
-        _partition_key_opt: Option<&Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Neo4jQueryResult, FieldError> {
         debug!(
@@ -301,7 +299,11 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             }
             let result = transaction.exec(statement);
             debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jQueryResult::new(result?))
+            Ok(Neo4jQueryResult::new(
+                props_type_name,
+                partition_key_opt,
+                result?,
+            ))
         } else {
             Err(Error::TransactionFinished.into())
         }
@@ -571,7 +573,7 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             + "RETURN n, labels(n) as n_label\n";
 
         trace!("update_nodes query, params: {:#?}, {:#?}", query, params);
-        let results = self.exec(&query, partition_key_opt, Some(params));
+        let results = self.exec(&query, None, partition_key_opt, Some(params));
         trace!("update_nodes Query results: {:#?}", results);
 
         results?.nodes(label, info)
@@ -585,8 +587,8 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
-        info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+        _info: &Info,
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -623,37 +625,43 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
             query, params
         );
 
-        let results = self.exec(&query, partition_key_opt, Some(params))?;
+        let results = self.exec(&query, props_type_name, partition_key_opt, Some(params))?;
         debug!(
             "visit_rel_update_mutation_input Query results: {:#?}",
             results
         );
 
-        results.rels(
-            src_label,
-            "",
-            rel_name,
-            "",
-            "",
-            props_type_name,
-            partition_key_opt.cloned(),
-            info,
-        )
+        // results.rels(info)
+        Ok(results)
     }
 }
 
 #[derive(Debug)]
 pub struct Neo4jQueryResult {
-    result: CypherResult,
+    partition_key_opt: Option<Value>,
+    props_type_name: Option<String>,
+    results: Vec<CypherResult>,
 }
 
 impl Neo4jQueryResult {
-    fn new(result: CypherResult) -> Neo4jQueryResult {
-        Neo4jQueryResult { result }
+    fn new(
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        result: CypherResult,
+    ) -> Neo4jQueryResult {
+        Neo4jQueryResult {
+            partition_key_opt: partition_key_opt.cloned(),
+            props_type_name: props_type_name.map(|s| s.to_string()),
+            results: vec![result],
+        }
     }
 }
 
 impl QueryResult for Neo4jQueryResult {
+    fn merge(&mut self, mut r: Self) {
+        self.results.append(&mut r.results);
+    }
+
     fn nodes<GlobalCtx, ReqCtx>(
         self,
         _name: &str,
@@ -663,137 +671,139 @@ impl QueryResult for Neo4jQueryResult {
         GlobalCtx: GlobalContext,
         ReqCtx: RequestContext,
     {
-        trace!("Neo4jQueryResult::nodes called, result: {:#?}", self.result);
+        trace!(
+            "Neo4jQueryResult::nodes called, results: {:#?}",
+            self.results
+        );
 
         let mut v = Vec::new();
-        for row in self.result.rows() {
-            let m: HashMap<String, serde_json::Value> = row.get("n")?;
-            let mut label_list: Vec<String> = row.get("n_label")?;
-            let label = label_list
-                .pop()
-                .ok_or_else(|| Error::ResponseItemNotFound {
-                    name: "label".to_string(),
-                })?;
-            let mut fields = HashMap::new();
-            let type_def = info.type_def_by_name(&label)?;
-            for (k, v) in m.into_iter() {
-                let prop_def = type_def.property(&k)?;
-                if prop_def.list() {
-                    if let serde_json::Value::Array(_) = v {
-                        fields.insert(k, v.try_into()?);
+        for cr in self.results {
+            for row in cr.rows() {
+                let m: HashMap<String, serde_json::Value> = row.get("n")?;
+                let mut label_list: Vec<String> = row.get("n_label")?;
+                let label = label_list
+                    .pop()
+                    .ok_or_else(|| Error::ResponseItemNotFound {
+                        name: "label".to_string(),
+                    })?;
+                let mut fields = HashMap::new();
+                let type_def = info.type_def_by_name(&label)?;
+                for (k, v) in m.into_iter() {
+                    let prop_def = type_def.property(&k)?;
+                    if prop_def.list() {
+                        if let serde_json::Value::Array(_) = v {
+                            fields.insert(k, v.try_into()?);
+                        } else {
+                            let mut val = Vec::new();
+                            val.push(v.try_into()?);
+                            fields.insert(k, Value::Array(val));
+                        }
                     } else {
-                        let mut val = Vec::new();
-                        val.push(v.try_into()?);
-                        fields.insert(k, Value::Array(val));
+                        fields.insert(k, v.try_into()?);
                     }
-                } else {
-                    fields.insert(k, v.try_into()?);
                 }
+                v.push(Node::new(label.to_owned(), fields));
             }
-            v.push(Node::new(label.to_owned(), fields));
         }
         trace!("Neo4jQueryResults::nodes results: {:#?}", v);
         Ok(v)
     }
 
     fn rels<GlobalCtx, ReqCtx>(
-        self,
-        src_name: &str,
-        src_suffix: &str,
-        rel_name: &str,
-        dst_name: &str,
-        dst_suffix: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<Value>,
+        &mut self,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, FieldError>
     where
         GlobalCtx: GlobalContext,
         ReqCtx: RequestContext,
     {
-        trace!("Neo4jQueryResult::rels called, src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name: {:#?}, {:#?}, {:#?}, {:#?}, {:#?}, {:#?}", src_name, src_suffix, rel_name, dst_name, dst_suffix, props_type_name);
+        trace!("Neo4jQueryResult::rels called");
 
         let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
 
-        for row in self.result.rows() {
-            if let serde_json::Value::Array(src_labels) = row.get("src_label")? {
-                if let serde_json::Value::String(src_type) = &src_labels[0] {
-                    let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
-                    let mut src_label_list: Vec<String> = row.get("src_label")?;
-                    let src_label =
-                        src_label_list
-                            .pop()
-                            .ok_or_else(|| Error::ResponseItemNotFound {
-                                name: "label".to_string(),
-                            })?;
-                    let mut src_fields = HashMap::new();
-                    let type_def = info.type_def_by_name(&src_label)?;
-                    for (k, v) in src_map.into_iter() {
-                        let prop_def = type_def.property(&k)?;
-                        if prop_def.list() {
-                            if let serde_json::Value::Array(_) = v {
-                                src_fields.insert(k, v.try_into()?);
-                            } else {
-                                let mut val = Vec::new();
-                                val.push(v.try_into()?);
-                                src_fields.insert(k, Value::Array(val));
-                            }
-                        } else {
-                            src_fields.insert(k, v.try_into()?);
-                        }
-                    }
-
-                    if let serde_json::Value::Array(dst_labels) = row.get("dst_label")? {
-                        if let serde_json::Value::String(dst_type) = &dst_labels[0] {
-                            let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
-                            let mut dst_label_list: Vec<String> = row.get("dst_label")?;
-                            let dst_label = dst_label_list.pop().ok_or_else(|| {
-                                Error::ResponseItemNotFound {
+        for cr in &mut self.results {
+            for row in cr.rows() {
+                if let serde_json::Value::Array(src_labels) = row.get("src_label")? {
+                    if let serde_json::Value::String(src_type) = &src_labels[0] {
+                        let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
+                        let mut src_label_list: Vec<String> = row.get("src_label")?;
+                        let src_label =
+                            src_label_list
+                                .pop()
+                                .ok_or_else(|| Error::ResponseItemNotFound {
                                     name: "label".to_string(),
-                                }
-                            })?;
-                            let mut dst_fields = HashMap::new();
-                            let type_def = info.type_def_by_name(&dst_label)?;
-                            for (k, v) in dst_map.into_iter() {
-                                let prop_def = type_def.property(&k)?;
-                                if prop_def.list() {
-                                    if let serde_json::Value::Array(_) = v {
-                                        dst_fields.insert(k, v.try_into()?);
-                                    } else {
-                                        let mut val = Vec::new();
-                                        val.push(v.try_into()?);
-                                        dst_fields.insert(k, Value::Array(val));
-                                    }
+                                })?;
+                        let mut src_fields = HashMap::new();
+                        let type_def = info.type_def_by_name(&src_label)?;
+                        for (k, v) in src_map.into_iter() {
+                            let prop_def = type_def.property(&k)?;
+                            if prop_def.list() {
+                                if let serde_json::Value::Array(_) = v {
+                                    src_fields.insert(k, v.try_into()?);
                                 } else {
-                                    dst_fields.insert(k, v.try_into()?);
+                                    let mut val = Vec::new();
+                                    val.push(v.try_into()?);
+                                    src_fields.insert(k, Value::Array(val));
                                 }
+                            } else {
+                                src_fields.insert(k, v.try_into()?);
                             }
+                        }
 
-                            v.push(Rel::new(
-                                row.get::<serde_json::Value>("r")?
-                                    .get("id")
-                                    .ok_or_else(|| Error::ResponseItemNotFound {
-                                        name: "id".to_string(),
-                                    })?
-                                    .clone()
-                                    .try_into()?,
-                                partition_key_opt.clone(),
-                                match props_type_name {
-                                    Some(p_type_name) => {
-                                        let map: HashMap<String, serde_json::Value> =
-                                            row.get::<HashMap<String, serde_json::Value>>("r")?;
-                                        let mut wg_map = HashMap::new();
-                                        for (k, v) in map.into_iter() {
-                                            wg_map.insert(k, v.try_into()?);
-                                        }
-
-                                        Some(Node::new(p_type_name.to_string(), wg_map))
+                        if let serde_json::Value::Array(dst_labels) = row.get("dst_label")? {
+                            if let serde_json::Value::String(dst_type) = &dst_labels[0] {
+                                let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
+                                let mut dst_label_list: Vec<String> = row.get("dst_label")?;
+                                let dst_label = dst_label_list.pop().ok_or_else(|| {
+                                    Error::ResponseItemNotFound {
+                                        name: "label".to_string(),
                                     }
-                                    None => None,
-                                },
-                                Node::new(src_type.to_owned(), src_fields),
-                                Node::new(dst_type.to_owned(), dst_fields),
-                            ))
+                                })?;
+                                let mut dst_fields = HashMap::new();
+                                let type_def = info.type_def_by_name(&dst_label)?;
+                                for (k, v) in dst_map.into_iter() {
+                                    let prop_def = type_def.property(&k)?;
+                                    if prop_def.list() {
+                                        if let serde_json::Value::Array(_) = v {
+                                            dst_fields.insert(k, v.try_into()?);
+                                        } else {
+                                            let mut val = Vec::new();
+                                            val.push(v.try_into()?);
+                                            dst_fields.insert(k, Value::Array(val));
+                                        }
+                                    } else {
+                                        dst_fields.insert(k, v.try_into()?);
+                                    }
+                                }
+
+                                v.push(Rel::new(
+                                    row.get::<serde_json::Value>("r")?
+                                        .get("id")
+                                        .ok_or_else(|| Error::ResponseItemNotFound {
+                                            name: "id".to_string(),
+                                        })?
+                                        .clone()
+                                        .try_into()?,
+                                    self.partition_key_opt.clone(),
+                                    match &self.props_type_name {
+                                        Some(p_type_name) => {
+                                            let map: HashMap<String, serde_json::Value> =
+                                                row.get::<HashMap<String, serde_json::Value>>("r")?;
+                                            let mut wg_map = HashMap::new();
+                                            for (k, v) in map.into_iter() {
+                                                wg_map.insert(k, v.try_into()?);
+                                            }
+
+                                            Some(Node::new(p_type_name.to_string(), wg_map))
+                                        }
+                                        None => None,
+                                    },
+                                    Cow::Owned(Node::new(src_type.to_owned(), src_fields)),
+                                    Cow::Owned(Node::new(dst_type.to_owned(), dst_fields)),
+                                ))
+                            } else {
+                                return Err(Error::TypeNotExpected.into());
+                            }
                         } else {
                             return Err(Error::TypeNotExpected.into());
                         }
@@ -802,10 +812,8 @@ impl QueryResult for Neo4jQueryResult {
                     }
                 } else {
                     return Err(Error::TypeNotExpected.into());
-                }
-            } else {
-                return Err(Error::TypeNotExpected.into());
-            };
+                };
+            }
         }
         trace!("Neo4jQueryResults::rels results: {:#?}", v);
         Ok(v)
@@ -815,32 +823,34 @@ impl QueryResult for Neo4jQueryResult {
         trace!("Neo4jQueryResult::ids called");
 
         let mut v = Vec::new();
-        for row in self.result.rows() {
-            if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
-                if let serde_json::Value::String(id) =
-                    n.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "id".to_string(),
-                    })?
-                {
-                    v.push(Value::String(id.to_owned()));
+        for cr in &self.results {
+            for row in cr.rows() {
+                if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
+                    if let serde_json::Value::String(id) =
+                        n.get("id").ok_or_else(|| Error::ResponseItemNotFound {
+                            name: "id".to_string(),
+                        })?
+                    {
+                        v.push(Value::String(id.to_owned()));
+                    } else {
+                        return Err(Error::TypeNotExpected.into());
+                    }
+                } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
+                    if let serde_json::Value::String(id) =
+                        r.get("id").ok_or_else(|| Error::ResponseItemNotFound {
+                            name: "id".to_string(),
+                        })?
+                    {
+                        v.push(Value::String(id.to_owned()));
+                    } else {
+                        return Err(Error::TypeNotExpected.into());
+                    }
                 } else {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::ResponseItemNotFound {
+                        name: "n or r".to_string(),
+                    }
+                    .into());
                 }
-            } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
-                if let serde_json::Value::String(id) =
-                    r.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "id".to_string(),
-                    })?
-                {
-                    v.push(Value::String(id.to_owned()));
-                } else {
-                    return Err(Error::TypeNotExpected.into());
-                }
-            } else {
-                return Err(Error::ResponseItemNotFound {
-                    name: "n or r".to_string(),
-                }
-                .into());
             }
         }
 
@@ -851,22 +861,24 @@ impl QueryResult for Neo4jQueryResult {
     fn count(&self) -> Result<i32, FieldError> {
         trace!("Neo4jQueryResult::count called");
 
-        let ret_row = self
-            .result
-            .rows()
-            .next()
-            .ok_or_else(|| Error::ResponseSetNotFound)?;
-        let ret_val = ret_row.get("count")?;
+        let mut ret_val = 0;
 
-        if let serde_json::Value::Number(n) = ret_val {
-            if let Some(i_val) = n.as_i64() {
-                Ok(i_val as i32)
+        for cr in &self.results {
+            let ret_row = cr.rows().next().ok_or_else(|| Error::ResponseSetNotFound)?;
+            let val = ret_row.get("count")?;
+
+            if let serde_json::Value::Number(n) = val {
+                if let Some(i_val) = n.as_i64() {
+                    ret_val += i_val;
+                } else {
+                    return Err(Error::TypeNotExpected.into());
+                }
             } else {
-                Err(Error::TypeNotExpected.into())
+                return Err(Error::TypeNotExpected.into());
             }
-        } else {
-            Err(Error::TypeNotExpected.into())
         }
+
+        Ok(ret_val as i32)
     }
 
     fn len(&self) -> i32 {

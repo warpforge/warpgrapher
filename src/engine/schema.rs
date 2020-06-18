@@ -196,8 +196,8 @@ impl Property {
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    pub(crate) fn resolver(&self) -> &Option<String> {
-        &self.resolver
+    pub(crate) fn resolver(&self) -> Option<&String> {
+        self.resolver.as_ref()
     }
 
     pub(crate) fn required(&self) -> bool {
@@ -209,8 +209,8 @@ impl Property {
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    pub(crate) fn validator(&self) -> &Option<String> {
-        &self.validator
+    pub(crate) fn validator(&self) -> Option<&String> {
+        self.validator.as_ref()
     }
 
     fn with_arguments(mut self, arguments: HashMap<String, Argument>) -> Self {
@@ -299,7 +299,7 @@ fn generate_props(
                     )
                     .with_required(p.required() && object)
                     .with_list(p.list())
-                    .with_validator(p.validator().clone()),
+                    .with_validator(p.validator().cloned()),
                 );
             }
             Some(r) => {
@@ -313,7 +313,7 @@ fn generate_props(
                     .with_required(p.required() && object)
                     .with_list(p.list())
                     .with_resolver(r)
-                    .with_validator(p.validator().clone()),
+                    .with_validator(p.validator().cloned()),
                 );
             }
         };

@@ -55,7 +55,7 @@ pub trait DatabaseEndpoint {
 }
 
 pub trait Transaction {
-    type ImplQueryResult: QueryResult + Debug;
+    type ImplQueryResult: QueryResult;
     fn begin(&self) -> Result<(), FieldError>;
     fn commit(&mut self) -> Result<(), FieldError>;
     fn create_node<GlobalCtx, RequestCtx>(
@@ -80,7 +80,7 @@ pub trait Transaction {
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
@@ -101,6 +101,7 @@ pub trait Transaction {
     fn exec(
         &mut self,
         query: &str,
+        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Self::ImplQueryResult, FieldError>;
@@ -125,7 +126,7 @@ pub trait Transaction {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplQueryResult, FieldError>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
@@ -163,6 +164,7 @@ pub trait Transaction {
 }
 
 pub trait QueryResult: Debug {
+    fn merge(&mut self, r: Self);
     fn nodes<GlobalCtx, RequestCtx>(
         self,
         name: &str,
@@ -174,14 +176,7 @@ pub trait QueryResult: Debug {
 
     #[allow(clippy::too_many_arguments)]
     fn rels<GlobalCtx, RequestCtx>(
-        self,
-        src_name: &str,
-        src_suffix: &str,
-        rel_name: &str,
-        dst_name: &str,
-        dst_suffix: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<Value>,
+        &mut self,
         info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
     where

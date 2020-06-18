@@ -370,8 +370,8 @@ impl Endpoint {
     ///
     /// assert!(e.input().is_none());
     /// ```
-    pub fn input(&self) -> &Option<EndpointType> {
-        &self.input
+    pub fn input(&self) -> Option<&EndpointType> {
+        self.input.as_ref()
     }
 
     /// Returns the type definition of the output for a custom endpoint
@@ -806,8 +806,8 @@ impl Property {
     ///     Some("CustomResolver".to_string()), None);
     ///
     /// assert_eq!("CustomResolver", p.resolver().unwrap());
-    pub fn resolver(&self) -> &Option<String> {
-        &self.resolver
+    pub fn resolver(&self) -> Option<&String> {
+        self.resolver.as_ref()
     }
 
     /// Returns a boolean that if true, indicates that this property is mandatory, and if false,
@@ -848,8 +848,8 @@ impl Property {
     ///     None, Some("CustomValidator".to_string()));
     ///
     /// assert_eq!("CustomValidator", p.validator().unwrap());
-    pub fn validator(&self) -> &Option<String> {
-        &self.validator
+    pub fn validator(&self) -> Option<&String> {
+        self.validator.as_ref()
     }
 }
 
@@ -1045,8 +1045,8 @@ impl Relationship {
     ///
     /// assert!(r.resolver().is_none())
     /// ```
-    pub fn resolver(&self) -> &Option<String> {
-        &self.resolver
+    pub fn resolver(&self) -> Option<&String> {
+        self.resolver.as_ref()
     }
 }
 

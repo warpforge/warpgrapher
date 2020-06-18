@@ -33,8 +33,8 @@ let engine: Engine<AppGlobalContext, ()> = Engine::new(config, db)
 #### 3. Use GlobalContext in a resolver
 
 ```rust
-fn resolve(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
-    let global_ctx = context.get_global_context()?;
+fn resolve(facade: ResolverFacade<AppGlobalContext, ()>) -> ExecutionResult {
+    let global_ctx = facade.global_context()?;
 
     // use global_ctx
 }
@@ -48,7 +48,7 @@ fn resolve(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
 use std::collections::HashMap;
 use warpgrapher::{Engine, Config};
 use warpgrapher::engine::databases::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::objects::resolvers::{Resolvers, ResolverContext, ExecutionResult};
+use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade, ExecutionResult};
 use warpgrapher::GraphQLRequest;
 
 static CONFIG : &'static str = "
@@ -78,9 +78,9 @@ struct AppGlobalContext {
     tenant_id: String
 }
 
-fn resolve_get_environment(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
-    let global_ctx = context.get_global_context()?;
-    context.resolve_scalar(global_ctx.tenant_id.clone())
+fn resolve_get_environment(facade: ResolverFacade<AppGlobalContext, ()>) -> ExecutionResult {
+    let global_ctx = facade.global_context()?;
+    facade.resolve_scalar(global_ctx.tenant_id.clone())
 }
 
 fn main() {

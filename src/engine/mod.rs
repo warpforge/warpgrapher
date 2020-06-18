@@ -291,7 +291,7 @@ where
             .map(|t| {
                 // Validate that custom resolver defined in Configuration exists as a Resolver
                 t.props()
-                    .filter_map(|p| p.resolver().as_ref())
+                    .filter_map(|p| p.resolver())
                     .map(|r| {
                         if !self.resolvers.contains_key(r) {
                             Err(Error::ResolverNotFound {
@@ -305,7 +305,7 @@ where
 
                 // Validate that custom validator defined in Configuration exists as a Validator
                 t.props()
-                    .filter_map(|p| p.validator().as_ref())
+                    .filter_map(|p| p.validator())
                     .map(|v| {
                         if !self.validators.contains_key(v) {
                             Err(Error::ValidatorNotFound {

@@ -1,6 +1,6 @@
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::database::{QueryResult, Transaction};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::Node;
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
@@ -168,7 +168,7 @@ where
             "visit_node_delete_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
+        let raw_results = transaction.exec(&query, None, partition_key_opt, Some(params));
         debug!("visit_node_delete_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(label) + var_suffix))?;
@@ -324,7 +324,7 @@ where
                     "visit_node_input query, params: {:#?}, {:#?}",
                     query, params
                 );
-                let results = transaction.exec(&query, partition_key_opt, Some(params))?;
+                let results = transaction.exec(&query, None, partition_key_opt, Some(params))?;
                 debug!("visit_node_input Query results: {:#?}", results);
                 results.ids(&(label.to_owned() + &var_suffix))
             }
@@ -471,7 +471,7 @@ where
             "visit_node_update_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
+        let raw_results = transaction.exec(&query, None, partition_key_opt, Some(params));
         debug!("visit_node_update_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(label) + &var_suffix))?;
@@ -707,7 +707,7 @@ pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplQueryResult, FieldError>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -743,7 +743,8 @@ where
         )?;
 
         debug!("Query, params: {:#?}, {:#?}", query, params);
-        let raw_results = transaction.exec(&query, partition_key_opt, Some(params));
+        let raw_results =
+            transaction.exec(&query, props_type_name, partition_key_opt, Some(params));
         debug!("Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(src_label) + &var_suffix))?;
@@ -758,7 +759,7 @@ where
 
         trace!("visit_rel_create_input calling rels.");
         match create_input {
-            Value::Map(_) => visit_rel_create_mutation_input(
+            Value::Map(_) => Ok(visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 ids,
                 rel_name,
@@ -771,33 +772,47 @@ where
                 validators,
                 props_type_name,
                 transaction,
-            ),
-            // .rels(&src_label, "", rel_name, "dst", "", props_type_name, info),
+            )?),
             Value::Array(create_input_array) => {
-                let mut v: Vec<Rel<GlobalCtx, RequestCtx>> = Vec::new();
+                let mut result = None;
                 for create_input_value in create_input_array {
-                    let result = visit_rel_create_mutation_input(
-                        src_label,
-                        ids.clone(),
-                        rel_name,
-                        &Info::new(
-                            itd.property("create")?.type_name().to_owned(),
-                            info.type_defs(),
-                        ),
-                        partition_key_opt,
-                        create_input_value,
-                        validators,
-                        props_type_name,
-                        transaction,
-                    )?;
-
-                    for rel in result
-                    // result.rels(src_label, "", rel_name, "dst", "", props_type_name, info)?
-                    {
-                        v.push(rel)
+                    match result.as_mut() {
+                        None => {
+                            result =
+                                Some(visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                                    src_label,
+                                    ids.clone(),
+                                    rel_name,
+                                    &Info::new(
+                                        itd.property("create")?.type_name().to_owned(),
+                                        info.type_defs(),
+                                    ),
+                                    partition_key_opt,
+                                    create_input_value,
+                                    validators,
+                                    props_type_name,
+                                    transaction,
+                                )?)
+                        }
+                        Some(r) => {
+                            r.merge(visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                                src_label,
+                                ids.clone(),
+                                rel_name,
+                                &Info::new(
+                                    itd.property("create")?.type_name().to_owned(),
+                                    info.type_defs(),
+                                ),
+                                partition_key_opt,
+                                create_input_value,
+                                validators,
+                                props_type_name,
+                                transaction,
+                            )?)
+                        }
                     }
                 }
-                Ok(v)
+                Ok(result.unwrap())
             }
             _ => Err(Error::TypeNotExpected.into()),
         }
@@ -817,7 +832,7 @@ fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplQueryResult, FieldError>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -849,7 +864,7 @@ where
             transaction,
         )?;
 
-        let result = transaction.create_rels(
+        let result = transaction.create_rels::<GlobalCtx, RequestCtx>(
             src_label,
             src_ids,
             &dst_label,
@@ -916,7 +931,7 @@ where
             transaction,
         )?;
 
-        let read_results = transaction.exec(&read_query, partition_key_opt, Some(params))?;
+        let read_results = transaction.exec(&read_query, None, partition_key_opt, Some(params))?;
         let rel_ids = read_results.ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?;
 
         let del_results =
@@ -1411,7 +1426,7 @@ pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplQueryResult, FieldError>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1455,14 +1470,19 @@ where
             "visit_rel_update_input query, params: {:#?}, {:#?}",
             read_query, params
         );
-        let raw_read_results = transaction.exec(&read_query, partition_key_opt, Some(params));
+        let raw_read_results = transaction.exec(
+            &read_query,
+            props_type_name,
+            partition_key_opt,
+            Some(params),
+        );
         debug!("visit_rel_update_input Raw result: {:#?}", raw_read_results);
 
         let read_results = raw_read_results?;
 
         if let Some(update) = m.remove("update") {
             // remove used to take ownership
-            visit_rel_update_mutation_input(
+            visit_rel_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 read_results.ids(&(String::from(src_label) + &src_suffix))?,
                 rel_name,
@@ -1502,7 +1522,7 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplQueryResult, FieldError>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1531,7 +1551,7 @@ where
             }
         }
 
-        let results = transaction.update_rels(
+        let results = transaction.update_rels::<GlobalCtx, RequestCtx>(
             src_label,
             rel_name,
             rel_ids,
