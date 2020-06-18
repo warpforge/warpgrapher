@@ -46,6 +46,15 @@ jobs:
         path: rustbins
         key: cargo-audit
  
+    - name: Check Featureless Build
+      run: cargo check
+      
+    - name: Check Cosmos Build
+      run: cargo check --features cosmos
+
+    - name: Check Neo4J Build
+      run: cargo check --features neo4j
+
     - name: Install Clippy
       run: rustup component add clippy
 
@@ -56,7 +65,7 @@ jobs:
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
     
     - name: Run Tests
-      run: cargo test
+      run: cargo test --all-features -- --test-threads=1
     
     - name: Stop neo4j database
       run: docker rm -f neo4j
