@@ -1,11 +1,9 @@
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::database::{QueryResult, Transaction};
-use crate::engine::objects::Node;
+use crate::engine::database::{NodeQueryResponse, RelQueryResponse, Transaction};
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
-use juniper::{graphql_value, FieldError};
 use log::{debug, trace};
 use std::collections::HashMap;
 
@@ -33,7 +31,7 @@ pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+) -> Result<T::ImplNodeQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -75,12 +73,18 @@ where
                 PropertyKind::Input => {
                     inputs.insert(k, v);
                 }
-                _ => return Err(Error::TypeNotExpected.into()),
+                _ => return Err(Error::TypeNotExpected),
             }
         }
 
-        let results = transaction.create_node(label, partition_key_opt, props, info)?;
-        let ids = Value::Array(vec![results.fields.get("id").unwrap().clone()]);
+        let results = transaction.create_node::<GlobalCtx, RequestCtx>(
+            label,
+            partition_key_opt,
+            props,
+            info,
+        )?;
+        // let ids = Value::Array(vec![results.fields.get("id").unwrap().clone()]);
+        let ids = results.ids("n")?;
 
         for (k, v) in inputs.into_iter() {
             let p = itd.property(&k)?;
@@ -116,17 +120,17 @@ where
                         )?;
                     }
                 }
-                _ => return Err(Error::TypeNotExpected.into()),
+                _ => return Err(Error::TypeNotExpected),
             }
         }
 
         Ok(results)
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
-pub(super) fn visit_node_delete_input<T>(
+pub(super) fn visit_node_delete_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     var_suffix: &str,
     sg: &mut SuffixGenerator,
@@ -134,7 +138,7 @@ pub(super) fn visit_node_delete_input<T>(
     partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
-) -> Result<i32, FieldError>
+) -> Result<T::ImplDeleteQueryResponse, Error>
 where
     T: Transaction,
 {
@@ -168,13 +172,13 @@ where
             "visit_node_delete_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, None, partition_key_opt, Some(params));
+        let raw_results = transaction.read_nodes(&query, None, partition_key_opt, Some(params));
         debug!("visit_node_delete_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(label) + var_suffix))?;
         trace!("visit_node_delete_input IDs for deletion: {:#?}", ids);
 
-        visit_node_delete_mutation_input(
+        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
             label,
             ids,
             &Info::new(
@@ -191,18 +195,18 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
-fn visit_node_delete_mutation_input<T>(
+fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<i32, FieldError>
+) -> Result<T::ImplDeleteQueryResponse, Error>
 where
     T: Transaction,
 {
@@ -222,7 +226,7 @@ where
                 PropertyKind::Input => {
                     if let Value::Array(input_array) = v {
                         for val in input_array {
-                            visit_rel_delete_input(
+                            visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                                 label,
                                 Some(ids.clone()),
                                 &k,
@@ -233,7 +237,7 @@ where
                             )?;
                         }
                     } else {
-                        visit_rel_delete_input(
+                        visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                             label,
                             Some(ids.clone()),
                             &k,
@@ -245,7 +249,7 @@ where
                     }
                 }
                 _ => {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
         }
@@ -261,7 +265,7 @@ fn visit_node_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Value, FieldError>
+) -> Result<Value, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -287,11 +291,7 @@ where
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "NEW" => Ok(Value::Array(vec![visit_node_create_mutation_input::<
-                T,
-                GlobalCtx,
-                RequestCtx,
-            >(
+            "NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 label,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -299,11 +299,7 @@ where
                 validators,
                 transaction,
             )?
-            .fields
-            .remove("id")
-            .ok_or_else(|| Error::ResponseItemNotFound {
-                name: "id".to_string(),
-            })?])),
+            .ids("n"),
             "EXISTING" => {
                 let mut sg = SuffixGenerator::new();
                 let var_suffix = sg.suffix();
@@ -324,18 +320,18 @@ where
                     "visit_node_input query, params: {:#?}, {:#?}",
                     query, params
                 );
-                let results = transaction.exec(&query, None, partition_key_opt, Some(params))?;
+                let results =
+                    transaction.read_nodes(&query, None, partition_key_opt, Some(params))?;
                 debug!("visit_node_input Query results: {:#?}", results);
                 results.ids(&(label.to_owned() + &var_suffix))
             }
 
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + &k,
-            }
-            .into()),
+            }),
         }
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -351,7 +347,7 @@ pub(super) fn visit_node_query_input<T>(
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), FieldError>
+) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
@@ -368,7 +364,7 @@ where
         let (rel_query_fragments, local_params) =
             m.into_iter()
                 .try_fold((Vec::new(), params), |(mut rqf, params), (k, v)| {
-                    itd.property(&k).map_err(|e| e.into()).and_then(|p| {
+                    itd.property(&k).map_err(|e| e).and_then(|p| {
                         match p.kind() {
                             PropertyKind::Scalar => {
                                 props.insert(k, v);
@@ -396,7 +392,7 @@ where
                                     (rqf, params)
                                 })
                             }
-                            _ => Err(FieldError::from(Error::TypeNotExpected)),
+                            _ => Err(Error::TypeNotExpected),
                         }
                     })
                 })?;
@@ -432,7 +428,7 @@ pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplNodeQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -471,13 +467,13 @@ where
             "visit_node_update_input query, params: {:#?}, {:#?}",
             query, params
         );
-        let raw_results = transaction.exec(&query, None, partition_key_opt, Some(params));
+        let raw_results = transaction.read_nodes(&query, None, partition_key_opt, Some(params));
         debug!("visit_node_update_input Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(label) + &var_suffix))?;
         trace!("visit_node_update_input IDs for update: {:#?}", ids);
 
-        visit_node_update_mutation_input(
+        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             label,
             ids,
             &Info::new(
@@ -495,7 +491,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -507,7 +503,7 @@ fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplNodeQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -551,11 +547,17 @@ where
                 PropertyKind::Input => {
                     inputs.insert(k, v);
                 }
-                _ => return Err(Error::TypeNotExpected.into()),
+                _ => return Err(Error::TypeNotExpected),
             }
         }
 
-        let results = transaction.update_nodes(label, ids, props, partition_key_opt, info)?;
+        let results = transaction.update_nodes::<GlobalCtx, RequestCtx>(
+            label,
+            ids,
+            props,
+            partition_key_opt,
+            info,
+        )?;
 
         for (k, v) in inputs.into_iter() {
             let p = itd.property(&k)?;
@@ -567,13 +569,16 @@ where
                         for val in input_array {
                             visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                                 label,
+                                results.ids("n")?,
+                                /*
                                 Value::Array(
-                                    results
+                                    results.
                                         .clone()
                                         .into_iter()
                                         .map(|n| n.fields.get("id").unwrap().clone())
                                         .collect(),
                                 ),
+                                */
                                 &k,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
@@ -585,6 +590,8 @@ where
                     } else {
                         visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                             label,
+                            results.ids("n")?,
+                            /*
                             Value::Array(
                                 results
                                     .clone()
@@ -592,6 +599,7 @@ where
                                     .map(|n| n.fields.get("id").unwrap().clone())
                                     .collect(),
                             ),
+                            */
                             &k,
                             &Info::new(p.type_name().to_owned(), info.type_defs()),
                             partition_key_opt,
@@ -607,7 +615,7 @@ where
 
         Ok(results)
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -621,7 +629,7 @@ fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<(), FieldError>
+) -> Result<(), Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -657,7 +665,7 @@ where
             )?;
         } else if let Some(v) = m.remove("DELETE") {
             // Using remove to take ownership
-            visit_rel_delete_input(
+            visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 Some(src_ids),
                 rel_name,
@@ -688,11 +696,10 @@ where
         } else {
             return Err(Error::InputItemNotFound {
                 name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
-            }
-            .into());
+            });
         }
     } else {
-        return Err(Error::TypeNotExpected.into());
+        return Err(Error::TypeNotExpected);
     }
     Ok(())
 }
@@ -707,7 +714,7 @@ pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<T::ImplRelQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -744,7 +751,7 @@ where
 
         debug!("Query, params: {:#?}, {:#?}", query, params);
         let raw_results =
-            transaction.exec(&query, props_type_name, partition_key_opt, Some(params));
+            transaction.read_nodes(&query, props_type_name, partition_key_opt, Some(params));
         debug!("Raw result: {:#?}", raw_results);
         let results = raw_results?;
         let ids = results.ids(&(String::from(src_label) + &var_suffix))?;
@@ -814,10 +821,10 @@ where
                 }
                 Ok(result.unwrap())
             }
-            _ => Err(Error::TypeNotExpected.into()),
+            _ => Err(Error::TypeNotExpected),
         }
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -832,7 +839,7 @@ fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<T::ImplRelQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -880,11 +887,11 @@ where
 
         result
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
-pub(super) fn visit_rel_delete_input<T>(
+pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids_opt: Option<Value>,
     rel_name: &str,
@@ -892,7 +899,7 @@ pub(super) fn visit_rel_delete_input<T>(
     partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
-) -> Result<i32, FieldError>
+) -> Result<T::ImplDeleteQueryResponse, Error>
 where
     T: Transaction,
 {
@@ -931,7 +938,8 @@ where
             transaction,
         )?;
 
-        let read_results = transaction.exec(&read_query, None, partition_key_opt, Some(params))?;
+        let read_results =
+            transaction.read_rels(&read_query, None, partition_key_opt, Some(params))?;
         let rel_ids = read_results.ids(&(String::from(rel_name) + &src_suffix + &dst_suffix))?;
 
         let del_results =
@@ -939,7 +947,7 @@ where
 
         if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
-            visit_rel_src_delete_mutation_input(
+            visit_rel_src_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
                 src_label,
                 read_results.ids(&(src_label.to_string() + &src_suffix))?,
                 &Info::new(
@@ -954,7 +962,7 @@ where
 
         if let Some(dst) = m.remove("dst") {
             // Uses remove to take ownership
-            visit_rel_dst_delete_mutation_input(
+            visit_rel_dst_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
                 read_results.ids(&(String::from("dst") + &dst_suffix))?,
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
@@ -968,17 +976,17 @@ where
 
         Ok(del_results)
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
-fn visit_rel_dst_delete_mutation_input<T>(
+fn visit_rel_dst_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     ids: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
-) -> Result<i32, FieldError>
+) -> Result<T::ImplDeleteQueryResponse, Error>
 where
     T: Transaction,
 {
@@ -1000,7 +1008,7 @@ where
 
         let p = itd.property(&k)?;
 
-        visit_node_delete_mutation_input(
+        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
             &k,
             ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1009,7 +1017,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1024,7 +1032,7 @@ fn visit_rel_dst_query_input<T>(
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<(Option<String>, HashMap<String, Value>), FieldError>
+) -> Result<(Option<String>, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
@@ -1072,7 +1080,7 @@ fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplNodeQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1097,7 +1105,7 @@ where
 
         let p = itd.property(&k)?;
 
-        visit_node_update_mutation_input(
+        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             &k,
             ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1107,7 +1115,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1117,7 +1125,7 @@ fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<(String, Value), FieldError>
+) -> Result<(String, Value), Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1152,7 +1160,7 @@ where
 
         Ok((k.to_owned(), dst_ids))
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1171,7 +1179,7 @@ pub(super) fn visit_rel_query_input<T>(
     partition_key_opt: Option<&Value>,
     input_opt: Option<Value>,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), FieldError>
+) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
@@ -1241,7 +1249,7 @@ where
             (None, local_params)
         };
 
-        transaction.rel_query_string(
+        transaction.rel_query(
             // query,
             src_label,
             src_suffix,
@@ -1256,7 +1264,7 @@ where
             local_params,
         )
     } else {
-        transaction.rel_query_string(
+        transaction.rel_query(
             // query,
             src_label,
             src_suffix,
@@ -1273,14 +1281,14 @@ where
     }
 }
 
-fn visit_rel_src_delete_mutation_input<T>(
+fn visit_rel_src_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     label: &str,
     ids: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
     transaction: &mut T,
-) -> Result<i32, FieldError>
+) -> Result<T::ImplDeleteQueryResponse, Error>
 where
     T: Transaction,
 {
@@ -1303,7 +1311,7 @@ where
 
         let p = itd.property(&k)?;
 
-        visit_node_delete_mutation_input(
+        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
             label,
             ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1312,7 +1320,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1324,7 +1332,7 @@ fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     transaction: &mut T,
-) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+) -> Result<T::ImplNodeQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1350,7 +1358,7 @@ where
 
         let p = itd.property(&k)?;
 
-        visit_node_update_mutation_input(
+        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             label,
             ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1360,7 +1368,7 @@ where
             transaction,
         )
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1374,7 +1382,7 @@ fn visit_rel_src_query_input<T>(
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
     transaction: &mut T,
-) -> Result<(Option<String>, HashMap<String, Value>), FieldError>
+) -> Result<(Option<String>, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
@@ -1426,7 +1434,7 @@ pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<T::ImplRelQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1470,7 +1478,7 @@ where
             "visit_rel_update_input query, params: {:#?}, {:#?}",
             read_query, params
         );
-        let raw_read_results = transaction.exec(
+        let raw_read_results = transaction.read_rels(
             &read_query,
             props_type_name,
             partition_key_opt,
@@ -1501,11 +1509,10 @@ where
         } else {
             Err(Error::InputItemNotFound {
                 name: "update".to_string(),
-            }
-            .into())
+            })
         }
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
@@ -1522,7 +1529,7 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     props_type_name: Option<&str>,
     transaction: &mut T,
-) -> Result<T::ImplQueryResult, FieldError>
+) -> Result<T::ImplRelQueryResponse, Error>
 where
     T: Transaction,
     GlobalCtx: GlobalContext,
@@ -1596,11 +1603,11 @@ where
 
         Ok(results)
     } else {
-        Err(Error::TypeNotExpected.into())
+        Err(Error::TypeNotExpected)
     }
 }
 
-fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(), FieldError> {
+fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(), Error> {
     let func = validators.get(v).ok_or_else(|| Error::ValidatorNotFound {
         name: v.to_string(),
     })?;
@@ -1611,11 +1618,5 @@ fn validate_input(validators: &Validators, v: &str, input: &Value) -> Result<(),
         input
     );
 
-    func(input).or_else(|e| match e {
-        Error::ValidationFailed { message } => Err(FieldError::new(
-            message,
-            juniper::graphql_value!({ "internal_error": "Input validation failed" }),
-        )),
-        _ => Err(FieldError::from(e)),
-    })
+    func(input)
 }

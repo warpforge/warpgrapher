@@ -2,6 +2,8 @@
 
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinError;
+#[cfg(feature = "neo4j")]
+use rusted_cypher::GraphError;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 
@@ -81,6 +83,12 @@ pub enum Error {
     /// Returned if a neo4j database pool cannot be built
     #[cfg(feature = "neo4j")]
     Neo4jPoolNotBuilt { source: r2d2::Error },
+
+    /// Returned if a Neo4J database returns an error response to a Cypher query
+    #[cfg(feature = "neo4j")]
+    Neo4jQueryError {
+        source: rusted_cypher::error::GraphError,
+    },
 
     /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
     /// Cosmos DB
@@ -205,6 +213,10 @@ impl Display for Error {
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool. Source error: {}", source)
             }
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jQueryError { source } => {
+                write!(f, "Neo4J query failed. Source error: {}", source)
+            }
             Error::PartitionKeyNotFound => {
                 write!(f, "Partition keys are required when using Cosmos DB.")
             }
@@ -269,6 +281,8 @@ impl std::error::Error for Error {
             Error::InputItemNotFound { name: _ } => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jQueryError { source } => Some(source),
             Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
             Error::RelDuplicated { rel_name: _ } => None,
@@ -289,6 +303,13 @@ impl std::error::Error for Error {
 impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
     fn from(e: Box<dyn std::error::Error + Sync + Send>) -> Self {
         Error::ExtensionFailed { source: e }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<GraphError> for Error {
+    fn from(e: GraphError) -> Self {
+        Error::Neo4jQueryError { source: e }
     }
 }
 

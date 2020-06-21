@@ -10,7 +10,6 @@ use crate::engine::value::Value;
 use crate::error::Error;
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinClient;
-use juniper::FieldError;
 #[cfg(feature = "neo4j")]
 use r2d2::Pool;
 #[cfg(feature = "neo4j")]
@@ -54,17 +53,20 @@ pub trait DatabaseEndpoint {
     fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
-pub trait Transaction {
-    type ImplQueryResult: QueryResult;
-    fn begin(&self) -> Result<(), FieldError>;
-    fn commit(&mut self) -> Result<(), FieldError>;
+pub(crate) trait Transaction {
+    type ImplDeleteQueryResponse: DeleteQueryResponse;
+    type ImplNodeQueryResponse: NodeQueryResponse;
+    type ImplRelQueryResponse: RelQueryResponse;
+
+    fn begin(&self) -> Result<(), Error>;
+
     fn create_node<GlobalCtx, RequestCtx>(
         &mut self,
         label: &str,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+    ) -> Result<Self::ImplNodeQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
@@ -80,57 +82,10 @@ pub trait Transaction {
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError>
+    ) -> Result<Self::ImplRelQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
-    fn delete_nodes(
-        &mut self,
-        label: &str,
-        ids: Value,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<i32, FieldError>;
-    fn delete_rels(
-        &mut self,
-        src_label: &str,
-        rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<i32, FieldError>;
-    fn exec(
-        &mut self,
-        query: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
-    ) -> Result<Self::ImplQueryResult, FieldError>;
-    fn update_nodes<GlobalCtx, RequestCtx>(
-        &mut self,
-        label: &str,
-        ids: Value,
-        props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
-    #[allow(clippy::too_many_arguments)]
-    fn update_rels<GlobalCtx, RequestCtx>(
-        &mut self,
-        src_label: &str,
-        rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
-        props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
-        info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
-
     #[allow(clippy::too_many_arguments)]
     fn node_query(
         &mut self,
@@ -142,10 +97,10 @@ pub trait Transaction {
         return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), FieldError>;
+    ) -> Result<(String, HashMap<String, Value>), Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn rel_query_string(
+    fn rel_query(
         &mut self,
         src_label: &str,
         src_suffix: &str,
@@ -158,32 +113,92 @@ pub trait Transaction {
         return_rel: bool,
         props: HashMap<String, Value>,
         params: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), FieldError>;
+    ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn rollback(&mut self) -> Result<(), FieldError>;
-}
-
-pub trait QueryResult: Debug {
-    fn merge(&mut self, r: Self);
-    fn nodes<GlobalCtx, RequestCtx>(
-        self,
-        name: &str,
+    fn read_nodes(
+        &mut self,
+        query: &str,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        params: Option<HashMap<String, Value>>,
+    ) -> Result<Self::ImplNodeQueryResponse, Error>;
+    fn read_rels(
+        &mut self,
+        query: &str,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        params: Option<HashMap<String, Value>>,
+    ) -> Result<Self::ImplRelQueryResponse, Error>;
+    fn update_nodes<GlobalCtx, RequestCtx>(
+        &mut self,
+        label: &str,
+        ids: Value,
+        props: HashMap<String, Value>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplNodeQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
 
     #[allow(clippy::too_many_arguments)]
-    fn rels<GlobalCtx, RequestCtx>(
+    fn update_rels<GlobalCtx, RequestCtx>(
         &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: Option<&Value>,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Self::ImplRelQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext;
-    fn ids(&self, column_name: &str) -> Result<Value, FieldError>;
-    fn count(&self) -> Result<i32, FieldError>;
-    fn len(&self) -> i32;
-    fn is_empty(&self) -> bool;
+
+    fn delete_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Self::ImplDeleteQueryResponse, Error>;
+    fn delete_rels(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
+    ) -> Result<Self::ImplDeleteQueryResponse, Error>;
+
+    fn commit(&mut self) -> Result<(), Error>;
+    fn rollback(&mut self) -> Result<(), Error>;
+}
+
+pub(crate) trait DeleteQueryResponse: Debug {
+    fn count(&self) -> Result<i32, Error>;
+}
+
+pub(crate) trait NodeQueryResponse: Debug {
+    fn ids(&self, column_name: &str) -> Result<Value, Error>;
+    fn nodes<GlobalCtx, RequestCtx>(
+        self,
+        name: &str,
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
+}
+
+pub(crate) trait RelQueryResponse: Debug {
+    fn ids(&self, column_name: &str) -> Result<Value, Error>;
+    fn merge(&mut self, r: Self);
+    fn rels<GlobalCtx, RequestCtx>(
+        &mut self,
+        info: &Info,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext;
 }

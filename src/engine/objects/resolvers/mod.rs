@@ -1,7 +1,9 @@
 use super::Input;
 use super::Node;
 use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
-use crate::engine::database::{QueryResult, Transaction};
+use crate::engine::database::{
+    DeleteQueryResponse, NodeQueryResponse, RelQueryResponse, Transaction,
+};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -153,7 +155,7 @@ where
         let itd = p.input_type_definition(info)?;
 
         self.transaction.begin()?;
-        let results = visit_node_create_mutation_input(
+        let results = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
             &p.type_name(),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -169,9 +171,17 @@ where
             self.transaction.rollback()?;
         }
 
+        let ret = results?;
+        let nodes = ret.nodes(p.type_name(), info)?;
+        let node = nodes
+            .iter()
+            .next()
+            .ok_or_else(|| Error::ResponseSetNotFound)?;
+
+        trace!("Results: {:#?}", node);
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results?,
+            &node,
         )
     }
 
@@ -197,7 +207,7 @@ where
         let suffix = sg.suffix();
 
         self.transaction.begin()?;
-        let results = visit_node_delete_input(
+        let results = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
             label,
             &suffix,
             &mut sg,
@@ -214,7 +224,7 @@ where
             self.transaction.rollback()?;
         }
 
-        self.executor.resolve_with_ctx(&(), &results?)
+        self.executor.resolve_with_ctx(&(), &results?.count()?)
     }
 
     pub(super) fn resolve_node_read_query(
@@ -249,9 +259,9 @@ where
             input_opt.map(|i| i.value),
             self.transaction,
         )?;
-        let results = self
-            .transaction
-            .exec(&query, None, self.partition_key_opt, Some(params));
+        let results =
+            self.transaction
+                .read_nodes(&query, None, self.partition_key_opt, Some(params));
         trace!("resolve_node_read_query -- results: {:#?}", results);
 
         if results.is_ok() {
@@ -292,7 +302,7 @@ where
         let itd = p.input_type_definition(info)?;
 
         self.transaction.begin()?;
-        let result = visit_node_update_input(
+        let result = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
             &p.type_name(),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -310,7 +320,7 @@ where
 
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &result?,
+            &result?.nodes(p.type_name(), info)?,
         )
     }
 
@@ -395,7 +405,7 @@ where
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        let raw_results = visit_rel_delete_input(
+        let raw_results = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,
             rel_name,
@@ -414,7 +424,7 @@ where
 
         let results = raw_results?;
 
-        self.executor.resolve_with_ctx(&(), &results)
+        self.executor.resolve_with_ctx(&(), &results.count()?)
     }
 
     pub(super) fn resolve_rel_field(
@@ -513,7 +523,7 @@ where
             "resolve_rel_read_query Query query, params: {:#?} {:#?}",
             query, params
         );
-        let raw_results = self.transaction.exec(
+        let raw_results = self.transaction.read_rels(
             &query,
             Some(p.type_name()),
             self.partition_key_opt,

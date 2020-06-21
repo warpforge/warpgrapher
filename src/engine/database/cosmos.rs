@@ -1,13 +1,15 @@
 //! Provides database interface types and functions for Cosmos DB
 
-use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, QueryResult, Transaction};
+use super::{
+    env_string, env_u16, DatabaseEndpoint, DatabasePool, DeleteQueryResponse, NodeQueryResponse,
+    RelQueryResponse, Transaction,
+};
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
 use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, ToGValue};
-use juniper::FieldError;
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -96,29 +98,8 @@ impl DatabaseEndpoint for CosmosEndpoint {
     }
 }
 
-/// A Cosmos DB transaction is the interface for making queries against the back-end database.
-/// Notably, this struct is a little mis-named, at the moment, in that it doesn't provide any
-/// transactional ACID capabilities. It's just a placeholder for query capability, to follow the
-/// trait signatures. Later there may be an effort to support Cosmos DB optimitistic concurrency
-/// model.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use warpgrapher::Error;
-/// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
-/// # use warpgrapher::engine::database::cosmos::{CosmosEndpoint, CosmosTransaction};
-/// #
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let ce = CosmosEndpoint::from_env()?;
-///     if let DatabasePool::Cosmos(client) = ce.pool()? {
-///         let transaction = CosmosTransaction::new(client.clone());
-///     }
-/// #   Ok(())
-/// # }
-/// ```
 #[derive(Clone, Debug)]
-pub struct CosmosTransaction {
+pub(crate) struct CosmosTransaction {
     client: GremlinClient,
 }
 
@@ -129,12 +110,11 @@ impl CosmosTransaction {
 }
 
 impl Transaction for CosmosTransaction {
-    type ImplQueryResult = CosmosQueryResult;
-    fn begin(&self) -> Result<(), FieldError> {
-        Ok(())
-    }
+    type ImplDeleteQueryResponse = CosmosDeleteQueryResponse;
+    type ImplNodeQueryResponse = CosmosNodeQueryResponse;
+    type ImplRelQueryResponse = CosmosRelQueryResponse;
 
-    fn commit(&mut self) -> Result<(), FieldError> {
+    fn begin(&self) -> Result<(), Error> {
         Ok(())
     }
 
@@ -143,8 +123,8 @@ impl Transaction for CosmosTransaction {
         label: &str,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
-        info: &Info,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, FieldError>
+        _info: &Info,
+    ) -> Result<Self::ImplNodeQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -177,12 +157,35 @@ impl Transaction for CosmosTransaction {
         }
         query.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
+        if let Some(pk) = partition_key_opt {
+            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+            let pms = params;
+            for (k, v) in pms.iter() {
+                param_list.push((k.as_str(), v))
+            }
+            param_list.push(("partitionKey", pk));
+
+            let raw_results = self.client.execute(query, param_list.as_slice());
+            let results = raw_results?;
+
+            let mut v = Vec::new();
+            for r in results {
+                v.push(r?);
+            }
+
+            Ok(CosmosNodeQueryResponse::new(None, partition_key_opt, v))
+        } else {
+            Err(Error::PartitionKeyNotFound)
+        }
+
+        /*
         Ok(self
             .exec(&query, None, partition_key_opt, Some(params))?
             .nodes(label, info)?
             .into_iter()
             .next()
             .unwrap())
+            */
     }
 
     fn create_rels<GlobalCtx, RequestCtx>(
@@ -196,7 +199,7 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
         info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError>
+    ) -> Result<Self::ImplRelQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -229,21 +232,36 @@ impl Transaction for CosmosTransaction {
                         }
                     } else {
                         trace!("src_id_vec element not a  string");
-                        return Err(Error::TypeNotExpected.into());
+                        return Err(Error::TypeNotExpected);
                     }
                 }
                 check_query.push_str(&(String::from(").outE('") + rel_name + "').count()"));
-                let check_results = self.exec(
-                    &check_query,
-                    props_type_name,
-                    partition_key_opt,
-                    Some(props.clone()),
-                )?; // TODO -- remove cloning
-                if check_results.count()? > 0 || dst_id_vec.len() > 1 {
-                    return Err(Error::RelDuplicated {
-                        rel_name: rel_name.to_string(),
+
+                if let Some(pk) = partition_key_opt {
+                    let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                    let pms = params;
+                    for (k, v) in pms.iter() {
+                        param_list.push((k.as_str(), v))
                     }
-                    .into()); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
+                    param_list.push(("partitionKey", pk));
+
+                    let raw_check_results = self.client.execute(check_query, param_list.as_slice());
+                    let check_results = raw_check_results?;
+
+                    let mut rv = Vec::new();
+                    for r in check_results {
+                        rv.push(r?);
+                    }
+
+                    let check_final = CosmosDeleteQueryResponse::new(None, partition_key_opt, rv);
+
+                    if check_final.count()? > 0 || dst_id_vec.len() > 1 {
+                        return Err(Error::RelDuplicated {
+                            rel_name: rel_name.to_string(),
+                        }); // TODO -- the multi-dst condition should have its own error kind for selecting too many destination nodes
+                    }
+                } else {
+                    return Err(Error::PartitionKeyNotFound);
                 }
             }
 
@@ -261,7 +279,7 @@ impl Transaction for CosmosTransaction {
                     }
                 } else {
                     trace!("dst_id_vec element not a  string");
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
 
@@ -280,7 +298,7 @@ impl Transaction for CosmosTransaction {
                     }
                 } else {
                     trace!("src_id_vec element not a string");
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
 
@@ -301,125 +319,33 @@ impl Transaction for CosmosTransaction {
 
             trace!("CosmosTransaction::rel_create about to exec query -- query: {}, partition_key_opt: {:#?}, props: {:#?}", query, partition_key_opt, props);
 
-            self.exec(&query, props_type_name, partition_key_opt, Some(props))
-        // .rels(info)
+            if let Some(pk) = partition_key_opt {
+                let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                let pms = props;
+                for (k, v) in pms.iter() {
+                    param_list.push((k.as_str(), v))
+                }
+                param_list.push(("partitionKey", pk));
+
+                let raw_results = self.client.execute(query, param_list.as_slice());
+                let results = raw_results?;
+
+                let mut v = Vec::new();
+                for r in results {
+                    v.push(r?);
+                }
+
+                Ok(CosmosRelQueryResponse::new(
+                    props_type_name,
+                    partition_key_opt,
+                    v,
+                ))
+            } else {
+                Err(Error::PartitionKeyNotFound)
+            }
         } else {
             trace!("src or dst argument not an array of strings");
-            Err(Error::TypeNotExpected.into())
-        }
-    }
-
-    fn delete_nodes(
-        &mut self,
-        label: &str,
-        ids: Value,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<i32, FieldError> {
-        if let Value::Array(idvec) = ids {
-            let mut qs = String::from("g.V().hasLabel('") + label + "')";
-            qs.push_str(".has('partitionKey', partitionKey)");
-
-            let length = idvec.len();
-            qs.push_str(".hasId(");
-            for (i, id) in idvec.iter().enumerate() {
-                if let Value::String(id_str) = id {
-                    if i == 0 {
-                        qs.push_str(&(String::from("'") + &id_str + "'"));
-                    } else {
-                        qs.push_str(&(String::from(", '") + &id_str + "'"));
-                    }
-                } else {
-                    return Err(Error::TypeNotExpected.into());
-                }
-            }
-
-            qs.push_str(").drop()");
-
-            self.exec(&qs, None, partition_key_opt, None)?;
-
-            let mut v: Vec<GValue> = Vec::new();
-            v.push(GValue::Int32(length as i32));
-            Ok(length as i32)
-        } else {
-            Err(Error::TypeNotExpected.into())
-        }
-    }
-
-    fn delete_rels(
-        &mut self,
-        _src_label: &str,
-        rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
-        _info: &Info,
-    ) -> Result<i32, FieldError> {
-        if let Value::Array(idvec) = rel_ids {
-            let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
-            qs.push_str(".has('partitionKey', partitionKey)");
-
-            let length = idvec.len();
-            qs.push_str(".hasId(");
-            for (i, id) in idvec.iter().enumerate() {
-                if let Value::String(id_str) = id {
-                    if i == 0 {
-                        qs.push_str(&(String::from("'") + &id_str + "'"));
-                    } else {
-                        qs.push_str(&(String::from(", '") + &id_str + "'"));
-                    }
-                } else {
-                    return Err(Error::TypeNotExpected.into());
-                }
-            }
-
-            qs.push_str(").drop()");
-
-            self.exec(&qs, None, partition_key_opt, None)?;
-
-            let mut v: Vec<GValue> = Vec::new();
-            v.push(GValue::Int32(length as i32));
-            Ok(length as i32)
-        } else {
-            Err(Error::TypeNotExpected.into())
-        }
-    }
-
-    fn exec(
-        &mut self,
-        query: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
-    ) -> Result<CosmosQueryResult, FieldError> {
-        trace!(
-            "CosmosTransaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
-            query,
-            partition_key_opt,
-            params
-        );
-
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            let pms = params.unwrap_or_else(HashMap::new);
-            for (k, v) in pms.iter() {
-                param_list.push((k.as_str(), v))
-            }
-            param_list.push(("partitionKey", pk));
-
-            let raw_results = self.client.execute(query, param_list.as_slice());
-            let results = raw_results?;
-
-            let mut v = Vec::new();
-            for r in results {
-                v.push(r?);
-            }
-
-            Ok(CosmosQueryResult::new(
-                props_type_name,
-                partition_key_opt,
-                v,
-            ))
-        } else {
-            Err(Error::PartitionKeyNotFound.into())
+            Err(Error::TypeNotExpected)
         }
     }
 
@@ -435,7 +361,7 @@ impl Transaction for CosmosTransaction {
         return_node: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), FieldError> {
+    ) -> Result<(String, HashMap<String, Value>), Error> {
         trace!(
             "transaction::node_query_string called, label: {}, union_type: {:#?}, return_node: {:#?}, param_suffix: {}",
             label, union_type, return_node, param_suffix
@@ -488,7 +414,7 @@ impl Transaction for CosmosTransaction {
         Ok((qs, params))
     }
 
-    fn rel_query_string(
+    fn rel_query(
         &mut self,
         src_label: &str,
         src_suffix: &str,
@@ -501,7 +427,7 @@ impl Transaction for CosmosTransaction {
         return_rel: bool,
         props: HashMap<String, Value>,
         mut params: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), FieldError> {
+    ) -> Result<(String, HashMap<String, Value>), Error> {
         let mut qs = String::new();
 
         if return_rel {
@@ -542,7 +468,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
 
@@ -568,8 +494,84 @@ impl Transaction for CosmosTransaction {
         Ok((qs, params))
     }
 
-    fn rollback(&mut self) -> Result<(), FieldError> {
-        Ok(())
+    fn read_nodes(
+        &mut self,
+        query: &str,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        params: Option<HashMap<String, Value>>,
+    ) -> Result<Self::ImplNodeQueryResponse, Error> {
+        trace!(
+            "CosmosTransaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
+            query,
+            partition_key_opt,
+            params
+        );
+
+        if let Some(pk) = partition_key_opt {
+            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+            let pms = params.unwrap_or_else(HashMap::new);
+            for (k, v) in pms.iter() {
+                param_list.push((k.as_str(), v))
+            }
+            param_list.push(("partitionKey", pk));
+
+            let raw_results = self.client.execute(query, param_list.as_slice());
+            let results = raw_results?;
+
+            let mut v = Vec::new();
+            for r in results {
+                v.push(r?);
+            }
+
+            Ok(CosmosNodeQueryResponse::new(
+                props_type_name,
+                partition_key_opt,
+                v,
+            ))
+        } else {
+            Err(Error::PartitionKeyNotFound)
+        }
+    }
+
+    fn read_rels(
+        &mut self,
+        query: &str,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        params: Option<HashMap<String, Value>>,
+    ) -> Result<Self::ImplRelQueryResponse, Error> {
+        trace!(
+            "CosmosTransaction::exec called -- query: {}, partition_key: {:#?}, param: {:#?}",
+            query,
+            partition_key_opt,
+            params
+        );
+
+        if let Some(pk) = partition_key_opt {
+            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+            let pms = params.unwrap_or_else(HashMap::new);
+            for (k, v) in pms.iter() {
+                param_list.push((k.as_str(), v))
+            }
+            param_list.push(("partitionKey", pk));
+
+            let raw_results = self.client.execute(query, param_list.as_slice());
+            let results = raw_results?;
+
+            let mut v = Vec::new();
+            for r in results {
+                v.push(r?);
+            }
+
+            Ok(CosmosRelQueryResponse::new(
+                props_type_name,
+                partition_key_opt,
+                v,
+            ))
+        } else {
+            Err(Error::PartitionKeyNotFound)
+        }
     }
 
     fn update_nodes<GlobalCtx, RequestCtx>(
@@ -578,8 +580,8 @@ impl Transaction for CosmosTransaction {
         ids: Value,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+        _info: &Info,
+    ) -> Result<Self::ImplNodeQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -599,7 +601,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
 
@@ -631,10 +633,28 @@ impl Transaction for CosmosTransaction {
             }
             qs.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
 
-            self.exec(&qs, None, partition_key_opt, Some(params))?
-                .nodes(label, info)
+            if let Some(pk) = partition_key_opt {
+                let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                let pms = params;
+                for (k, v) in pms.iter() {
+                    param_list.push((k.as_str(), v))
+                }
+                param_list.push(("partitionKey", pk));
+
+                let raw_results = self.client.execute(qs, param_list.as_slice());
+                let results = raw_results?;
+
+                let mut v = Vec::new();
+                for r in results {
+                    v.push(r?);
+                }
+
+                Ok(CosmosNodeQueryResponse::new(None, partition_key_opt, v))
+            } else {
+                Err(Error::PartitionKeyNotFound)
+            }
         } else {
-            Err(Error::TypeNotExpected.into())
+            Err(Error::TypeNotExpected)
         }
     }
 
@@ -647,7 +667,7 @@ impl Transaction for CosmosTransaction {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         _info: &Info,
-    ) -> Result<Self::ImplQueryResult, FieldError>
+    ) -> Result<Self::ImplRelQueryResponse, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -667,7 +687,7 @@ impl Transaction for CosmosTransaction {
                         qs.push_str(&(String::from(", '") + &id_str + "'"));
                     }
                 } else {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             }
             qs.push_str(")");
@@ -680,28 +700,146 @@ impl Transaction for CosmosTransaction {
             qs.push_str(".by(outV().id()).by(outV().label()).by(outV().valueMap())");
             qs.push_str(".by(inV().id()).by(inV().label()).by(inV().valueMap())");
 
-            self.exec(&qs, props_type_name, partition_key_opt, Some(props))
-        // .rels(info)
+            if let Some(pk) = partition_key_opt {
+                let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                let pms = props;
+                for (k, v) in pms.iter() {
+                    param_list.push((k.as_str(), v))
+                }
+                param_list.push(("partitionKey", pk));
+
+                let raw_results = self.client.execute(qs, param_list.as_slice());
+                let results = raw_results?;
+
+                let mut v = Vec::new();
+                for r in results {
+                    v.push(r?);
+                }
+
+                Ok(CosmosRelQueryResponse::new(
+                    props_type_name,
+                    partition_key_opt,
+                    v,
+                ))
+            } else {
+                Err(Error::PartitionKeyNotFound)
+            }
         } else {
-            Err(Error::TypeNotExpected.into())
+            Err(Error::TypeNotExpected)
         }
+    }
+
+    fn delete_nodes(
+        &mut self,
+        label: &str,
+        ids: Value,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Self::ImplDeleteQueryResponse, Error> {
+        if let Value::Array(idvec) = ids {
+            let mut qs = String::from("g.V().hasLabel('") + label + "')";
+            qs.push_str(".has('partitionKey', partitionKey)");
+
+            let length = idvec.len();
+            qs.push_str(".hasId(");
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::TypeNotExpected);
+                }
+            }
+
+            qs.push_str(").drop()");
+
+            if let Some(pk) = partition_key_opt {
+                let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                param_list.push(("partitionKey", pk));
+
+                self.client.execute(qs, param_list.as_slice())?;
+
+                let mut v: Vec<GValue> = Vec::new();
+                v.push(GValue::Int32(length as i32));
+                Ok(CosmosDeleteQueryResponse::new(None, partition_key_opt, v))
+            } else {
+                Err(Error::PartitionKeyNotFound)
+            }
+        } else {
+            Err(Error::TypeNotExpected)
+        }
+    }
+
+    fn delete_rels(
+        &mut self,
+        _src_label: &str,
+        rel_name: &str,
+        rel_ids: Value,
+        partition_key_opt: Option<&Value>,
+        _info: &Info,
+    ) -> Result<Self::ImplDeleteQueryResponse, Error> {
+        if let Value::Array(idvec) = rel_ids {
+            let mut qs = String::from("g.E().hasLabel('") + rel_name + "')";
+            qs.push_str(".has('partitionKey', partitionKey)");
+
+            let length = idvec.len();
+            qs.push_str(".hasId(");
+            for (i, id) in idvec.iter().enumerate() {
+                if let Value::String(id_str) = id {
+                    if i == 0 {
+                        qs.push_str(&(String::from("'") + &id_str + "'"));
+                    } else {
+                        qs.push_str(&(String::from(", '") + &id_str + "'"));
+                    }
+                } else {
+                    return Err(Error::TypeNotExpected);
+                }
+            }
+
+            qs.push_str(").drop()");
+
+            if let Some(pk) = partition_key_opt {
+                let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
+                param_list.push(("partitionKey", pk));
+
+                self.client.execute(qs, param_list.as_slice())?;
+
+                let mut v: Vec<GValue> = Vec::new();
+                v.push(GValue::Int32(length as i32));
+                Ok(CosmosDeleteQueryResponse::new(None, partition_key_opt, v))
+            } else {
+                Err(Error::PartitionKeyNotFound)
+            }
+        } else {
+            Err(Error::TypeNotExpected)
+        }
+    }
+
+    fn commit(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn rollback(&mut self) -> Result<(), Error> {
+        Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct CosmosQueryResult {
+pub(crate) struct CosmosDeleteQueryResponse {
     partition_key_opt: Option<Value>,
     props_type_name: Option<String>,
     results: Vec<GValue>,
 }
 
-impl CosmosQueryResult {
+impl CosmosDeleteQueryResponse {
     fn new(
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         results: Vec<GValue>,
-    ) -> CosmosQueryResult {
-        CosmosQueryResult {
+    ) -> CosmosDeleteQueryResponse {
+        CosmosDeleteQueryResponse {
             partition_key_opt: partition_key_opt.cloned(),
             props_type_name: props_type_name.map(|s| s.to_string()),
             results,
@@ -709,16 +847,47 @@ impl CosmosQueryResult {
     }
 }
 
-impl QueryResult for CosmosQueryResult {
-    fn merge(&mut self, mut r: Self) {
-        self.results.append(&mut r.results);
-    }
+impl DeleteQueryResponse for CosmosDeleteQueryResponse {
+    fn count(&self) -> Result<i32, Error> {
+        trace!("CosmosQueryResult::count self.results: {:#?}", self.results);
 
+        if let Some(GValue::Int32(i)) = self.results.get(0) {
+            Ok(*i)
+        } else if let Some(GValue::Int64(i)) = self.results.get(0) {
+            Ok(*i as i32)
+        } else {
+            Err(Error::TypeNotExpected)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct CosmosNodeQueryResponse {
+    partition_key_opt: Option<Value>,
+    props_type_name: Option<String>,
+    results: Vec<GValue>,
+}
+
+impl CosmosNodeQueryResponse {
+    fn new(
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        results: Vec<GValue>,
+    ) -> CosmosNodeQueryResponse {
+        CosmosNodeQueryResponse {
+            partition_key_opt: partition_key_opt.cloned(),
+            props_type_name: props_type_name.map(|s| s.to_string()),
+            results,
+        }
+    }
+}
+
+impl NodeQueryResponse for CosmosNodeQueryResponse {
     fn nodes<GlobalCtx, RequestCtx>(
         self,
         _name: &str,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -738,7 +907,7 @@ impl QueryResult for CosmosQueryResult {
                     if let GKey::String(s) = k {
                         hm.insert(s, v);
                     } else {
-                        return Err(Error::TypeNotExpected.into());
+                        return Err(Error::TypeNotExpected);
                     }
                 }
 
@@ -774,16 +943,16 @@ impl QueryResult for CosmosQueryResult {
                                 fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::TypeNotExpected.into());
+                            return Err(Error::TypeNotExpected);
                         }
                     }
 
                     v.push(Node::new(label.to_owned(), fields))
                 } else {
-                    return Err(Error::TypeNotExpected.into());
+                    return Err(Error::TypeNotExpected);
                 }
             } else {
-                return Err(Error::TypeNotExpected.into());
+                return Err(Error::TypeNotExpected);
             }
         }
 
@@ -792,10 +961,63 @@ impl QueryResult for CosmosQueryResult {
         Ok(v)
     }
 
+    fn ids(&self, _type_name: &str) -> Result<Value, Error> {
+        /*
+        trace!(
+            "CosmosQueryResult::ids self.results: {:#?}",
+            self.results
+        );
+        */
+        let mut v = Vec::new();
+        for result in &self.results {
+            if let GValue::Map(map) = result {
+                if let Some(GValue::String(id)) = map.get("nID") {
+                    v.push(Value::String(id.to_string()));
+                } else if let Some(GValue::String(id)) = map.get("rID") {
+                    v.push(Value::String(id.to_string()));
+                } else {
+                    return Err(Error::ResponseItemNotFound {
+                        name: "ID".to_string(),
+                    });
+                }
+            } else {
+                return Err(Error::TypeNotExpected);
+            }
+        }
+        Ok(Value::Array(v))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct CosmosRelQueryResponse {
+    partition_key_opt: Option<Value>,
+    props_type_name: Option<String>,
+    results: Vec<GValue>,
+}
+
+impl CosmosRelQueryResponse {
+    fn new(
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        results: Vec<GValue>,
+    ) -> CosmosRelQueryResponse {
+        CosmosRelQueryResponse {
+            partition_key_opt: partition_key_opt.cloned(),
+            props_type_name: props_type_name.map(|s| s.to_string()),
+            results,
+        }
+    }
+}
+
+impl RelQueryResponse for CosmosRelQueryResponse {
+    fn merge(&mut self, mut r: Self) {
+        self.results.append(&mut r.results);
+    }
+
     fn rels<GlobalCtx, RequestCtx>(
         &mut self,
         info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, FieldError>
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
     where
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -813,7 +1035,7 @@ impl QueryResult for CosmosQueryResult {
                     if let GKey::String(s) = k {
                         hm.insert(s, v);
                     } else {
-                        return Err(Error::TypeNotExpected.into());
+                        return Err(Error::TypeNotExpected);
                     }
                 }
 
@@ -865,7 +1087,7 @@ impl QueryResult for CosmosQueryResult {
                                 src_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::TypeNotExpected.into());
+                            return Err(Error::TypeNotExpected);
                         }
                     }
 
@@ -896,7 +1118,7 @@ impl QueryResult for CosmosQueryResult {
                                 dst_fields.insert(k.to_owned(), Value::Array(prop_vals));
                             }
                         } else {
-                            return Err(Error::TypeNotExpected.into());
+                            return Err(Error::TypeNotExpected);
                         }
                     }
 
@@ -906,7 +1128,7 @@ impl QueryResult for CosmosQueryResult {
                         if let GKey::String(k) = key {
                             rel_fields.insert(k.to_owned(), v.clone().try_into()?);
                         } else {
-                            return Err(Error::TypeNotExpected.into());
+                            return Err(Error::TypeNotExpected);
                         }
                     }
 
@@ -925,11 +1147,10 @@ impl QueryResult for CosmosQueryResult {
                 } else {
                     return Err(Error::ResponseItemNotFound {
                         name: "Rel, src, or dst".to_string(),
-                    }
-                    .into());
+                    });
                 }
             } else {
-                return Err(Error::TypeNotExpected.into());
+                return Err(Error::TypeNotExpected);
             }
         }
 
@@ -938,7 +1159,7 @@ impl QueryResult for CosmosQueryResult {
         Ok(v)
     }
 
-    fn ids(&self, _type_name: &str) -> Result<Value, FieldError> {
+    fn ids(&self, _type_name: &str) -> Result<Value, Error> {
         /*
         trace!(
             "CosmosQueryResult::ids self.results: {:#?}",
@@ -955,39 +1176,13 @@ impl QueryResult for CosmosQueryResult {
                 } else {
                     return Err(Error::ResponseItemNotFound {
                         name: "ID".to_string(),
-                    }
-                    .into());
+                    });
                 }
             } else {
-                return Err(Error::TypeNotExpected.into());
+                return Err(Error::TypeNotExpected);
             }
         }
         Ok(Value::Array(v))
-    }
-
-    fn count(&self) -> Result<i32, FieldError> {
-        trace!("CosmosQueryResult::count self.results: {:#?}", self.results);
-
-        if let Some(GValue::Int32(i)) = self.results.get(0) {
-            Ok(*i)
-        } else if let Some(GValue::Int64(i)) = self.results.get(0) {
-            Ok(*i as i32)
-        } else {
-            Err(Error::TypeNotExpected.into())
-        }
-    }
-
-    fn len(&self) -> i32 {
-        trace!("CosmosQueryResult::len self.results: {:#?}", self.results);
-        0
-    }
-
-    fn is_empty(&self) -> bool {
-        trace!(
-            "CosmosQueryResult::is_empty self.results: {:#?}",
-            self.results
-        );
-        true
     }
 }
 
