@@ -16,8 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DB_URL: http://neo4j:testpass@localhost:7474/db/data
-      DB_PASS: testpass
+      WG_NEO4J_URL: http://neo4j:testpass@localhost:7474/db/data
       
     steps:
     - uses: actions/checkout@v2
