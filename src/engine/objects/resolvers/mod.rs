@@ -138,6 +138,38 @@ where
         ))
     }
 
+    pub(super) fn resolve_node_by_id(
+        &mut self,
+        _field_name: &str,
+        label: &str,
+        info: &Info,
+        id: Value,
+    ) -> ExecutionResult {
+        let mut props = HashMap::new();
+        props.insert("id".to_string(), id);
+        let (query, params) = self.transaction.node_query(
+            Vec::new(),
+            HashMap::new(),
+            label,
+            "",
+            false,
+            true,
+            "",
+            props,
+        )?;
+        let response =
+            self.transaction
+                .read_nodes(&query, None, self.partition_key_opt, Some(params))?;
+
+        self.executor.resolve(
+            &Info::new(label.to_string(), info.type_defs()),
+            &response
+                .nodes(label, info)?
+                .first()
+                .ok_or_else(|| Error::ResponseSetNotFound)?,
+        )
+    }
+
     pub(super) fn resolve_node_create_mutation(
         &mut self,
         field_name: &str,
@@ -699,27 +731,60 @@ where
     pub(super) fn resolve_union_field(
         &mut self,
         info: &Info,
+        dst_label: &str,
         field_name: &str,
-        src: &Node<GlobalCtx, RequestCtx>,
-        dst: &Node<GlobalCtx, RequestCtx>,
+        // src: &Node<GlobalCtx, RequestCtx>,
+        dst_id: &Value,
     ) -> ExecutionResult {
         trace!(
-            "resolve_union_field called -- info.name: {}, field_name: {}, src: {}, dst: {}",
+            "resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
             info.name(),
             field_name,
-            src.concrete_typename,
-            dst.concrete_typename
+            dst_id
         );
 
         match field_name {
-            "dst" => self.executor.resolve(
-                &Info::new(dst.concrete_typename.to_owned(), info.type_defs()),
-                dst,
-            ),
+            "dst" => {
+                let mut props = HashMap::new();
+                props.insert("id".to_string(), dst_id.clone());
+                let (query, params) = self.transaction.node_query(
+                    Vec::new(),
+                    HashMap::new(),
+                    dst_label,
+                    "",
+                    false,
+                    true,
+                    "",
+                    props,
+                )?;
+                let response = self.transaction.read_nodes(
+                    &query,
+                    None,
+                    self.partition_key_opt,
+                    Some(params),
+                )?;
+
+                self.executor.resolve(
+                    &Info::new(dst_label.to_string(), info.type_defs()),
+                    &response
+                        .nodes(&dst_label.to_string(), info)?
+                        .first()
+                        .ok_or_else(|| Error::ResponseSetNotFound)?,
+                )
+                /*
+
+                    self.executor.resolve(
+                    &Info::new(dst.concrete_typename.to_owned(), info.type_defs()),
+                    dst,
+                ),
+                */
+            }
+            /*
             "src" => self.executor.resolve(
                 &Info::new(src.concrete_typename.to_owned(), info.type_defs()),
                 src,
             ),
+            */
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,
             }

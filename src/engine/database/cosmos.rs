@@ -5,14 +5,13 @@ use super::{
     RelQueryResponse, Transaction,
 };
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
 use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, ToGValue};
 use log::trace;
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -1141,8 +1140,8 @@ impl RelQueryResponse for CosmosRelQueryResponse {
                             }
                             None => None,
                         },
-                        Cow::Owned(Node::new(src_label.to_string(), src_fields)),
-                        Cow::Owned(Node::new(dst_label.to_string(), dst_fields)),
+                        NodeRef::new(Value::String(src_id.to_string()), src_label.to_string()),
+                        NodeRef::new(Value::String(dst_id.to_string()), dst_label.to_string()),
                     ));
                 } else {
                     return Err(Error::ResponseItemNotFound {

@@ -3,12 +3,11 @@
 
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
 use inflector::Inflector;
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub use juniper::{Arguments, ExecutionResult, Executor};
@@ -25,7 +24,7 @@ pub enum Object<'a, GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     /// Wraps a [`Rel`] being passed to a custom resolver
     ///
     /// [`Rel`] ../objects/struct.Rel.html
-    Rel(&'a Rel<'a, GlobalCtx, RequestCtx>),
+    Rel(&'a Rel<GlobalCtx, RequestCtx>),
 }
 
 /// Type alias for custom resolver functions. Takes a [`ResolverFacade`] and returns an
@@ -149,34 +148,33 @@ where
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
-    ///     let id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
-    ///     
-    ///     let mut props = HashMap::new();
-    ///     props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
-    ///     let dst = facade.create_node("User", HashMap::new());
+    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///     let mut rel_props = HashMap::new();
+    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
-    ///     let rel = facade.create_rel(id, Some(props), &dst)?;
-    ///
+    ///     let rel = facade.create_rel(rel_id, Some(rel_props), node_id, "DstNodeLabel")?;
     ///     facade.resolve_rel(&rel)
     /// }
     /// ```
-    pub fn create_rel<'b>(
+    pub fn create_rel(
         &self,
         id: Value,
         props: Option<HashMap<String, Value>>,
-        dst: &'b Node<GlobalCtx, RequestCtx>,
-    ) -> Result<Rel<'b, GlobalCtx, RequestCtx>, Error>
-    where
-        'a: 'b,
-    {
+        dst_id: Value,
+        dst_label: &str,
+    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
                 id,
                 self.partition_key_opt.cloned(),
                 props.map(|p| Node::new("props".to_string(), p)),
-                Cow::Borrowed(parent_node),
-                Cow::Borrowed(dst),
+                NodeRef::new(
+                    parent_node.id()?.clone(),
+                    parent_node.type_name().to_string(),
+                ),
+                NodeRef::new(dst_id, dst_label.to_string()),
             ))
         } else {
             Err(Error::TypeNotExpected)
@@ -375,17 +373,15 @@ where
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///
     ///     let mut hm1 = HashMap::new();
     ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
-    ///
-    ///     let mut hm2 = HashMap::new();
-    ///     hm2.insert("name".to_string(), Value::String("Jane Smith".to_string()));
-    ///     hm2.insert("age".to_string(), Value::Int64(24));
     ///
     ///     // return rel
     ///     facade.resolve_rel(&facade.create_rel(
     ///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///         Some(hm1), &facade.create_node("user", hm2))?)
+    ///         Some(hm1), node_id, "DstNodeLabel")?)
     /// }
     /// ```
     pub fn resolve_rel(&self, rel: &Rel<GlobalCtx, RequestCtx>) -> ExecutionResult {
@@ -408,28 +404,24 @@ where
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
+    ///
+    ///     let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///     let node_id2 = Value::String("87654321-4321-4321-4321-1234567890ab".to_string());
+    ///
     ///     let mut hm1 = HashMap::new();
     ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
     ///
     ///     let mut hm2 = HashMap::new();
-    ///     hm2.insert("name".to_string(), Value::String("John Doe".to_string()));
-    ///     hm2.insert("age".to_string(), Value::Int64(21));
-    ///
-    ///     let mut hm3 = HashMap::new();
-    ///     hm3.insert("role".to_string(), Value::String("leader".to_string()));
-    ///
-    ///     let mut hm4 = HashMap::new();
-    ///     hm4.insert("name".to_string(), Value::String("Jane Smith".to_string()));
-    ///     hm4.insert("age".to_string(), Value::Int64(24));
+    ///     hm2.insert("role".to_string(), Value::String("leader".to_string()));
     ///
     ///     // return rel list
     ///     facade.resolve_rel_list(vec![
     ///         &facade.create_rel(
     ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm1), &facade.create_node("User", hm2))?,
+    ///             Some(hm1), node_id1, "DstNodeLabel")?,
     ///         &facade.create_rel(
     ///             Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm3), &facade.create_node("user", hm4))?
+    ///             Some(hm2), node_id2, "DstNodeLabel")?
     ///     ])
     /// }
     /// ```

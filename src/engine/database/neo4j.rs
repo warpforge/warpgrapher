@@ -3,7 +3,7 @@ use super::{
     RelQueryResponse,
 };
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
@@ -12,7 +12,6 @@ use r2d2_cypher::CypherConnectionManager;
 use rusted_cypher::cypher::result::CypherResult;
 use rusted_cypher::cypher::transaction::{Started, Transaction};
 use rusted_cypher::Statement;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -926,7 +925,7 @@ impl RelQueryResponse for Neo4jRelQueryResponse {
         for cr in &mut self.results {
             for row in cr.rows() {
                 if let serde_json::Value::Array(src_labels) = row.get("src_label")? {
-                    if let serde_json::Value::String(src_type) = &src_labels[0] {
+                    if let serde_json::Value::String(_src_type) = &src_labels[0] {
                         let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
                         let mut src_label_list: Vec<String> = row.get("src_label")?;
                         let src_label =
@@ -953,7 +952,7 @@ impl RelQueryResponse for Neo4jRelQueryResponse {
                         }
 
                         if let serde_json::Value::Array(dst_labels) = row.get("dst_label")? {
-                            if let serde_json::Value::String(dst_type) = &dst_labels[0] {
+                            if let serde_json::Value::String(_dst_type) = &dst_labels[0] {
                                 let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
                                 let mut dst_label_list: Vec<String> = row.get("dst_label")?;
                                 let dst_label = dst_label_list.pop().ok_or_else(|| {
@@ -1000,8 +999,24 @@ impl RelQueryResponse for Neo4jRelQueryResponse {
                                         }
                                         None => None,
                                     },
-                                    Cow::Owned(Node::new(src_type.to_owned(), src_fields)),
-                                    Cow::Owned(Node::new(dst_type.to_owned(), dst_fields)),
+                                    NodeRef::new(
+                                        src_fields
+                                            .get("id")
+                                            .ok_or_else(|| Error::ResponseItemNotFound {
+                                                name: "id".to_string(),
+                                            })?
+                                            .clone(),
+                                        src_label.to_string(),
+                                    ),
+                                    NodeRef::new(
+                                        dst_fields
+                                            .get("id")
+                                            .ok_or_else(|| Error::ResponseItemNotFound {
+                                                name: "id".to_string(),
+                                            })?
+                                            .clone(),
+                                        dst_label.to_string(),
+                                    ),
                                 ))
                             } else {
                                 return Err(Error::TypeNotExpected);

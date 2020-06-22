@@ -391,17 +391,31 @@ pub(crate) fn project_top_tags(
 pub(crate) fn project_top_dev(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    let mut hm = HashMap::new();
-    hm.insert("name".to_string(), Value::String("Joe".to_string()));
-    facade.resolve_rel(
-        &facade
-            .create_rel(
-                Value::String("1234567890".to_string()),
-                None,
-                &facade.create_node("User", hm),
-            )
-            .expect("Expected new rel"),
-    )
+    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+        let db = p.get()?;
+        let dev_query = "MATCH (n:User) RETURN (n);";
+        let dev_results = db.exec(dev_query)?;
+        let dev = dev_results
+            .rows()
+            .next()
+            .unwrap()
+            .get::<serde_json::Map<String, serde_json::Value>>("n")
+            .unwrap();
+        let dev_id = dev.get("id").unwrap().clone().try_into()?;
+
+        facade.resolve_rel(
+            &facade
+                .create_rel(
+                    Value::String("1234567890".to_string()),
+                    None,
+                    dev_id,
+                    "User",
+                )
+                .expect("Expected new rel"),
+        )
+    } else {
+        panic!("Unsupported database.");
+    }
 }
 
 /// custom rel returning rel_list
@@ -409,30 +423,40 @@ pub(crate) fn project_top_dev(
 pub(crate) fn project_top_issues(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
-    let mut hm1 = HashMap::new();
-    hm1.insert(
-        "name".to_string(),
-        Value::String("Add async support".to_string()),
-    );
-    let mut hm2 = HashMap::new();
-    hm2.insert(
-        "name".to_string(),
-        Value::String("Fix type mismatch".to_string()),
-    );
-    facade.resolve_rel_list(vec![
-        &facade
-            .create_rel(
-                Value::String("1234567890".to_string()),
-                None,
-                &facade.create_node("Feature", hm1),
-            )
-            .expect("Expected rel"),
-        &facade
-            .create_rel(
-                Value::String("0987654321".to_string()),
-                None,
-                &facade.create_node("Bug", hm2),
-            )
-            .expect("Expected rel"),
-    ])
+    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+        let db = p.get()?;
+        let bug_query = "MATCH (n:Bug) RETURN (n);";
+        let bug_results = db.exec(bug_query)?;
+        let bug_row = bug_results.rows().next().unwrap();
+        let bug_node = bug_row
+            .get::<serde_json::Map<String, serde_json::Value>>("n")
+            .unwrap();
+        let bug_id = bug_node.get("id").unwrap().clone().try_into()?;
+
+        let feature_query = "MATCH (n:Feature) RETURN (n);";
+        let feature_results = db.exec(feature_query)?;
+        let feature_node = feature_results
+            .rows()
+            .next()
+            .unwrap()
+            .get::<serde_json::Map<String, serde_json::Value>>("n")
+            .unwrap();
+        let feature_id = feature_node.get("id").unwrap().clone().try_into()?;
+
+        facade.resolve_rel_list(vec![
+            &facade
+                .create_rel(Value::String("1234567890".to_string()), None, bug_id, "Bug")
+                .expect("Expected rel"),
+            &facade
+                .create_rel(
+                    Value::String("0987654321".to_string()),
+                    None,
+                    feature_id,
+                    "Feature",
+                )
+                .expect("Expected rel"),
+        ])
+    } else {
+        panic!("Unsupported database.");
+    }
 }

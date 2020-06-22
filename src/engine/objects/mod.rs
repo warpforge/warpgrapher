@@ -28,7 +28,6 @@ use juniper::{
 use log::{error, trace};
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use resolvers::Resolver;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
@@ -199,6 +198,18 @@ where
             _gctx: PhantomData,
             _rctx: PhantomData,
         }
+    }
+
+    pub(crate) fn id(&self) -> Result<&Value, Error> {
+        self.fields
+            .get(&"id".to_string())
+            .ok_or_else(|| Error::ResponseItemNotFound {
+                name: "id".to_string(),
+            })
+    }
+
+    pub(crate) fn type_name(&self) -> &String {
+        &self.concrete_typename
     }
 
     fn union_meta<'r>(nt: &NodeType, info: &Info, registry: &mut Registry<'r>) -> MetaType<'r>
@@ -611,7 +622,50 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct Rel<'a, GlobalCtx, RequestCtx>
+pub(crate) struct NodeRef {
+    id: Value,
+    label: String,
+}
+
+impl NodeRef {
+    pub(crate) fn new(id: Value, label: String) -> NodeRef {
+        NodeRef { id, label }
+    }
+
+    pub(crate) fn id(&self) -> &Value {
+        &self.id
+    }
+
+    pub(crate) fn label(&self) -> &String {
+        &self.label
+    }
+}
+
+/// Represents a relationship in the graph data structure for auto-generated CRUD operations and
+/// custom resolvers.
+///
+/// # Examples
+///
+/// ```rust, norun
+/// # use std::collections::HashMap;
+/// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+/// # use warpgrapher::engine::value::Value;
+///
+/// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+///     // do work
+///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+///
+///     let mut hm1 = HashMap::new();
+///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+///
+///     // return rel
+///     facade.resolve_rel(&facade.create_rel(
+///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+///         Some(hm1), node_id, "DstNodeLabel")?)
+/// }
+/// ```
+#[derive(Clone, Debug)]
+pub struct Rel<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -619,13 +673,13 @@ where
     id: Value,
     partition_key: Option<Value>,
     props: Option<Node<GlobalCtx, RequestCtx>>,
-    src: Cow<'a, Node<GlobalCtx, RequestCtx>>,
-    dst: Cow<'a, Node<GlobalCtx, RequestCtx>>,
+    src_ref: NodeRef,
+    dst_ref: NodeRef,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
 
-impl<'a, GlobalCtx, RequestCtx> Rel<'a, GlobalCtx, RequestCtx>
+impl<GlobalCtx, RequestCtx> Rel<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -634,15 +688,15 @@ where
         id: Value,
         partition_key: Option<Value>,
         props: Option<Node<GlobalCtx, RequestCtx>>,
-        src: Cow<'a, Node<GlobalCtx, RequestCtx>>,
-        dst: Cow<'a, Node<GlobalCtx, RequestCtx>>,
-    ) -> Rel<'a, GlobalCtx, RequestCtx> {
+        src_ref: NodeRef,
+        dst_ref: NodeRef,
+    ) -> Rel<GlobalCtx, RequestCtx> {
         Rel {
             id,
             partition_key,
             props,
-            src,
-            dst,
+            src_ref,
+            dst_ref,
             _gctx: PhantomData,
             _rctx: PhantomData,
         }
@@ -658,7 +712,6 @@ where
         transaction: &mut T,
     ) -> ExecutionResult {
         let p = info.type_def()?.property(field_name)?;
-
         let arg_partition_key = args.get("partitionKey");
         let partition_key_opt: Option<&Value> = arg_partition_key
             .as_ref()
@@ -678,9 +731,11 @@ where
                 Some(p) => resolver.resolve_rel_props(info, field_name, p),
                 None => Err(Error::TypeNotExpected.into()),
             },
-            (PropertyKind::Object, &"src") => executor.resolve(
-                &Info::new(self.src.concrete_typename.to_owned(), info.type_defs()),
-                self.src.as_ref(),
+            (PropertyKind::Object, &"src") => resolver.resolve_node_by_id(
+                field_name,
+                &self.src_ref.label(),
+                info,
+                self.src_ref.id().clone(),
             ),
             (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
                 name: field_name.to_string(),
@@ -693,15 +748,18 @@ where
                     executor.resolve_with_ctx(&(), &None::<String>)
                 }
             }
-            (PropertyKind::Union, _) => {
-                resolver.resolve_union_field(info, field_name, &self.src, &self.dst)
-            }
+            (PropertyKind::Union, _) => resolver.resolve_union_field(
+                info,
+                &self.dst_ref.label(),
+                field_name,
+                &self.dst_ref.id(),
+            ),
             (_, _) => Err(Error::TypeNotExpected.into()),
         }
     }
 }
 
-impl<'a, GlobalCtx, RequestCtx> GraphQLType for Rel<'a, GlobalCtx, RequestCtx>
+impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,

@@ -201,6 +201,11 @@ async fn custom_rel_returning_rel() {
         .await
         .unwrap();
 
+    let _ = client
+        .create_node("User", "id name", Some("1234"), &json!({"name": "Joe"}))
+        .await
+        .unwrap();
+
     let projects = client
         .read_node(
             "Project",
@@ -251,6 +256,26 @@ async fn custom_rel_returning_rel_list() {
         .await
         .unwrap();
 
+    let _ = client
+        .create_node(
+            "Feature",
+            "id name",
+            Some("1234"),
+            &json!({ "name" : "Add async support"}),
+        )
+        .await
+        .unwrap();
+
+    let _ = client
+        .create_node(
+            "Bug",
+            "id name",
+            Some("1234"),
+            &json!({ "name" : "Fix memory leak" }),
+        )
+        .await
+        .unwrap();
+
     let projects = client
         .read_node(
             "Project",
@@ -279,10 +304,5 @@ async fn custom_rel_returning_rel_list() {
     assert_eq!(p0.get("__typename").unwrap(), "Project");
     let p0_topissues = p0.get("topissues").unwrap().as_array().unwrap();
     assert_eq!(p0_topissues.len(), 2);
-    let i0 = p0_topissues.get(0).unwrap();
-    assert_eq!(*i0, json!({"dst": {"name": "Add async support"}}));
-    let i1 = p0_topissues.get(1).unwrap();
-    assert_eq!(*i1, json!({"dst": {"name": "Fix type mismatch"}}));
-
     // shutdown server
 }

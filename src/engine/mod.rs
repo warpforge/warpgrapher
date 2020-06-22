@@ -454,7 +454,7 @@ where
         metadata: &HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
         debug!(
-            "Engine::execute called -- request: {:#?}, metadata: {:#?}",
+            "Engine::execute called -- req: {:#?}, metadata: {:#?}",
             req, metadata
         );
 
