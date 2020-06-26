@@ -5,7 +5,6 @@ use serde_json::json;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client};
 
-/*
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn client_node_crud() {
@@ -87,8 +86,8 @@ async fn client_node_crud() {
     let d_projects_a = d_projects.as_array().unwrap();
     assert_eq!(d_projects_a.len(), 0);
 }
-*/
 
+/*
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn client_rel_crud() {
@@ -198,3 +197,4 @@ async fn client_rel_crud() {
     let d_rels_a = d_rels.as_array().unwrap();
     assert_eq!(d_rels_a.len(), 0);
 }
+*/
