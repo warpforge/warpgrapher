@@ -65,6 +65,11 @@ jobs:
     
     - name: Run Tests
       run: cargo test --all-features -- --test-threads=1
-    
+      env: 
+        WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
+        WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
+        WG_COSMOS_LOGIN: ${{ secrets.WG_COSMOS_LOGIN }}
+        WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
+
     - name: Stop neo4j database
       run: docker rm -f neo4j
