@@ -1,4 +1,4 @@
-//! Provides database interface types and functions for Neo4J
+//! Provides database interface types and functions for Neo4J databases.
 
 use super::{env_string, DatabaseEndpoint, DatabasePool};
 use crate::engine::context::{GlobalContext, RequestContext};
