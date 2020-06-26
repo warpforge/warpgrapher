@@ -9,7 +9,6 @@
 //!
 //! * [Cargo Crate](https://crates.io/crates/warpgrapher)
 //! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
-//! -
 
 #![doc(html_root_url = "https://docs.rs/warpgrapher/0.2.0")]
 
