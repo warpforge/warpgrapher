@@ -1,10 +1,10 @@
-use super::{
-    env_string, DatabaseEndpoint, DatabasePool, DeleteQueryResponse, NodeQueryResponse,
-    RelQueryResponse,
-};
+//! Provides database interface types and functions for Neo4J
+
+use super::{env_string, DatabaseEndpoint, DatabasePool};
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
+use crate::engine::schema::NodeType;
 use crate::engine::value::Value;
 use crate::Error;
 use log::{debug, trace};
@@ -13,14 +13,50 @@ use rusted_cypher::cypher::result::CypherResult;
 use rusted_cypher::cypher::transaction::{Started, Transaction};
 use rusted_cypher::Statement;
 use std::collections::HashMap;
-use std::convert::TryInto;
-use std::fmt::Debug;
+use std::convert::{TryFrom, TryInto};
 
+/// A Neo4J endpoint collects the information necessary to generate a connection string and
+/// build a database connection pool.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+/// #
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let ne = Neo4jEndpoint::from_env()?;
+/// #    Ok(())
+/// # }
+/// ```
 pub struct Neo4jEndpoint {
     db_url: String,
 }
 
 impl Neo4jEndpoint {
+    /// Reads an variable to construct a [`Neo4jEndpoint`]. The environment variable is
+    ///
+    /// * WG_NEO4J_URL - the connection URL for the Neo4J DB. For example,
+    /// `http://neo4j:testpass@localhost:7474/db/data`
+    ///
+    /// [`Neo4jEndpoint`]: ./struct.Neo4jEndpoint.html
+    ///
+    /// # Errors
+    ///
+    /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
+    ///
+    /// [`EnvironmentVariableNotFound`]: ../../enum.ErrorKind.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let ne = Neo4jEndpoint::from_env()?;
+    ///     # Ok(())
+    /// # }
+    /// ```
     pub fn from_env() -> Result<Neo4jEndpoint, Error> {
         Ok(Neo4jEndpoint {
             db_url: env_string("WG_NEO4J_URL")?,
@@ -37,7 +73,7 @@ impl DatabaseEndpoint for Neo4jEndpoint {
         Ok(DatabasePool::Neo4j(
             r2d2::Pool::builder()
                 .max_size(num_cpus::get().try_into().unwrap_or(8))
-                .build(manager)?, // .map_err(|e| Error::new(ErrorKind::CouldNotBuildNeo4jPool(e), None))?,
+                .build(manager)?,
         ))
     }
 }
@@ -52,188 +88,286 @@ impl<'t> Neo4jTransaction<'t> {
             transaction: Some(transaction),
         }
     }
+
+    fn add_node_return(mut query: String, node_var: &str) -> String {
+        query.push_str(
+            &("RETURN ".to_string()
+                + node_var
+                + " as node, labels("
+                + node_var
+                + ") as node_labels\n"),
+        );
+        query
+    }
+
+    fn add_rel_return(mut query: String, src_var: &str, rel_var: &str, dst_var: &str) -> String {
+        query.push_str(
+            &("RETURN ".to_string()
+                + src_var
+                + ".id as src_id, labels("
+                + src_var
+                + ") as src_labels, "
+                + rel_var
+                + " as rel, "
+                + dst_var
+                + ".id as dst_id, labels("
+                + dst_var
+                + ") as dst_labels\n"),
+        );
+        query
+    }
+
+    fn extract_count(results: CypherResult) -> Result<i32, Error> {
+        trace!("Neo4jTransaction::extract_count called");
+        if let serde_json::Value::Number(n) = results
+            .rows()
+            .next()
+            .ok_or_else(|| Error::ResponseSetNotFound)?
+            .get("count")?
+        {
+            if let Some(i) = n.as_i64() {
+                Ok(i32::try_from(i)?)
+            } else {
+                Err(Error::TypeConversionFailed {
+                    src: format!("{:#?}", n),
+                    dst: "i32".to_string(),
+                })
+            }
+        } else {
+            Err(Error::ResponseItemNotFound {
+                name: "count".to_string(),
+            })
+        }
+    }
+
+    fn extract_node_properties(
+        props: HashMap<String, serde_json::Value>,
+        type_def: &NodeType,
+    ) -> Result<HashMap<String, Value>, Error> {
+        props
+            .into_iter()
+            .map(|(k, v)| {
+                if type_def.property(&k)?.list() {
+                    if let serde_json::Value::Array(_) = v {
+                        Ok((k, v.try_into()?))
+                    } else {
+                        Ok((k, Value::Array(vec![(v.try_into()?)])))
+                    }
+                } else {
+                    Ok((k, v.try_into()?))
+                }
+            })
+            .collect::<Result<HashMap<String, Value>, Error>>()
+    }
+
+    fn nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        results: CypherResult,
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+        trace!("Neo4jTransaction::nodes called");
+        results
+            .rows()
+            .map(|row| {
+                let label = row
+                    .get::<Vec<String>>("node_labels")?
+                    .pop()
+                    .ok_or_else(|| Error::ResponseItemNotFound {
+                        name: "node_labels".to_string(),
+                    })?;
+                Ok(Node::new(
+                    label.to_string(),
+                    Neo4jTransaction::extract_node_properties(
+                        row.get("node")?,
+                        info.type_def_by_name(&label)?,
+                    )?,
+                ))
+            })
+            .collect()
+    }
+
+    fn rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        results: CypherResult,
+        partition_key_opt: Option<&Value>,
+        props_type_name: Option<&str>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+        trace!("Neo4jTransaction::rels called");
+        results
+            .rows()
+            .map(|row| {
+                let src_label = row.get::<Vec<String>>("src_labels")?.pop().ok_or_else(|| {
+                    Error::ResponseItemNotFound {
+                        name: "src_labels".to_string(),
+                    }
+                })?;
+                let dst_label = row.get::<Vec<String>>("dst_labels")?.pop().ok_or_else(|| {
+                    Error::ResponseItemNotFound {
+                        name: "dst_labels".to_string(),
+                    }
+                })?;
+                let props = row
+                    .get::<HashMap<String, serde_json::Value>>("rel")?
+                    .into_iter()
+                    .map(|(k, v)| Ok((k, v.try_into()?)))
+                    .collect::<Result<HashMap<String, Value>, Error>>()?;
+
+                Ok(Rel::new(
+                    row.get::<serde_json::Value>("rel")?
+                        .get("id")
+                        .ok_or_else(|| Error::ResponseItemNotFound {
+                            name: "id".to_string(),
+                        })?
+                        .clone()
+                        .try_into()?,
+                    partition_key_opt.cloned(),
+                    props_type_name.map(|ptn| Node::new(ptn.to_string(), props)),
+                    NodeRef::new(
+                        row.get::<serde_json::Value>("src_id")?.try_into()?,
+                        src_label,
+                    ),
+                    NodeRef::new(
+                        row.get::<serde_json::Value>("dst_id")?.try_into()?,
+                        dst_label,
+                    ),
+                ))
+            })
+            .collect()
+    }
+
+    fn single_rel_check<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        transaction: &mut Transaction<'t, Started>,
+        src_label: &str,
+        src_ids: Vec<Value>,
+        dst_ids: Vec<Value>,
+        rel_name: &str,
+        _partition_key_opt: Option<&Value>,
+    ) -> Result<(), Error> {
+        let query = "MATCH (src:".to_string()
+            + src_label
+            + ")-[rel:"
+            + rel_name
+            + "]->() WHERE src.id IN $src_ids RETURN COUNT(rel) as count";
+
+        let mut statement = Statement::new(query);
+        statement.add_param::<String, &serde_json::Value>(
+            "src_ids".to_string(),
+            &Value::Array(src_ids).try_into()?,
+        )?;
+
+        let results = transaction.exec(statement)?;
+        if Neo4jTransaction::extract_count(results)? > 0 || dst_ids.len() > 1 {
+            Err(Error::RelDuplicated {
+                rel_name: rel_name.to_string(),
+            })
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<'t> super::Transaction for Neo4jTransaction<'t> {
-    type ImplDeleteQueryResponse = Neo4jDeleteQueryResponse;
-    type ImplNodeQueryResponse = Neo4jNodeQueryResponse;
-    type ImplRelQueryResponse = Neo4jRelQueryResponse;
-
     fn begin(&self) -> Result<(), Error> {
         debug!("transaction::begin called");
         Ok(())
     }
 
-    fn create_node<GlobalCtx, RequestCtx>(
+    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         label: &str,
-        partition_key_opt: Option<&Value>,
+        _partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
-        _info: &Info,
-    ) -> Result<Self::ImplNodeQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    {
-        let query = String::from("CREATE (n:")
-            + label
-            + " { id: randomUUID() })\n"
-            + "SET n += $props\n"
-            + "RETURN n, labels(n) as n_label\n";
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("props".to_owned(), props.into());
-
-        trace!(
-            "Neo4jTransaction::create_node query statement query, params: {:#?}, {:#?}",
-            query,
-            params
-        );
-
+        info: &Info,
+    ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
         if let Some(transaction) = self.transaction.as_mut() {
+            let mut query = "CREATE (node:".to_string()
+                + label
+                + " { id: randomUUID() })\n"
+                + "SET node += $props\n";
+            query = Neo4jTransaction::add_node_return(query, "node");
+
+            let mut params: HashMap<String, Value> = HashMap::new();
+            params.insert("props".to_owned(), props.into());
+
             let mut statement = Statement::new(query);
-            for (k, v) in params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jNodeQueryResponse::new(
-                None,
-                partition_key_opt,
-                result?,
-            ))
+            params.into_iter().try_for_each(|(k, v)| {
+                statement
+                    .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
+                    .map_err(Error::from)
+            })?;
+
+            let result = transaction.exec(statement)?;
+            Neo4jTransaction::nodes(result, info)?
+                .into_iter()
+                .next()
+                .ok_or_else(|| Error::ResponseSetNotFound)
         } else {
             Err(Error::TransactionFinished)
         }
     }
 
-    fn create_rels<GlobalCtx, RequestCtx>(
+    fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_label: &str,
-        src_ids: Value,
+        src_ids: Vec<Value>,
         dst_label: &str,
-        dst_ids: Value,
+        dst_ids: Vec<Value>,
         rel_name: &str,
-        params: &mut HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        props: HashMap<String, Value>,
         props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Self::ImplRelQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    {
-        let mut props = HashMap::new();
-        if let Some(Value::Map(pm)) = params.remove("props") {
-            // remove rather than get to take ownership
-            for (k, v) in pm.into_iter() {
-                props.insert(k.to_owned(), v);
-            }
-        }
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+        trace!("Neo4jTransaction::create_rels called -- src_label: {}, src_ids: {:#?}, dst_label: {}, dst_ids: {:#?}, rel_name: {}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}", src_label, src_ids, dst_label, dst_ids, rel_name, props, props_type_name, partition_key_opt);
 
-        if let (Value::Array(src_id_vec), Value::Array(dst_id_vec)) =
-            (src_ids.clone(), dst_ids.clone())
-        {
-            // TODO remove clone
+        if let Some(transaction) = self.transaction.as_mut() {
             let src_td = info.type_def_by_name(src_label)?;
             let src_prop = src_td.property(rel_name)?;
 
             if !src_prop.list() {
-                let check_query = String::from("MATCH (")
-                    + src_label
-                    + ":"
-                    + src_label
-                    + ")-["
-                    + rel_name
-                    + ":"
-                    + rel_name
-                    + "]->() WHERE "
-                    + src_label
-                    + ".id IN $aid RETURN COUNT("
-                    + rel_name
-                    + ") as count";
-                let mut check_params: HashMap<String, Value> = HashMap::new();
-                check_params.insert("aid".to_owned(), Value::Array(src_id_vec)); // TODO -- remove cloning
-
-                if let Some(transaction) = self.transaction.as_mut() {
-                    let mut statement = Statement::new(check_query);
-                    for (k, v) in check_params.into_iter() {
-                        statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-                    }
-                    let check_result = transaction.exec(statement);
-                    let check_final = Neo4jDeleteQueryResponse::new(
-                        props_type_name,
-                        partition_key_opt,
-                        check_result?,
-                    );
-                    if check_final.count()? > 0 || dst_id_vec.len() > 1 {
-                        return Err(Error::RelDuplicated {
-                            rel_name: rel_name.to_string(),
-                        });
-                    }
-                } else {
-                    return Err(Error::TransactionFinished);
-                }
+                Neo4jTransaction::single_rel_check::<GlobalCtx, RequestCtx>(
+                    transaction,
+                    src_label,
+                    src_ids.clone(),
+                    dst_ids.clone(),
+                    rel_name,
+                    partition_key_opt,
+                )?;
             }
-        }
 
-        let query = String::from("MATCH (")
-            + src_label
-            + ":"
-            + src_label
-            + "),(dst:"
-            + dst_label
-            + ")"
-            + "\n"
-            + "WHERE "
-            + src_label
-            + ".id IN $aid AND dst.id IN $bid\n"
-            + "CREATE ("
-            + src_label
-            + ")-["
-            + rel_name
-            + ":"
-            + String::from(rel_name).as_str()
-            + " { id: randomUUID() }]->(dst)\n"
-            + "SET "
-            + rel_name
-            + " += $props\n"
-            + "RETURN "
-            + src_label
-            + " as src, "
-            + "labels("
-            + src_label
-            + ") as src_label,"
-            + rel_name
-            + " as r"
-            + ", dst, labels(dst) as dst_label\n";
+            let mut query = "MATCH (src:".to_string()
+                + src_label
+                + "),(dst:"
+                + dst_label
+                + ")\n"
+                + "WHERE src.id IN $src_ids AND dst.id IN $dst_ids\n"
+                + "CREATE (src)-[rel:"
+                + rel_name
+                + " { id: randomUUID() }]->(dst)\n"
+                + "SET rel += $props\n";
+            query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
 
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("aid".to_owned(), src_ids);
-        params.insert("bid".to_owned(), dst_ids);
-        params.insert("props".to_owned(), Value::Map(props));
-
-        debug!(
-            "visit_rel_create_mutation_input query, params: {:#?}, {:#?}",
-            query, params
-        );
-        if let Some(transaction) = self.transaction.as_mut() {
+            trace!("Neo4jTransaction::create_rels -- query: {}, src_ids: {:#?}, dst_ids: {:#?}, props: {:#?}", query, src_ids, dst_ids, props);
             let mut statement = Statement::new(query);
-            for (k, v) in params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jRelQueryResponse::new(
-                props_type_name,
-                partition_key_opt,
-                result?,
-            ))
+            statement.add_param::<String, &serde_json::Value>(
+                "src_ids".to_owned(),
+                &Value::Array(src_ids).try_into()?,
+            )?;
+            statement.add_param::<String, &serde_json::Value>(
+                "dst_ids".to_owned(),
+                &Value::Array(dst_ids).try_into()?,
+            )?;
+            statement.add_param::<String, &serde_json::Value>(
+                "props".to_owned(),
+                &Into::<Value>::into(props).try_into()?,
+            )?;
+
+            trace!("statement: {:#?}", statement);
+            let results = transaction.exec(statement)?;
+            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
         } else {
             Err(Error::TransactionFinished)
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn node_query(
         &mut self,
         rel_query_fragments: Vec<String>,
@@ -245,74 +379,58 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!(
-            "transaction::node_query_string called, union_type: {:#?}",
-            union_type
-        );
-
-        let mut qs = String::new();
+        let mut query = String::new();
 
         for rqf in rel_query_fragments {
-            qs.push_str(&rqf);
+            query.push_str(&rqf);
         }
 
         if union_type {
-            qs.push_str(&(String::from("MATCH (") + label + var_suffix + ")\n"));
+            query.push_str(&("MATCH (".to_string() + label + var_suffix + ")\n"));
         } else {
-            qs.push_str(&(String::from("MATCH (") + label + var_suffix + ":" + label + ")\n"));
+            query.push_str(&("MATCH (".to_string() + label + var_suffix + ":" + label + ")\n"));
         }
 
-        let mut wc = None;
-        for k in props.keys() {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + label
-                            + var_suffix
-                            + "."
-                            + &k
-                            + "=$"
-                            + label
-                            + param_suffix
-                            + "."
-                            + &k,
-                    )
+        if !props.is_empty() {
+            query = props.keys().enumerate().fold(query, |mut query, (i, k)| {
+                if i == 0 {
+                    query.push_str("WHERE ");
+                } else {
+                    query.push_str(" AND ");
                 }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND " + label + "." + &k + "=$" + label + param_suffix + "." + &k,
-                    )
-                }
-            }
-        }
-        if let Some(wcs) = wc {
-            qs.push_str(&(String::from(&wcs) + "\n"));
-        }
 
-        params.insert(String::from(label) + param_suffix, props.into());
+                query.push_str(
+                    &(label.to_string()
+                        + var_suffix
+                        + "."
+                        + &k
+                        + "=$"
+                        + label
+                        + param_suffix
+                        + "."
+                        + &k),
+                );
+
+                query
+            });
+
+            query.push_str("\n");
+        }
+        params.insert(label.to_string() + param_suffix, props.into());
 
         if return_node {
-            qs.push_str(
-                &(String::from("RETURN ")
-                    + label
-                    + var_suffix
-                    + " as n, labels("
-                    + label
-                    + var_suffix
-                    + ") as n_label\n"),
-            );
+            query = Neo4jTransaction::add_node_return(query, &(label.to_string() + var_suffix));
         }
 
-        Ok((qs, params))
+        Ok((query, params))
     }
 
     fn rel_query(
         &mut self,
-        // query: &str,
+        mut params: HashMap<String, Value>,
         src_label: &str,
         src_suffix: &str,
-        src_ids_opt: Option<Value>,
+        src_ids_opt: Option<Vec<Value>>,
         src_query_opt: Option<String>,
         rel_name: &str,
         dst_var: &str,
@@ -320,309 +438,212 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         dst_query_opt: Option<String>,
         return_rel: bool,
         props: HashMap<String, Value>,
-        mut params: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        let mut qs = String::new();
-
-        qs.push_str(
-            &(String::from("MATCH (")
-                + src_label
-                + src_suffix
-                + ":"
-                + src_label
-                + ")-["
-                + rel_name
-                + src_suffix
-                + dst_suffix
-                + ":"
-                + String::from(rel_name).as_str()
-                + "]->("
-                + dst_var
-                + dst_suffix
-                + ")\n"),
-        );
-
-        let mut wc = None;
-        for k in props.keys() {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k
-                            + " = $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "."
-                            + &k,
-                    )
-                }
-            }
-        }
-
-        if let Some(src_ids) = src_ids_opt {
-            match wc {
-                None => {
-                    wc = Some(
-                        String::from("WHERE ")
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-                Some(wcs) => {
-                    wc = Some(
-                        wcs + " AND "
-                            + src_label
-                            + src_suffix
-                            + ".id IN $"
-                            + rel_name
-                            + src_suffix
-                            + dst_suffix
-                            + "_srcids"
-                            + "."
-                            + "ids",
-                    )
-                }
-            }
-            let mut id_map = HashMap::new();
-            id_map.insert("ids".to_string(), src_ids);
-
-            params.insert(
-                String::from(rel_name) + src_suffix + dst_suffix + "_srcids",
-                id_map.into(),
-            );
-        }
-
-        if let Some(wcs) = wc {
-            qs.push_str(&(String::from(&wcs) + "\n"));
-        }
-        params.insert(
-            String::from(rel_name) + src_suffix + dst_suffix,
-            props.into(),
-        );
-
-        if let Some(src_query) = src_query_opt {
-            qs.push_str(&src_query);
-        }
-
-        if let Some(dst_query) = dst_query_opt {
-            qs.push_str(&dst_query);
-        }
-
-        if return_rel {
-            qs.push_str(
-                &(String::from("RETURN ")
-                    + src_label
-                    + src_suffix
-                    + " as src, "
-                    + "labels("
-                    + src_label
-                    + src_suffix
-                    + ") as src_label, "
-                    + rel_name
-                    + src_suffix
-                    + dst_suffix
-                    + " as r, "
-                    + dst_var
-                    + dst_suffix
-                    + " as dst, "
-                    + "labels("
-                    + dst_var
-                    + dst_suffix
-                    + ") as dst_label\n"),
-            );
-        }
-
-        trace!("visit_rel_query_input -- query_string: {}", qs);
-        Ok((qs, params))
-    }
-
-    fn read_nodes(
-        &mut self,
-        query: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
-    ) -> Result<Self::ImplNodeQueryResponse, Error> {
-        debug!(
-            "transaction::exec called with query, params: {:#?}, {:#?}",
-            query, params
-        );
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(String::from(query));
-            if let Some(p) = params {
-                for (k, v) in p.into_iter() {
-                    statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-                }
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jNodeQueryResponse::new(
-                props_type_name,
-                partition_key_opt,
-                result?,
-            ))
-        } else {
-            Err(Error::TransactionFinished)
-        }
-    }
-
-    fn read_rels(
-        &mut self,
-        query: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
-    ) -> Result<Self::ImplRelQueryResponse, Error> {
-        debug!(
-            "transaction::exec called with query, params: {:#?}, {:#?}",
-            query, params
-        );
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(String::from(query));
-            if let Some(p) = params {
-                for (k, v) in p.into_iter() {
-                    statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-                }
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jRelQueryResponse::new(
-                props_type_name,
-                partition_key_opt,
-                result?,
-            ))
-        } else {
-            Err(Error::TransactionFinished)
-        }
-    }
-
-    fn update_nodes<GlobalCtx, RequestCtx>(
-        &mut self,
-        label: &str,
-        ids: Value,
-        props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
-        _info: &Info,
-    ) -> Result<Self::ImplNodeQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    {
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("ids".to_owned(), ids);
-        params.insert("props".to_owned(), props.into());
-
-        let query = String::from("MATCH (n:")
-            + label
-            + ")\n"
-            + "WHERE n.id IN $ids\n"
-            + "SET n += $props\n"
-            + "RETURN n, labels(n) as n_label\n";
-
-        trace!("update_nodes query, params: {:#?}, {:#?}", query, params);
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(query);
-            for (k, v) in params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jNodeQueryResponse::new(
-                None,
-                partition_key_opt,
-                result?,
-            ))
-        } else {
-            Err(Error::TransactionFinished)
-        }
-    }
-
-    fn update_rels<GlobalCtx, RequestCtx>(
-        &mut self,
-        src_label: &str,
-        rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
-        props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
-        _info: &Info,
-    ) -> Result<Self::ImplRelQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    {
-        let query = String::from("MATCH (")
+        let mut query = "MATCH (".to_string()
             + src_label
+            + src_suffix
             + ":"
             + src_label
             + ")-["
             + rel_name
+            + src_suffix
+            + dst_suffix
             + ":"
-            + String::from(rel_name).as_str()
-            + "]->(dst)\n"
-            + "WHERE "
             + rel_name
-            + ".id IN $rids\n"
-            + "SET "
-            + rel_name
-            + " += $props\n"
-            + "RETURN "
-            + src_label
-            + " as src, labels("
-            + src_label
-            + ") as src_label, "
-            + rel_name
-            + " as r"
-            + ", dst, labels(dst) as dst_label\n";
+            + "]->("
+            + dst_var
+            + dst_suffix
+            + ")";
 
-        let mut params: HashMap<String, Value> = HashMap::new();
-        params.insert("rids".to_owned(), rel_ids);
-        params.insert("props".to_owned(), props.into());
-        debug!(
-            "visit_rel_update_mutation_input query, params: {:#?}, {:#?}",
-            query, params
-        );
+        let empty_props = props.is_empty();
+        if !empty_props {
+            query = props.keys().enumerate().fold(query, |mut query, (i, k)| {
+                if i == 0 {
+                    query.push_str("\nWHERE ");
+                } else {
+                    query.push_str(" AND ");
+                }
 
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(query);
-            for (k, v) in params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
+                query.push_str(
+                    &(rel_name.to_string()
+                        + src_suffix
+                        + dst_suffix
+                        + "."
+                        + &k
+                        + " = $"
+                        + rel_name
+                        + src_suffix
+                        + dst_suffix
+                        + "."
+                        + &k),
+                );
+
+                query
+            });
+
+            params.insert(rel_name.to_string() + src_suffix + dst_suffix, props.into());
+        }
+
+        if let Some(src_ids) = src_ids_opt {
+            if empty_props {
+                query.push_str("\nWHERE ");
+            } else {
+                query.push_str(" AND ");
             }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jRelQueryResponse::new(
-                props_type_name,
-                partition_key_opt,
-                result?,
-            ))
+
+            query.push_str(
+                &(src_label.to_string()
+                    + src_suffix
+                    + ".id IN $"
+                    + rel_name
+                    + src_suffix
+                    + dst_suffix
+                    + "_srcids"
+                    + "."
+                    + "ids"),
+            );
+
+            let mut id_map = HashMap::new();
+            id_map.insert("ids".to_string(), Value::Array(src_ids));
+            params.insert(
+                rel_name.to_string() + src_suffix + dst_suffix + "_srcids",
+                id_map.into(),
+            );
+        }
+        query.push_str("\n");
+
+        if let Some(src_query) = src_query_opt {
+            query.push_str(&src_query);
+        }
+
+        if let Some(dst_query) = dst_query_opt {
+            query.push_str(&dst_query);
+        }
+
+        if return_rel {
+            query = Neo4jTransaction::add_rel_return(
+                query,
+                &(src_label.to_string() + src_suffix),
+                &(rel_name.to_string() + src_suffix + dst_suffix),
+                &(dst_var.to_string() + dst_suffix),
+            );
+        }
+
+        Ok((query, params))
+    }
+
+    fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: &str,
+        _partition_key_opt: Option<&Value>,
+        params_opt: Option<HashMap<String, Value>>,
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+        if let Some(transaction) = self.transaction.as_mut() {
+            let mut statement = Statement::new(query.to_string());
+            if let Some(params) = params_opt {
+                params.into_iter().try_for_each(|(k, v)| {
+                    statement
+                        .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
+                        .map_err(Error::from)
+                })?
+            }
+            let results = transaction.exec(statement)?;
+            Neo4jTransaction::nodes(results, info)
+        } else {
+            Err(Error::TransactionFinished)
+        }
+    }
+
+    fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: &str,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        params_opt: Option<HashMap<String, Value>>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+        if let Some(transaction) = self.transaction.as_mut() {
+            let mut statement = Statement::new(query.to_string());
+            if let Some(params) = params_opt {
+                params.into_iter().try_for_each(|(k, v)| {
+                    statement
+                        .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
+                        .map_err(Error::from)
+                })?
+            }
+            let results = transaction.exec(statement)?;
+            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
+        } else {
+            Err(Error::TransactionFinished)
+        }
+    }
+
+    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        label: &str,
+        ids: Vec<Value>,
+        props: HashMap<String, Value>,
+        _partition_key_opt: Option<&Value>,
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+        if let Some(transaction) = self.transaction.as_mut() {
+            let mut query = "MATCH (node:".to_string()
+                + label
+                + ")\n"
+                + "WHERE node.id IN $ids\n"
+                + "SET node += $props\n";
+            query = Neo4jTransaction::add_node_return(query, "node");
+
+            let mut statement = Statement::new(query);
+            statement.add_param::<String, &serde_json::Value>(
+                "ids".to_string(),
+                &Value::Array(ids).try_into()?,
+            )?;
+            statement.add_param::<String, &serde_json::Value>(
+                "props".to_string(),
+                &Value::Map(props).try_into()?,
+            )?;
+
+            let results = transaction.exec(statement)?;
+
+            Neo4jTransaction::nodes(results, info)
+        } else {
+            Err(Error::TransactionFinished)
+        }
+    }
+
+    fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        src_label: &str,
+        rel_name: &str,
+        rel_ids: Vec<Value>,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+        if let Some(transaction) = self.transaction.as_mut() {
+            let mut query = "MATCH (src:".to_string()
+                + src_label
+                + ")-[rel:"
+                + rel_name
+                + "]->(dst)\n"
+                + "WHERE rel.id IN $ids\n"
+                + "SET rel += $props\n";
+            query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
+
+            let mut statement = Statement::new(query);
+            statement.add_param::<String, &serde_json::Value>(
+                "ids".to_string(),
+                &Value::Array(rel_ids).try_into()?,
+            )?;
+            statement.add_param::<String, &serde_json::Value>(
+                "props".to_string(),
+                &Value::Map(props).try_into()?,
+            )?;
+
+            let results = transaction.exec(statement)?;
+
+            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
         } else {
             Err(Error::TransactionFinished)
         }
@@ -631,36 +652,25 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     fn delete_nodes(
         &mut self,
         label: &str,
-        ids: Value,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<Self::ImplDeleteQueryResponse, Error> {
-        let query = String::from("MATCH (n:")
-            + label
-            + ")\n"
-            + "WHERE n.id IN $ids\n"
-            + "DETACH DELETE n\n"
-            + "RETURN count(*) as count\n";
-        let mut params = HashMap::new();
-        params.insert("ids".to_owned(), ids);
-
-        trace!(
-            "Neo4jTransaction::delete_nodes query, params: {:#?}, {:#?}",
-            query,
-            params
-        );
-
+        ids: Vec<Value>,
+        _partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error> {
         if let Some(transaction) = self.transaction.as_mut() {
+            let query = "MATCH (node:".to_string()
+                + label
+                + ")\n"
+                + "WHERE node.id IN $ids\n"
+                + "DETACH DELETE node\n"
+                + "RETURN count(*) as count\n";
+
             let mut statement = Statement::new(query);
-            for (k, v) in params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jDeleteQueryResponse::new(
-                None,
-                partition_key_opt,
-                result?,
-            ))
+            statement.add_param::<String, &serde_json::Value>(
+                "ids".to_string(),
+                &Value::Array(ids).try_into()?,
+            )?;
+
+            let results = transaction.exec(statement)?;
+            Neo4jTransaction::extract_count(results)
         } else {
             Err(Error::TransactionFinished)
         }
@@ -670,45 +680,28 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         &mut self,
         src_label: &str,
         rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
-        _info: &Info,
-    ) -> Result<Self::ImplDeleteQueryResponse, Error> {
-        let del_query = String::from("MATCH (")
-            + src_label
-            + ":"
-            + src_label
-            + ")-["
-            + rel_name
-            + ":"
-            + rel_name
-            + "]->()\n"
-            + "WHERE "
-            + rel_name
-            + ".id IN $rids\n"
-            + "DELETE "
-            + rel_name
-            + "\n"
-            + "RETURN count(*) as count\n";
-
-        let mut del_params = HashMap::new();
-        del_params.insert("rids".to_owned(), rel_ids);
-        debug!(
-            "visit_rel_delete_input query, params: {:#?}, {:#?}",
-            del_query, del_params
-        );
+        rel_ids: Vec<Value>,
+        _partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error> {
         if let Some(transaction) = self.transaction.as_mut() {
+            let del_query = "MATCH (src:".to_string()
+                + src_label
+                + ")-[rel:"
+                + rel_name
+                + "]->()\n"
+                + "WHERE "
+                + "rel.id IN $ids\n"
+                + "DELETE rel\n"
+                + "RETURN count(*) as count\n";
+
             let mut statement = Statement::new(del_query);
-            for (k, v) in del_params.into_iter() {
-                statement.add_param::<String, &serde_json::Value>(k, &v.try_into()?)?;
-            }
-            let result = transaction.exec(statement);
-            debug!("transaction::exec result: {:#?}", result);
-            Ok(Neo4jDeleteQueryResponse::new(
-                None,
-                partition_key_opt,
-                result?,
-            ))
+            statement.add_param::<String, &serde_json::Value>(
+                "ids".to_string(),
+                &Value::Array(rel_ids).try_into()?,
+            )?;
+
+            let results = transaction.exec(statement)?;
+            Neo4jTransaction::extract_count(results)
         } else {
             Err(Error::TransactionFinished)
         }
@@ -730,347 +723,5 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         } else {
             Err(Error::TransactionFinished)
         }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Neo4jDeleteQueryResponse {
-    partition_key_opt: Option<Value>,
-    props_type_name: Option<String>,
-    results: Vec<CypherResult>,
-}
-
-impl Neo4jDeleteQueryResponse {
-    fn new(
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        result: CypherResult,
-    ) -> Neo4jDeleteQueryResponse {
-        Neo4jDeleteQueryResponse {
-            partition_key_opt: partition_key_opt.cloned(),
-            props_type_name: props_type_name.map(|s| s.to_string()),
-            results: vec![result],
-        }
-    }
-}
-
-impl DeleteQueryResponse for Neo4jDeleteQueryResponse {
-    fn count(&self) -> Result<i32, Error> {
-        trace!("Neo4jQueryResult::count called");
-
-        let mut ret_val = 0;
-
-        for cr in &self.results {
-            let ret_row = cr.rows().next().ok_or_else(|| Error::ResponseSetNotFound)?;
-            let val = ret_row.get("count")?;
-
-            if let serde_json::Value::Number(n) = val {
-                if let Some(i_val) = n.as_i64() {
-                    ret_val += i_val;
-                } else {
-                    return Err(Error::TypeNotExpected);
-                }
-            } else {
-                return Err(Error::TypeNotExpected);
-            }
-        }
-
-        Ok(ret_val as i32)
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Neo4jNodeQueryResponse {
-    partition_key_opt: Option<Value>,
-    props_type_name: Option<String>,
-    results: Vec<CypherResult>,
-}
-
-impl Neo4jNodeQueryResponse {
-    fn new(
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        result: CypherResult,
-    ) -> Neo4jNodeQueryResponse {
-        Neo4jNodeQueryResponse {
-            partition_key_opt: partition_key_opt.cloned(),
-            props_type_name: props_type_name.map(|s| s.to_string()),
-            results: vec![result],
-        }
-    }
-}
-
-impl NodeQueryResponse for Neo4jNodeQueryResponse {
-    fn nodes<GlobalCtx, ReqCtx>(
-        self,
-        _name: &str,
-        info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, ReqCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        ReqCtx: RequestContext,
-    {
-        trace!(
-            "Neo4jQueryResult::nodes called, results: {:#?}",
-            self.results
-        );
-
-        let mut v = Vec::new();
-        for cr in self.results {
-            for row in cr.rows() {
-                let m: HashMap<String, serde_json::Value> = row.get("n")?;
-                let mut label_list: Vec<String> = row.get("n_label")?;
-                let label = label_list
-                    .pop()
-                    .ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "label".to_string(),
-                    })?;
-                let mut fields = HashMap::new();
-                let type_def = info.type_def_by_name(&label)?;
-                for (k, v) in m.into_iter() {
-                    let prop_def = type_def.property(&k)?;
-                    if prop_def.list() {
-                        if let serde_json::Value::Array(_) = v {
-                            fields.insert(k, v.try_into()?);
-                        } else {
-                            let mut val = Vec::new();
-                            val.push(v.try_into()?);
-                            fields.insert(k, Value::Array(val));
-                        }
-                    } else {
-                        fields.insert(k, v.try_into()?);
-                    }
-                }
-                v.push(Node::new(label.to_owned(), fields));
-            }
-        }
-        trace!("Neo4jQueryResults::nodes results: {:#?}", v);
-        Ok(v)
-    }
-
-    fn ids(&self, _name: &str) -> Result<Value, Error> {
-        trace!("Neo4jQueryResult::ids called");
-
-        let mut v = Vec::new();
-        for cr in &self.results {
-            for row in cr.rows() {
-                if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
-                    if let serde_json::Value::String(id) =
-                        n.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "id".to_string(),
-                        })?
-                    {
-                        v.push(Value::String(id.to_owned()));
-                    } else {
-                        return Err(Error::TypeNotExpected);
-                    }
-                } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
-                    if let serde_json::Value::String(id) =
-                        r.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "id".to_string(),
-                        })?
-                    {
-                        v.push(Value::String(id.to_owned()));
-                    } else {
-                        return Err(Error::TypeNotExpected);
-                    }
-                } else {
-                    return Err(Error::ResponseItemNotFound {
-                        name: "n or r".to_string(),
-                    });
-                }
-            }
-        }
-
-        trace!("ids result: {:#?}", v);
-        Ok(Value::Array(v))
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct Neo4jRelQueryResponse {
-    partition_key_opt: Option<Value>,
-    props_type_name: Option<String>,
-    results: Vec<CypherResult>,
-}
-
-impl Neo4jRelQueryResponse {
-    fn new(
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        result: CypherResult,
-    ) -> Neo4jRelQueryResponse {
-        Neo4jRelQueryResponse {
-            partition_key_opt: partition_key_opt.cloned(),
-            props_type_name: props_type_name.map(|s| s.to_string()),
-            results: vec![result],
-        }
-    }
-}
-
-impl RelQueryResponse for Neo4jRelQueryResponse {
-    fn merge(&mut self, mut r: Self) {
-        self.results.append(&mut r.results);
-    }
-
-    fn rels<GlobalCtx, ReqCtx>(&mut self, info: &Info) -> Result<Vec<Rel<GlobalCtx, ReqCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        ReqCtx: RequestContext,
-    {
-        trace!("Neo4jQueryResult::rels called");
-
-        let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-
-        for cr in &mut self.results {
-            for row in cr.rows() {
-                if let serde_json::Value::Array(src_labels) = row.get("src_label")? {
-                    if let serde_json::Value::String(_src_type) = &src_labels[0] {
-                        let src_map: HashMap<String, serde_json::Value> = row.get("src")?;
-                        let mut src_label_list: Vec<String> = row.get("src_label")?;
-                        let src_label =
-                            src_label_list
-                                .pop()
-                                .ok_or_else(|| Error::ResponseItemNotFound {
-                                    name: "label".to_string(),
-                                })?;
-                        let mut src_fields = HashMap::new();
-                        let type_def = info.type_def_by_name(&src_label)?;
-                        for (k, v) in src_map.into_iter() {
-                            let prop_def = type_def.property(&k)?;
-                            if prop_def.list() {
-                                if let serde_json::Value::Array(_) = v {
-                                    src_fields.insert(k, v.try_into()?);
-                                } else {
-                                    let mut val = Vec::new();
-                                    val.push(v.try_into()?);
-                                    src_fields.insert(k, Value::Array(val));
-                                }
-                            } else {
-                                src_fields.insert(k, v.try_into()?);
-                            }
-                        }
-
-                        if let serde_json::Value::Array(dst_labels) = row.get("dst_label")? {
-                            if let serde_json::Value::String(_dst_type) = &dst_labels[0] {
-                                let dst_map: HashMap<String, serde_json::Value> = row.get("dst")?;
-                                let mut dst_label_list: Vec<String> = row.get("dst_label")?;
-                                let dst_label = dst_label_list.pop().ok_or_else(|| {
-                                    Error::ResponseItemNotFound {
-                                        name: "label".to_string(),
-                                    }
-                                })?;
-                                let mut dst_fields = HashMap::new();
-                                let type_def = info.type_def_by_name(&dst_label)?;
-                                for (k, v) in dst_map.into_iter() {
-                                    let prop_def = type_def.property(&k)?;
-                                    if prop_def.list() {
-                                        if let serde_json::Value::Array(_) = v {
-                                            dst_fields.insert(k, v.try_into()?);
-                                        } else {
-                                            let mut val = Vec::new();
-                                            val.push(v.try_into()?);
-                                            dst_fields.insert(k, Value::Array(val));
-                                        }
-                                    } else {
-                                        dst_fields.insert(k, v.try_into()?);
-                                    }
-                                }
-
-                                v.push(Rel::new(
-                                    row.get::<serde_json::Value>("r")?
-                                        .get("id")
-                                        .ok_or_else(|| Error::ResponseItemNotFound {
-                                            name: "id".to_string(),
-                                        })?
-                                        .clone()
-                                        .try_into()?,
-                                    self.partition_key_opt.clone(),
-                                    match &self.props_type_name {
-                                        Some(p_type_name) => {
-                                            let map: HashMap<String, serde_json::Value> =
-                                                row.get::<HashMap<String, serde_json::Value>>("r")?;
-                                            let mut wg_map = HashMap::new();
-                                            for (k, v) in map.into_iter() {
-                                                wg_map.insert(k, v.try_into()?);
-                                            }
-
-                                            Some(Node::new(p_type_name.to_string(), wg_map))
-                                        }
-                                        None => None,
-                                    },
-                                    NodeRef::new(
-                                        src_fields
-                                            .get("id")
-                                            .ok_or_else(|| Error::ResponseItemNotFound {
-                                                name: "id".to_string(),
-                                            })?
-                                            .clone(),
-                                        src_label.to_string(),
-                                    ),
-                                    NodeRef::new(
-                                        dst_fields
-                                            .get("id")
-                                            .ok_or_else(|| Error::ResponseItemNotFound {
-                                                name: "id".to_string(),
-                                            })?
-                                            .clone(),
-                                        dst_label.to_string(),
-                                    ),
-                                ))
-                            } else {
-                                return Err(Error::TypeNotExpected);
-                            }
-                        } else {
-                            return Err(Error::TypeNotExpected);
-                        }
-                    } else {
-                        return Err(Error::TypeNotExpected);
-                    }
-                } else {
-                    return Err(Error::TypeNotExpected);
-                };
-            }
-        }
-        trace!("Neo4jQueryResults::rels results: {:#?}", v);
-        Ok(v)
-    }
-
-    fn ids(&self, _name: &str) -> Result<Value, Error> {
-        trace!("Neo4jQueryResult::ids called");
-
-        let mut v = Vec::new();
-        for cr in &self.results {
-            for row in cr.rows() {
-                if let Ok(n) = row.get::<serde_json::Map<String, serde_json::Value>>("n") {
-                    if let serde_json::Value::String(id) =
-                        n.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "id".to_string(),
-                        })?
-                    {
-                        v.push(Value::String(id.to_owned()));
-                    } else {
-                        return Err(Error::TypeNotExpected);
-                    }
-                } else if let Ok(r) = row.get::<serde_json::Map<String, serde_json::Value>>("r") {
-                    if let serde_json::Value::String(id) =
-                        r.get("id").ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "id".to_string(),
-                        })?
-                    {
-                        v.push(Value::String(id.to_owned()));
-                    } else {
-                        return Err(Error::TypeNotExpected);
-                    }
-                } else {
-                    return Err(Error::ResponseItemNotFound {
-                        name: "n or r".to_string(),
-                    });
-                }
-            }
-        }
-
-        trace!("ids result: {:#?}", v);
-        Ok(Value::Array(v))
     }
 }

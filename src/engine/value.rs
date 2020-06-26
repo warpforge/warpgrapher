@@ -38,7 +38,7 @@ impl FromInputValue for Value {
     fn from_input_value(v: &InputValue) -> Option<Self> {
         if let InputValue::Scalar(scalar) = v {
             Some(match scalar {
-                DefaultScalarValue::Int(i) => Value::Int64(*i as i64),
+                DefaultScalarValue::Int(i) => Value::Int64(i64::from(*i)),
                 DefaultScalarValue::Float(f) => Value::Float64(*f),
                 DefaultScalarValue::String(s) => Value::String(s.to_string()),
                 DefaultScalarValue::Boolean(b) => Value::Bool(*b),
@@ -110,9 +110,9 @@ impl TryFrom<GValue> for Value {
                 dst: "Value".to_string(),
             }),
             GValue::Uuid(u) => Ok(Value::String(u.to_hyphenated().to_string())),
-            GValue::Int32(i) => Ok(Value::Int64(i as i64)),
+            GValue::Int32(i) => Ok(Value::Int64(i.into())),
             GValue::Int64(i) => Ok(Value::Int64(i)),
-            GValue::Float(f) => Ok(Value::Float64(f as f64)),
+            GValue::Float(f) => Ok(Value::Float64(f.into())),
             GValue::Double(f) => Ok(Value::Float64(f)),
             GValue::Date(_d) => Err(Error::TypeConversionFailed {
                 src: "GValue::Date".to_string(),
@@ -323,26 +323,8 @@ impl TryFrom<Value> for i32 {
 
     fn try_from(value: Value) -> Result<i32, Self::Error> {
         match value {
-            Value::Int64(i) => {
-                if i >= (i32::min_value() as i64) && i <= (i32::max_value() as i64) {
-                    Ok(i as i32)
-                } else {
-                    Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", value),
-                        dst: "i32".to_string(),
-                    })
-                }
-            }
-            Value::UInt64(i) => {
-                if i <= (i32::max_value() as u64) {
-                    Ok(i as i32)
-                } else {
-                    Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", value),
-                        dst: "i32".to_string(),
-                    })
-                }
-            }
+            Value::Int64(i) => Ok(i32::try_from(i)?),
+            Value::UInt64(i) => Ok(i32::try_from(i)?),
             _ => Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
                 dst: "i32".to_string(),

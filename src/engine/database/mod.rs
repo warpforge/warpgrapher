@@ -1,3 +1,5 @@
+//! Traits and helper structs for interacting with the graph storage database
+
 #[cfg(feature = "cosmos")]
 pub mod cosmos;
 #[cfg(feature = "neo4j")]
@@ -33,13 +35,19 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
+/// Contains a pool of database connections, or an enumeration variant indicating that there is no
+/// back-end database
 #[derive(Clone, Debug)]
 pub enum DatabasePool {
+    /// Contians a pool of Neo4J database clients
     #[cfg(feature = "neo4j")]
     Neo4j(Pool<CypherConnectionManager>),
+
+    /// Contains a pool of Cosmos DB database clients
     #[cfg(feature = "cosmos")]
     Cosmos(GremlinClient),
-    // Used to serve the schema without a database backend
+
+    /// Used to serve the schema without a database backend
     NoDatabase,
 }
 
@@ -49,43 +57,65 @@ impl Default for DatabasePool {
     }
 }
 
+/// Trait for a database endpoint. Structs that implement this trait typically take in a connection
+/// string and produce a database pool of clients connected to the database
 pub trait DatabaseEndpoint {
+    /// Returns a [`DatabasePool`] to the database for which this DatabaseEndpoint has connection
+    /// information
+    ///
+    /// [`DatabasePool`]: ./enum.DatabasePool.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if the database pool cannot be built, for example if the database
+    /// connection information in the implementation of the DatabaseEndpoint does not successfully
+    /// connect to a database. The specific [`Error`] variant depends on the database back-end.
+    ///
+    /// [`Error`]: ../../enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,norun
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let endpoint = Neo4jEndpoint::from_env()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let pool = endpoint.pool()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
 pub(crate) trait Transaction {
-    type ImplDeleteQueryResponse: DeleteQueryResponse;
-    type ImplNodeQueryResponse: NodeQueryResponse;
-    type ImplRelQueryResponse: RelQueryResponse;
-
     fn begin(&self) -> Result<(), Error>;
 
-    fn create_node<GlobalCtx, RequestCtx>(
+    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         label: &str,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
-    ) -> Result<Self::ImplNodeQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
+    ) -> Result<Node<GlobalCtx, RequestCtx>, Error>;
+
     #[allow(clippy::too_many_arguments)]
-    fn create_rels<GlobalCtx, RequestCtx>(
+    fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_label: &str,
-        src_ids: Value,
+        src_ids: Vec<Value>,
         dst_label: &str,
-        dst_ids: Value,
+        dst_ids: Vec<Value>,
         rel_name: &str,
-        params: &mut HashMap<String, Value>, // TODO Pass props instead of params
-        partition_key_opt: Option<&Value>,
+        props: HashMap<String, Value>,
         props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Self::ImplRelQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
+
     #[allow(clippy::too_many_arguments)]
     fn node_query(
         &mut self,
@@ -102,9 +132,10 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn rel_query(
         &mut self,
+        params: HashMap<String, Value>,
         src_label: &str,
         src_suffix: &str,
-        src_ids_opt: Option<Value>,
+        src_ids_opt: Option<Vec<Value>>,
         src_query: Option<String>,
         rel_name: &str,
         dst_var: &str,
@@ -112,93 +143,59 @@ pub(crate) trait Transaction {
         dst_query: Option<String>,
         return_rel: bool,
         props: HashMap<String, Value>,
-        params: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn read_nodes(
+    fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: &str,
+        partition_key_opt: Option<&Value>,
+        params: Option<HashMap<String, Value>>,
+        info: &Info,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
+
+    fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: &str,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
-    ) -> Result<Self::ImplNodeQueryResponse, Error>;
-    fn read_rels(
-        &mut self,
-        query: &str,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
-    ) -> Result<Self::ImplRelQueryResponse, Error>;
-    fn update_nodes<GlobalCtx, RequestCtx>(
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
+
+    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         label: &str,
-        ids: Value,
+        ids: Vec<Value>,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Self::ImplNodeQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
-    fn update_rels<GlobalCtx, RequestCtx>(
+    fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_label: &str,
         rel_name: &str,
-        rel_ids: Value,
-        partition_key_opt: Option<&Value>,
+        rel_ids: Vec<Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
-        info: &Info,
-    ) -> Result<Self::ImplRelQueryResponse, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
     fn delete_nodes(
         &mut self,
         label: &str,
-        ids: Value,
+        ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Self::ImplDeleteQueryResponse, Error>;
+    ) -> Result<i32, Error>;
+
     fn delete_rels(
         &mut self,
         src_label: &str,
         rel_name: &str,
-        rel_ids: Value,
+        rel_ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Self::ImplDeleteQueryResponse, Error>;
+    ) -> Result<i32, Error>;
 
     fn commit(&mut self) -> Result<(), Error>;
+
     fn rollback(&mut self) -> Result<(), Error>;
-}
-
-pub(crate) trait DeleteQueryResponse: Debug {
-    fn count(&self) -> Result<i32, Error>;
-}
-
-pub(crate) trait NodeQueryResponse: Debug {
-    fn ids(&self, column_name: &str) -> Result<Value, Error>;
-    fn nodes<GlobalCtx, RequestCtx>(
-        self,
-        name: &str,
-        info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
-}
-
-pub(crate) trait RelQueryResponse: Debug {
-    fn ids(&self, column_name: &str) -> Result<Value, Error>;
-    fn merge(&mut self, r: Self);
-    fn rels<GlobalCtx, RequestCtx>(
-        &mut self,
-        info: &Info,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext;
 }

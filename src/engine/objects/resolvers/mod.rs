@@ -1,9 +1,7 @@
 use super::Input;
 use super::Node;
 use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
-use crate::engine::database::{
-    DeleteQueryResponse, NodeQueryResponse, RelQueryResponse, Transaction,
-};
+use crate::engine::database::Transaction;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -44,6 +42,10 @@ where
         executor: &'r Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
         transaction: &'r mut T,
     ) -> Resolver<'r, GlobalCtx, RequestCtx, T> {
+        trace!(
+            "Resolver::new called -- partition_key_opt: {:#?}",
+            partition_key_opt
+        );
         Resolver {
             partition_key_opt,
             executor,
@@ -59,7 +61,7 @@ where
         args: &Arguments,
     ) -> ExecutionResult {
         trace!(
-            "resolve_custom_endpoint called -- info.name: {}, field_name: {}",
+            "Resolver::resolve_custom_endpoint called -- info.name: {}, field_name: {}",
             info.name(),
             field_name,
         );
@@ -87,7 +89,7 @@ where
         args: &Arguments,
     ) -> ExecutionResult {
         trace!(
-            "resolve_custom_field called -- info.name: {:#?}, field_name: {:#?}",
+            "Resolver::resolve_custom_field called -- info.name: {:#?}, field_name: {:#?}",
             info.name(),
             field_name,
         );
@@ -117,7 +119,7 @@ where
         args: &Arguments,
     ) -> ExecutionResult {
         trace!(
-            "resolve_custom_rel called -- info.name: {}, rel_name: {}",
+            "Resolver::resolve_custom_rel called -- info.name: {}, rel_name: {}",
             info.name(),
             rel_name,
         );
@@ -140,33 +142,38 @@ where
 
     pub(super) fn resolve_node_by_id(
         &mut self,
-        _field_name: &str,
         label: &str,
         info: &Info,
         id: Value,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
+            label,
+            id
+        );
+
         let mut props = HashMap::new();
         props.insert("id".to_string(), id);
+
         let (query, params) = self.transaction.node_query(
             Vec::new(),
             HashMap::new(),
             label,
-            "",
+            "0",
             false,
             true,
-            "",
+            "0",
             props,
         )?;
         let response =
             self.transaction
-                .read_nodes(&query, None, self.partition_key_opt, Some(params))?;
+                .read_nodes(&query, self.partition_key_opt, Some(params), info)?;
+
+        trace!("Resolver::resolve_node_by_id response: {:#?}", response);
 
         self.executor.resolve(
             &Info::new(label.to_string(), info.type_defs()),
-            &response
-                .nodes(label, info)?
-                .first()
-                .ok_or_else(|| Error::ResponseSetNotFound)?,
+            response.first().ok_or_else(|| Error::ResponseSetNotFound)?,
         )
     }
 
@@ -177,7 +184,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
+            "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
             info.name(),
             field_name,
             input
@@ -195,7 +202,10 @@ where
             &self.executor.context().validators(),
             self.transaction,
         );
-        trace!("resolve_node_create_mutation -- results: {:#?}", results);
+        trace!(
+            "Resolver::resolve_node_create_mutation -- results: {:#?}",
+            results
+        );
 
         if results.is_ok() {
             self.transaction.commit()?;
@@ -203,17 +213,9 @@ where
             self.transaction.rollback()?;
         }
 
-        let ret = results?;
-        let nodes = ret.nodes(p.type_name(), info)?;
-        let node = nodes
-            .iter()
-            .next()
-            .ok_or_else(|| Error::ResponseSetNotFound)?;
-
-        trace!("Results: {:#?}", node);
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &node,
+            &results?,
         )
     }
 
@@ -225,7 +227,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_node_delete_mutation called -- info.name: {}, field_name: {}: input: {:#?}",
+            "Resolver::resolve_node_delete_mutation called -- info.name: {}, field_name: {}: input: {:#?}",
             info.name(),
             field_name,
             input
@@ -248,7 +250,10 @@ where
             input.value,
             self.transaction,
         );
-        trace!("resolve_node_delete_mutation -- results: {:#?}", results);
+        trace!(
+            "Resolver::resolve_node_delete_mutation -- results: {:#?}",
+            results
+        );
 
         if results.is_ok() {
             self.transaction.commit()?;
@@ -256,7 +261,7 @@ where
             self.transaction.rollback()?;
         }
 
-        self.executor.resolve_with_ctx(&(), &results?.count()?)
+        self.executor.resolve_with_ctx(&(), &results?)
     }
 
     pub(super) fn resolve_node_read_query(
@@ -266,7 +271,7 @@ where
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
+            "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
             info.name(),
             field_name,
             input_opt
@@ -293,8 +298,11 @@ where
         )?;
         let results =
             self.transaction
-                .read_nodes(&query, None, self.partition_key_opt, Some(params));
-        trace!("resolve_node_read_query -- results: {:#?}", results);
+                .read_nodes(&query, self.partition_key_opt, Some(params), info);
+        trace!(
+            "Resolver::resolve_node_read_query -- results: {:#?}",
+            results
+        );
 
         if results.is_ok() {
             self.transaction.commit()?;
@@ -305,14 +313,12 @@ where
         if p.list() {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results?.nodes(&(p.type_name().to_owned() + &suffix), info)?,
+                &results?,
             )
         } else {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results?
-                    .nodes(&(p.type_name().to_owned() + &suffix), info)?
-                    .first(),
+                &results?.first(),
             )
         }
     }
@@ -324,7 +330,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
+            "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
             info.name(),
             field_name,
             input
@@ -342,7 +348,10 @@ where
             &self.executor.context().validators(),
             self.transaction,
         );
-        trace!("resolve_node_update_mutation result: {:#?}", result);
+        trace!(
+            "Resolver::resolve_node_update_mutation result: {:#?}",
+            result
+        );
 
         if result.is_ok() {
             self.transaction.commit()?;
@@ -352,7 +361,7 @@ where
 
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &result?.nodes(p.type_name(), info)?,
+            &result?,
         )
     }
 
@@ -365,7 +374,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-        "resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name(),
         field_name,
         src_label,
@@ -379,7 +388,7 @@ where
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(p.type_name())?;
 
-        let raw_result = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
+        let result = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
@@ -393,7 +402,7 @@ where
             self.transaction,
         );
 
-        if raw_result.is_ok() {
+        if result.is_ok() {
             self.transaction.commit()?;
         } else {
             self.transaction.rollback()?;
@@ -402,18 +411,15 @@ where
         let mutations = info.type_def_by_name("Mutation")?;
         let endpoint_td = mutations.property(field_name)?;
 
-        let mut result = raw_result?;
-        let rels = result.rels(info)?;
-
         if endpoint_td.list() {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &rels,
+                &result?,
             )
         } else {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &rels[0],
+                &result?[0],
             )
         }
     }
@@ -427,7 +433,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-        "resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name(),
         field_name,
         src_label, rel_name, input
@@ -437,7 +443,7 @@ where
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        let raw_results = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+        let results = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,
             rel_name,
@@ -446,41 +452,14 @@ where
             input.value,
             self.transaction,
         );
-        trace!("Raw results: {:#?}", raw_results);
 
-        if raw_results.is_ok() {
+        if results.is_ok() {
             self.transaction.commit()?;
         } else {
             self.transaction.rollback()?;
         }
 
-        let results = raw_results?;
-
-        self.executor.resolve_with_ctx(&(), &results.count()?)
-    }
-
-    pub(super) fn resolve_rel_field(
-        &mut self,
-        field_name: &str,
-        id_opt: Option<Value>,
-        rel_name: &str,
-        info: &Info,
-        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-        "resolve_rel_field called -- info.name: {}, field_name: {}, id_opt: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
-        info.name(),
-        field_name,
-        id_opt,
-        rel_name,
-        self.partition_key_opt,
-        input_opt
-    );
-
-        let td = info.type_def()?;
-        let _p = td.property(field_name)?;
-
-        self.resolve_rel_read_query(field_name, id_opt, rel_name, info, input_opt)
+        self.executor.resolve_with_ctx(&(), &results?)
     }
 
     pub(super) fn resolve_rel_props(
@@ -490,7 +469,7 @@ where
         props: &Node<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_rel_props called -- info.name: {:#?}, field_name: {}",
+            "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
             info.name(),
             field_name,
         );
@@ -504,16 +483,16 @@ where
         )
     }
 
-    fn resolve_rel_read_query(
+    pub(super) fn resolve_rel_read_query(
         &mut self,
         field_name: &str,
-        src_ids_opt: Option<Value>,
+        src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-        "resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name(),
         field_name,
         src_ids_opt,
@@ -542,7 +521,6 @@ where
             &dst_prop.type_name(),
             &dst_suffix,
             true,
-            // "",
             HashMap::new(),
             &mut sg,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
@@ -552,7 +530,7 @@ where
         )?;
 
         debug!(
-            "resolve_rel_read_query Query query, params: {:#?} {:#?}",
+            "Resolver::resolve_rel_read_query Query query, params: {} {:#?}",
             query, params
         );
         let raw_results = self.transaction.read_rels(
@@ -561,7 +539,6 @@ where
             self.partition_key_opt,
             Some(params),
         );
-        // debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
 
         if raw_results.is_ok() {
             self.transaction.commit()?;
@@ -569,25 +546,21 @@ where
             self.transaction.rollback()?;
         }
 
-        let mut results = raw_results?;
-        // trace!("resolve_rel_read_query Results: {:#?}", results);
+        let results = raw_results?;
 
-        trace!("resolve_rel_read_query calling rels.");
         if p.list() {
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results.rels(info)?,
+                &results,
             )
         } else {
-            let v = results.rels(info)?;
-
-            if v.len() > 1 {
+            if results.len() > 1 {
                 return Err(Error::TypeNotExpected.into());
             }
 
             self.executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &v.first(),
+                &results.first(),
             )
         }
     }
@@ -601,7 +574,7 @@ where
         input: Input<GlobalCtx, RequestCtx>,
     ) -> ExecutionResult {
         trace!(
-        "resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name(),
         field_name,
         src_label, rel_name,
@@ -615,9 +588,8 @@ where
         let rtd = info.type_def_by_name(&p.type_name())?;
         let props_prop = rtd.property("props");
         let _src_prop = rtd.property("src")?;
-        // let dst_prop = rtd.property("dst")?;
 
-        let raw_result = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
+        let results = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,
             rel_name,
@@ -628,30 +600,16 @@ where
             props_prop.map(|_| p.type_name()).ok(),
             self.transaction,
         );
-        trace!("Raw Result: {:#?}", raw_result);
 
-        if raw_result.is_ok() {
+        if results.is_ok() {
             self.transaction.commit()?;
         } else {
             self.transaction.rollback()?;
         }
 
-        let mut results = raw_result?;
-
-        trace!("resolve_rel_update_mutation calling rels");
         self.executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results.rels(info)?, /*
-                                  .rels(
-                                      &src_prop.type_name(),
-                                      "",
-                                      rel_name,
-                                      "dst",
-                                      "",
-                                      props_prop.map(|_| p.type_name()).ok(),
-                                      info,
-                                  )?,
-                                  */
+            &results?,
         )
     }
 
@@ -662,7 +620,7 @@ where
         fields: &HashMap<String, Value>,
     ) -> ExecutionResult {
         trace!(
-            "resolve_scalar_field called -- info.name: {}, field_name: {}",
+            "Resolver::resolve_scalar_field called -- info.name: {}, field_name: {}",
             info.name(),
             field_name,
         );
@@ -710,18 +668,14 @@ where
                     }
                     Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
                         Err(Error::TypeNotExpected.into())
-                    } // Err(Error::new(ErrorKind::InvalidPropertyType(String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array."), None).into()),
+                    }
                 },
-                Value::Map(_) => Err(Error::TypeNotExpected.into()), // Err(Error::new( ErrorKind::InvalidPropertyType( String::from(field_name) + " is an object. Expected a scalar or a scalar array.",), None,) .into()),
+                Value::Map(_) => Err(Error::TypeNotExpected.into()),
             },
         )
     }
 
-    pub(super) fn resolve_static_version_query(
-        &mut self,
-        _info: &Info,
-        _args: &Arguments,
-    ) -> ExecutionResult {
+    pub(super) fn resolve_static_version_query(&mut self) -> ExecutionResult {
         match &self.executor.context().version() {
             Some(v) => Ok(juniper::Value::scalar(v.to_string())),
             None => Ok(juniper::Value::Null),
@@ -733,11 +687,10 @@ where
         info: &Info,
         dst_label: &str,
         field_name: &str,
-        // src: &Node<GlobalCtx, RequestCtx>,
         dst_id: &Value,
     ) -> ExecutionResult {
         trace!(
-            "resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
+            "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
             info.name(),
             field_name,
             dst_id
@@ -757,34 +710,18 @@ where
                     "",
                     props,
                 )?;
-                let response = self.transaction.read_nodes(
+                let results = self.transaction.read_nodes(
                     &query,
-                    None,
                     self.partition_key_opt,
                     Some(params),
+                    info,
                 )?;
 
                 self.executor.resolve(
                     &Info::new(dst_label.to_string(), info.type_defs()),
-                    &response
-                        .nodes(&dst_label.to_string(), info)?
-                        .first()
-                        .ok_or_else(|| Error::ResponseSetNotFound)?,
+                    &results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
                 )
-                /*
-
-                    self.executor.resolve(
-                    &Info::new(dst.concrete_typename.to_owned(), info.type_defs()),
-                    dst,
-                ),
-                */
             }
-            /*
-            "src" => self.executor.resolve(
-                &Info::new(src.concrete_typename.to_owned(), info.type_defs()),
-                src,
-            ),
-            */
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,
             }

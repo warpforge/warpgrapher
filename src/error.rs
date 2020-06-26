@@ -46,9 +46,9 @@ pub enum Error {
     /// [`Config`]: ../engine/config/struct.Config.html
     ConfigVersionMismatched { expected: i32, found: i32 },
 
-    /// Returned if a client for a Cosmos database pool cannot be built
+    /// Returned if a client for a Cosmos database pool cannot be built or a query fails.
     #[cfg(feature = "cosmos")]
-    CosmosPoolNotBuilt {
+    CosmosActionFailed {
         source: Box<gremlin_client::GremlinError>,
     },
 
@@ -124,7 +124,8 @@ pub enum Error {
     /// node or rel witout adding mandatory properties, such as an ID.
     ResponseItemNotFound { name: String },
 
-    /// Returned if a GraphQL response cannot be converted to a serde_json::Value
+    /// Returned if a GraphQL response or a database query parameter cannot be converted to a
+    /// serde_json::Value, or if a query
     SerializationFailed { source: serde_json::Error },
 
     /// Returned if Warpgrapher fails to find an element within a schema, such as a type or
@@ -188,8 +189,8 @@ impl Display for Error {
                 write!(f, "Configs must be the same version: expected {} but found {}", expected, found)
             }
             #[cfg(feature = "cosmos")]
-            Error::CosmosPoolNotBuilt { source } => {
-                write!(f, "Could not build database connection pool. Source error: {}", source)
+            Error::CosmosActionFailed { source } => {
+                write!(f, "Either building a database connection pool or query failed. Source error: {}", source)
             }
             Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
@@ -272,7 +273,7 @@ impl std::error::Error for Error {
                 found: _,
             } => None,
             #[cfg(feature = "cosmos")]
-            Error::CosmosPoolNotBuilt { source } => Some(source),
+            Error::CosmosActionFailed { source } => Some(source),
             Error::DatabaseNotFound => None,
             Error::DeserializationFailed { source } => Some(source),
             Error::EnvironmentVariableNotFound { name: _ } => None,
@@ -316,7 +317,7 @@ impl From<GraphError> for Error {
 #[cfg(feature = "cosmos")]
 impl From<GremlinError> for Error {
     fn from(e: GremlinError) -> Self {
-        Error::CosmosPoolNotBuilt {
+        Error::CosmosActionFailed {
             source: Box::new(e),
         }
     }
@@ -350,6 +351,15 @@ impl From<std::io::Error> for Error {
 impl From<std::num::ParseIntError> for Error {
     fn from(e: std::num::ParseIntError) -> Self {
         Error::EnvironmentVariableNotParsed { source: e }
+    }
+}
+
+impl From<std::num::TryFromIntError> for Error {
+    fn from(_e: std::num::TryFromIntError) -> Self {
+        Error::TypeConversionFailed {
+            src: "i64 or uint64".to_string(),
+            dst: "i32".to_string(),
+        }
     }
 }
 

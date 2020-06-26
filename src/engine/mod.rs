@@ -453,10 +453,7 @@ where
         req: &GraphQLRequest,
         metadata: &HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
-        debug!(
-            "Engine::execute called -- req: {:#?}, metadata: {:#?}",
-            req, metadata
-        );
+        debug!("Engine::execute called");
 
         // run pre request plugin hooks
         let req_ctx = self
