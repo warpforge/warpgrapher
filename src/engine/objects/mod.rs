@@ -32,6 +32,8 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+#[cfg(feature = "neo4j")]
+use tokio::runtime::Runtime;
 
 #[derive(Clone, Debug)]
 struct Input<GlobalCtx, RequestCtx>
@@ -80,7 +82,6 @@ where
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
-        trace!("Input::name called for {}", info.name());
         Some(&info.name())
     }
 
@@ -566,14 +567,17 @@ where
         match &executor.context().pool() {
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
-                let graph = p.get()?;
-                let mut transaction = Neo4jTransaction::new(graph.transaction().begin()?.0);
+                let mut runtime = Runtime::new()?;
+                let graph = runtime.block_on(p.get())?;
+                trace!("Node::resolve -- graph: {:#?}", graph);
+
+                let transaction = Neo4jTransaction::new(graph);
                 self.resolve_field_with_transaction(
                     info,
                     field_name,
                     args,
                     executor,
-                    &mut transaction,
+                    &mut transaction?,
                 )
             }
             #[cfg(feature = "cosmos")]
@@ -880,14 +884,18 @@ where
         match &executor.context().pool() {
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
-                let graph = p.get()?;
-                let mut transaction = Neo4jTransaction::new(graph.transaction().begin()?.0);
+                let mut runtime = Runtime::new()?;
+                let graph = runtime.block_on(p.get())?;
+                trace!("Node::resolve -- graph: {:#?}", graph);
+
+                let transaction = Neo4jTransaction::new(graph);
+                trace!("Node::resolve_field -- transaction: {:#?}", transaction);
                 self.resolve_field_with_transaction(
                     info,
                     field_name,
                     args,
                     executor,
-                    &mut transaction,
+                    &mut transaction?,
                 )
             }
             #[cfg(feature = "cosmos")]

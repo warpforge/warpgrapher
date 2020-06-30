@@ -9,8 +9,8 @@ use setup::{clear_db, init, neo4j_test_client};
 #[tokio::test]
 async fn client_node_crud() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
 
     let p0 = client
         .create_node(
@@ -91,8 +91,8 @@ async fn client_node_crud() {
 #[tokio::test]
 async fn client_rel_crud() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
 
     client
         .create_node(

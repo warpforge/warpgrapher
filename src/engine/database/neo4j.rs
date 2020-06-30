@@ -1,19 +1,24 @@
 //! Provides database interface types and functions for Neo4J databases.
 
-use super::{env_string, DatabaseEndpoint, DatabasePool};
+use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, Transaction};
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::schema::NodeType;
 use crate::engine::value::Value;
 use crate::Error;
+use async_trait::async_trait;
+use bb8::Pool;
+use bb8::PooledConnection;
+use bb8_bolt::BoltConnectionManager;
+use bolt_client::{Client, Metadata, Params};
+use bolt_proto::error::ConversionError;
+use bolt_proto::message::{Message, Record};
 use log::{debug, trace};
-use r2d2_cypher::CypherConnectionManager;
-use rusted_cypher::cypher::result::CypherResult;
-use rusted_cypher::cypher::transaction::{Started, Transaction};
-use rusted_cypher::Statement;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::iter::FromIterator;
+use tokio::runtime::Runtime;
 
 /// A Neo4J endpoint collects the information necessary to generate a connection string and
 /// build a database connection pool.
@@ -30,14 +35,19 @@ use std::convert::{TryFrom, TryInto};
 /// # }
 /// ```
 pub struct Neo4jEndpoint {
-    db_url: String,
+    host: String,
+    port: u16,
+    user: String,
+    pass: String,
 }
 
 impl Neo4jEndpoint {
     /// Reads an variable to construct a [`Neo4jEndpoint`]. The environment variable is
     ///
-    /// * WG_NEO4J_URL - the connection URL for the Neo4J DB. For example,
-    /// `http://neo4j:testpass@localhost:7474/db/data`
+    /// * WG_NEO4J_ADDR - the address for the Neo4J DB. For example, `127.0.0.1`.
+    /// * WG_NEO4J_PORT - the port number for the Neo4J DB.  For example, `7687`.
+    /// * WG_NEO4J_USER - the username for the Neo4J DB. For example, `neo4j`.
+    /// * WG_NEO4J_PASS - the password for the Neo4J DB. For example, `my-db-pass`.
     ///
     /// [`Neo4jEndpoint`]: ./struct.Neo4jEndpoint.html
     ///
@@ -59,44 +69,59 @@ impl Neo4jEndpoint {
     /// ```
     pub fn from_env() -> Result<Neo4jEndpoint, Error> {
         Ok(Neo4jEndpoint {
-            db_url: env_string("WG_NEO4J_URL")?,
+            host: env_string("WG_NEO4J_HOST")?,
+            port: env_u16("WG_NEO4J_PORT")?,
+            user: env_string("WG_NEO4J_USER")?,
+            pass: env_string("WG_NEO4J_PASS")?,
         })
     }
 }
 
+#[async_trait]
 impl DatabaseEndpoint for Neo4jEndpoint {
-    fn pool(&self) -> Result<DatabasePool, Error> {
-        let manager = CypherConnectionManager {
-            url: self.db_url.to_owned(),
-        };
+    async fn pool(&self) -> Result<DatabasePool, Error> {
+        let manager = BoltConnectionManager::new(
+            self.host.to_string() + ":" + &self.port.to_string(),
+            None,
+            [4, 0, 0, 0],
+            HashMap::from_iter(vec![
+                ("user_agent", "warpgrapher/0.2.0"),
+                ("scheme", "basic"),
+                ("principal", &self.user),
+                ("credentials", &self.pass),
+            ]),
+        )?;
 
-        Ok(DatabasePool::Neo4j(
-            r2d2::Pool::builder()
+        let pool = DatabasePool::Neo4j(
+            Pool::builder()
                 .max_size(num_cpus::get().try_into().unwrap_or(8))
-                .build(manager)?,
-        ))
+                .build(manager)
+                .await?,
+        );
+
+        trace!("Neo4jEndpoint::pool -- pool: {:#?}", pool);
+        Ok(pool)
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Neo4jTransaction<'t> {
-    transaction: Option<Transaction<'t, Started>>,
+    client: PooledConnection<'t, BoltConnectionManager>,
+    runtime: Runtime,
 }
 
 impl<'t> Neo4jTransaction<'t> {
-    pub fn new(transaction: Transaction<'t, Started>) -> Neo4jTransaction {
-        Neo4jTransaction {
-            transaction: Some(transaction),
-        }
+    pub fn new(
+        client: PooledConnection<'t, BoltConnectionManager>,
+    ) -> Result<Neo4jTransaction<'t>, Error> {
+        Ok(Neo4jTransaction {
+            client,
+            runtime: Runtime::new()?,
+        })
     }
 
     fn add_node_return(mut query: String, node_var: &str) -> String {
-        query.push_str(
-            &("RETURN ".to_string()
-                + node_var
-                + " as node, labels("
-                + node_var
-                + ") as node_labels\n"),
-        );
+        query.push_str(&("RETURN ".to_string() + node_var + " as node\n"));
         query
     }
 
@@ -117,38 +142,30 @@ impl<'t> Neo4jTransaction<'t> {
         query
     }
 
-    fn extract_count(results: CypherResult) -> Result<i32, Error> {
-        trace!("Neo4jTransaction::extract_count called");
-        if let serde_json::Value::Number(n) = results
-            .rows()
+    fn extract_count(records: Vec<Record>) -> Result<i32, Error> {
+        trace!(
+            "Neo4jTransaction::extract_count called -- records: {:#?}",
+            records
+        );
+
+        records
+            .into_iter()
             .next()
-            .ok_or_else(|| Error::ResponseSetNotFound)?
-            .get("count")?
-        {
-            if let Some(i) = n.as_i64() {
-                Ok(i32::try_from(i)?)
-            } else {
-                Err(Error::TypeConversionFailed {
-                    src: format!("{:#?}", n),
-                    dst: "i32".to_string(),
-                })
-            }
-        } else {
-            Err(Error::ResponseItemNotFound {
-                name: "count".to_string(),
-            })
-        }
+            .ok_or_else(|| Error::ResponseSetNotFound)
+            .and_then(|r| r.fields()[0].clone().try_into().map_err(Error::from))
     }
 
     fn extract_node_properties(
-        props: HashMap<String, serde_json::Value>,
+        props: HashMap<String, bolt_proto::value::Value>,
         type_def: &NodeType,
     ) -> Result<HashMap<String, Value>, Error> {
+        trace!("Neo4jTransaction::extract_node_properties called");
+
         props
             .into_iter()
             .map(|(k, v)| {
                 if type_def.property(&k)?.list() {
-                    if let serde_json::Value::Array(_) = v {
+                    if let bolt_proto::value::Value::List(_) = v {
                         Ok((k, v.try_into()?))
                     } else {
                         Ok((k, Value::Array(vec![(v.try_into()?)])))
@@ -161,80 +178,82 @@ impl<'t> Neo4jTransaction<'t> {
     }
 
     fn nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        results: CypherResult,
+        records: Vec<Record>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::nodes called");
-        results
-            .rows()
-            .map(|row| {
-                let label = row
-                    .get::<Vec<String>>("node_labels")?
-                    .pop()
-                    .ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "node_labels".to_string(),
-                    })?;
-                Ok(Node::new(
-                    label.to_string(),
-                    Neo4jTransaction::extract_node_properties(
-                        row.get("node")?,
-                        info.type_def_by_name(&label)?,
-                    )?,
-                ))
+        trace!("Neo4jTransaction::nodes called -- records: {:#?}", records);
+
+        records
+            .into_iter()
+            .map(|r| {
+                if let bolt_proto::value::Value::Node(n) = &r.fields()[0] {
+                    Ok(Node::new(
+                        n.labels()[0].to_string(),
+                        Neo4jTransaction::extract_node_properties(
+                            n.properties().clone(),
+                            info.type_def_by_name(&n.labels()[0])?,
+                        )?,
+                    ))
+                } else {
+                    Err(Error::ResponseItemNotFound {
+                        name: "node".to_string(),
+                    })
+                }
             })
             .collect()
     }
 
     fn rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        results: CypherResult,
+        records: Vec<Record>,
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::rels called");
-        results
-            .rows()
-            .map(|row| {
-                let src_label = row.get::<Vec<String>>("src_labels")?.pop().ok_or_else(|| {
-                    Error::ResponseItemNotFound {
+        trace!("Neo4jTransaction::rels called -- records: {:#?}", records);
+
+        records
+            .into_iter()
+            .map(|r| {
+                let src_id = r.fields()[0].clone().try_into()?;
+                let src_label = TryInto::<Vec<String>>::try_into(r.fields()[1].clone())?
+                    .pop()
+                    .ok_or_else(|| Error::ResponseItemNotFound {
                         name: "src_labels".to_string(),
-                    }
-                })?;
-                let dst_label = row.get::<Vec<String>>("dst_labels")?.pop().ok_or_else(|| {
-                    Error::ResponseItemNotFound {
+                    })?;
+                let dst_id = r.fields()[3].clone().try_into()?;
+                let dst_label = TryInto::<Vec<String>>::try_into(r.fields()[4].clone())?
+                    .pop()
+                    .ok_or_else(|| Error::ResponseItemNotFound {
                         name: "dst_labels".to_string(),
-                    }
-                })?;
-                let props = row
-                    .get::<HashMap<String, serde_json::Value>>("rel")?
-                    .into_iter()
-                    .map(|(k, v)| Ok((k, v.try_into()?)))
-                    .collect::<Result<HashMap<String, Value>, Error>>()?;
+                    })?;
+                let mut props =
+                    if let bolt_proto::value::Value::Relationship(rel) = r.fields()[2].clone() {
+                        rel.properties()
+                            .iter()
+                            .map(|(k, v)| Ok((k.to_string(), v.clone().try_into()?)))
+                            .collect::<Result<HashMap<String, Value>, bolt_proto::error::Error>>()?
+                    } else {
+                        return Err(Error::ResponseItemNotFound {
+                            name: "rel".to_string(),
+                        });
+                    };
 
                 Ok(Rel::new(
-                    row.get::<serde_json::Value>("rel")?
-                        .get("id")
+                    props
+                        .remove("id")
                         .ok_or_else(|| Error::ResponseItemNotFound {
                             name: "id".to_string(),
-                        })?
-                        .clone()
-                        .try_into()?,
+                        })?,
                     partition_key_opt.cloned(),
                     props_type_name.map(|ptn| Node::new(ptn.to_string(), props)),
-                    NodeRef::new(
-                        row.get::<serde_json::Value>("src_id")?.try_into()?,
-                        src_label,
-                    ),
-                    NodeRef::new(
-                        row.get::<serde_json::Value>("dst_id")?.try_into()?,
-                        dst_label,
-                    ),
+                    NodeRef::new(src_id, src_label),
+                    NodeRef::new(dst_id, dst_label),
                 ))
             })
-            .collect()
+            .collect::<Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>>()
     }
 
-    fn single_rel_check<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        transaction: &mut Transaction<'t, Started>,
+    async fn single_rel_check<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        client: &mut Client,
         src_label: &str,
         src_ids: Vec<Value>,
         dst_ids: Vec<Value>,
@@ -247,14 +266,19 @@ impl<'t> Neo4jTransaction<'t> {
             + rel_name
             + "]->() WHERE src.id IN $src_ids RETURN COUNT(rel) as count";
 
-        let mut statement = Statement::new(query);
-        statement.add_param::<String, &serde_json::Value>(
-            "src_ids".to_string(),
-            &Value::Array(src_ids).try_into()?,
-        )?;
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("src_ids".to_string(), src_ids.into());
+        let params = Params::from(hm);
+        client.run_with_metadata(query, Some(params), None).await?;
 
-        let results = transaction.exec(statement)?;
-        if Neo4jTransaction::extract_count(results)? > 0 || dst_ids.len() > 1 {
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = client.pull(Some(pull_meta)).await?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
+        }
+
+        if Neo4jTransaction::extract_count(records)? > 0 || dst_ids.len() > 1 {
             Err(Error::RelDuplicated {
                 rel_name: rel_name.to_string(),
             })
@@ -264,10 +288,16 @@ impl<'t> Neo4jTransaction<'t> {
     }
 }
 
-impl<'t> super::Transaction for Neo4jTransaction<'t> {
-    fn begin(&self) -> Result<(), Error> {
-        debug!("transaction::begin called");
-        Ok(())
+impl Transaction for Neo4jTransaction<'_> {
+    fn begin(&mut self) -> Result<(), Error> {
+        debug!("Neo4jTransaction::begin called");
+
+        let response = self.runtime.block_on(self.client.begin(None));
+        match response {
+            Ok(Message::Success(_)) => Ok(()),
+            Ok(message) => Err(Error::Neo4jQueryFailed { message }),
+            Err(e) => Err(Error::from(e)),
+        }
     }
 
     fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -277,31 +307,30 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         props: HashMap<String, Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut query = "CREATE (node:".to_string()
-                + label
-                + " { id: randomUUID() })\n"
-                + "SET node += $props\n";
-            query = Neo4jTransaction::add_node_return(query, "node");
+        let mut query = "CREATE (node:".to_string()
+            + label
+            + " { id: randomUUID() })\n"
+            + "SET node += $props\n";
+        query = Neo4jTransaction::add_node_return(query, "node");
 
-            let mut params: HashMap<String, Value> = HashMap::new();
-            params.insert("props".to_owned(), props.into());
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("props".to_owned(), props.into());
 
-            let mut statement = Statement::new(query);
-            params.into_iter().try_for_each(|(k, v)| {
-                statement
-                    .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
-                    .map_err(Error::from)
-            })?;
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(query, Some(params), None))?;
 
-            let result = transaction.exec(statement)?;
-            Neo4jTransaction::nodes(result, info)?
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::ResponseSetNotFound)
-        } else {
-            Err(Error::TransactionFinished)
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::nodes(records, info)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ResponseSetNotFound)
     }
 
     fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -318,54 +347,52 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
         trace!("Neo4jTransaction::create_rels called -- src_label: {}, src_ids: {:#?}, dst_label: {}, dst_ids: {:#?}, rel_name: {}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}", src_label, src_ids, dst_label, dst_ids, rel_name, props, props_type_name, partition_key_opt);
 
-        if let Some(transaction) = self.transaction.as_mut() {
-            let src_td = info.type_def_by_name(src_label)?;
-            let src_prop = src_td.property(rel_name)?;
+        let src_td = info.type_def_by_name(src_label)?;
+        let src_prop = src_td.property(rel_name)?;
 
-            if !src_prop.list() {
-                Neo4jTransaction::single_rel_check::<GlobalCtx, RequestCtx>(
-                    transaction,
+        if !src_prop.list() {
+            self.runtime
+                .block_on(Neo4jTransaction::single_rel_check::<GlobalCtx, RequestCtx>(
+                    &mut self.client,
                     src_label,
                     src_ids.clone(),
                     dst_ids.clone(),
                     rel_name,
                     partition_key_opt,
-                )?;
-            }
-
-            let mut query = "MATCH (src:".to_string()
-                + src_label
-                + "),(dst:"
-                + dst_label
-                + ")\n"
-                + "WHERE src.id IN $src_ids AND dst.id IN $dst_ids\n"
-                + "CREATE (src)-[rel:"
-                + rel_name
-                + " { id: randomUUID() }]->(dst)\n"
-                + "SET rel += $props\n";
-            query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
-
-            trace!("Neo4jTransaction::create_rels -- query: {}, src_ids: {:#?}, dst_ids: {:#?}, props: {:#?}", query, src_ids, dst_ids, props);
-            let mut statement = Statement::new(query);
-            statement.add_param::<String, &serde_json::Value>(
-                "src_ids".to_owned(),
-                &Value::Array(src_ids).try_into()?,
-            )?;
-            statement.add_param::<String, &serde_json::Value>(
-                "dst_ids".to_owned(),
-                &Value::Array(dst_ids).try_into()?,
-            )?;
-            statement.add_param::<String, &serde_json::Value>(
-                "props".to_owned(),
-                &Into::<Value>::into(props).try_into()?,
-            )?;
-
-            trace!("statement: {:#?}", statement);
-            let results = transaction.exec(statement)?;
-            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
-        } else {
-            Err(Error::TransactionFinished)
+                ))?;
         }
+
+        let mut query = "MATCH (src:".to_string()
+            + src_label
+            + "),(dst:"
+            + dst_label
+            + ")\n"
+            + "WHERE src.id IN $src_ids AND dst.id IN $dst_ids\n"
+            + "CREATE (src)-[rel:"
+            + rel_name
+            + " { id: randomUUID() }]->(dst)\n"
+            + "SET rel += $props\n";
+        query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
+
+        trace!("Neo4jTransaction::create_rels -- query: {}, src_ids: {:#?}, dst_ids: {:#?}, props: {:#?}", query, src_ids, dst_ids, props);
+
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("src_ids".to_string(), src_ids.into());
+        hm.insert("dst_ids".to_string(), dst_ids.into());
+        hm.insert("props".to_string(), props.into());
+
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(query, Some(params), None))?;
+
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
+        }
+
+        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
     fn node_query(
@@ -539,20 +566,20 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         params_opt: Option<HashMap<String, Value>>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(query.to_string());
-            if let Some(params) = params_opt {
-                params.into_iter().try_for_each(|(k, v)| {
-                    statement
-                        .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
-                        .map_err(Error::from)
-                })?
-            }
-            let results = transaction.exec(statement)?;
-            Neo4jTransaction::nodes(results, info)
-        } else {
-            Err(Error::TransactionFinished)
+        self.runtime.block_on(self.client.run_with_metadata(
+            query,
+            params_opt.map(Params::from),
+            None,
+        ))?;
+
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::nodes(records, info)
     }
 
     fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -562,20 +589,20 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         partition_key_opt: Option<&Value>,
         params_opt: Option<HashMap<String, Value>>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut statement = Statement::new(query.to_string());
-            if let Some(params) = params_opt {
-                params.into_iter().try_for_each(|(k, v)| {
-                    statement
-                        .add_param::<String, &serde_json::Value>(k, &v.try_into()?)
-                        .map_err(Error::from)
-                })?
-            }
-            let results = transaction.exec(statement)?;
-            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
-        } else {
-            Err(Error::TransactionFinished)
+        self.runtime.block_on(self.client.run_with_metadata(
+            query,
+            params_opt.map(Params::from),
+            None,
+        ))?;
+
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
     fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -586,30 +613,28 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         _partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut query = "MATCH (node:".to_string()
-                + label
-                + ")\n"
-                + "WHERE node.id IN $ids\n"
-                + "SET node += $props\n";
-            query = Neo4jTransaction::add_node_return(query, "node");
+        let mut query = "MATCH (node:".to_string()
+            + label
+            + ")\n"
+            + "WHERE node.id IN $ids\n"
+            + "SET node += $props\n";
+        query = Neo4jTransaction::add_node_return(query, "node");
 
-            let mut statement = Statement::new(query);
-            statement.add_param::<String, &serde_json::Value>(
-                "ids".to_string(),
-                &Value::Array(ids).try_into()?,
-            )?;
-            statement.add_param::<String, &serde_json::Value>(
-                "props".to_string(),
-                &Value::Map(props).try_into()?,
-            )?;
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("props".to_string(), props.into());
+        hm.insert("ids".to_string(), ids.into());
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(query, Some(params), None))?;
 
-            let results = transaction.exec(statement)?;
-
-            Neo4jTransaction::nodes(results, info)
-        } else {
-            Err(Error::TransactionFinished)
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::nodes(records, info)
     }
 
     fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -621,32 +646,31 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let mut query = "MATCH (src:".to_string()
-                + src_label
-                + ")-[rel:"
-                + rel_name
-                + "]->(dst)\n"
-                + "WHERE rel.id IN $ids\n"
-                + "SET rel += $props\n";
-            query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
+        let mut query = "MATCH (src:".to_string()
+            + src_label
+            + ")-[rel:"
+            + rel_name
+            + "]->(dst)\n"
+            + "WHERE rel.id IN $ids\n"
+            + "SET rel += $props\n";
+        query = Neo4jTransaction::add_rel_return(query, "src", "rel", "dst");
 
-            let mut statement = Statement::new(query);
-            statement.add_param::<String, &serde_json::Value>(
-                "ids".to_string(),
-                &Value::Array(rel_ids).try_into()?,
-            )?;
-            statement.add_param::<String, &serde_json::Value>(
-                "props".to_string(),
-                &Value::Map(props).try_into()?,
-            )?;
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("ids".to_string(), rel_ids.into());
+        hm.insert("props".to_string(), props.into());
 
-            let results = transaction.exec(statement)?;
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(query, Some(params), None))?;
 
-            Neo4jTransaction::rels(results, partition_key_opt, props_type_name)
-        } else {
-            Err(Error::TransactionFinished)
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
     fn delete_nodes(
@@ -655,25 +679,27 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         ids: Vec<Value>,
         _partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let query = "MATCH (node:".to_string()
-                + label
-                + ")\n"
-                + "WHERE node.id IN $ids\n"
-                + "DETACH DELETE node\n"
-                + "RETURN count(*) as count\n";
+        let query = "MATCH (node:".to_string()
+            + label
+            + ")\n"
+            + "WHERE node.id IN $ids\n"
+            + "DETACH DELETE node\n"
+            + "RETURN count(*) as count\n";
 
-            let mut statement = Statement::new(query);
-            statement.add_param::<String, &serde_json::Value>(
-                "ids".to_string(),
-                &Value::Array(ids).try_into()?,
-            )?;
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("ids".to_string(), ids.into());
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(query, Some(params), None))?;
 
-            let results = transaction.exec(statement)?;
-            Neo4jTransaction::extract_count(results)
-        } else {
-            Err(Error::TransactionFinished)
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::extract_count(records)
     }
 
     fn delete_rels(
@@ -683,45 +709,95 @@ impl<'t> super::Transaction for Neo4jTransaction<'t> {
         rel_ids: Vec<Value>,
         _partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        if let Some(transaction) = self.transaction.as_mut() {
-            let del_query = "MATCH (src:".to_string()
-                + src_label
-                + ")-[rel:"
-                + rel_name
-                + "]->()\n"
-                + "WHERE "
-                + "rel.id IN $ids\n"
-                + "DELETE rel\n"
-                + "RETURN count(*) as count\n";
+        let del_query = "MATCH (src:".to_string()
+            + src_label
+            + ")-[rel:"
+            + rel_name
+            + "]->()\n"
+            + "WHERE "
+            + "rel.id IN $ids\n"
+            + "DELETE rel\n"
+            + "RETURN count(*) as count\n";
 
-            let mut statement = Statement::new(del_query);
-            statement.add_param::<String, &serde_json::Value>(
-                "ids".to_string(),
-                &Value::Array(rel_ids).try_into()?,
-            )?;
+        let mut hm: HashMap<String, Value> = HashMap::new();
+        hm.insert("ids".to_string(), rel_ids.into());
+        let params = Params::from(hm);
+        self.runtime
+            .block_on(self.client.run_with_metadata(del_query, Some(params), None))?;
 
-            let results = transaction.exec(statement)?;
-            Neo4jTransaction::extract_count(results)
-        } else {
-            Err(Error::TransactionFinished)
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
         }
+
+        Neo4jTransaction::extract_count(records)
     }
 
     fn commit(&mut self) -> Result<(), Error> {
         debug!("transaction::commit called");
-        if let Some(t) = self.transaction.take() {
-            t.commit().map(|_| Ok(()))?
-        } else {
-            Err(Error::TransactionFinished)
-        }
+
+        Ok(self.runtime.block_on(self.client.commit()).map(|_| ())?)
     }
 
     fn rollback(&mut self) -> Result<(), Error> {
         debug!("transaction::rollback called");
-        if let Some(t) = self.transaction.take() {
-            Ok(t.rollback()?)
-        } else {
-            Err(Error::TransactionFinished)
+        Ok(self.runtime.block_on(self.client.rollback()).map(|_| ())?)
+    }
+}
+
+impl TryFrom<bolt_proto::value::Value> for Value {
+    type Error = bolt_proto::error::Error;
+
+    fn try_from(bv: bolt_proto::value::Value) -> Result<Value, bolt_proto::error::Error> {
+        match bv {
+            bolt_proto::value::Value::Boolean(_) => Ok(Value::Bool(bv.try_into()?)),
+            bolt_proto::value::Value::Integer(_) => Ok(Value::Int64(bv.try_into()?)),
+            bolt_proto::value::Value::Float(_) => Ok(Value::Float64(bv.try_into()?)),
+            bolt_proto::value::Value::Bytes(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::List(_) => Ok(Value::Array(bv.try_into()?)),
+            bolt_proto::value::Value::Map(_) => Ok(Value::Map(bv.try_into()?)),
+            bolt_proto::value::Value::Null => Ok(Value::Null),
+            bolt_proto::value::Value::String(_) => Ok(Value::String(bv.try_into()?)),
+            bolt_proto::value::Value::Node(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::Relationship(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::Path(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::UnboundRelationship(_) => {
+                Err(ConversionError::FromValue(bv).into())
+            }
+            bolt_proto::value::Value::Date(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::Time(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::DateTimeOffset(_) => {
+                Err(ConversionError::FromValue(bv).into())
+            }
+            bolt_proto::value::Value::DateTimeZoned(_) => {
+                Err(ConversionError::FromValue(bv).into())
+            }
+            bolt_proto::value::Value::LocalTime(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::LocalDateTime(_) => {
+                Err(ConversionError::FromValue(bv).into())
+            }
+            bolt_proto::value::Value::Duration(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::Point2D(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::value::Value::Point3D(_) => Err(ConversionError::FromValue(bv).into()),
+        }
+    }
+}
+
+impl From<Value> for bolt_proto::value::Value {
+    fn from(v: Value) -> bolt_proto::value::Value {
+        match v {
+            Value::Array(a) => a.into(),
+            Value::Bool(b) => b.into(),
+            Value::Float64(f) => f.into(),
+            Value::Int64(i) => i.into(),
+            Value::Map(m) => m.into(),
+            Value::Null => bolt_proto::value::Value::Null,
+            Value::String(s) => s.into(),
+            // This last conversion may be lossy, but interoperability with bolt_proto doesn't
+            // allow for a TryFrom conversion here.
+            Value::UInt64(u) => (u as i64).into(),
         }
     }
 }

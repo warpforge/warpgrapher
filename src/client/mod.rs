@@ -7,6 +7,8 @@ use log::{debug, trace};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::sync::mpsc;
+use std::thread;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -169,8 +171,18 @@ where
                 response.json::<serde_json::Value>().await?
             }
             Client::Local { engine } => {
-                let metadata: HashMap<String, String> = HashMap::new();
-                engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata)?
+                let engine = engine.clone();
+                let (tx, rx) = mpsc::channel();
+                thread::spawn(move || {
+                    let metadata: HashMap<String, String> = HashMap::new();
+                    let result = from_value::<GraphQLRequest>(req_body)
+                        .map_err(|e| e.into())
+                        .and_then(|req| engine.execute(&req, &metadata));
+                    let _ = tx.send(result);
+                })
+                .join()
+                .expect("Thread panicked");
+                rx.recv()??
             }
         };
         debug!("Client::graphql -- response body: {:#?}", body);

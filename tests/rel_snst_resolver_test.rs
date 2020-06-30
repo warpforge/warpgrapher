@@ -14,9 +14,9 @@ use warpgrapher::client::Client;
 #[tokio::test]
 async fn create_snst_new_rel_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_snst_new_rel(client).await;
 }
 
@@ -24,9 +24,9 @@ async fn create_snst_new_rel_neo4j() {
 #[tokio::test]
 async fn create_snst_new_rel_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_snst_new_rel(client).await;
 }
 
@@ -85,9 +85,9 @@ async fn create_snst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn create_snst_rel_existing_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_snst_rel_existing_node(client).await;
 }
 
@@ -95,9 +95,9 @@ async fn create_snst_rel_existing_node_neo4j() {
 #[tokio::test]
 async fn create_snst_rel_existing_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_snst_rel_existing_node(client).await;
 }
 
@@ -167,9 +167,9 @@ async fn create_snst_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
 #[tokio::test]
 async fn create_snst_rel_by_rel_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_rel_props(client).await;
 }
 
@@ -177,9 +177,9 @@ async fn create_snst_rel_by_rel_props_neo4j() {
 #[tokio::test]
 async fn create_snst_rel_by_rel_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_rel_props(client).await;
 }
 
@@ -234,9 +234,9 @@ async fn read_snst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn read_snst_rel_by_src_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_src_props(client).await;
 }
 
@@ -244,9 +244,9 @@ async fn read_snst_rel_by_src_props_neo4j() {
 #[tokio::test]
 async fn read_snst_rel_by_src_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_src_props(client).await;
 }
 
@@ -301,9 +301,9 @@ async fn read_snst_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn read_snst_rel_by_dst_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_dst_props(client).await;
 }
 
@@ -311,9 +311,9 @@ async fn read_snst_rel_by_dst_props_neo4j() {
 #[tokio::test]
 async fn read_snst_rel_by_dst_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_rel_by_dst_props(client).await;
 }
 
@@ -368,9 +368,9 @@ async fn read_snst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn update_snst_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_rel_prop(client).await;
 }
 
@@ -378,9 +378,9 @@ async fn update_snst_rel_by_rel_prop_neo4j() {
 #[tokio::test]
 async fn create_snst_rel_by_rel_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_rel_prop(client).await;
 }
 
@@ -461,9 +461,9 @@ async fn update_snst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn update_snst_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_src_prop(client).await;
 }
 
@@ -471,9 +471,9 @@ async fn update_snst_rel_by_src_prop_neo4j() {
 #[tokio::test]
 async fn update_snst_rel_by_src_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_src_prop(client).await;
 }
 
@@ -554,9 +554,9 @@ async fn update_snst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn update_snst_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_dst_prop(client).await;
 }
 
@@ -564,9 +564,9 @@ async fn update_snst_rel_by_dst_prop_neo4j() {
 #[tokio::test]
 async fn update_snst_rel_by_dst_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_rel_by_dst_prop(client).await;
 }
 
@@ -647,9 +647,9 @@ async fn update_snst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn delete_snst_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_rel_prop(client).await;
 }
 
@@ -657,9 +657,9 @@ async fn delete_snst_rel_by_rel_prop_neo4j() {
 #[tokio::test]
 async fn delete_snst_rel_by_del_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_rel_prop(client).await;
 }
 
@@ -718,9 +718,9 @@ async fn delete_snst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn delete_snst_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_dst_prop(client).await;
 }
 
@@ -728,9 +728,9 @@ async fn delete_snst_rel_by_dst_prop_neo4j() {
 #[tokio::test]
 async fn delete_snst_rel_by_dst_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_dst_prop(client).await;
 }
 
@@ -789,9 +789,9 @@ async fn delete_snst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn delete_snst_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_src_prop(client).await;
 }
 
@@ -799,9 +799,9 @@ async fn delete_snst_rel_by_src_prop_neo4j() {
 #[tokio::test]
 async fn delete_snst_rel_by_src_prop_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_rel_by_src_prop(client).await;
 }
 

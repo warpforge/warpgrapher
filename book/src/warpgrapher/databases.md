@@ -25,7 +25,7 @@ Then set up environment variables to contact your Cosmos DB:
 ```bash
 export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
 export WG_COSMOS_PORT=443
-export WG_COSMOS_LOGIN=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
+export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 ```
 
@@ -41,13 +41,14 @@ warpgrapher = { version = "0.2.0", features = ["neo4j"] }
 Then set up environment variables to contact your Neo4J DB:
 
 ```bash
-export WG_NEO4J_USERNAME=neo4j
-export WG_NEO4J_PASSWORD=password123
-export WG_NEO4J_URL=http://neo4j:${WG_NEO4J_PASSWORD}@127.0.0.1:7474/db/data
+export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_PORT=7687
+export WG_NEO4J_USER=neo4j
+export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 ```
 
 If you do not already have a Neo4J database running, you can run one using Docker:
 
 ```bash
-docker run -e NEO4JAUTH="${WG_NEO4J_USERNAME}:${WG_NEO4J_PASSWORD}" neo4j:3.5
+docker run -e NEO4JAUTH="${WG_NEO4J_USER}:${WG_NEO4J_PASS}" neo4j:4.1
 ```

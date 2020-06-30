@@ -15,9 +15,9 @@ use warpgrapher::client::Client;
 #[tokio::test]
 async fn create_node_with_rel_to_new_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_node_with_rel_to_new(client).await;
 }
 
@@ -25,9 +25,9 @@ async fn create_node_with_rel_to_new_neo4j() {
 #[tokio::test]
 async fn create_node_with_rel_to_new_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_node_with_rel_to_new(client).await;
 }
 
@@ -140,9 +140,9 @@ async fn create_node_with_rel_to_new(mut client: Client<AppGlobalCtx, AppRequest
 #[tokio::test]
 async fn create_node_with_rel_to_existing_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_node_with_rel_to_existing(client).await;
 }
 
@@ -150,9 +150,9 @@ async fn create_node_with_rel_to_existing_neo4j() {
 #[tokio::test]
 async fn create_node_with_rel_to_existing_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_node_with_rel_to_existing(client).await;
 }
 
@@ -252,9 +252,9 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppGlobalCtx, AppRe
 #[tokio::test]
 async fn read_multiple_nodes_with_multiple_rels_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_multiple_nodes_with_multiple_rels(client).await;
 }
 
@@ -262,9 +262,9 @@ async fn read_multiple_nodes_with_multiple_rels_neo4j() {
 #[tokio::test]
 async fn read_multiple_nodes_with_multiple_rels_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_multiple_nodes_with_multiple_rels(client).await;
 }
 
@@ -408,9 +408,9 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppGlobalCtx,
 #[tokio::test]
 async fn read_node_with_matching_props_on_rel_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_node_with_matching_props_on_rel(client).await;
 }
 
@@ -418,9 +418,9 @@ async fn read_node_with_matching_props_on_rel_neo4j() {
 #[tokio::test]
 async fn read_node_with_matching_props_on_rel_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_node_with_matching_props_on_rel(client).await;
 }
 
@@ -565,9 +565,9 @@ async fn read_node_with_matching_props_on_rel(mut client: Client<AppGlobalCtx, A
 #[tokio::test]
 async fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_node_with_matching_props_on_rel_dst_node(client).await;
 }
 
@@ -575,9 +575,9 @@ async fn read_node_with_matching_props_on_rel_dst_node_neo4j() {
 #[tokio::test]
 async fn read_node_with_matching_props_on_rel_dst_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_node_with_matching_props_on_rel_dst_node(client).await;
 }
 
@@ -684,9 +684,9 @@ async fn read_node_with_matching_props_on_rel_dst_node(
 #[tokio::test]
 async fn update_existing_node_with_rel_to_new_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_existing_node_with_rel_to_new_node(client).await;
 }
 
@@ -694,9 +694,9 @@ async fn update_existing_node_with_rel_to_new_node_neo4j() {
 #[tokio::test]
 async fn update_existing_node_with_rel_to_new_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_existing_node_with_rel_to_new_node(client).await;
 }
 
@@ -800,9 +800,9 @@ async fn update_existing_node_with_rel_to_new_node(
 #[tokio::test]
 async fn update_existing_node_with_rel_to_existing_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_existing_node_with_rel_to_existing_node(client).await;
 }
 
@@ -810,9 +810,9 @@ async fn update_existing_node_with_rel_to_existing_node_neo4j() {
 #[tokio::test]
 async fn update_existing_node_with_rel_to_existing_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_existing_node_with_rel_to_existing_node(client).await;
 }
 
@@ -915,9 +915,9 @@ async fn update_existing_node_with_rel_to_existing_node(
 #[tokio::test]
 async fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_node_with_matching_props_on_rel_dst_node(client).await;
 }
 
@@ -925,9 +925,9 @@ async fn delete_node_with_matching_props_on_rel_dst_node_neo4j() {
 #[tokio::test]
 async fn delete_node_with_matching_props_on_rel_dst_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_node_with_matching_props_on_rel_dst_node(client).await;
 }
 
@@ -992,9 +992,9 @@ async fn delete_node_with_matching_props_on_rel_dst_node(
 #[tokio::test]
 async fn delete_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_node(client).await;
 }
 
@@ -1002,9 +1002,9 @@ async fn delete_node_neo4j() {
 #[tokio::test]
 async fn delete_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_node(client).await;
 }
 

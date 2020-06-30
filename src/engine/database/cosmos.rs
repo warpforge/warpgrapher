@@ -6,7 +6,10 @@ use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
 use crate::Error;
-use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue};
+use async_trait::async_trait;
+use gremlin_client::{
+    ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
+};
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -31,7 +34,7 @@ use std::fmt::Debug;
 pub struct CosmosEndpoint {
     host: String,
     port: u16,
-    login: String,
+    user: String,
     pass: String,
 }
 
@@ -42,7 +45,7 @@ impl CosmosEndpoint {
     /// * WG_COSMOS_HOST - the hostname for the Cosmos DB. For example,
     /// *my-db*.gremlin.cosmos.azure.com
     /// * WG_COSMOS_PORT - the port number for the Cosmos DB. For example, 443
-    /// * WG_COSMOS_LOGIN - the database and collection of the Cosmos DB. For example,
+    /// * WG_COSMOS_USER - the database and collection of the Cosmos DB. For example,
     /// /dbs/*my-db-name*/colls/*my-collection-name*
     /// * WG_COSMOS_PASS - the read/write key for the Cosmos DB.
     ///
@@ -72,14 +75,15 @@ impl CosmosEndpoint {
         Ok(CosmosEndpoint {
             host: env_string("WG_COSMOS_HOST")?,
             port: env_u16("WG_COSMOS_PORT")?,
-            login: env_string("WG_COSMOS_LOGIN")?,
+            user: env_string("WG_COSMOS_USER")?,
             pass: env_string("WG_COSMOS_PASS")?,
         })
     }
 }
 
+#[async_trait]
 impl DatabaseEndpoint for CosmosEndpoint {
-    fn pool(&self) -> Result<DatabasePool, Error> {
+    async fn pool(&self) -> Result<DatabasePool, Error> {
         Ok(DatabasePool::Cosmos(GremlinClient::connect(
             ConnectionOptions::builder()
                 .host(&self.host)
@@ -88,7 +92,7 @@ impl DatabaseEndpoint for CosmosEndpoint {
                 .ssl(true)
                 .serializer(GraphSON::V1)
                 .deserializer(GraphSON::V1)
-                .credentials(&self.login, &self.pass)
+                .credentials(&self.user, &self.pass)
                 .build(),
         )?))
     }
@@ -352,7 +356,7 @@ impl CosmosTransaction {
 }
 
 impl Transaction for CosmosTransaction {
-    fn begin(&self) -> Result<(), Error> {
+    fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
@@ -743,6 +747,149 @@ impl Transaction for CosmosTransaction {
 
     fn rollback(&mut self) -> Result<(), Error> {
         Ok(())
+    }
+}
+
+impl ToGValue for Value {
+    fn to_gvalue(&self) -> GValue {
+        match self {
+            Value::Array(a) => GValue::List(gremlin_client::List::new(
+                a.iter().map(|val| val.to_gvalue()).collect(),
+            )),
+            Value::Bool(b) => b.to_gvalue(),
+            Value::Float64(f) => f.to_gvalue(),
+            Value::Int64(i) => i.to_gvalue(),
+            Value::Map(hm) => GValue::Map(
+                hm.iter()
+                    .map(|(k, v)| (k.to_string(), v.to_gvalue()))
+                    .collect::<HashMap<String, GValue>>()
+                    .into(),
+            ),
+            Value::Null => GValue::String("".to_string()),
+            Value::String(s) => s.to_gvalue(),
+            // Note, the conversion of a UInt64 to an Int64 may be lossy, but GValue has
+            // neither unsigned integer types, nor a try/error interface for value conversion
+            Value::UInt64(i) => GValue::Int64(*i as i64),
+        }
+    }
+}
+
+impl TryFrom<GValue> for Value {
+    type Error = Error;
+
+    fn try_from(gvalue: GValue) -> Result<Value, Error> {
+        match gvalue {
+            GValue::Vertex(_v) => Err(Error::TypeConversionFailed {
+                src: "GValue::Vertex".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Edge(_e) => Err(Error::TypeConversionFailed {
+                src: "Gvalue::Edge".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::VertexProperty(vp) => Ok(vp.try_into()?),
+            GValue::Property(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Property".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Uuid(u) => Ok(Value::String(u.to_hyphenated().to_string())),
+            GValue::Int32(i) => Ok(Value::Int64(i.into())),
+            GValue::Int64(i) => Ok(Value::Int64(i)),
+            GValue::Float(f) => Ok(Value::Float64(f.into())),
+            GValue::Double(f) => Ok(Value::Float64(f)),
+            GValue::Date(_d) => Err(Error::TypeConversionFailed {
+                src: "GValue::Date".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::List(_l) => Err(Error::TypeConversionFailed {
+                src: "GValue::List".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Set(_s) => Err(Error::TypeConversionFailed {
+                src: "GValue::Set".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Map(_m) => Err(Error::TypeConversionFailed {
+                src: "GValue::Map".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Token(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::Token".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::String(s) => Ok(Value::String(s)),
+            GValue::Path(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Path".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::TraversalMetrics(_tm) => Err(Error::TypeConversionFailed {
+                src: "GValue::TraversalMetrics".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Metric(_m) => Err(Error::TypeConversionFailed {
+                src: "GValue::Metric".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::TraversalExplanation(_m) => Err(Error::TypeConversionFailed {
+                src: "GVaue::TraversalExplanation".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::IntermediateRepr(_ir) => Err(Error::TypeConversionFailed {
+                src: "GValue::IntermediateRepr".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::P(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::P".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::T(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::T".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Bytecode(_bc) => Err(Error::TypeConversionFailed {
+                src: "GValue::Bytecode".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Traverser(_t) => Err(Error::TypeConversionFailed {
+                src: "GValue::Traverser".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Scope(_s) => Err(Error::TypeConversionFailed {
+                src: "GValue::Scope".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Order(_o) => Err(Error::TypeConversionFailed {
+                src: "GValue::Order".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Bool(b) => Ok(Value::Bool(b)),
+            GValue::TextP(_tp) => Err(Error::TypeConversionFailed {
+                src: "GValue::TextP".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Pop(_p) => Err(Error::TypeConversionFailed {
+                src: "GValue::Pop".to_string(),
+                dst: "Value".to_string(),
+            }),
+            GValue::Cardinality(_c) => Err(Error::TypeConversionFailed {
+                src: "GValue::Cardinality".to_string(),
+                dst: "Value".to_string(),
+            }),
+        }
+    }
+}
+
+impl TryFrom<VertexProperty> for Value {
+    type Error = Error;
+
+    fn try_from(vp: VertexProperty) -> Result<Value, Error> {
+        Ok(vp
+            .take::<GValue>()
+            .map_err(|_e| Error::TypeConversionFailed {
+                src: "VertexProperty".to_string(),
+                dst: "Value".to_string(),
+            })?
+            .try_into()?)
     }
 }
 

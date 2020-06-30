@@ -67,15 +67,17 @@ For Cosmos DB graphs:
 ```bash
 export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
 export WG_COSMOS_PORT=443
-export WG_COSMOS_LOGIN=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
+export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 ```
 
 For Neo4J:
 
 ```bash
-export WG_NEO4J_PASSWORD=*MY-DB-PASS*
-export WG_NEO4J_URL=http://neo4j:${WG_NEO4J_PASSWORD}@127.0.0.1:7474/db/data
+export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_PORT=7687
+export WG_NEO4J_USER=neo4j
+export WG_NEO4J_PASS=*MY-DB-PASS*
 ```
 
 ### Run the Database
@@ -91,7 +93,7 @@ Note that Warpgrapher is only compatible with Neo4J up to version 3.5. (If anyon
 driver that works with Neo4J version 4, please open an issue and point us to it!)
 
 ```bash
-docker run --rm -e NEO4J_AUTH="neo4j/${DB_PASS}" -p 7474:7474 -p 7687:7687 neo4j:3.5
+docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.1
 ```
 
 ### Run Tests

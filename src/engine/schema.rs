@@ -2115,15 +2115,9 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
-    fn init() {
-        let _ = env_logger::builder().is_test(true).try_init();
-    }
-
     /// Passes if a new Info struct is created
     #[test]
     fn info_new() {
-        init();
-
         let i = Info::new("typename".to_string(), Arc::new(HashMap::new()));
 
         assert!(i.name == "typename");
@@ -2132,8 +2126,6 @@ mod tests {
     /// Passes if a new NodeType is created
     #[test]
     fn node_type_new() {
-        init();
-
         let nt = NodeType::new("typename".to_string(), TypeKind::Object, HashMap::new());
 
         assert!(nt.type_name == "typename");
@@ -2143,8 +2135,6 @@ mod tests {
     /// Passes if a new Property is created
     #[test]
     fn property_new() {
-        init();
-
         let p = Property::new(
             "propname".to_string(),
             PropertyKind::Scalar,
@@ -4101,7 +4091,6 @@ mod tests {
     /// Passes if the right schema elements are generated
     #[test]
     fn test_generate_schema() {
-        init();
         let config = mock_config();
         let schema = generate_schema(&config);
         //assert!(schema.len() == 79);
@@ -4135,7 +4124,6 @@ mod tests {
     /// Passes if the root node is created
     #[test]
     fn test_create_root_node() {
-        init();
         let config = mock_config();
         let root_node = create_root_node::<(), ()>(&config);
         assert!(root_node.is_ok());
@@ -4144,7 +4132,6 @@ mod tests {
     /// Passes if a broken reference creates an error
     #[test]
     fn type_lookup_error() {
-        init();
         let config = mock_project_config();
         let root_node = create_root_node::<(), ()>(&config);
         assert!(root_node.is_err());

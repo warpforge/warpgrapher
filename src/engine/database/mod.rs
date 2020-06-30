@@ -10,12 +10,13 @@ use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+use async_trait::async_trait;
+#[cfg(feature = "neo4j")]
+use bb8::Pool;
+#[cfg(feature = "neo4j")]
+use bb8_bolt::BoltConnectionManager;
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinClient;
-#[cfg(feature = "neo4j")]
-use r2d2::Pool;
-#[cfg(feature = "neo4j")]
-use r2d2_cypher::CypherConnectionManager;
 use std::collections::HashMap;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use std::env::var_os;
@@ -30,7 +31,7 @@ fn env_string(var_name: &str) -> Result<String, Error> {
         })
 }
 
-#[cfg(any(feature = "cosmos"))]
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
@@ -41,7 +42,7 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
 pub enum DatabasePool {
     /// Contians a pool of Neo4J database clients
     #[cfg(feature = "neo4j")]
-    Neo4j(Pool<CypherConnectionManager>),
+    Neo4j(Pool<BoltConnectionManager>),
 
     /// Contains a pool of Cosmos DB database clients
     #[cfg(feature = "cosmos")]
@@ -59,6 +60,7 @@ impl Default for DatabasePool {
 
 /// Trait for a database endpoint. Structs that implement this trait typically take in a connection
 /// string and produce a database pool of clients connected to the database
+#[async_trait]
 pub trait DatabaseEndpoint {
     /// Returns a [`DatabasePool`] to the database for which this DatabaseEndpoint has connection
     /// information
@@ -76,23 +78,27 @@ pub trait DatabaseEndpoint {
     /// # Examples
     ///
     /// ```rust,norun
+    /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// #
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let endpoint = Neo4jEndpoint::from_env()?;
     /// # #[cfg(feature = "neo4j")]
-    /// let pool = endpoint.pool()?;
+    /// let pool = runtime.block_on(endpoint.pool())?;
     /// # Ok(())
     /// # }
     /// ```
-    fn pool(&self) -> Result<DatabasePool, Error>;
+    async fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
 pub(crate) trait Transaction {
-    fn begin(&self) -> Result<(), Error>;
+    fn begin(&mut self) -> Result<(), Error>;
 
     fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,

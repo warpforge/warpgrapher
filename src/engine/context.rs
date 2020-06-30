@@ -20,6 +20,8 @@ use std::sync::Arc;
 ///
 /// ```rust,norun
 /// # #[cfg(feature = "neo4j")]
+/// # use tokio::runtime::Runtime;
+/// # #[cfg(feature = "neo4j")]
 /// # use warpgrapher::engine::database::DatabaseEndpoint;
 /// # #[cfg(feature = "neo4j")]
 /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -29,12 +31,14 @@ use std::sync::Arc;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # #[cfg(feature = "neo4j")]
+/// let mut runtime = Runtime::new()?;
+/// # #[cfg(feature = "neo4j")]
 /// let ne = Neo4jEndpoint::from_env()?;
 /// let resolvers: Resolvers<(), ()> = Resolvers::new();
 /// let validators: Validators = Validators::new();
 /// # #[cfg(feature = "neo4j")]
 /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-///     ne.pool()?,
+///     runtime.block_on(ne.pool())?,
 ///     resolvers,
 ///     validators,
 ///     vec![],
@@ -95,6 +99,8 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -104,12 +110,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -146,6 +154,8 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -155,12 +165,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -189,6 +201,11 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// use bolt_proto::Message;
+    /// use std::iter::FromIterator;
+    /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -196,14 +213,25 @@ where
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     /// # use warpgrapher::engine::resolvers::ExecutionResult;
+    /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
     /// pub fn project_count(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-    ///         let db = p.get()?;
+    ///         let mut runtime = Runtime::new()?;
+    ///         let mut db = runtime.block_on(p.get())?;
     ///         let query = "MATCH (n:Project) RETURN (n)";
-    ///         let results = db.exec(query)?;
-    ///         facade.resolve_scalar(results.data.len() as i32)
+    ///         runtime.block_on(db.run_with_metadata(query, None, None))
+    ///             .expect("Expected successful query run.");
+    ///
+    ///         let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+    ///         let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+    ///         match response {
+    ///             Message::Success(_) => (),
+    ///             message => return Err(Error::Neo4jQueryFailed { message }.into()),
+    ///         }
+    ///
+    ///         facade.resolve_scalar(records.len() as i32)
     ///     } else {
     ///         panic!("Unsupported database.");
     ///     }
@@ -215,11 +243,13 @@ where
     /// resolvers.insert("ProjectCount".to_string(), Box::new(project_count));
     ///
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -248,6 +278,8 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -257,12 +289,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -286,6 +320,8 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -295,12 +331,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -325,6 +363,8 @@ where
     ///
     /// ```rust,norun
     /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -334,12 +374,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<(), ()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -362,6 +404,8 @@ where
     /// # Examples
     ///
     /// ```rust,norun
+    /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
@@ -391,12 +435,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -419,6 +465,8 @@ where
     /// # Examples
     ///
     /// ```rust,norun
+    /// # #[cfg(feature = "neo4j")]
+    /// use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
     /// # #[cfg(feature = "neo4j")]
@@ -448,12 +496,14 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
-    ///     ne.pool()?,
+    ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
@@ -554,21 +604,20 @@ mod tests {
     use crate::engine::database::DatabaseEndpoint;
     use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
-
-    fn init() {
-        let _ = env_logger::builder().is_test(true).try_init();
-    }
+    use tokio::runtime::Runtime;
 
     /// Passes if the pool can be created without panicking
     #[test]
     fn engine_new() {
-        init();
+        let mut runtime = Runtime::new().expect("Expected new runtime.");
 
         let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
         let resolvers: Resolvers<(), ()> = Resolvers::new();
         let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-            ne.pool().expect("Expected to unwrap Neo4J database pool."),
+            runtime
+                .block_on(ne.pool())
+                .expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,
             vec![],

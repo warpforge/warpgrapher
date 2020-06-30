@@ -12,8 +12,8 @@ use setup::{clear_db, init, neo4j_test_client};
 #[tokio::test]
 async fn custom_input_validator_create() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     // Test validator on create
     // Validator pass
@@ -48,8 +48,8 @@ async fn custom_input_validator_create() {
 #[tokio::test]
 async fn custom_input_validator_update() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))

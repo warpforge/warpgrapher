@@ -15,9 +15,9 @@ use warpgrapher::client::Client;
 #[tokio::test]
 async fn create_mnmt_new_nodes_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_mnmt_new_nodes(client).await;
 }
 
@@ -25,9 +25,9 @@ async fn create_mnmt_new_nodes_cosmos() {
 #[tokio::test]
 async fn create_mnmt_new_nodes_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_mnmt_new_nodes(client).await;
 }
 
@@ -182,9 +182,9 @@ async fn create_mnmt_new_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) 
 #[tokio::test]
 async fn create_mnmt_existing_nodes_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_mnmt_existing_nodes(client).await;
 
     println!("create_mnmt_new_nodes::end");
@@ -194,9 +194,9 @@ async fn create_mnmt_existing_nodes_cosmos() {
 #[tokio::test]
 async fn create_mnmt_existing_nodes_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_mnmt_existing_nodes(client).await;
 }
 
@@ -305,9 +305,9 @@ async fn create_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn read_mnmt_by_rel_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_mnmt_by_rel_props(client).await;
 
     println!("create_mnmt_existing_nodes::end");
@@ -317,9 +317,9 @@ async fn read_mnmt_by_rel_props_cosmos() {
 #[tokio::test]
 async fn read_mnmt_by_rel_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_mnmt_by_rel_props(client).await;
 }
 
@@ -388,9 +388,9 @@ async fn read_mnmt_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>)
 #[tokio::test]
 async fn read_mnmt_by_dst_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_mnmt_by_dst_props(client).await;
 }
 
@@ -398,9 +398,9 @@ async fn read_mnmt_by_dst_props_cosmos() {
 #[tokio::test]
 async fn read_mnmt_by_dst_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_mnmt_by_dst_props(client).await;
 }
 
@@ -481,9 +481,9 @@ async fn read_mnmt_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>)
 #[tokio::test]
 async fn update_mnmt_new_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_new_node(client).await;
 }
 
@@ -491,9 +491,9 @@ async fn update_mnmt_new_node_cosmos() {
 #[tokio::test]
 async fn update_mnmt_new_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_new_node(client).await;
 }
 
@@ -568,9 +568,9 @@ async fn update_mnmt_new_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn update_mnmt_existing_nodes_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_existing_nodes(client).await;
 }
 
@@ -578,9 +578,9 @@ async fn update_mnmt_existing_nodes_cosmos() {
 #[tokio::test]
 async fn update_mnmt_existing_nodes_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_existing_nodes(client).await;
 }
 
@@ -667,9 +667,9 @@ async fn update_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn update_mnmt_relationship_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_relationship(client).await;
 }
 
@@ -677,9 +677,9 @@ async fn update_mnmt_relationship_cosmos() {
 #[tokio::test]
 async fn update_mnmt_relationship_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_relationship(client).await;
 }
 
@@ -798,9 +798,9 @@ async fn update_mnmt_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx
 #[tokio::test]
 async fn update_only_correct_mnmt_relationship_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_only_correct_mnmt_relationship(client).await;
 }
 
@@ -808,9 +808,9 @@ async fn update_only_correct_mnmt_relationship_cosmos() {
 #[tokio::test]
 async fn update_only_correct_mnmt_relationship_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_only_correct_mnmt_relationship(client).await;
 }
 
@@ -900,9 +900,9 @@ async fn update_only_correct_mnmt_relationship(mut client: Client<AppGlobalCtx, 
 #[tokio::test]
 async fn delete_mnmt_relationship_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_mnmt_relationship(client).await;
 }
 
@@ -910,9 +910,9 @@ async fn delete_mnmt_relationship_cosmos() {
 #[tokio::test]
 async fn delete_mnmt_relationship_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_mnmt_relationship(client).await;
 }
 
@@ -1013,9 +1013,9 @@ async fn delete_mnmt_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx
 #[tokio::test]
 async fn delete_node_by_mnmt_rel_property_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_node_by_mnmt_rel_property(client).await;
 }
 
@@ -1023,9 +1023,9 @@ async fn delete_node_by_mnmt_rel_property_cosmos() {
 #[tokio::test]
 async fn delete_node_by_mnmt_rel_property_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_node_by_mnmt_rel_property(client).await;
 }
 
@@ -1086,9 +1086,9 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client<AppGlobalCtx, AppRe
 #[tokio::test]
 async fn delete_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_node(client).await;
 }
 
@@ -1096,9 +1096,9 @@ async fn delete_node_cosmos() {
 #[tokio::test]
 async fn delete_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_node(client).await;
 }
 

@@ -530,15 +530,9 @@ mod tests {
     use std::convert::TryInto;
     use std::fs::File;
 
-    fn init() {
-        let _ = env_logger::builder().is_test(true).try_init();
-    }
-
     /// Passes if the engine can be created.
     #[test]
     fn engine_new() {
-        init();
-
         let _engine = Engine::<(), ()>::new(
             File::open("tests/fixtures/config_minimal.yml")
                 .expect("Couldn't read config")
@@ -558,7 +552,6 @@ mod tests {
         //No resolver defined
         //No validator defined
         //is_ok
-        init();
         assert!(Engine::<(), ()>::new(
             File::open("tests/fixtures/test_config_ok.yml")
                 .expect("Couldn't read config")
@@ -575,8 +568,6 @@ mod tests {
         //Validator defined
         //No validator in config
         //is_ok
-        init();
-
         let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
         assert!(Engine::<(), ()>::new(
@@ -625,8 +616,6 @@ mod tests {
 
     #[test]
     fn test_engine_validate_custom_endpoint() {
-        init();
-
         //No endpoint resolvers in config
         //No resolver defined
         //is_ok
@@ -674,8 +663,6 @@ mod tests {
 
     #[test]
     fn test_engine_validate_custom_prop() {
-        init();
-
         //Prop resolver in config
         //Resolver defined
         //is_ok

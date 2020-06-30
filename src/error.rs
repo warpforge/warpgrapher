@@ -2,8 +2,6 @@
 
 #[cfg(feature = "cosmos")]
 use gremlin_client::GremlinError;
-#[cfg(feature = "neo4j")]
-use rusted_cypher::GraphError;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 
@@ -19,6 +17,11 @@ use std::num::ParseIntError;
 /// ```
 #[derive(Debug)]
 pub enum Error {
+    /// Returned to wrap an error from the Neo4J bolt client. Most likely indicates something like
+    /// a network connection failure
+    #[cfg(feature = "neo4j")]
+    BoltClientFailed { source: bolt_client::error::Error },
+
     /// Returned if a [`Client`] is unable to submit a request to the server, such as due to a
     /// network or server error, or the response cannot be parsed as valid JSON. Inspect the
     /// [`reqwest::Error`] included as a source error for additional detail.
@@ -80,15 +83,15 @@ pub enum Error {
     /// missing an expected field.
     InputItemNotFound { name: String },
 
-    /// Returned if a neo4j database pool cannot be built
+    /// Returned if a Neo4J query fails to execute correctly
     #[cfg(feature = "neo4j")]
-    Neo4jPoolNotBuilt { source: r2d2::Error },
-
-    /// Returned if a Neo4J database returns an error response to a Cypher query
-    #[cfg(feature = "neo4j")]
-    Neo4jQueryError {
-        source: rusted_cypher::error::GraphError,
+    Neo4jQueryFailed {
+        message: bolt_proto::message::Message,
     },
+
+    /// Returned if a bb8 connection pool cannot be built correctly
+    #[cfg(feature = "neo4j")]
+    Neo4jPoolNotBuilt { source: bb8_bolt::Error },
 
     /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
     /// Cosmos DB
@@ -135,6 +138,11 @@ pub enum Error {
     /// could not be fiound.
     SchemaItemNotFound { name: String },
 
+    /// When the Warpgrapher client sends queries to a local instance of a Warpgrapher engine,
+    /// it runs the engine in a separate thread, where it can have its own tokio execution context.
+    /// This error indicates an error in receiving the query answer from the engine thread.
+    ThreadCommunicationFailed { source: std::sync::mpsc::RecvError },
+
     /// Returned if a transaction is used after it is committed or rolled back.
     TransactionFinished,
 
@@ -173,7 +181,11 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-           Error::ClientRequestFailed { source } => {
+            #[cfg(feature = "neo4j")]
+            Error::BoltClientFailed { source } => {
+                write!(f, "Neo4j client failed. Source error: {}.", source)
+            }
+            Error::ClientRequestFailed { source } => {
                 write!(f, "Client request failed. Source error: {}", source)
             }
             Error::ConfigItemDuplicated { type_name } => {
@@ -212,11 +224,11 @@ impl Display for Error {
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
-                write!(f, "Could not build database connection pool. Source error: {}", source)
+                write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
             }
             #[cfg(feature = "neo4j")]
-            Error::Neo4jQueryError { source } => {
-                write!(f, "Neo4J query failed. Source error: {}", source)
+            Error::Neo4jQueryFailed { message } => {
+                write!(f, "Neo4j query execution failed. Error message: {:#?}.", message)
             }
             Error::PartitionKeyNotFound => {
                 write!(f, "Partition keys are required when using Cosmos DB.")
@@ -242,6 +254,9 @@ impl Display for Error {
             Error::SchemaItemNotFound { name } => {
                 write!(f, "The following item could not be found in the schema: {}", name)
             }
+            Error::ThreadCommunicationFailed { source } => {
+                write!(f, "Communication from the engine thread failed. Source error: {}", source)
+            }
             Error::TransactionFinished => {
                 write!(f, "Cannot use a database transaction already committed or rolled back.")
             }
@@ -264,6 +279,8 @@ impl Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
+            #[cfg(feature = "neo4j")]
+            Error::BoltClientFailed { source } => Some(source),
             Error::ClientRequestFailed { source } => Some(source),
             Error::ConfigItemDuplicated { type_name: _ } => None,
             Error::ConfigItemReserved { type_name: _ } => None,
@@ -283,7 +300,7 @@ impl std::error::Error for Error {
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
             #[cfg(feature = "neo4j")]
-            Error::Neo4jQueryError { source } => Some(source),
+            Error::Neo4jQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
             Error::RelDuplicated { rel_name: _ } => None,
@@ -292,6 +309,7 @@ impl std::error::Error for Error {
             Error::ResponseSetNotFound => None,
             Error::SerializationFailed { source } => Some(source),
             Error::SchemaItemNotFound { name: _ } => None,
+            Error::ThreadCommunicationFailed { source } => Some(source),
             Error::TransactionFinished => None,
             Error::TypeConversionFailed { src: _, dst: _ } => None,
             Error::TypeNotExpected => None,
@@ -308,9 +326,26 @@ impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
 }
 
 #[cfg(feature = "neo4j")]
-impl From<GraphError> for Error {
-    fn from(e: GraphError) -> Self {
-        Error::Neo4jQueryError { source: e }
+impl From<bb8_bolt::Error> for Error {
+    fn from(e: bb8_bolt::Error) -> Self {
+        Error::Neo4jPoolNotBuilt { source: e }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<bolt_client::error::Error> for Error {
+    fn from(e: bolt_client::error::Error) -> Self {
+        Error::BoltClientFailed { source: e }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<bolt_proto::error::Error> for Error {
+    fn from(_e: bolt_proto::error::Error) -> Self {
+        Error::TypeConversionFailed {
+            src: "bolt_proto::value::Value".to_string(),
+            dst: "Value".to_string(),
+        }
     }
 }
 
@@ -323,16 +358,15 @@ impl From<GremlinError> for Error {
     }
 }
 
-#[cfg(feature = "neo4j")]
-impl From<r2d2::Error> for Error {
-    fn from(e: r2d2::Error) -> Self {
-        Error::Neo4jPoolNotBuilt { source: e }
-    }
-}
-
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::ClientRequestFailed { source: e }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::SerializationFailed { source: e }
     }
 }
 
@@ -363,9 +397,9 @@ impl From<std::num::TryFromIntError> for Error {
     }
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(e: serde_json::Error) -> Self {
-        Error::SerializationFailed { source: e }
+impl From<std::sync::mpsc::RecvError> for Error {
+    fn from(e: std::sync::mpsc::RecvError) -> Self {
+        Error::ThreadCommunicationFailed { source: e }
     }
 }
 

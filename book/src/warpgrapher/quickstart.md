@@ -127,15 +127,16 @@ fn main() -> Result<(), Error> {
 Configure database settings:
 
 ```bash
-export WG_NEO4J_USERNAME=neo4j
-export WG_NEO4J_PASSWORD=password123
-export WG_NEO4J_URL=http://neo4j:${WG_NEO4J_PASSWORD}@127.0.0.1:7474/db/data
+export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_PORT=7687
+export WG_NEO4J_USER=neo4j
+export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 ```
 
 Start a 3.5 Neo4j database:
 
 ```bash
-docker run -e NEO4JAUTH="${WG_NEO4J_USERNAME}:${WG_NEO4J_PASSWORD}" neo4j:3.5
+docker run -e NEO4JAUTH="${WG_NEO4J_USER}:${WG_NEO4J_PASS}" neo4j:4.1
 ```
 
 Run quickstart app: 

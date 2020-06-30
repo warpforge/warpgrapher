@@ -1,6 +1,8 @@
 mod extension;
 
 #[cfg(feature = "neo4j")]
+use bolt_proto::Message;
+#[cfg(feature = "neo4j")]
 use extension::MetadataExtension;
 use extension::{Metadata, MetadataExtensionCtx};
 #[cfg(feature = "cosmos")]
@@ -8,16 +10,20 @@ use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::trace;
 #[cfg(feature = "neo4j")]
-use rusted_cypher::GraphClient;
-#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
+#[cfg(feature = "neo4j")]
+use std::convert::TryFrom;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use std::convert::TryInto;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
 #[cfg(feature = "neo4j")]
+use std::iter::FromIterator;
+#[cfg(feature = "neo4j")]
 use std::sync::Arc;
+#[cfg(feature = "neo4j")]
+use tokio::runtime::Runtime;
 use warpgrapher::engine::context::{GlobalContext, RequestContext};
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::cosmos::CosmosEndpoint;
@@ -68,11 +74,11 @@ fn cosmos_port() -> u16 {
 
 #[allow(dead_code)]
 #[cfg(feature = "cosmos")]
-fn cosmos_login() -> String {
-    var_os("WG_COSMOS_LOGIN")
-        .expect("Expected WG_COSMOS_LOGIN to be set.")
+fn cosmos_user() -> String {
+    var_os("WG_COSMOS_USER")
+        .expect("Expected WG_COSMOS_USER to be set.")
         .to_str()
-        .expect("Expected WG_COSMOS_LOGIN to be a string.")
+        .expect("Expected WG_COSMOS_USER to be a string.")
         .to_owned()
 }
 
@@ -86,14 +92,71 @@ fn cosmos_pass() -> String {
         .to_owned()
 }
 
+#[cfg(feature = "neo4j")]
+pub(crate) fn neo4j_host() -> String {
+    var_os("WG_NEO4J_HOST")
+        .expect("Expected WG_NEO4J_HOST to be set.")
+        .to_str()
+        .expect("Expected WG_NEO4J_HOST to be a string.")
+        .to_owned()
+}
+
+#[cfg(feature = "neo4j")]
+pub(crate) fn neo4j_port() -> u16 {
+    var_os("WG_NEO4J_PORT")
+        .expect("Expected WG_NEO4J_PORT to be set.")
+        .to_str()
+        .expect("Expected WG_NEO4J_PORT to be a string.")
+        .parse::<u16>()
+        .expect("Expected WG_NEO4J_PORT to be a u16.")
+}
+
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub(crate) fn neo4j_url() -> String {
-    var_os("WG_NEO4J_URL")
-        .expect("Expected WG_NEO4J_URL to be set.")
+pub(crate) fn neo4j_user() -> String {
+    var_os("WG_NEO4J_USER")
+        .expect("Expected WG_NEO4J_USER to be set.")
         .to_str()
-        .expect("Expected WG_NEO4J_URL to be a string.")
+        .expect("Expected WG_NEO4J_USER to be a string.")
         .to_owned()
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub(crate) fn neo4j_pass() -> String {
+    var_os("WG_NEO4J_PASS")
+        .expect("Expected WG_NEO4J_PASS to be set.")
+        .to_str()
+        .expect("Expected WG_NEO4J_PASS to be a string.")
+        .to_owned()
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub(crate) async fn bolt_client() -> bolt_client::Client {
+    let mut graph = bolt_client::Client::new(
+        neo4j_host().to_string() + ":" + &neo4j_port().to_string(),
+        None as Option<String>,
+    )
+    .await
+    .expect("Expected client.");
+    let handshake = graph.handshake(&[4, 0, 0, 0]).await;
+    trace!("Handshake: {:#?}", handshake);
+    handshake.expect("Expected successful handshake.");
+
+    let hello = graph
+        .hello(Some(bolt_client::Metadata::from_iter(vec![
+            ("user_agent", "warpgrapher/0.2.0"),
+            ("scheme", "basic"),
+            ("principal", &neo4j_user()),
+            ("credentials", &neo4j_pass()),
+        ])))
+        .await;
+    trace!("Hello: {:#?}", hello);
+
+    hello.expect("Expected successful handshake.");
+
+    graph
 }
 
 #[allow(dead_code)]
@@ -118,13 +181,6 @@ fn cosmos_server_addr() -> String {
     "127.0.0.1:5001".to_string()
 }
 
-// Rust's dead code detection seems not to process all integration test crates,
-// leading to a false positive on this function.
-#[allow(dead_code)]
-fn gql_endpoint() -> String {
-    format!("http://{}/graphql", server_addr())
-}
-
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
 fn neo4j_gql_endpoint() -> String {
@@ -146,16 +202,16 @@ fn load_config(config: &str) -> Configuration {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
     let config: Configuration = File::open(config_path)
         .expect("Failed to load config file")
         .try_into()
         .unwrap();
 
-    let database_pool = Neo4jEndpoint::from_env().unwrap().pool().unwrap();
+    let database_pool = Neo4jEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    // create app context
+    // create app contex
     let global_ctx = AppGlobalCtx {
         version: "0.0.0".to_owned(),
     };
@@ -193,7 +249,7 @@ pub(crate) fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRe
 
 #[allow(dead_code)]
 #[cfg(feature = "cosmos")]
-pub(crate) fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config: Configuration = File::open(config_path)
@@ -201,7 +257,7 @@ pub(crate) fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppR
         .try_into()
         .unwrap();
 
-    let database_pool = CosmosEndpoint::from_env().unwrap().pool().unwrap();
+    let database_pool = CosmosEndpoint::from_env().unwrap().pool().await.unwrap();
 
     // create app context
     let global_ctx = AppGlobalCtx {
@@ -228,30 +284,43 @@ fn clear_cosmos_db() {
             .pool_size(1)
             .ssl(true)
             .serializer(GraphSON::V2)
-            .credentials(&cosmos_login(), &cosmos_pass())
+            .credentials(&cosmos_user(), &cosmos_pass())
             .build(),
     )
     .expect("Expected successful gremlin client creation.");
 
     let results = client.execute("g.V().drop()", &[]);
-
     trace!("{:#?}", results);
 }
 
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
-fn clear_neo4j_db() {
-    let graph = GraphClient::connect(neo4j_url()).unwrap();
-    graph.exec("MATCH (n) DETACH DELETE (n)").unwrap();
+async fn clear_neo4j_db() {
+    trace!("clear_neo4j_db called");
+    let mut graph = bolt_client().await;
+    let result = graph
+        .run_with_metadata("MATCH (n) DETACH DELETE (n);", None, None)
+        .await;
+    trace!("clear_neo4j_db result: {:#?}", result);
+    result.expect("Expected successful query run.");
+
+    let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
+    let (response, records) = graph
+        .pull(Some(pull_meta))
+        .await
+        .expect("Expected pull to succeed.");
+
+    trace!("clear_neo4j_db response: {:#?}", response);
+    trace!("clear_neo4j_db records: {:#?}", records);
 }
 
 #[allow(dead_code)]
-pub(crate) fn clear_db() {
+pub(crate) async fn clear_db() {
     #[cfg(feature = "cosmos")]
     clear_cosmos_db();
 
     #[cfg(feature = "neo4j")]
-    clear_neo4j_db();
+    clear_neo4j_db().await;
 }
 
 #[derive(Clone, Debug)]
@@ -334,10 +403,22 @@ pub(crate) fn project_count(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let db = p.get()?;
+        trace!("POOL: {:#?}", p);
+        let mut runtime = Runtime::new()?;
+        let mut db = runtime.block_on(p.get())?;
         let query = "MATCH (n:Project) RETURN (n);";
-        let results = db.exec(query)?;
-        facade.resolve_scalar(results.data.len() as i32)
+        runtime
+            .block_on(db.run_with_metadata(query, None, None))
+            .expect("Expected successful query run.");
+
+        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+        }
+
+        facade.resolve_scalar(records.len() as i32)
     } else {
         panic!("Unsupported database.");
     }
@@ -392,16 +473,28 @@ pub(crate) fn project_top_dev(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let db = p.get()?;
-        let dev_query = "MATCH (n:User) RETURN (n);";
-        let dev_results = db.exec(dev_query)?;
-        let dev = dev_results
-            .rows()
-            .next()
-            .unwrap()
-            .get::<serde_json::Map<String, serde_json::Value>>("n")
-            .unwrap();
-        let dev_id = dev.get("id").unwrap().clone().try_into()?;
+        let mut runtime = Runtime::new()?;
+        let mut db = runtime.block_on(p.get())?;
+        let query = "MATCH (n:User) RETURN (n);";
+        runtime
+            .block_on(db.run_with_metadata(query, None, None))
+            .expect("Expected successful query run.");
+
+        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+        }
+
+        let dev_id = if let bolt_proto::value::Value::Node(n) =
+            &records.iter().next().expect("Expected result").fields()[0]
+        {
+            Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                .expect("Expected string")
+        } else {
+            panic!("Expected node.")
+        };
 
         facade.resolve_rel(
             &facade
@@ -424,24 +517,49 @@ pub(crate) fn project_top_issues(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let db = p.get()?;
-        let bug_query = "MATCH (n:Bug) RETURN (n);";
-        let bug_results = db.exec(bug_query)?;
-        let bug_row = bug_results.rows().next().unwrap();
-        let bug_node = bug_row
-            .get::<serde_json::Map<String, serde_json::Value>>("n")
-            .unwrap();
-        let bug_id = bug_node.get("id").unwrap().clone().try_into()?;
+        let mut runtime = Runtime::new()?;
+        let mut db = runtime.block_on(p.get())?;
+        let query = "MATCH (n:Bug) RETURN (n);";
+        runtime
+            .block_on(db.run_with_metadata(query, None, None))
+            .expect("Expected successful query run.");
 
-        let feature_query = "MATCH (n:Feature) RETURN (n);";
-        let feature_results = db.exec(feature_query)?;
-        let feature_node = feature_results
-            .rows()
-            .next()
-            .unwrap()
-            .get::<serde_json::Map<String, serde_json::Value>>("n")
-            .unwrap();
-        let feature_id = feature_node.get("id").unwrap().clone().try_into()?;
+        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+        }
+
+        let bug_id = if let bolt_proto::value::Value::Node(n) =
+            &records.iter().next().expect("Expected result").fields()[0]
+        {
+            Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                .expect("Expected string")
+        } else {
+            panic!("Expected node.")
+        };
+
+        let query = "MATCH (n:Feature) RETURN (n);";
+        runtime
+            .block_on(db.run_with_metadata(query, None, None))
+            .expect("Expected successful query run.");
+
+        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+        }
+
+        let feature_id = if let bolt_proto::value::Value::Node(n) =
+            &records.iter().next().expect("Expected result").fields()[0]
+        {
+            Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                .expect("Expected string")
+        } else {
+            panic!("Expected node.")
+        };
 
         facade.resolve_rel_list(vec![
             &facade

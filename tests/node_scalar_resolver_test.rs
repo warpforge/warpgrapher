@@ -14,9 +14,9 @@ use warpgrapher::client::Client;
 #[tokio::test]
 async fn scalar_lists_test_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml");
+    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -24,9 +24,9 @@ async fn scalar_lists_test_cosmos() {
 #[tokio::test]
 async fn scalar_lists_test_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml");
+    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -85,9 +85,9 @@ async fn scalar_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn scalar_lists_no_array_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml");
+    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -95,9 +95,9 @@ async fn scalar_lists_no_array_cosmos() {
 #[tokio::test]
 async fn scalar_lists_no_array_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml");
+    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -144,9 +144,9 @@ async fn scalar_lists_no_array_test(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn scalar_no_lists_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml");
+    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -154,9 +154,9 @@ async fn scalar_no_lists_cosmos() {
 #[tokio::test]
 async fn scalar_no_lists_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml");
+    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -216,9 +216,9 @@ async fn scalar_no_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn scalar_no_lists_no_array_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml");
+    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 
@@ -226,9 +226,9 @@ async fn scalar_no_lists_no_array_cosmos() {
 #[tokio::test]
 async fn scalar_no_lists_no_array_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml");
+    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 

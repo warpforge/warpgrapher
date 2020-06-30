@@ -1,18 +1,18 @@
 mod setup;
 
 use assert_approx_eq::assert_approx_eq;
-#[cfg(feature = "neo4j")]
-use rusted_cypher::GraphClient;
 use serde_json::json;
+#[cfg(feature = "neo4j")]
+use setup::bolt_client;
 #[cfg(feature = "cosmos")]
 use setup::cosmos_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_url;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use setup::{clear_db, init};
 use setup::{AppGlobalCtx, AppRequestCtx};
+#[cfg(feature = "neo4j")]
+use std::iter::FromIterator;
 use warpgrapher::client::Client;
 
 /// Passes if the create mutation and the read query both succeed.
@@ -20,9 +20,9 @@ use warpgrapher::client::Client;
 #[tokio::test]
 async fn create_single_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     create_single_node(client).await;
 }
 
@@ -31,9 +31,9 @@ async fn create_single_node_neo4j() {
 #[tokio::test]
 async fn create_single_node_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     create_single_node(client).await;
 }
 
@@ -89,9 +89,9 @@ async fn create_single_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn read_query_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     read_query(client).await;
 }
 
@@ -99,9 +99,9 @@ async fn read_query_neo4j() {
 #[tokio::test]
 async fn read_query_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     read_query(client).await;
 }
 
@@ -155,9 +155,9 @@ async fn read_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn handle_missing_properties_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     handle_missing_properties(client).await;
 }
 
@@ -165,9 +165,9 @@ async fn handle_missing_properties_neo4j() {
 #[tokio::test]
 async fn handle_missing_properties_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     handle_missing_properties(client).await;
 }
 
@@ -213,9 +213,9 @@ async fn handle_missing_properties(mut client: Client<AppGlobalCtx, AppRequestCt
 #[tokio::test]
 async fn update_mutation_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_mutation(client).await;
 }
 
@@ -223,9 +223,9 @@ async fn update_mutation_neo4j() {
 #[tokio::test]
 async fn update_mutation_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_mutation(client).await;
 }
 
@@ -309,9 +309,9 @@ async fn update_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn update_mutation_null_query_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     update_mutation_null_query(client).await;
 }
 
@@ -319,9 +319,9 @@ async fn update_mutation_null_query_neo4j() {
 #[tokio::test]
 async fn update_mutation_null_query_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     update_mutation_null_query(client).await;
 }
 
@@ -398,9 +398,9 @@ async fn update_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn delete_mutation_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_mutation(client).await;
 }
 
@@ -408,9 +408,9 @@ async fn delete_mutation_neo4j() {
 #[tokio::test]
 async fn delete_mutation_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_mutation(client).await;
 }
 
@@ -482,9 +482,9 @@ async fn delete_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
 #[tokio::test]
 async fn delete_mutation_null_query_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     delete_mutation_null_query(client).await;
 }
 
@@ -492,9 +492,9 @@ async fn delete_mutation_null_query_neo4j() {
 #[tokio::test]
 async fn delete_mutation_null_query_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml");
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
     delete_mutation_null_query(client).await;
 }
 
@@ -564,14 +564,21 @@ async fn delete_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestC
 #[tokio::test]
 async fn error_on_node_missing_id_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let graph = GraphClient::connect(neo4j_url()).unwrap();
+    let mut graph = bolt_client().await;
     graph
-        .exec("CREATE (n:Project { name: 'Project One' })")
-        .unwrap();
+        .run_with_metadata("CREATE (n:Project { name: 'Project One' })", None, None)
+        .await
+        .expect("Expected successful query run.");
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml");
+    let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
+    let (_response, _records) = graph
+        .pull(Some(pull_meta))
+        .await
+        .expect("Expected pull to succeed.");
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     error_on_node_missing_id(client).await;
 }
 

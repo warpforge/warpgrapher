@@ -10,8 +10,8 @@ use setup::{clear_db, init, neo4j_test_client};
 #[tokio::test]
 async fn custom_endpoint_returning_scalar() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     // create new projects
     let _ = client
@@ -50,8 +50,8 @@ async fn custom_endpoint_returning_scalar() {
 #[tokio::test]
 async fn custom_endpoint_returning_scalar_list() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let result = client
         .graphql(
@@ -78,8 +78,8 @@ async fn custom_endpoint_returning_scalar_list() {
 #[tokio::test]
 async fn custom_endpoint_returning_node() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let result = client
         .graphql(
@@ -105,8 +105,8 @@ async fn custom_endpoint_returning_node() {
 #[tokio::test]
 async fn custom_field_resolver_returning_scalar() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     // create new projects
     let _ = client
@@ -141,8 +141,8 @@ async fn custom_field_resolver_returning_scalar() {
 #[tokio::test]
 async fn custom_field_returning_scalar_list() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(
@@ -185,8 +185,8 @@ async fn custom_field_returning_scalar_list() {
 #[tokio::test]
 async fn custom_rel_returning_rel() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(
@@ -240,8 +240,8 @@ async fn custom_rel_returning_rel() {
 #[tokio::test]
 async fn custom_rel_returning_rel_list() {
     init();
-    clear_db();
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml");
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(
