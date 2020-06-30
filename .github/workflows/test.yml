@@ -17,12 +17,12 @@ jobs:
 
     env:
       WG_NEO4J_HOST: 127.0.0.1
-      WG_NEO4J_PORT: 7474
-      WG_NEO4J_LOGIN: neo4j
+      WG_NEO4J_PORT: 7687
+      WG_NEO4J_USER: neo4j
       WG_NEO4J_PASS: testpass
       WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
       WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
-      WG_COSMOS_LOGIN: ${{ secrets.WG_COSMOS_LOGIN }}
+      WG_COSMOS_USER: ${{ secrets.WG_COSMOS_LOGIN }}
       WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
       
     steps:
