@@ -17,6 +17,10 @@ jobs:
 
     env:
       WG_NEO4J_URL: http://neo4j:testpass@localhost:7474/db/data
+      WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
+      WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
+      WG_COSMOS_LOGIN: ${{ secrets.WG_COSMOS_LOGIN }}
+      WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
       
     steps:
     - uses: actions/checkout@v2
@@ -63,13 +67,17 @@ jobs:
     - name: Start neo4j database
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
     
-    - name: Run Tests
+    - name: Run Tests (No Features)
+      run: cargo test -- --test-threads=1
+    
+    - name: Run Tests (Cosmos)
+      run: cargo test --features cosmos -- --test-threads=1
+    
+    - name: Run Tests (Neo4j)
+      run: cargo test --features neo4j -- --test-threads=1
+    
+    - name: Run Tests (All Features)
       run: cargo test --all-features -- --test-threads=1
-      env: 
-        WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
-        WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
-        WG_COSMOS_LOGIN: ${{ secrets.WG_COSMOS_LOGIN }}
-        WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
 
     - name: Stop neo4j database
       run: docker rm -f neo4j
