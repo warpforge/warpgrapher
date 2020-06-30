@@ -16,7 +16,10 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      WG_NEO4J_URL: http://neo4j:testpass@localhost:7474/db/data
+      WG_NEO4J_HOST: 127.0.0.1
+      WG_NEO4J_PORT: 7474
+      WG_NEO4J_LOGIN: neo4j
+      WG_NEO4J_PASS: testpass
       WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
       WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
       WG_COSMOS_LOGIN: ${{ secrets.WG_COSMOS_LOGIN }}
@@ -65,16 +68,7 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
       
     - name: Start neo4j database
-      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
-    
-    - name: Run Tests (No Features)
-      run: cargo test -- --test-threads=1
-    
-    - name: Run Tests (Cosmos)
-      run: cargo test --features cosmos -- --test-threads=1
-    
-    - name: Run Tests (Neo4j)
-      run: cargo test --features neo4j -- --test-threads=1
+      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
     
     - name: Run Tests (All Features)
       run: cargo test --all-features -- --test-threads=1
