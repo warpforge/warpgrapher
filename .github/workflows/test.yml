@@ -10,6 +10,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'examples/**'
+      - '.gitub/**'
 
 jobs:
   test:
@@ -24,6 +25,7 @@ jobs:
       WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
       WG_COSMOS_USER: ${{ secrets.WG_COSMOS_LOGIN }}
       WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
+      RUST_LOG: warpgrapher,test_client
       
     steps:
     - uses: actions/checkout@v2
@@ -71,7 +73,7 @@ jobs:
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
     
     - name: Run Tests (All Features)
-      run: cargo test --all-features -- --test-threads=1
+      run: cargo test --features neo4j --test client_test -- --test-threads=1
 
     - name: Stop neo4j database
       run: docker rm -f neo4j
