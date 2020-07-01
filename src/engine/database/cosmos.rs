@@ -40,7 +40,7 @@ pub struct CosmosEndpoint {
 
 impl CosmosEndpoint {
     /// Reads a set of environment variables to construct a [`CosmosEndpoint`]. The environment
-    /// variables are
+    /// variables are as follows
     ///
     /// * WG_COSMOS_HOST - the hostname for the Cosmos DB. For example,
     /// *my-db*.gremlin.cosmos.azure.com
