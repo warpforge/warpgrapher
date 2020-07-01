@@ -17,19 +17,14 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      #WG_NEO4J_HOST: 127.0.0.1
-      #WG_NEO4J_PORT: 7687
-      #WG_NEO4J_USER: neo4j
-      #WG_NEO4J_PASS: testpass
-      WG_NEO4J_HOST: ${{ secrets.WG_NEO4J_HOST }}
-      WG_NEO4J_PORT: ${{ secrets.WG_NEO4J_PORT }}
-      WG_NEO4J_USER: ${{ secrets.WG_NEO4J_USER }}
-      WG_NEO4J_PASS: ${{ secrets.WG_NEO4J_PASS }}
+      WG_NEO4J_HOST: 127.0.0.1
+      WG_NEO4J_PORT: 7687
+      WG_NEO4J_USER: neo4j
+      WG_NEO4J_PASS: testpass
       WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
       WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
       WG_COSMOS_USER: ${{ secrets.WG_COSMOS_LOGIN }}
       WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
-      RUST_LOG: warpgrapher,test_client
       
     steps:
     - uses: actions/checkout@v2
@@ -73,11 +68,11 @@ jobs:
     - name: Run Linter
       run: cargo clippy --all-targets --all-features -- -D warnings
       
-    #- name: Start neo4j database
-    #  run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
+    - name: Start neo4j database
+      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
     
     - name: Run Tests (All Features)
-      run: cargo test --features neo4j --test client_test -- --test-threads=1
+      run: cargo test --all-features -- --test-threads=1
 
-    #- name: Stop neo4j database
-    #  run: docker rm -f neo4j
+    - name: Stop neo4j database
+      run: docker rm -f neo4j
