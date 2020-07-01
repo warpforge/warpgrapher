@@ -1,6 +1,11 @@
-use super::Input;
-use super::Node;
+use super::{Input, Node, Rel};
 use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
+#[cfg(feature = "cosmos")]
+use crate::engine::database::cosmos::CosmosTransaction;
+#[cfg(feature = "neo4j")]
+use crate::engine::database::neo4j::Neo4jTransaction;
+use crate::engine::database::DatabasePool;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::Transaction;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
@@ -8,57 +13,43 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::debug;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
+#[cfg(feature = "neo4j")]
+use tokio::runtime::Runtime;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input, SuffixGenerator,
 };
 
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 mod visitors;
 
-pub(super) struct Resolver<'r, GlobalCtx, RequestCtx, T>
-where
-    GlobalCtx: GlobalContext,
-    RequestCtx: RequestContext,
-    T: Transaction,
-{
+pub(super) struct Resolver<'r> {
     partition_key_opt: Option<&'r Value>,
-    executor: &'r Executor<'r, GraphQLContext<GlobalCtx, RequestCtx>>,
-    transaction: &'r mut T,
 }
 
-impl<'r, GlobalCtx, RequestCtx, T> Resolver<'r, GlobalCtx, RequestCtx, T>
-where
-    GlobalCtx: GlobalContext,
-    RequestCtx: RequestContext,
-    T: Transaction,
-{
-    pub(super) fn new(
-        partition_key_opt: Option<&'r Value>,
-        executor: &'r Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-        transaction: &'r mut T,
-    ) -> Resolver<'r, GlobalCtx, RequestCtx, T> {
+impl<'r> Resolver<'r> {
+    pub(super) fn new(partition_key_opt: Option<&'r Value>) -> Resolver<'r> {
         trace!(
             "Resolver::new called -- partition_key_opt: {:#?}",
             partition_key_opt
         );
-        Resolver {
-            partition_key_opt,
-            executor,
-            transaction,
-        }
+        Resolver { partition_key_opt }
     }
 
-    pub(super) fn resolve_custom_endpoint(
+    pub(super) fn resolve_custom_endpoint<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         parent: Object<GlobalCtx, RequestCtx>,
         args: &Arguments,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_endpoint called -- info.name: {}, field_name: {}",
@@ -67,7 +58,7 @@ where
         );
 
         // load resolver function
-        let func = self.executor.context().resolver(field_name)?;
+        let func = executor.context().resolver(field_name)?;
 
         // results
         func(ResolverFacade::new(
@@ -76,17 +67,18 @@ where
             args,
             parent,
             self.partition_key_opt,
-            self.executor,
+            executor,
         ))
     }
 
-    pub(super) fn resolve_custom_field(
+    pub(super) fn resolve_custom_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         resolver: Option<&String>,
         parent: Object<GlobalCtx, RequestCtx>,
         args: &Arguments,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_field called -- info.name: {:#?}, field_name: {:#?}",
@@ -98,7 +90,7 @@ where
             name: field_name.to_string(),
         })?;
 
-        let func = &self.executor.context().resolver(resolver_name)?;
+        let func = &executor.context().resolver(resolver_name)?;
 
         func(ResolverFacade::new(
             field_name.to_string(),
@@ -106,17 +98,18 @@ where
             args,
             parent,
             self.partition_key_opt,
-            self.executor,
+            &executor,
         ))
     }
 
-    pub(super) fn resolve_custom_rel(
+    pub(super) fn resolve_custom_rel<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         rel_name: &str,
         resolver: Option<&String>,
         parent: Object<GlobalCtx, RequestCtx>,
         args: &Arguments,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_rel called -- info.name: {}, rel_name: {}",
@@ -128,7 +121,7 @@ where
             name: rel_name.to_string(),
         })?;
 
-        let func = &self.executor.context().resolver(resolver_name)?;
+        let func = &executor.context().resolver(resolver_name)?;
 
         func(ResolverFacade::new(
             rel_name.to_string(),
@@ -136,16 +129,65 @@ where
             args,
             parent,
             self.partition_key_opt,
-            self.executor,
+            executor,
         ))
     }
 
-    pub(super) fn resolve_node_by_id(
+    pub(super) fn resolve_node_by_id<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         label: &str,
         info: &Info,
         id: Value,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
+            label,
+            id
+        );
+
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_node_by_id_with_transaction(
+                label,
+                info,
+                id,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_node_by_id_with_transaction(
+                    label,
+                    info,
+                    id,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve(
+            &Info::new(label.to_string(), info.type_defs()),
+            results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
+        )
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_node_by_id_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        label: &str,
+        info: &Info,
+        id: Value,
+        transaction: &mut T,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
             label,
@@ -155,7 +197,7 @@ where
         let mut props = HashMap::new();
         props.insert("id".to_string(), id);
 
-        let (query, params) = self.transaction.node_query(
+        let (query, params) = transaction.node_query(
             Vec::new(),
             HashMap::new(),
             label,
@@ -165,24 +207,73 @@ where
             "0",
             props,
         )?;
-        let response =
-            self.transaction
-                .read_nodes(&query, self.partition_key_opt, Some(params), info)?;
-
-        trace!("Resolver::resolve_node_by_id response: {:#?}", response);
-
-        self.executor.resolve(
-            &Info::new(label.to_string(), info.type_defs()),
-            response.first().ok_or_else(|| Error::ResponseSetNotFound)?,
-        )
+        transaction.read_nodes(&query, self.partition_key_opt, Some(params), info)
     }
 
-    pub(super) fn resolve_node_create_mutation(
+    pub(super) fn resolve_node_create_mutation<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
+            info.name(),
+            field_name,
+            input
+        );
+
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
+
+        let result: Node<GlobalCtx, RequestCtx> = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_node_create_mutation_with_transaction(
+                field_name,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+                executor,
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_node_create_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve(
+            &Info::new(p.type_name().to_owned(), info.type_defs()),
+            &result,
+        )
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_node_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> Result<Node<GlobalCtx, RequestCtx>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
             info.name(),
@@ -193,14 +284,14 @@ where
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        self.transaction.begin()?;
+        transaction.begin()?;
         let results = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
             &p.type_name(),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
-            &self.executor.context().validators(),
-            self.transaction,
+            &executor.context().validators(),
+            transaction,
         );
         trace!(
             "Resolver::resolve_node_create_mutation -- results: {:#?}",
@@ -208,24 +299,76 @@ where
         );
 
         if results.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        self.executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results?,
-        )
+        results
     }
 
-    pub(super) fn resolve_node_delete_mutation(
+    #[allow(unused_variables)]
+    pub(super) fn resolve_node_delete_mutation<GlobalCtx, RequestCtx>(
         &mut self,
         field_name: &str,
         label: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
-    ) -> ExecutionResult {
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> ExecutionResult
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    {
+        trace!(
+            "Resolver::resolve_node_delete_mutation called -- info.name: {}, field_name: {}: input: {:#?}",
+            info.name(),
+            field_name,
+            input
+        );
+
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let results: i32 = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_node_delete_mutation_with_transaction(
+                field_name,
+                label,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_node_delete_mutation_with_transaction(
+                    field_name,
+                    label,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve_with_ctx(&(), &results)
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_node_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        label: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+    ) -> Result<i32, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_node_delete_mutation called -- info.name: {}, field_name: {}: input: {:#?}",
             info.name(),
@@ -240,7 +383,7 @@ where
             .input_type_definition(info)?;
         let suffix = sg.suffix();
 
-        self.transaction.begin()?;
+        transaction.begin()?;
         let results = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
             label,
             &suffix,
@@ -248,7 +391,7 @@ where
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
-            self.transaction,
+            transaction,
         );
         trace!(
             "Resolver::resolve_node_delete_mutation -- results: {:#?}",
@@ -256,20 +399,78 @@ where
         );
 
         if results.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        self.executor.resolve_with_ctx(&(), &results?)
+        results
     }
 
-    pub(super) fn resolve_node_read_query(
+    pub(super) fn resolve_node_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
+            info.name(),
+            field_name,
+            input_opt
+        );
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
+
+        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_node_read_query_with_transaction(
+                field_name,
+                info,
+                input_opt,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_node_read_query_with_transaction(
+                    field_name,
+                    info,
+                    input_opt,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        if p.list() {
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results,
+            )
+        } else {
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results.first(),
+            )
+        }
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_node_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        info: &Info,
+        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        transaction: &mut T,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
             info.name(),
@@ -283,7 +484,7 @@ where
         let itd = p.input_type_definition(info)?;
         let suffix = sg.suffix();
 
-        self.transaction.begin()?;
+        transaction.begin()?;
         let (query, params) = visit_node_query_input(
             &p.type_name(),
             &suffix,
@@ -294,41 +495,86 @@ where
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input_opt.map(|i| i.value),
-            self.transaction,
+            transaction,
         )?;
-        let results =
-            self.transaction
-                .read_nodes(&query, self.partition_key_opt, Some(params), info);
+        let results = transaction.read_nodes(&query, self.partition_key_opt, Some(params), info);
         trace!(
             "Resolver::resolve_node_read_query -- results: {:#?}",
             results
         );
 
         if results.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        if p.list() {
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results?,
-            )
-        } else {
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results?.first(),
-            )
-        }
+        results
     }
 
-    pub(super) fn resolve_node_update_mutation(
+    pub(super) fn resolve_node_update_mutation<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
+            info.name(),
+            field_name,
+            input
+        );
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
+
+        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_node_update_mutation_with_transaction(
+                field_name,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+                executor,
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_node_update_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve(
+            &Info::new(p.type_name().to_owned(), info.type_defs()),
+            &results,
+        )
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_node_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
             info.name(),
@@ -339,14 +585,14 @@ where
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        self.transaction.begin()?;
+        transaction.begin()?;
         let result = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
             &p.type_name(),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
-            &self.executor.context().validators(),
-            self.transaction,
+            &executor.context().validators(),
+            transaction,
         );
         trace!(
             "Resolver::resolve_node_update_mutation result: {:#?}",
@@ -354,24 +600,25 @@ where
         );
 
         if result.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        self.executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &result?,
-        )
+        result
     }
 
-    pub(super) fn resolve_rel_create_mutation(
+    pub(super) fn resolve_rel_create_mutation<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -380,8 +627,79 @@ where
         src_label,
         rel_name, input
     );
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
 
-        let validators = &self.executor.context().validators();
+        let result: Vec<Rel<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_rel_create_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+                executor,
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_rel_create_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        let mutations = info.type_def_by_name("Mutation")?;
+        let endpoint_td = mutations.property(field_name)?;
+
+        if endpoint_td.list() {
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &result,
+            )
+        } else {
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &result[0],
+            )
+        }
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn resolve_rel_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        src_label: &str,
+        rel_name: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
+        trace!(
+        "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        info.name(),
+        field_name,
+        src_label,
+        rel_name, input
+    );
+
+        let validators = &executor.context().validators();
 
         let td = info.type_def()?;
         let p = td.property(field_name)?;
@@ -399,39 +717,82 @@ where
             self.partition_key_opt,
             input.value,
             validators,
-            self.transaction,
+            transaction,
         );
 
         if result.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        let mutations = info.type_def_by_name("Mutation")?;
-        let endpoint_td = mutations.property(field_name)?;
-
-        if endpoint_td.list() {
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &result?,
-            )
-        } else {
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &result?[0],
-            )
-        }
+        result
     }
 
-    pub(super) fn resolve_rel_delete_mutation(
+    pub(super) fn resolve_rel_delete_mutation<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+        "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        info.name(),
+        field_name,
+        src_label, rel_name, input
+    );
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+
+        let results: i32 = match executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_rel_delete_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_rel_delete_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve_with_ctx(&(), &results)
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_rel_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        src_label: &str,
+        rel_name: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+    ) -> Result<i32, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
         "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
         info.name(),
@@ -450,23 +811,24 @@ where
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
-            self.transaction,
+            transaction,
         );
 
         if results.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        self.executor.resolve_with_ctx(&(), &results?)
+        results
     }
 
-    pub(super) fn resolve_rel_props(
+    pub(super) fn resolve_rel_props<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         props: &Node<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
@@ -477,20 +839,93 @@ where
         let td = info.type_def()?;
         let p = td.property(field_name)?;
 
-        self.executor.resolve(
+        executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             props,
         )
     }
 
-    pub(super) fn resolve_rel_read_query(
+    pub(super) fn resolve_rel_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        info.name(),
+        field_name,
+        src_ids_opt,
+        rel_name,
+        self.partition_key_opt,
+        input_opt
+    );
+
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
+
+        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
+                field_name,
+                src_ids_opt,
+                rel_name,
+                info,
+                input_opt,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_rel_read_query_with_transaction(
+                    field_name,
+                    src_ids_opt,
+                    rel_name,
+                    info,
+                    input_opt,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        if p.list() {
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results,
+            )
+        } else {
+            if results.len() > 1 {
+                return Err(Error::TypeNotExpected.into());
+            }
+
+            executor.resolve(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results.first(),
+            )
+        }
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        src_ids_opt: Option<Vec<Value>>,
+        rel_name: &str,
+        info: &Info,
+        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        transaction: &mut T,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
         "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name(),
@@ -526,52 +961,40 @@ where
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input_opt.map(|i| i.value),
-            self.transaction,
+            transaction,
         )?;
 
         debug!(
             "Resolver::resolve_rel_read_query Query query, params: {} {:#?}",
             query, params
         );
-        let raw_results = self.transaction.read_rels(
+        let results = transaction.read_rels(
             &query,
             Some(p.type_name()),
             self.partition_key_opt,
             Some(params),
         );
 
-        if raw_results.is_ok() {
-            self.transaction.commit()?;
+        if results.is_ok() {
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        let results = raw_results?;
-
-        if p.list() {
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
-        } else {
-            if results.len() > 1 {
-                return Err(Error::TypeNotExpected.into());
-            }
-
-            self.executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results.first(),
-            )
-        }
+        results
     }
 
-    pub(super) fn resolve_rel_update_mutation(
+    pub(super) fn resolve_rel_update_mutation<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -581,7 +1004,69 @@ where
         input
     );
 
-        let validators = &self.executor.context().validators();
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let p = info.type_def()?.property(field_name)?;
+
+        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_rel_update_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut CosmosTransaction::new(c.clone()),
+                executor,
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_rel_update_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve(
+            &Info::new(p.type_name().to_owned(), info.type_defs()),
+            &results,
+        )
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn resolve_rel_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        field_name: &str,
+        src_label: &str,
+        rel_name: &str,
+        info: &Info,
+        input: Input<GlobalCtx, RequestCtx>,
+        transaction: &mut T,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
+        trace!(
+        "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
+        info.name(),
+        field_name,
+        src_label, rel_name,
+        input
+    );
+
+        let validators = &executor.context().validators();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
@@ -598,26 +1083,24 @@ where
             input.value,
             validators,
             props_prop.map(|_| p.type_name()).ok(),
-            self.transaction,
+            transaction,
         );
 
         if results.is_ok() {
-            self.transaction.commit()?;
+            transaction.commit()?;
         } else {
-            self.transaction.rollback()?;
+            transaction.rollback()?;
         }
 
-        self.executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results?,
-        )
+        results
     }
 
-    pub(super) fn resolve_scalar_field(
+    pub(super) fn resolve_scalar_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         fields: &HashMap<String, Value>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_scalar_field called -- info.name: {}, field_name: {}",
@@ -633,36 +1116,35 @@ where
                     }
                     .into())
                 } else {
-                    self.executor.resolve_with_ctx(&(), &None::<String>)
+                    executor.resolve_with_ctx(&(), &None::<String>)
                 }
             },
             |v| match v {
-                Value::Null => self.executor.resolve_with_ctx(&(), &None::<String>),
-                Value::Bool(_) => self
-                    .executor
-                    .resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?),
-                Value::Int64(_) | Value::UInt64(_) => self
-                    .executor
-                    .resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?),
-                Value::Float64(_) => self
-                    .executor
-                    .resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?),
-                Value::String(_) => self
-                    .executor
-                    .resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?),
+                Value::Null => executor.resolve_with_ctx(&(), &None::<String>),
+                Value::Bool(_) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<bool>::try_into(v.clone())?)
+                }
+                Value::Int64(_) | Value::UInt64(_) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<i32>::try_into(v.clone())?)
+                }
+                Value::Float64(_) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<f64>::try_into(v.clone())?)
+                }
+                Value::String(_) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?)
+                }
                 Value::Array(a) => match a.get(0) {
-                    Some(Value::Null) | Some(Value::String(_)) => self
-                        .executor
+                    Some(Value::Null) | Some(Value::String(_)) => executor
                         .resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
-                    Some(Value::Bool(_)) => self
-                        .executor
-                        .resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?),
+                    Some(Value::Bool(_)) => {
+                        executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?)
+                    }
                     Some(Value::Int64(_)) | Some(Value::UInt64(_)) | Some(Value::Float64(_)) => {
                         let r = TryInto::<Vec<i32>>::try_into(v.clone());
                         if r.is_ok() {
-                            self.executor.resolve_with_ctx(&(), &r?)
+                            executor.resolve_with_ctx(&(), &r?)
                         } else {
-                            self.executor
+                            executor
                                 .resolve_with_ctx(&(), &TryInto::<Vec<f64>>::try_into(v.clone())?)
                         }
                     }
@@ -675,20 +1157,79 @@ where
         )
     }
 
-    pub(super) fn resolve_static_version_query(&mut self) -> ExecutionResult {
-        match &self.executor.context().version() {
+    pub(super) fn resolve_static_version_query<
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+    >(
+        &mut self,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> ExecutionResult {
+        match &executor.context().version() {
             Some(v) => Ok(juniper::Value::scalar(v.to_string())),
             None => Ok(juniper::Value::Null),
         }
     }
 
-    pub(super) fn resolve_union_field(
+    pub(super) fn resolve_union_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         dst_label: &str,
         field_name: &str,
         dst_id: &Value,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
+        trace!(
+            "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
+            info.name(),
+            field_name,
+            dst_id
+        );
+
+        #[cfg(feature = "neo4j")]
+        let mut runtime = Runtime::new()?;
+        let results: Vec<Node<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+            #[cfg(feature = "cosmos")]
+            DatabasePool::Cosmos(c) => self.resolve_union_field_with_transaction(
+                info,
+                dst_label,
+                field_name,
+                dst_id,
+                &mut CosmosTransaction::new(c.clone()),
+            ),
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = runtime.block_on(p.get())?;
+                self.resolve_union_field_with_transaction(
+                    info,
+                    dst_label,
+                    field_name,
+                    dst_id,
+                    &mut Neo4jTransaction::new(c, &mut runtime),
+                )
+            }
+            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
+        }?;
+
+        executor.resolve(
+            &Info::new(dst_label.to_string(), info.type_defs()),
+            &results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
+        )
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    pub(super) fn resolve_union_field_with_transaction<GlobalCtx, RequestCtx, T>(
+        &mut self,
+        info: &Info,
+        dst_label: &str,
+        field_name: &str,
+        dst_id: &Value,
+        transaction: &mut T,
+    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    where
+        GlobalCtx: GlobalContext,
+        RequestCtx: RequestContext,
+        T: Transaction,
+    {
         trace!(
             "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
             info.name(),
@@ -700,7 +1241,7 @@ where
             "dst" => {
                 let mut props = HashMap::new();
                 props.insert("id".to_string(), dst_id.clone());
-                let (query, params) = self.transaction.node_query(
+                let (query, params) = transaction.node_query(
                     Vec::new(),
                     HashMap::new(),
                     dst_label,
@@ -710,22 +1251,11 @@ where
                     "",
                     props,
                 )?;
-                let results = self.transaction.read_nodes(
-                    &query,
-                    self.partition_key_opt,
-                    Some(params),
-                    info,
-                )?;
-
-                self.executor.resolve(
-                    &Info::new(dst_label.to_string(), info.type_defs()),
-                    &results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
-                )
+                transaction.read_nodes(&query, self.partition_key_opt, Some(params), info)
             }
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,
-            }
-            .into()),
+            }),
         }
     }
 }

@@ -2,20 +2,9 @@
 //! auto-generated CRUD query endpoints. Optionally, these structured are available for use by
 //! custom resolver code, as well.
 
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
-pub mod resolvers;
-
 use super::context::GraphQLContext;
 use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
 use crate::engine::context::{GlobalContext, RequestContext};
-#[cfg(feature = "cosmos")]
-use crate::engine::database::cosmos::CosmosTransaction;
-#[cfg(feature = "neo4j")]
-use crate::engine::database::neo4j::Neo4jTransaction;
-use crate::engine::database::DatabasePool;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::engine::database::Transaction;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -26,14 +15,13 @@ use juniper::{
     Selection, ID,
 };
 use log::{error, trace};
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use resolvers::Resolver;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-#[cfg(feature = "neo4j")]
-use tokio::runtime::Runtime;
+
+mod resolvers;
 
 #[derive(Clone, Debug)]
 struct Input<GlobalCtx, RequestCtx>
@@ -375,124 +363,6 @@ where
             .into_meta()
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn resolve_field_with_transaction<T>(
-        &self,
-        info: &<Self as GraphQLType>::TypeInfo,
-        field_name: &str,
-        args: &Arguments,
-        executor: &Executor<<Self as GraphQLType>::Context>,
-        transaction: &mut T,
-    ) -> ExecutionResult
-    where
-        T: Transaction,
-    {
-        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
-            name: info.name().to_string(),
-        })?;
-        trace!(
-            "Node::resolve_field_with_transaction called -- sn: {}, field_name: {}",
-            sn,
-            field_name,
-        );
-
-        let p = info.type_def()?.property(field_name)?;
-        let input_opt: Option<Input<GlobalCtx, RequestCtx>> = args.get("input");
-
-        // The partition key is only in the arguments for the outermost query or mutation.
-        // For lower-level field resolution, the partition key is read from the field of the parent.
-        // An alternate design would've been to carry the partitionKey in context, but this way
-        // recursive resolve calls from custom resolvers that execute cross-partition queries will
-        // work correctly, as each node carries its own partition, for any recursion to fill out the
-        // other rels and nodes loaded by the shape.
-        let arg_partition_key = args.get("partitionKey");
-        let partition_key_opt: Option<&Value> = arg_partition_key
-            .as_ref()
-            .or_else(|| self.fields.get("partitionKey"));
-
-        let mut resolver = Resolver::new(partition_key_opt, executor, transaction);
-
-        let result = match p.kind() {
-            PropertyKind::CustomResolver => {
-                resolver.resolve_custom_endpoint(info, field_name, Object::Node(self), args)
-            }
-            PropertyKind::DynamicScalar => resolver.resolve_custom_field(
-                info,
-                field_name,
-                p.resolver(),
-                Object::Node(self),
-                args,
-            ),
-            PropertyKind::DynamicRel { rel_name } => {
-                resolver.resolve_custom_rel(info, rel_name, p.resolver(), Object::Node(self), args)
-            }
-            PropertyKind::Input => Err(Error::TypeNotExpected.into()),
-            PropertyKind::NodeCreateMutation => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_create_mutation(field_name, info, input)
-            }
-            PropertyKind::NodeDeleteMutation { label } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_delete_mutation(field_name, &label, info, input)
-            }
-            PropertyKind::NodeUpdateMutation => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_update_mutation(field_name, info, input)
-            }
-            PropertyKind::Object => resolver.resolve_node_read_query(field_name, info, input_opt),
-            PropertyKind::Rel { rel_name } => {
-                let ids_opt = match sn {
-                    "Mutation" | "Query" => None,
-                    _ => Some(vec![self.id()?.clone()]),
-                };
-                resolver.resolve_rel_read_query(field_name, ids_opt, rel_name, info, input_opt)
-            }
-            PropertyKind::RelCreateMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_create_mutation(field_name, src_label, rel_name, info, input)
-            }
-            PropertyKind::RelDeleteMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_delete_mutation(field_name, src_label, rel_name, info, input)
-            }
-            PropertyKind::RelUpdateMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_update_mutation(field_name, src_label, rel_name, info, input)
-            }
-            PropertyKind::Scalar => resolver.resolve_scalar_field(info, field_name, &self.fields),
-            PropertyKind::Union => Err(Error::TypeNotExpected.into()),
-            PropertyKind::VersionQuery => resolver.resolve_static_version_query(),
-        };
-
-        trace!(
-            "Node::resolve_field_with_transaction -- result: {:#?}",
-            result
-        );
-
-        result
-    }
-
     pub(crate) fn typename(&self) -> &str {
         &self.concrete_typename
     }
@@ -547,7 +417,6 @@ where
         }
     }
 
-    #[allow(unused_variables)]
     fn resolve_field(
         &self,
         info: &Self::TypeInfo,
@@ -564,35 +433,120 @@ where
             field_name,
         );
 
-        match &executor.context().pool() {
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let mut runtime = Runtime::new()?;
-                let graph = runtime.block_on(p.get())?;
-                trace!("Node::resolve -- graph: {:#?}", graph);
+        let p = info.type_def()?.property(field_name)?;
+        let input_opt: Option<Input<GlobalCtx, RequestCtx>> = args.get("input");
 
-                let transaction = Neo4jTransaction::new(graph);
-                self.resolve_field_with_transaction(
-                    info,
-                    field_name,
-                    args,
-                    executor,
-                    &mut transaction?,
+        // The partition key is only in the arguments for the outermost query or mutation.
+        // For lower-level field resolution, the partition key is read from the field of the parent.
+        // An alternate design would've been to carry the partitionKey in context, but this way
+        // recursive resolve calls from custom resolvers that execute cross-partition queries will
+        // work correctly, as each node carries its own partition, for any recursion to fill out the
+        // other rels and nodes loaded by the shape.
+        let arg_partition_key = args.get("partitionKey");
+        let partition_key_opt: Option<&Value> = arg_partition_key
+            .as_ref()
+            .or_else(|| self.fields.get("partitionKey"));
+
+        let mut resolver = Resolver::new(partition_key_opt);
+
+        let result = match p.kind() {
+            PropertyKind::CustomResolver => resolver.resolve_custom_endpoint(
+                info,
+                field_name,
+                Object::Node(self),
+                args,
+                executor,
+            ),
+            PropertyKind::DynamicScalar => resolver.resolve_custom_field(
+                info,
+                field_name,
+                p.resolver(),
+                Object::Node(self),
+                args,
+                executor,
+            ),
+            PropertyKind::DynamicRel { rel_name } => resolver.resolve_custom_rel(
+                info,
+                &rel_name,
+                p.resolver(),
+                Object::Node(self),
+                args,
+                executor,
+            ),
+            PropertyKind::Input => Err(Error::TypeNotExpected.into()),
+            PropertyKind::NodeCreateMutation => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_node_create_mutation(field_name, info, input, executor)
+            }
+            PropertyKind::NodeDeleteMutation { label } => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_node_delete_mutation(field_name, &label, info, input, executor)
+            }
+            PropertyKind::NodeUpdateMutation => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_node_update_mutation(field_name, info, input, executor)
+            }
+            PropertyKind::Object => {
+                resolver.resolve_node_read_query(field_name, info, input_opt, executor)
+            }
+            PropertyKind::Rel { rel_name } => {
+                let ids_opt = match sn {
+                    "Mutation" | "Query" => None,
+                    _ => Some(vec![self.id()?.clone()]),
+                };
+                resolver.resolve_rel_read_query(
+                    field_name, ids_opt, &rel_name, info, input_opt, executor,
                 )
             }
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                let mut transaction = CosmosTransaction::new(c.clone());
-                self.resolve_field_with_transaction(
-                    info,
-                    field_name,
-                    args,
-                    executor,
-                    &mut transaction,
+            PropertyKind::RelCreateMutation {
+                src_label,
+                rel_name,
+            } => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_rel_create_mutation(
+                    field_name, &src_label, &rel_name, info, input, executor,
                 )
             }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound.into()),
-        }
+            PropertyKind::RelDeleteMutation {
+                src_label,
+                rel_name,
+            } => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_rel_delete_mutation(
+                    field_name, &src_label, &rel_name, info, input, executor,
+                )
+            }
+            PropertyKind::RelUpdateMutation {
+                src_label,
+                rel_name,
+            } => {
+                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })?;
+                resolver.resolve_rel_update_mutation(
+                    field_name, &src_label, &rel_name, info, input, executor,
+                )
+            }
+            PropertyKind::Scalar => {
+                resolver.resolve_scalar_field(info, field_name, &self.fields, executor)
+            }
+            PropertyKind::Union => Err(Error::TypeNotExpected.into()),
+            PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor),
+        };
+
+        trace!("Node::resolve_field -- result: {:#?}", result);
+
+        result
     }
 
     fn resolve_into_type(
@@ -643,12 +597,10 @@ impl NodeRef {
         NodeRef { id, label }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn id(&self) -> &Value {
         &self.id
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn label(&self) -> &String {
         &self.label
     }
@@ -729,63 +681,6 @@ where
     fn src_id(&self) -> &Value {
         &self.src_ref.id()
     }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn resolve_field_with_transaction<T: Transaction>(
-        &self,
-        info: &<Self as GraphQLType>::TypeInfo,
-        field_name: &str,
-        args: &Arguments,
-        executor: &Executor<<Self as GraphQLType>::Context>,
-        transaction: &mut T,
-    ) -> ExecutionResult {
-        trace!(
-            "Rel::resolve_field_with_transaction called -- field_name: {}",
-            field_name
-        );
-        let p = info.type_def()?.property(field_name)?;
-        let arg_partition_key = args.get("partitionKey");
-        let partition_key_opt: Option<&Value> = arg_partition_key
-            .as_ref()
-            .or_else(|| self.partition_key.as_ref());
-
-        let mut resolver = Resolver::new(partition_key_opt, executor, transaction);
-
-        match (p.kind(), &field_name) {
-            (PropertyKind::DynamicScalar, _) => resolver.resolve_custom_field(
-                info,
-                field_name,
-                p.resolver(),
-                Object::Rel(self),
-                args,
-            ),
-            (PropertyKind::Object, &"props") => match &self.props {
-                Some(p) => resolver.resolve_rel_props(info, field_name, p),
-                None => Err(Error::TypeNotExpected.into()),
-            },
-            (PropertyKind::Object, &"src") => {
-                resolver.resolve_node_by_id(&self.src_ref.label(), info, self.src_ref.id().clone())
-            }
-            (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
-                name: field_name.to_string(),
-            }
-            .into()),
-            (PropertyKind::Scalar, _) => {
-                if field_name == "id" {
-                    executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
-                } else {
-                    executor.resolve_with_ctx(&(), &None::<String>)
-                }
-            }
-            (PropertyKind::Union, _) => resolver.resolve_union_field(
-                info,
-                &self.dst_ref.label(),
-                field_name,
-                &self.dst_ref.id(),
-            ),
-            (_, _) => Err(Error::TypeNotExpected.into()),
-        }
-    }
 }
 
 impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>
@@ -864,7 +759,6 @@ where
             .into_meta()
     }
 
-    #[allow(unused_variables)]
     fn resolve_field(
         &self,
         info: &Self::TypeInfo,
@@ -872,44 +766,56 @@ where
         args: &Arguments,
         executor: &Executor<Self::Context>,
     ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
-            name: info.name().to_string(),
-        })?;
         trace!(
-            "Rel::resolve_field called -- sn: {}, field_name: {}",
-            sn,
-            field_name,
+            "Rel::resolve_field_with_transaction called -- field_name: {}",
+            field_name
         );
+        let p = info.type_def()?.property(field_name)?;
+        let arg_partition_key = args.get("partitionKey");
+        let partition_key_opt: Option<&Value> = arg_partition_key
+            .as_ref()
+            .or_else(|| self.partition_key.as_ref());
 
-        match &executor.context().pool() {
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let mut runtime = Runtime::new()?;
-                let graph = runtime.block_on(p.get())?;
-                trace!("Node::resolve -- graph: {:#?}", graph);
+        let mut resolver = Resolver::new(partition_key_opt);
 
-                let transaction = Neo4jTransaction::new(graph);
-                trace!("Node::resolve_field -- transaction: {:#?}", transaction);
-                self.resolve_field_with_transaction(
-                    info,
-                    field_name,
-                    args,
-                    executor,
-                    &mut transaction?,
-                )
+        match (p.kind(), &field_name) {
+            (PropertyKind::DynamicScalar, _) => resolver.resolve_custom_field(
+                info,
+                field_name,
+                p.resolver(),
+                Object::Rel(self),
+                args,
+                executor,
+            ),
+            (PropertyKind::Object, &"props") => match &self.props {
+                Some(p) => resolver.resolve_rel_props(info, field_name, p, executor),
+                None => Err(Error::TypeNotExpected.into()),
+            },
+            (PropertyKind::Object, &"src") => resolver.resolve_node_by_id(
+                &self.src_ref.label(),
+                info,
+                self.src_ref.id().clone(),
+                executor,
+            ),
+            (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
+                name: field_name.to_string(),
             }
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                let mut transaction = CosmosTransaction::new(c.clone());
-                self.resolve_field_with_transaction(
-                    info,
-                    field_name,
-                    args,
-                    executor,
-                    &mut transaction,
-                )
+            .into()),
+            (PropertyKind::Scalar, _) => {
+                if field_name == "id" {
+                    executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
+                } else {
+                    executor.resolve_with_ctx(&(), &None::<String>)
+                }
             }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound.into()),
+            (PropertyKind::Union, _) => resolver.resolve_union_field(
+                info,
+                &self.dst_ref.label(),
+                field_name,
+                &self.dst_ref.id(),
+                executor,
+            ),
+            (_, _) => Err(Error::TypeNotExpected.into()),
         }
     }
 }

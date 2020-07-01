@@ -496,6 +496,8 @@ pub(crate) fn project_top_dev(
             panic!("Expected node.")
         };
 
+        std::mem::drop(db);
+
         facade.resolve_rel(
             &facade
                 .create_rel(
@@ -560,6 +562,8 @@ pub(crate) fn project_top_issues(
         } else {
             panic!("Expected node.")
         };
+
+        std::mem::drop(db);
 
         facade.resolve_rel_list(vec![
             &facade

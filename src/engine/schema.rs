@@ -39,7 +39,6 @@ impl Info {
         &self.name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn type_def(&self) -> Result<&NodeType, Error> {
         self.type_def_by_name(&self.name)
     }
@@ -111,7 +110,6 @@ impl NodeType {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn property(&self, property_name: &str) -> Result<&Property, Error> {
         self.props
             .get(property_name)
@@ -195,7 +193,6 @@ impl Property {
         &self.name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn resolver(&self) -> Option<&String> {
         self.resolver.as_ref()
     }

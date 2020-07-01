@@ -98,7 +98,7 @@ impl DatabaseEndpoint for CosmosEndpoint {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub(crate) struct CosmosTransaction {
     client: GremlinClient,
 }

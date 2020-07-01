@@ -94,8 +94,7 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 
         let pool = DatabasePool::Neo4j(
             Pool::builder()
-                // .max_size(num_cpus::get().try_into().unwrap_or(8))
-                .max_size(8000)
+                .max_size(num_cpus::get().try_into().unwrap_or(8))
                 .build(manager)
                 .await?,
         );
@@ -108,17 +107,15 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 #[derive(Debug)]
 pub(crate) struct Neo4jTransaction<'t> {
     client: PooledConnection<'t, BoltConnectionManager>,
-    runtime: Runtime,
+    runtime: &'t mut Runtime,
 }
 
 impl<'t> Neo4jTransaction<'t> {
     pub fn new(
         client: PooledConnection<'t, BoltConnectionManager>,
-    ) -> Result<Neo4jTransaction<'t>, Error> {
-        Ok(Neo4jTransaction {
-            client,
-            runtime: Runtime::new()?,
-        })
+        runtime: &'t mut Runtime,
+    ) -> Neo4jTransaction<'t> {
+        Neo4jTransaction { client, runtime }
     }
 
     fn add_node_return(mut query: String, node_var: &str) -> String {

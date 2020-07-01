@@ -172,7 +172,7 @@ where
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
     /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
-    ///     runtime.block_on(ne.pool())?,
+    ///     runtime,
     ///     resolvers,
     ///     validators,
     ///     vec![],
