@@ -244,7 +244,7 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx,
         .build()
         .expect("Could not create warpgrapher engine");
 
-    Client::new_with_local(engine)
+    Client::new_with_engine(engine)
 }
 
 #[allow(dead_code)]
@@ -270,7 +270,7 @@ pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx
         .build()
         .expect("Could not create warpgrapher engine");
 
-    Client::new_with_local(engine)
+    Client::new_with_engine(engine)
 }
 
 #[cfg(feature = "cosmos")]

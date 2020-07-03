@@ -82,12 +82,12 @@ where
     /// let c = Configuration::new(1, Vec::new(), Vec::new());
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
-    /// let mut client = Client::<(), ()>::new_with_local(engine);
+    /// let mut client = Client::<(), ()>::new_with_engine(engine);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new_with_local(engine: Engine<GlobalCtx, RequestCtx>) -> Client<GlobalCtx, RequestCtx> {
-        trace!("Client::new_with_local called");
+    pub fn new_with_engine(engine: Engine<GlobalCtx, RequestCtx>) -> Client<GlobalCtx, RequestCtx> {
+        trace!("Client::new_with_engine called");
 
         Client::Local {
             engine: Box::new(engine),

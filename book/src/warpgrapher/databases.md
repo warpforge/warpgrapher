@@ -29,6 +29,10 @@ export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 ```
 
+Note that when setting up your Cosmos database, you must configure it to offer a Gremlin graph API.
+
+Note also that you must set your partition key to be named `partitionKey`.
+
 ## Neo4J
 
 Add Warpgrapher to your project config:

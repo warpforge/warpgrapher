@@ -85,7 +85,9 @@ export WG_NEO4J_PASS=*MY-DB-PASS*
 For Cosmos DB:
 
 Cosmos DB is an Azure cloud service, so it's already running. Or, if you're using a local Cosmos
-emulator, start the service based on its instructions.
+emulator, start the service based on its instructions. Note that when setting up the Cosmos 
+database, you must 1) choose Gremlin (graph) API support, and 2) use the string `partitionKey` as 
+the name of the partition key for the database.
 
 For neo4j:
 
