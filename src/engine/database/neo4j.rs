@@ -243,8 +243,14 @@ impl<'t> Neo4jTransaction<'t> {
                         })?,
                     partition_key_opt.cloned(),
                     props_type_name.map(|ptn| Node::new(ptn.to_string(), props)),
-                    NodeRef::new(src_id, src_label),
-                    NodeRef::new(dst_id, dst_label),
+                    NodeRef::Identifier {
+                        id: src_id,
+                        label: src_label,
+                    },
+                    NodeRef::Identifier {
+                        id: dst_id,
+                        label: dst_label,
+                    },
                 ))
             })
             .collect::<Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>>()

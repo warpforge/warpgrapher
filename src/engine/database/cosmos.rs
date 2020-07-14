@@ -306,8 +306,14 @@ impl CosmosTransaction {
                         Value::String(rel_id),
                         partition_key_opt.cloned(),
                         props_type_name.map(|ptn| Node::new(ptn.to_string(), rel_fields)),
-                        NodeRef::new(Value::String(src_id), src_label),
-                        NodeRef::new(Value::String(dst_id), dst_label),
+                        NodeRef::Identifier {
+                            id: Value::String(src_id),
+                            label: src_label,
+                        },
+                        NodeRef::Identifier {
+                            id: Value::String(dst_id),
+                            label: dst_label,
+                        },
                     ))
                 } else {
                     Err(Error::ResponseItemNotFound {
