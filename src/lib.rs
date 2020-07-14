@@ -17,6 +17,13 @@ pub use juniper::http::playground::playground_source;
 pub use juniper::http::GraphQLRequest;
 pub use juniper::ExecutionResult;
 pub use juniper::FieldError;
+pub use juniper::Value;
+pub use juniper::FromInputValue;
+pub use juniper::InputValue;
+pub use bb8_bolt::BoltConnectionManager;
+pub use bb8::Pool;
+pub use bolt_client::{Params};
+pub use bolt_proto;
 
 pub use client::Client;
 pub use engine::config::Configuration;

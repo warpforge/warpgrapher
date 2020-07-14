@@ -1,6 +1,7 @@
 //! Contains the type aliases, enumerations, and structures to allow for the creation of custom
 //! resolvers.
 
+use crate::engine::database::DatabasePool;
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, NodeRef, Rel};
@@ -10,7 +11,7 @@ use crate::Error;
 use inflector::Inflector;
 use std::collections::HashMap;
 
-pub use juniper::{Arguments, ExecutionResult, Executor};
+pub use juniper::{Arguments, ExecutionResult, Executor, FieldError};
 
 /// Wraps a Node or Rel, and provides a type-safe distinction between the two, when passing the
 /// object on which a field is being resolved to the custom resolver.
@@ -78,6 +79,18 @@ where
             partition_key_opt,
             executor,
         }
+    }
+
+    pub fn get_db(&self) -> &DatabasePool {
+        /*
+        self.executor.context().pool().map_err(|_| {
+            FieldError::new(
+                "Unable to access database driver pool.",
+                juniper::Value::Null,
+            )
+        })
+        */
+        self.executor.context().pool()
     }
 
     /// Returns the arguments provided to the resolver in the GraphQL query

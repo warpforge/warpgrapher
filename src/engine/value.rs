@@ -26,6 +26,15 @@ pub enum Value {
     UInt64(u64),
 }
 
+impl Value {
+    pub fn as_string(&self) -> Result<String, Error> {
+        match self {
+            Value::String(s) => { Ok(s.to_string()) },
+            _ => { Err(Error::TypeConversionFailed { src: "Value".to_string(), dst: "String".to_string() })}
+        }
+    }
+}
+
 impl From<bool> for Value {
     fn from(v: bool) -> Self {
         Value::Bool(v)

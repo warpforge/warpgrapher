@@ -35,10 +35,10 @@ use tokio::runtime::Runtime;
 /// # }
 /// ```
 pub struct Neo4jEndpoint {
-    host: String,
-    port: u16,
-    user: String,
-    pass: String,
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub pass: String,
 }
 
 impl Neo4jEndpoint {

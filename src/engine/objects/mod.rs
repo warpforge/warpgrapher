@@ -167,7 +167,7 @@ where
     RequestCtx: Debug + RequestContext,
 {
     concrete_typename: String,
-    fields: HashMap<String, Value>,
+    pub fields: HashMap<String, Value>,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
@@ -649,7 +649,7 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    pub(crate) fn new(
+    pub fn new(
         id: Value,
         partition_key: Option<Value>,
         props: Option<Node<GlobalCtx, RequestCtx>>,

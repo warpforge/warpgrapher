@@ -1129,6 +1129,11 @@ impl Type {
         }
     }
 
+    pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
+        serde_yaml::from_str(yaml)
+            .map_err(|e| Error::DeserializationFailed { source: e })
+    }
+
     /// Returns the name of the type. This type name is used as the label on nodes of this type in
     /// the graph database storage back-end.
     ///
