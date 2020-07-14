@@ -35,7 +35,12 @@ async fn custom_endpoint_returning_scalar() {
 
     // count projects via custom resolver
     let result = client
-        .graphql("query { ProjectCount }", Some("1234"), None, "ProjectCount")
+        .graphql(
+            "query { ProjectCount }",
+            Some("1234"),
+            None,
+            Some("ProjectCount"),
+        )
         .await
         .unwrap();
 
@@ -62,7 +67,7 @@ async fn custom_endpoint_returning_scalar_list() {
          ",
             Some("1234"),
             None,
-            "GlobalTopTags",
+            Some("GlobalTopTags"),
         )
         .await
         .unwrap();
@@ -92,7 +97,7 @@ async fn custom_endpoint_returning_node() {
         ",
             Some("1234"),
             None,
-            "GlobalTopDev",
+            Some("GlobalTopDev"),
         )
         .await
         .unwrap();
@@ -124,7 +129,7 @@ async fn custom_field_resolver_returning_scalar() {
             "query { Project{id, points}}",
             Some("1234"),
             None,
-            "Project",
+            Some("Project"),
         )
         .await
         .unwrap();

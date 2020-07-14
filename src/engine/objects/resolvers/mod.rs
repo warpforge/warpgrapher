@@ -1216,6 +1216,21 @@ impl<'r> Resolver<'r> {
         )
     }
 
+    pub(super) fn resolve_union_field_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        info: &Info,
+        field_name: &str,
+        dst: &Node<GlobalCtx, RequestCtx>,
+        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+    ) -> ExecutionResult {
+        trace!("Resolver::resolve_union_field_node called -- info.name: {}, field_name: {}, dst: {:#?}", info.name(), field_name, dst);
+
+        executor.resolve(
+            &Info::new(dst.type_name().to_string(), info.type_defs()),
+            dst,
+        )
+    }
+
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_union_field_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,

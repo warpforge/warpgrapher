@@ -104,7 +104,9 @@ where
     /// fabric shards.
     /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
     /// to the graph query
-    /// * result_field - name of the field under 'data' that holds the GraphQL response
+    /// * result_field - an optional name of a field under 'data' that holds the GraphQL response.
+    /// If present, the object with name `result_field` under `data` will be returned. If `None`,
+    /// the `data` object will be returned.
     ///
     /// [`Client`]: ./enum.Client.html
     ///
@@ -132,7 +134,7 @@ where
     ///
     /// let query = "query { Project { id name } }";
     /// let results = client.graphql("query { Project { id name } }", Some("1234"), None,
-    ///     "Project").await;
+    ///     Some("Project")).await;
     /// # }
     /// ```
     pub async fn graphql(
@@ -140,14 +142,14 @@ where
         query: &str,
         partition_key: Option<&str>,
         input: Option<&Value>,
-        result_field: &str,
+        result_field_opt: Option<&str>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::graphql called -- query: {} | partition_key: {:#?} | input: {:#?} | result_field: {}",
+            "Client::graphql called -- query: {} | partition_key: {:#?} | input: {:#?} | result_field: {:#?}",
             query,
             partition_key,
             input,
-            result_field
+            result_field_opt
         );
 
         // format request body
@@ -187,12 +189,20 @@ where
         };
         debug!("Client::graphql -- response body: {:#?}", body);
 
-        body.as_object_mut()
-            .and_then(|m| m.remove("data"))
-            .and_then(|mut d| d.as_object_mut().and_then(|dm| dm.remove(result_field)))
-            .ok_or_else(|| Error::PayloadNotFound {
-                response: body.to_owned(),
-            })
+        if let Some(result_field) = result_field_opt {
+            body.as_object_mut()
+                .and_then(|m| m.remove("data"))
+                .and_then(|mut d| d.as_object_mut().and_then(|dm| dm.remove(result_field)))
+                .ok_or_else(|| Error::PayloadNotFound {
+                    response: body.to_owned(),
+                })
+        } else {
+            body.as_object_mut()
+                .and_then(|m| m.remove("data"))
+                .ok_or_else(|| Error::PayloadNotFound {
+                    response: body.to_owned(),
+                })
+        }
     }
 
     /// Creates a node
@@ -256,7 +266,7 @@ where
 
         let query = Client::<(), ()>::fmt_create_node_query(type_name, shape);
         let result_field = type_name.to_string() + "Create";
-        self.graphql(&query, partition_key, Some(input), &result_field)
+        self.graphql(&query, partition_key, Some(input), Some(&result_field))
             .await
     }
 
@@ -336,7 +346,7 @@ where
         let query = Client::<(), ()>::fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
         let result_field = type_name.to_string() + &rel_name.to_title_case() + "Create";
-        self.graphql(&query, partition_key, Some(&input), &result_field)
+        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
 
@@ -404,7 +414,7 @@ where
         let query = Client::<(), ()>::fmt_delete_node_query(type_name);
         let input = json!({"match": match_input, "delete": delete_input});
         let result_field = type_name.to_string() + "Delete";
-        self.graphql(&query, partition_key, Some(&input), &result_field)
+        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
 
@@ -502,7 +512,7 @@ where
             Some(&value)
         };
         let result_field = type_name.to_string() + &rel_name.to_title_case() + "Delete";
-        self.graphql(&query, partition_key, input, &result_field)
+        self.graphql(&query, partition_key, input, Some(&result_field))
             .await
     }
 
@@ -565,7 +575,8 @@ where
         );
 
         let query = Client::<(), ()>::fmt_read_node_query(type_name, shape);
-        self.graphql(&query, partition_key, input, type_name).await
+        self.graphql(&query, partition_key, input, Some(type_name))
+            .await
     }
 
     /// Queries for one or more relationships
@@ -633,7 +644,7 @@ where
 
         let query = Client::<(), ()>::fmt_read_rel_query(type_name, rel_name, shape);
         let result_field = type_name.to_string() + &rel_name.to_title_case();
-        self.graphql(&query, partition_key, input, &result_field)
+        self.graphql(&query, partition_key, input, Some(&result_field))
             .await
     }
 
@@ -703,7 +714,7 @@ where
         let query = Client::<(), ()>::fmt_update_node_query(type_name, shape);
         let input = json!({"match": match_input, "modify": update_input});
         let result_field = type_name.to_string() + "Update";
-        self.graphql(&query, partition_key, Some(&input), &result_field)
+        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
 
@@ -781,7 +792,7 @@ where
         let query = Client::<(), ()>::fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
         let result_field = type_name.to_string() + &rel_name.to_title_case() + "Update";
-        self.graphql(&query, partition_key, Some(&input), &result_field)
+        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
 

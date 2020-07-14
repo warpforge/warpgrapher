@@ -1,4 +1,3 @@
-// t1
 //! Warpgrapher makes it painless to create web services with graph-based data
 //! models. Describe the data model for which you want to run a web service.
 //! Wargrapher automatically generates a GraphQL schema from the data model, as

@@ -142,8 +142,8 @@ where
         Node::new(typename.to_string(), props)
     }
 
-    /// Creates a [`Rel`], with a id, properties, and destination node. The src node of the
-    /// relationship is the parent node on which the field is being resolved.
+    /// Creates a [`Rel`], with a id, properties, and destination node id and label. The src node
+    /// of the relationship is the parent node on which the field is being resolved.
     ///
     /// # Error
     ///
@@ -182,11 +182,68 @@ where
                 id,
                 self.partition_key_opt.cloned(),
                 props.map(|p| Node::new("props".to_string(), p)),
-                NodeRef::new(
-                    parent_node.id()?.clone(),
-                    parent_node.type_name().to_string(),
-                ),
-                NodeRef::new(dst_id, dst_label.to_string()),
+                NodeRef::Identifier {
+                    id: parent_node.id()?.clone(),
+                    label: parent_node.type_name().to_string(),
+                },
+                NodeRef::Identifier {
+                    id: dst_id,
+                    label: dst_label.to_string(),
+                },
+            ))
+        } else {
+            Err(Error::TypeNotExpected)
+        }
+    }
+
+    /// Creates a [`Rel`], with a id, properties, and destination node. The src node of the
+    /// relationship is the parent node on which the field is being resolved.
+    ///
+    /// # Error
+    ///
+    /// Returns an [`Error`] of variant [`TypeNotExpected`] if the parent object isn't a node
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`TypeNotExpected`]: ../../error/enum.Error.html#variant.TypeNotExpected
+    ///
+    /// # Examples
+    ///
+    /// ```rust,norun
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///     let typename = "User";
+    ///     let mut props = HashMap::new();
+    ///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+    ///     let n = facade.create_node(typename, props);
+    ///
+    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///     let mut rel_props = HashMap::new();
+    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///
+    ///     let rel = facade.create_rel_with_dst_node(rel_id, Some(rel_props), n)?;
+    ///     facade.resolve_rel(&rel)
+    /// }
+    /// ```
+    pub fn create_rel_with_dst_node(
+        &self,
+        id: Value,
+        props: Option<HashMap<String, Value>>,
+        dst: Node<GlobalCtx, RequestCtx>,
+    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+        if let Object::Node(parent_node) = self.parent {
+            Ok(Rel::new(
+                id,
+                self.partition_key_opt.cloned(),
+                props.map(|p| Node::new("props".to_string(), p)),
+                NodeRef::Identifier {
+                    id: parent_node.id()?.clone(),
+                    label: parent_node.type_name().to_string(),
+                },
+                NodeRef::Node(dst),
             ))
         } else {
             Err(Error::TypeNotExpected)

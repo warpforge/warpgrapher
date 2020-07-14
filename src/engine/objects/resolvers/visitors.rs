@@ -1429,11 +1429,14 @@ where
                 src_label,
                 results
                     .iter()
-                    .map(|r: &Rel<GlobalCtx, RequestCtx>| r.src_id().clone())
-                    .collect(),
+                    .map(|r: &Rel<GlobalCtx, RequestCtx>| r.src_id().map(|id| id.clone()))
+                    .collect::<Result<Vec<Value>, Error>>()?,
                 rel_name,
                 results.iter().map(|r| r.id().clone()).collect(),
-                results.iter().map(|r| r.dst_id().clone()).collect(),
+                results
+                    .iter()
+                    .map(|r| r.dst_id().map(|id| id.clone()))
+                    .collect::<Result<Vec<Value>, Error>>()?,
                 &Info::new(
                     itd.property("update")?.type_name().to_owned(),
                     info.type_defs(),

@@ -587,22 +587,21 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct NodeRef {
-    id: Value,
-    label: String,
+pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+    Identifier { id: Value, label: String },
+    Node(Node<GlobalCtx, RequestCtx>),
 }
 
-impl NodeRef {
-    pub(crate) fn new(id: Value, label: String) -> NodeRef {
-        NodeRef { id, label }
-    }
-
-    pub(crate) fn id(&self) -> &Value {
-        &self.id
-    }
-
-    pub(crate) fn label(&self) -> &String {
-        &self.label
+impl<GlobalCtx, RequestCtx> NodeRef<GlobalCtx, RequestCtx>
+where
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
+{
+    pub(crate) fn id(&self) -> Result<&Value, Error> {
+        match self {
+            NodeRef::Identifier { id, label: _ } => Ok(&id),
+            NodeRef::Node(n) => n.id(),
+        }
     }
 }
 
@@ -638,8 +637,8 @@ where
     id: Value,
     partition_key: Option<Value>,
     props: Option<Node<GlobalCtx, RequestCtx>>,
-    src_ref: NodeRef,
-    dst_ref: NodeRef,
+    src_ref: NodeRef<GlobalCtx, RequestCtx>,
+    dst_ref: NodeRef<GlobalCtx, RequestCtx>,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
@@ -653,8 +652,8 @@ where
         id: Value,
         partition_key: Option<Value>,
         props: Option<Node<GlobalCtx, RequestCtx>>,
-        src_ref: NodeRef,
-        dst_ref: NodeRef,
+        src_ref: NodeRef<GlobalCtx, RequestCtx>,
+        dst_ref: NodeRef<GlobalCtx, RequestCtx>,
     ) -> Rel<GlobalCtx, RequestCtx> {
         Rel {
             id,
@@ -668,8 +667,8 @@ where
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn dst_id(&self) -> &Value {
-        &self.dst_ref.id()
+    fn dst_id(&self) -> Result<&Value, Error> {
+        self.dst_ref.id()
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
@@ -678,8 +677,8 @@ where
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn src_id(&self) -> &Value {
-        &self.src_ref.id()
+    fn src_id(&self) -> Result<&Value, Error> {
+        self.src_ref.id()
     }
 }
 
@@ -791,12 +790,14 @@ where
                 Some(p) => resolver.resolve_rel_props(info, field_name, p, executor),
                 None => Err(Error::TypeNotExpected.into()),
             },
-            (PropertyKind::Object, &"src") => resolver.resolve_node_by_id(
-                &self.src_ref.label(),
-                info,
-                self.src_ref.id().clone(),
-                executor,
-            ),
+            (PropertyKind::Object, &"src") => match &self.src_ref {
+                NodeRef::Identifier { id, label } => {
+                    resolver.resolve_node_by_id(label, info, id.clone(), executor)
+                }
+                NodeRef::Node(n) => {
+                    executor.resolve(&Info::new(n.type_name().clone(), info.type_defs()), &n)
+                }
+            },
             (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
                 name: field_name.to_string(),
             }
@@ -808,13 +809,14 @@ where
                     executor.resolve_with_ctx(&(), &None::<String>)
                 }
             }
-            (PropertyKind::Union, _) => resolver.resolve_union_field(
-                info,
-                &self.dst_ref.label(),
-                field_name,
-                &self.dst_ref.id(),
-                executor,
-            ),
+            (PropertyKind::Union, _) => match &self.dst_ref {
+                NodeRef::Identifier { id, label } => {
+                    resolver.resolve_union_field(info, label, field_name, &id, executor)
+                }
+                NodeRef::Node(n) => {
+                    resolver.resolve_union_field_node(info, field_name, &n, executor)
+                }
+            },
             (_, _) => Err(Error::TypeNotExpected.into()),
         }
     }
