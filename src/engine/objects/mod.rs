@@ -177,7 +177,7 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    pub(crate) fn new(
+    pub fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
     ) -> Node<GlobalCtx, RequestCtx> {
@@ -587,7 +587,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+pub enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
     Node(Node<GlobalCtx, RequestCtx>),
 }

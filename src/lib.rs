@@ -21,7 +21,7 @@ pub use juniper::FromInputValue;
 pub use juniper::InputValue;
 pub use bb8_bolt::BoltConnectionManager;
 pub use bb8::Pool;
-pub use bolt_client::{Params};
+pub use bolt_client;
 pub use bolt_proto;
 
 pub use client::Client;
