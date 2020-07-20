@@ -8,10 +8,11 @@ use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
+use bb8::Pool;
 use inflector::Inflector;
 use std::collections::HashMap;
 
-pub use juniper::{Arguments, ExecutionResult, Executor, FieldError};
+pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputValue};
 
 /// Wraps a Node or Rel, and provides a type-safe distinction between the two, when passing the
 /// object on which a field is being resolved to the custom resolver.
@@ -81,17 +82,61 @@ where
         }
     }
 
+    // TODO: delete
     pub fn get_db(&self) -> &DatabasePool {
-        /*
-        self.executor.context().pool().map_err(|_| {
-            FieldError::new(
-                "Unable to access database driver pool.",
-                juniper::Value::Null,
-            )
-        })
-        */
         self.executor.context().pool()
     }
+
+
+    pub async fn db_as_neo4j(&self) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
+        let db_pool : &bb8::Pool<bb8_bolt::BoltConnectionManager> = match self.executor().context().pool() {
+            DatabasePool::Neo4j(p) => { p },
+            _ => { panic!("db not found"); } // TODO: return proper error
+        };
+        let neo4j_client = db_pool.get()
+            .await
+            .expect("failed to get neo4j client"); // TODO: error handling
+        Ok(neo4j_client)
+    }
+
+    /*
+    fn parse_input2<T>(&self) -> Option<T>
+    where
+        T: DeserializeOwned
+        //T: DeserializeOwned<'a>
+    {
+        let args = self.args();
+        let v = args.get("input");
+        let x : Option<T> = match serde_json::to_value(v) {
+            Err(_) => None,
+            Ok(j) => {
+                match serde_json::from_value(j) {
+                    Err(_) => None ,
+                    Ok(v) => Some(v)
+                }
+            }
+        };
+        return x;
+    }
+    */
+
+    /*
+    fn parse_input<T>(&self) -> Option<T>
+    where
+        T: DeserializeOwned
+    {
+        let input_value : FromInputValue = self.args().get("input").unwrap();
+        match serde_json::to_value(input_value) {
+            Err(_) => None,
+            Ok(j) => {
+                match serde_json::from_value(j) {
+                    Err(_) => None ,
+                    Ok(v) => v
+                }
+            }
+        }
+    }
+    */
 
     /// Returns the arguments provided to the resolver in the GraphQL query
     ///

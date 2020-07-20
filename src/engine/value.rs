@@ -108,6 +108,18 @@ impl PartialEq for Value {
     }
 }
 
+/*
+impl From<bolt_proto::value::Value> for Value {
+    type Error = Error;
+
+    fn from(value: bolt_proto::Value) -> Value {
+        Value::String("test")
+    }
+}
+*/
+
+
+
 impl TryFrom<serde_json::Value> for Value {
     type Error = Error;
 
@@ -267,6 +279,23 @@ where
                 dst: "<T> where T: TryFrom<Value, Error = Error>".to_string(),
             })
         }
+    }
+}
+
+type BoltValue = bolt_proto::value::Value;
+
+pub trait ToWarpValue {
+    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error>;
+}
+
+impl ToWarpValue for HashMap<String, BoltValue> {
+    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error> {
+        let hm = self.iter()
+            .fold(HashMap::new(), |mut acc, (k, v)| {
+                acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
+                acc
+            });
+        Ok(hm)
     }
 }
 
