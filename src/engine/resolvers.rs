@@ -3,6 +3,8 @@
 
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
+#[cfg(feature = "neo4j")]
+use crate::engine::database::DatabasePool;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
