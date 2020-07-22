@@ -1,9 +1,10 @@
 //! This module provides the Warpgrapher client.
 
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::{Engine, Error, GraphQLRequest};
+use crate::{Engine, Error};
 use inflector::Inflector;
 use log::{debug, trace};
+use juniper::http::GraphQLRequest;
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;

@@ -805,3 +805,20 @@ impl From<Value> for bolt_proto::value::Value {
         }
     }
 }
+
+// TODO: fix this (jeffrey: could use your advise)
+
+pub trait ToWarpValue {
+    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error>;
+}
+
+impl ToWarpValue for HashMap<String, bolt_proto::value::Value> {
+    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error> {
+        let hm = self.iter()
+            .fold(HashMap::new(), |mut acc, (k, v)| {
+                acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
+                acc
+            });
+        Ok(hm)
+    }
+}

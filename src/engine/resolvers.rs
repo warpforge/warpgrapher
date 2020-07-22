@@ -1,14 +1,12 @@
 //! Contains the type aliases, enumerations, and structures to allow for the creation of custom
 //! resolvers.
 
-use crate::engine::database::DatabasePool;
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
-use bb8::Pool;
 use inflector::Inflector;
 use std::collections::HashMap;
 
@@ -82,61 +80,32 @@ where
         }
     }
 
-    // TODO: delete
-    pub fn get_db(&self) -> &DatabasePool {
-        self.executor.context().pool()
-    }
-
-
+    /// Returns a neo4j database driver from the pool.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, norun
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let neo4j_client = facade.db_as_neo4j()?;
+    ///
+    ///     // use neo4j client
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    #[cfg(feature = "neo4j")]
     pub async fn db_as_neo4j(&self) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
         let db_pool : &bb8::Pool<bb8_bolt::BoltConnectionManager> = match self.executor().context().pool() {
             DatabasePool::Neo4j(p) => { p },
-            _ => { panic!("db not found"); } // TODO: return proper error
+            _ => { return Err(Error::DatabaseMismatch {}); }
         };
         let neo4j_client = db_pool.get()
             .await
-            .expect("failed to get neo4j client"); // TODO: error handling
+            .map_err(|e| Error::Neo4jPoolGetConnectionFailed {source: e} )?;
         Ok(neo4j_client)
     }
-
-    /*
-    fn parse_input2<T>(&self) -> Option<T>
-    where
-        T: DeserializeOwned
-        //T: DeserializeOwned<'a>
-    {
-        let args = self.args();
-        let v = args.get("input");
-        let x : Option<T> = match serde_json::to_value(v) {
-            Err(_) => None,
-            Ok(j) => {
-                match serde_json::from_value(j) {
-                    Err(_) => None ,
-                    Ok(v) => Some(v)
-                }
-            }
-        };
-        return x;
-    }
-    */
-
-    /*
-    fn parse_input<T>(&self) -> Option<T>
-    where
-        T: DeserializeOwned
-    {
-        let input_value : FromInputValue = self.args().get("input").unwrap();
-        match serde_json::to_value(input_value) {
-            Err(_) => None,
-            Ok(j) => {
-                match serde_json::from_value(j) {
-                    Err(_) => None ,
-                    Ok(v) => v
-                }
-            }
-        }
-    }
-    */
 
     /// Returns the arguments provided to the resolver in the GraphQL query
     ///

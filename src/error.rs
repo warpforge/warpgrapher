@@ -58,6 +58,10 @@ pub enum Error {
     /// Returned if the engine is configured to operate without a database. Typically this would
     /// never be done in production
     DatabaseNotFound,
+    
+    /// Returned if attempting to access a database driver for a different database type
+    /// than the one configured.
+    DatabaseMismatch,
 
     /// Returned if a `Config` fails to deserialize because the provided data does not match the
     /// expected data structure
@@ -88,6 +92,10 @@ pub enum Error {
     Neo4jQueryFailed {
         message: bolt_proto::message::Message,
     },
+    
+    // Returned if a bb8 connection cannnot be obtained form the pool
+    #[cfg(feature = "neo4j")]
+    Neo4jPoolGetConnectionFailed { source: bb8::RunError<bb8_bolt::Error> },
 
     /// Returned if a bb8 connection pool cannot be built correctly
     #[cfg(feature = "neo4j")]
@@ -207,6 +215,9 @@ impl Display for Error {
             Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
             }
+            Error::DatabaseMismatch => {
+                write!(f, "The database connection you asked for does not match the configured database back-end.")
+            }
             Error::DeserializationFailed { source } => {
                 write!(f, "Failed to deserialize configuration. Source error: {}", source)
             }
@@ -225,6 +236,10 @@ impl Display for Error {
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
+            }
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jPoolGetConnectionFailed { source } => {
+                write!(f, "Could not get a connection from the Neo4j pool. Source error: {}", source)
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message } => {
@@ -292,6 +307,7 @@ impl std::error::Error for Error {
             #[cfg(feature = "cosmos")]
             Error::CosmosActionFailed { source } => Some(source),
             Error::DatabaseNotFound => None,
+            Error::DatabaseMismatch => None,
             Error::DeserializationFailed { source } => Some(source),
             Error::EnvironmentVariableNotFound { name: _ } => None,
             Error::EnvironmentVariableNotParsed { source } => Some(source),
@@ -299,6 +315,8 @@ impl std::error::Error for Error {
             Error::InputItemNotFound { name: _ } => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
+            #[cfg(feature = "neo4j")]
+            Error::Neo4jPoolGetConnectionFailed { source } => Some(source),
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
