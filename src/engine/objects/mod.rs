@@ -144,7 +144,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust, norun
+/// ```rust, no_run
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
@@ -182,11 +182,13 @@ where
     ///
     /// # Example
     /// ```rust
+    /// use std::collections::HashMap;
     /// use warpgrapher::engine::objects::Node;
+    /// use warpgrapher::engine::value::Value;
     ///
-    /// let mut properties = HashMap::<String, Value>::new();
-    /// properties.inster("name", "Joe");
-    /// let user_node = Node::<(),()>::new("User", properties);
+    /// let mut props = HashMap::<String, Value>::new();
+    /// props.insert("name".to_string(), "Joe".to_string().into());
+    /// let user_node = Node::<(),()>::new("User".to_string(), props);
     /// ```
     pub fn new(
         concrete_typename: String,
@@ -635,7 +637,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust, norun
+/// ```rust, no_run
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;

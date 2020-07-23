@@ -432,7 +432,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
     /// # use warpgrapher::juniper::http::GraphQLRequest;
     /// # use serde_json::{from_value, json};

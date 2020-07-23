@@ -38,6 +38,8 @@ impl Value {
     /// # Example
     ///
     /// ```rust
+    /// use warpgrapher::engine::value::Value;
+    ///
     /// let v = Value::String("Joe".to_string());
     /// assert!(v.as_string().is_ok());
     /// ```

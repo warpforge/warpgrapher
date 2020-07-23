@@ -98,7 +98,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -125,7 +125,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -146,7 +146,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
@@ -182,7 +182,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
@@ -236,7 +236,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
@@ -284,7 +284,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -304,7 +304,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{Executor, ExecutionResult};
     /// # use warpgrapher::engine::resolvers::ResolverFacade;
     ///
@@ -324,7 +324,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -350,7 +350,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::objects::GraphQLType;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
@@ -374,7 +374,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -392,7 +392,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -412,7 +412,7 @@ where
     /// Returns a GraphQL Scalar list
     ///
     /// # Examples
-    /// ```rust, norun
+    /// ```rust, no_run
     /// use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
@@ -434,7 +434,7 @@ where
     /// Returns a GraphQL Object representing a graph node defined by a type and a map of props.
     ///
     /// # Examples
-    /// ```rust, norun
+    /// ```rust, no_run
     /// use serde_json::json;
     /// use std::collections::HashMap;
     /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
@@ -462,7 +462,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use serde_json::json;
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
@@ -493,7 +493,7 @@ where
     /// a destination Warpgrapher Node.
     ///
     /// # Examples
-    /// ```rust, norun
+    /// ```rust, no_run
     /// # use serde_json::json;
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
@@ -533,7 +533,7 @@ where
     /// Returns the request context
     ///
     /// # Examples
-    /// ```rust, norun
+    /// ```rust, no_run
     ///
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///

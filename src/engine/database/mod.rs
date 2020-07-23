@@ -77,7 +77,7 @@ pub trait DatabaseEndpoint {
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
