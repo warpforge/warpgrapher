@@ -84,6 +84,18 @@ where
 
     /// Returns a neo4j database driver from the pool.
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] variant [`DatabaseMismatch`] if the feature `neo4j` 
+    /// is not enabled.
+    ///
+    /// Returns an [`Error]` variant [`Neo4jPoolGetConnectionFailed`] if a new
+    /// connection to the database cannot be retrieved from the pool. 
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`DatabaseMismatch`]: ../../error/enum.Error.html#variant.DatabaseMismatch
+    /// [`Neo4jPoolGetConnectionFailed`]: ../../error/enum.Error.html#variant.Neo4jPoolGetConnectionFailed
+    ///
     /// # Examples
     ///
     /// ```rust, norun

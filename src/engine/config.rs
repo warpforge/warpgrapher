@@ -1129,6 +1129,33 @@ impl Type {
         }
     }
 
+
+    /// Creates a new Type struct from a yaml-formatted string.
+    ///
+    /// # Arguments
+    ///
+    /// * yaml - yaml-formatted string containing Type definition
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
+    /// string is improperly formatted.
+    ///
+    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
+    /// [`Error`]: ../../error/enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::{Type};
+    ///
+    /// let t = Type::from_yaml("
+    /// name: User
+    /// props:
+    ///   - name: name
+    ///     type: String
+    /// ").unwrap();
+    /// ```
     pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
         serde_yaml::from_str(yaml)
             .map_err(|e| Error::DeserializationFailed { source: e })

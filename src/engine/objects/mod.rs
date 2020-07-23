@@ -167,7 +167,7 @@ where
     RequestCtx: Debug + RequestContext,
 {
     concrete_typename: String,
-    pub fields: HashMap<String, Value>,
+    fields: HashMap<String, Value>,
     _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
@@ -177,6 +177,17 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
+    
+    /// Returns a new Node.
+    ///
+    /// # Example
+    /// ```rust
+    /// use warpgrapher::engine::objects::Node;
+    ///
+    /// let mut properties = HashMap::<String, Value>::new();
+    /// properties.inster("name", "Joe");
+    /// let user_node = Node::<(),()>::new("User", properties);
+    /// ```
     pub fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
@@ -187,6 +198,20 @@ where
             _gctx: PhantomData,
             _rctx: PhantomData,
         }
+    }
+
+    /// Returns a new Node.
+    ///
+    /// # Example
+    /// ```rust
+    /// use warpgrapher::engine::objects::Node;
+    ///
+    /// fn handle_node(n: Node<(),()>) {
+    ///     let properties = n.fields();
+    /// }
+    /// ```
+    pub fn fields(&self) -> &HashMap<String, Value> {
+        &self.fields
     }
 
     pub(crate) fn id(&self) -> Result<&Value, Error> {

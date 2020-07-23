@@ -30,7 +30,12 @@ use tokio::runtime::Runtime;
 /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 /// #
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let ne = Neo4jEndpoint::from_env()?;
+///     let ne = Neo4jEndpoint {
+///         host: "127.0.0.1".to_string(),
+///         port: 7687,
+///         user: "neo4j".to_string(),
+///         pass: "password".to_string()
+///     }
 /// #    Ok(())
 /// # }
 /// ```
