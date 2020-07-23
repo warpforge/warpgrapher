@@ -612,6 +612,8 @@ where
     }
 }
 
+/// Represents a reference to a [`Node`] object as either an [`Identifier`]
+/// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
 pub enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
