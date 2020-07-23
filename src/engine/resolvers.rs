@@ -99,13 +99,17 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// async fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
-    ///     let neo4j_client = facade.db_as_neo4j()?;
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let mut rt = Runtime::new().unwrap();
+    ///     rt.block_on(async {
     ///
-    ///     // use neo4j client
+    ///         let neo4j_client = facade.db_as_neo4j().await.unwrap();
+    ///         // use neo4j client
     ///
+    ///     });
     ///     facade.resolve_null()
     /// }
     /// ```
