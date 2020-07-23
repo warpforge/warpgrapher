@@ -58,7 +58,7 @@ pub enum Error {
     /// Returned if the engine is configured to operate without a database. Typically this would
     /// never be done in production
     DatabaseNotFound,
-    
+
     /// Returned if attempting to access a database driver for a different database type
     /// than the one configured.
     DatabaseMismatch,
@@ -92,10 +92,12 @@ pub enum Error {
     Neo4jQueryFailed {
         message: bolt_proto::message::Message,
     },
-    
+
     // Returned if a bb8 connection cannnot be obtained form the pool
     #[cfg(feature = "neo4j")]
-    Neo4jPoolGetConnectionFailed { source: bb8::RunError<bb8_bolt::Error> },
+    Neo4jPoolGetConnectionFailed {
+        source: bb8::RunError<bb8_bolt::Error>,
+    },
 
     /// Returned if a bb8 connection pool cannot be built correctly
     #[cfg(feature = "neo4j")]

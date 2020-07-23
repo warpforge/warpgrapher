@@ -27,13 +27,12 @@ pub enum Value {
 }
 
 impl Value {
-
     /// Returns [`Value`] as a [`String`] or returns an error.
     ///
     /// # Errors
     ///
     /// Returns an [`Error`] variant [`TypeConversionFailed`] if the enum variant
-    /// is not `String`. 
+    /// is not `String`.
     ///
     /// # Example
     ///
@@ -45,8 +44,11 @@ impl Value {
     /// ```
     pub fn as_string(&self) -> Result<String, Error> {
         match self {
-            Value::String(s) => { Ok(s.to_string()) },
-            _ => { Err(Error::TypeConversionFailed { src: "Value".to_string(), dst: "String".to_string() })}
+            Value::String(s) => Ok(s.to_string()),
+            _ => Err(Error::TypeConversionFailed {
+                src: "Value".to_string(),
+                dst: "String".to_string(),
+            }),
         }
     }
 }

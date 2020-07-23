@@ -819,11 +819,10 @@ pub trait ToWarpValue {
 
 impl ToWarpValue for HashMap<String, bolt_proto::value::Value> {
     fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error> {
-        let hm = self.iter()
-            .fold(HashMap::new(), |mut acc, (k, v)| {
-                acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
-                acc
-            });
+        let hm = self.iter().fold(HashMap::new(), |mut acc, (k, v)| {
+            acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
+            acc
+        });
         Ok(hm)
     }
 }

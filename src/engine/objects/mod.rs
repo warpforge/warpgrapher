@@ -177,7 +177,6 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    
     /// Returns a new Node.
     ///
     /// # Example

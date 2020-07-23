@@ -2063,9 +2063,8 @@ where
         ))
     })
     .map_err(|e| {
-        e.downcast::<Error>().map(|e| *e)
-        //e.downcast::<Error>()
-        //    .and_then(|e| Ok(*e))
+        e.downcast::<Error>()
+            .map(|e| *e)
             .unwrap_or_else(|e| Error::SchemaItemNotFound {
                 name: format!("{:#?}", e),
             })

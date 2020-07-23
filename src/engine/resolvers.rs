@@ -86,11 +86,11 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] variant [`DatabaseMismatch`] if the feature `neo4j` 
+    /// Returns an [`Error`] variant [`DatabaseMismatch`] if the feature `neo4j`
     /// is not enabled.
     ///
     /// Returns an [`Error]` variant [`Neo4jPoolGetConnectionFailed`] if a new
-    /// connection to the database cannot be retrieved from the pool. 
+    /// connection to the database cannot be retrieved from the pool.
     ///
     /// [`Error`]: ../../error/enum.Error.html
     /// [`DatabaseMismatch`]: ../../error/enum.Error.html#variant.DatabaseMismatch
@@ -110,14 +110,20 @@ where
     /// }
     /// ```
     #[cfg(feature = "neo4j")]
-    pub async fn db_as_neo4j(&self) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
-        let db_pool : &bb8::Pool<bb8_bolt::BoltConnectionManager> = match self.executor().context().pool() {
-            DatabasePool::Neo4j(p) => { p },
-            _ => { return Err(Error::DatabaseMismatch {}); }
-        };
-        let neo4j_client = db_pool.get()
+    pub async fn db_as_neo4j(
+        &self,
+    ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
+        let db_pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
+            match self.executor().context().pool() {
+                DatabasePool::Neo4j(p) => p,
+                _ => {
+                    return Err(Error::DatabaseMismatch {});
+                }
+            };
+        let neo4j_client = db_pool
+            .get()
             .await
-            .map_err(|e| Error::Neo4jPoolGetConnectionFailed {source: e} )?;
+            .map_err(|e| Error::Neo4jPoolGetConnectionFailed { source: e })?;
         Ok(neo4j_client)
     }
 
