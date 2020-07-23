@@ -101,7 +101,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// async fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     let neo4j_client = facade.db_as_neo4j()?;
     ///
     ///     // use neo4j client

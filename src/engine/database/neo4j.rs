@@ -35,7 +35,7 @@ use tokio::runtime::Runtime;
 ///         port: 7687,
 ///         user: "neo4j".to_string(),
 ///         pass: "password".to_string()
-///     }
+///     };
 /// #    Ok(())
 /// # }
 /// ```
