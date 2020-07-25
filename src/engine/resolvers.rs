@@ -114,14 +114,14 @@ where
     /// }
     /// ```
     #[cfg(feature = "neo4j")]
-    pub async fn db_as_neo4j(
+    pub async fn db_into_neo4j(
         &self,
     ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
         let db_pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
             match self.executor().context().pool() {
                 DatabasePool::Neo4j(p) => p,
                 _ => {
-                    return Err(Error::DatabaseMismatch {});
+                    return Err(Error::DatabaseNotFound {});
                 }
             };
         let neo4j_client = db_pool

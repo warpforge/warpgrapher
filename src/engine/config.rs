@@ -1129,36 +1129,6 @@ impl Type {
         }
     }
 
-    /// Creates a new Type struct from a yaml-formatted string.
-    ///
-    /// # Arguments
-    ///
-    /// * yaml - yaml-formatted string containing Type definition
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
-    /// string is improperly formatted.
-    ///
-    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
-    /// [`Error`]: ../../error/enum.Error.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use warpgrapher::engine::config::{Type};
-    ///
-    /// let t = Type::from_yaml("
-    /// name: User
-    /// props:
-    ///   - name: name
-    ///     type: String
-    /// ").unwrap();
-    /// ```
-    pub fn from_yaml(yaml: &str) -> Result<Type, Error> {
-        serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
-    }
-
     /// Returns the name of the type. This type name is used as the label on nodes of this type in
     /// the graph database storage back-end.
     ///
@@ -1273,6 +1243,37 @@ impl Type {
     pub fn rels(&self) -> Iter<Relationship> {
         self.rels.iter()
     }
+}
+
+impl TryFrom<&str> for Type {
+    type Error = Error;
+
+    /// Creates a new Type struct from a yaml-formatted string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
+    /// string is improperly formatted.
+    ///
+    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
+    /// [`Error`]: ../../error/enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::{Type};
+    ///
+    /// let t = Type::try_from("
+    /// name: User
+    /// props:
+    ///   - name: name
+    ///     type: String
+    /// ").unwrap();
+    /// ```
+    fn try_from(yaml: &str) -> Result<Type, Error> {
+        serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
+    }
+
 }
 
 /// Enumeration representing the definition of a type used as the optional input or the output for

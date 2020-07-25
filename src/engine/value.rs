@@ -26,33 +26,6 @@ pub enum Value {
     UInt64(u64),
 }
 
-impl Value {
-    /// Returns [`Value`] as a [`String`] or returns an error.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error`] variant [`TypeConversionFailed`] if the enum variant
-    /// is not `String`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use warpgrapher::engine::value::Value;
-    ///
-    /// let v = Value::String("Joe".to_string());
-    /// assert!(v.as_string().is_ok());
-    /// ```
-    pub fn as_string(&self) -> Result<String, Error> {
-        match self {
-            Value::String(s) => Ok(s.to_string()),
-            _ => Err(Error::TypeConversionFailed {
-                src: "Value".to_string(),
-                dst: "String".to_string(),
-            }),
-        }
-    }
-}
-
 impl From<bool> for Value {
     fn from(v: bool) -> Self {
         Value::Bool(v)
@@ -284,6 +257,22 @@ where
                 src: format!("{:#?}", value),
                 dst: "<T> where T: TryFrom<Value, Error = Error>".to_string(),
             })
+        }
+    }
+}
+
+impl TryFrom<Value> for HashMap<String, Value> {
+    type Error = Error;
+
+    fn try_from(value: Value) -> Result<HashMap<String, Value>, Error> {
+        match value {
+            Value::Map(hm) => { Ok(hm) },
+            _ => { 
+                Err(Error::TypeConversionFailed {
+                    src: "Value".to_string(),
+                    dst: "HashMap<String, Value>".to_string(),
+                })
+            }
         }
     }
 }

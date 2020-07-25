@@ -40,13 +40,36 @@ use tokio::runtime::Runtime;
 /// # }
 /// ```
 pub struct Neo4jEndpoint {
-    pub host: String,
-    pub port: u16,
-    pub user: String,
-    pub pass: String,
+    host: String,
+    port: u16,
+    user: String,
+    pass: String,
 }
 
 impl Neo4jEndpoint {
+
+    /// Returns a new [`Neo4jEndpoint`] from the provided values.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let ne = Neo4jEndpoint {
+    ///         host: "127.0.0.1".to_string(),
+    ///         port: 7687,
+    ///         user: "neo4j".to_string(),
+    ///         pass: "password".to_string()
+    ///     };
+    /// #    Ok(())
+    /// # }
+    /// ```
+    pub fn new(host: String, port: u16, user: String, pass: String) -> Self {
+        Neo4jEndpoint { host, port, user, pass }
+    }
+
     /// Reads an variable to construct a [`Neo4jEndpoint`]. The environment variable is
     ///
     /// * WG_NEO4J_ADDR - the address for the Neo4J DB. For example, `127.0.0.1`.
@@ -811,18 +834,71 @@ impl From<Value> for bolt_proto::value::Value {
     }
 }
 
-// TODO: fix this (jeffrey: could use your advise)
+impl<GlobalCtx, RequestCtx> TryFrom<bolt_proto::value::Value> for Node<GlobalCtx, RequestCtx>
+where
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
+{
+    type Error = crate::Error;
 
-pub trait ToWarpValue {
-    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error>;
+    fn try_from(value: bolt_proto::value::Value) -> Result<Self, Error> {
+        match value {
+            bolt_proto::value::Value::Node(n) => {
+                let type_name = &n.labels()[0];
+                let properties : &HashMap<String, bolt_proto::value::Value> = &n.properties();
+                let props_value = Value::try_from(properties.clone())?;
+                let props = match HashMap::<String, Value>::try_from(props_value) {
+                    Ok(v) => { v },
+                    Err(_) => {
+                        return Err(Error::TypeConversionFailed {
+                            src: "Value".to_string(),
+                            dst: "HashMap::<String, Value>".to_string()
+                        })
+                    }
+                };
+                Ok(Node::new(
+                    type_name.to_string(),
+                    props
+                ))
+            },
+            _ => { return Err(Error::TypeConversionFailed {
+                src: "bolt_proto::value::Value".to_string(),
+                dst: "Node".to_string()
+            })}
+        }
+    }
 }
 
-impl ToWarpValue for HashMap<String, bolt_proto::value::Value> {
-    fn to_warp_value(&self) -> Result<HashMap<String, Value>, Error> {
-        let hm = self.iter().fold(HashMap::new(), |mut acc, (k, v)| {
-            acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
+impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
+    type Error = Error;
+
+    fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
+        let hm2 = hm.iter().fold(HashMap::new(), |mut acc, (k, v)| {
+            acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap()); // TODO: remove unwrap
             acc
         });
-        Ok(hm)
+        Ok(Value::Map(hm2))
     }
+
+    /*
+    // TODO: get this to compile
+    fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
+        let hm2 = hm.iter().fold(HashMap::new(), |mut acc, (k, v)| {
+            let value = match Value::try_from(v.clone()) {
+                Ok(v) => { v },
+                Err(_) => {
+                    return Err(Error::TypeConversionFailed {
+                        src: "Value".to_string(),
+                        dst: "bolt_proto::value::Value".to_string()
+                    });
+                }
+            };
+            acc.insert(k.to_string(), value);
+            //acc.insert(k.to_string(), Value::try_from(v.clone()).unwrap());
+            Ok(acc)
+        })
+        .collect();
+        Ok(Value::Map(hm2))
+    }
+    */
 }

@@ -189,7 +189,7 @@ where
     /// props.insert("name".to_string(), "Joe".to_string().into());
     /// let user_node = Node::<(),()>::new("User".to_string(), props);
     /// ```
-    pub fn new(
+    pub(crate) fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
     ) -> Node<GlobalCtx, RequestCtx> {
@@ -615,7 +615,7 @@ where
 /// Represents a reference to a [`Node`] object as either an [`Identifier`]
 /// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
-pub enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
     Node(Node<GlobalCtx, RequestCtx>),
 }
@@ -676,7 +676,7 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    pub fn new(
+    pub(crate) fn new(
         id: Value,
         partition_key: Option<Value>,
         props: Option<Node<GlobalCtx, RequestCtx>>,
