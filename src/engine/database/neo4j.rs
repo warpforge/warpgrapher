@@ -851,11 +851,11 @@ where
                 let type_name = &n.labels()[0];
                 let properties: &HashMap<String, bolt_proto::value::Value> = &n.properties();
                 let props_value = Value::try_from(properties.clone())?;
-                let props = match HashMap::<String, Value>::try_from(props_value) {
+                let props = match HashMap::<String, Value>::try_from(props_value.clone()) {
                     Ok(v) => v,
                     Err(_) => {
                         return Err(Error::TypeConversionFailed {
-                            src: "Value".to_string(),
+                            src: format!("{:#?}", props_value),
                             dst: "HashMap::<String, Value>".to_string(),
                         })
                     }
@@ -863,7 +863,7 @@ where
                 Ok(Node::new(type_name.to_string(), props))
             }
             _ => Err(Error::TypeConversionFailed {
-                src: "bolt_proto::value::Value".to_string(),
+                src: format!("{:#?}", value),
                 dst: "Node".to_string(),
             }),
         }
@@ -874,19 +874,23 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
     type Error = Error;
 
     fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
-        let mut hmv = HashMap::<String, Value>::new();
-        for (key, bolt_value) in hm.iter() {
-            let value = match Value::try_from(bolt_value.clone()) {
-                Ok(v) => v,
-                Err(_) => {
-                    return Err(Error::TypeConversionFailed {
-                        src: "Value".to_string(),
-                        dst: "bolt_proto::value::Value".to_string(),
-                    });
-                }
-            };
-            hmv.insert(key.to_string(), value);
-        }
+        let hmv: HashMap<String, Value> = hm.into_iter().try_fold(
+            HashMap::<String, Value>::new(),
+            |mut acc, (key, bolt_value)| {
+                let value = match Value::try_from(bolt_value.clone()) {
+                    // if i remove this clone, I get a move after borrow
+                    Ok(v) => v,
+                    Err(_) => {
+                        return Err(Error::TypeConversionFailed {
+                            src: format!("{:#?}", bolt_value),
+                            dst: "Value".to_string(),
+                        });
+                    }
+                };
+                acc.insert(key, value);
+                Ok(acc)
+            },
+        )?;
         Ok(Value::Map(hmv))
     }
 }

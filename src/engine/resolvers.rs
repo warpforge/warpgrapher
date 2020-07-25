@@ -124,10 +124,7 @@ where
                     return Err(Error::DatabaseNotFound {});
                 }
             };
-        let neo4j_client = db_pool
-            .get()
-            .await
-            .map_err(|e| Error::Neo4jPoolGetConnectionFailed { source: e })?;
+        let neo4j_client = db_pool.get().await?;
         Ok(neo4j_client)
     }
 

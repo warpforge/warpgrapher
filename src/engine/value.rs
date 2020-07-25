@@ -268,7 +268,7 @@ impl TryFrom<Value> for HashMap<String, Value> {
         match value {
             Value::Map(hm) => Ok(hm),
             _ => Err(Error::TypeConversionFailed {
-                src: "Value".to_string(),
+                src: format!("{:#?}", value),
                 dst: "HashMap<String, Value>".to_string(),
             }),
         }
