@@ -177,18 +177,6 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    /// Returns a new Node.
-    ///
-    /// # Example
-    /// ```rust
-    /// use std::collections::HashMap;
-    /// use warpgrapher::engine::objects::Node;
-    /// use warpgrapher::engine::value::Value;
-    ///
-    /// let mut props = HashMap::<String, Value>::new();
-    /// props.insert("name".to_string(), "Joe".to_string().into());
-    /// let user_node = Node::<(),()>::new("User".to_string(), props);
-    /// ```
     pub(crate) fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,

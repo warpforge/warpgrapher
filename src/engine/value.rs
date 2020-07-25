@@ -266,13 +266,11 @@ impl TryFrom<Value> for HashMap<String, Value> {
 
     fn try_from(value: Value) -> Result<HashMap<String, Value>, Error> {
         match value {
-            Value::Map(hm) => { Ok(hm) },
-            _ => { 
-                Err(Error::TypeConversionFailed {
-                    src: "Value".to_string(),
-                    dst: "HashMap<String, Value>".to_string(),
-                })
-            }
+            Value::Map(hm) => Ok(hm),
+            _ => Err(Error::TypeConversionFailed {
+                src: "Value".to_string(),
+                dst: "HashMap<String, Value>".to_string(),
+            }),
         }
     }
 }

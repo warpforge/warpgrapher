@@ -106,7 +106,7 @@ where
     ///     let mut rt = Runtime::new().unwrap();
     ///     rt.block_on(async {
     ///
-    ///         let neo4j_client = facade.db_as_neo4j().await.unwrap();
+    ///         let neo4j_client = facade.db_into_neo4j().await.unwrap();
     ///         // use neo4j client
     ///
     ///     });

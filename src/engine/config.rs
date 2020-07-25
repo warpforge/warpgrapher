@@ -1261,8 +1261,9 @@ impl TryFrom<&str> for Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type};
+    /// use warpgrapher::engine::config::{Type};
     ///
+    /// use std::convert::TryFrom;
     /// let t = Type::try_from("
     /// name: User
     /// props:
@@ -1273,7 +1274,6 @@ impl TryFrom<&str> for Type {
     fn try_from(yaml: &str) -> Result<Type, Error> {
         serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
     }
-
 }
 
 /// Enumeration representing the definition of a type used as the optional input or the output for
