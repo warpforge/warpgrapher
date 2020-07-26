@@ -280,32 +280,6 @@ impl TryFrom<Value> for HashMap<String, Value> {
     }
 }
 
-/*
-impl FromInputValue for Value {
-    fn from_input_value(v: &InputValue) -> Option<Value> {
-
-        let serde_json_value = serde_json::to_value(v) {
-            Err(_) => None,
-            Ok(v) => { v }
-        };
-
-        Value::try_from(serde_json_value).unwrap()
-
-        /*
-        match serde_json::to_value(v) {
-            Err(_) => None,
-            Ok(j) => {
-                match serde_json::from_value(j) {
-                    Err(_) => None ,
-                    Ok(v) => v
-                }
-            }
-        }
-        */
-    }
-}
-*/
-
 #[cfg(test)]
 mod tests {
     use super::Value;
