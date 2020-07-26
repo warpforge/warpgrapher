@@ -113,7 +113,7 @@ where
         &self,
     ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
         let pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
-            self.executor().context().pool().into_neo4j()?;
+            self.executor().context().pool().neo4j()?;
         let client = pool.get().await?;
         Ok(client)
     }
@@ -144,8 +144,7 @@ where
     /// ```
     #[cfg(feature = "cosmos")]
     pub fn db_into_cosmos(&self) -> Result<&gremlin_client::GremlinClient, Error> {
-        let pool: &gremlin_client::GremlinClient =
-            self.executor().context().pool().into_cosmos()?;
+        let pool: &gremlin_client::GremlinClient = self.executor().context().pool().cosmos()?;
         Ok(pool)
     }
 
