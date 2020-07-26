@@ -3,8 +3,6 @@
 
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
-#[cfg(feature = "neo4j")]
-use crate::engine::database::DatabasePool;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -86,15 +84,11 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] variant [`DatabaseMismatch`] if the feature `neo4j`
-    /// is not enabled.
-    ///
-    /// Returns an [`Error]` variant [`Neo4jPoolGetConnectionFailed`] if a new
-    /// connection to the database cannot be retrieved from the pool.
+    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
+    /// is not found
     ///
     /// [`Error`]: ../../error/enum.Error.html
-    /// [`DatabaseMismatch`]: ../../error/enum.Error.html#variant.DatabaseMismatch
-    /// [`Neo4jPoolGetConnectionFailed`]: ../../error/enum.Error.html#variant.Neo4jPoolGetConnectionFailed
+    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
     ///
     /// # Examples
     ///
@@ -107,7 +101,8 @@ where
     ///     rt.block_on(async {
     ///
     ///         let neo4j_client = facade.db_into_neo4j().await.unwrap();
-    ///         // use neo4j client
+
+    ///         // use client
     ///
     ///     });
     ///     facade.resolve_null()
@@ -117,15 +112,41 @@ where
     pub async fn db_into_neo4j(
         &self,
     ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
-        let db_pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
-            match self.executor().context().pool() {
-                DatabasePool::Neo4j(p) => p,
-                _ => {
-                    return Err(Error::DatabaseNotFound {});
-                }
-            };
-        let neo4j_client = db_pool.get().await?;
-        Ok(neo4j_client)
+        let pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
+            self.executor().context().pool().into_neo4j()?;
+        let client = pool.get().await?;
+        Ok(client)
+    }
+
+    /// Returns a cosmos database client from the pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
+    /// is not found
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///
+    ///     let cosmos_client = facade.db_into_cosmos()?;
+    ///     
+    ///     // use client
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    #[cfg(feature = "cosmos")]
+    pub fn db_into_cosmos(&self) -> Result<&gremlin_client::GremlinClient, Error> {
+        let pool: &gremlin_client::GremlinClient =
+            self.executor().context().pool().into_cosmos()?;
+        Ok(pool)
     }
 
     /// Returns the arguments provided to the resolver in the GraphQL query

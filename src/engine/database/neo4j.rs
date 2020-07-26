@@ -877,17 +877,14 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
         let hmv: HashMap<String, Value> = hm.into_iter().try_fold(
             HashMap::<String, Value>::new(),
             |mut acc, (key, bolt_value)| {
-                let value = match Value::try_from(bolt_value.clone()) {
-                    // if i remove this clone, I get a move after borrow
-                    Ok(v) => v,
-                    Err(_) => {
-                        return Err(Error::TypeConversionFailed {
-                            src: format!("{:#?}", bolt_value),
-                            dst: "Value".to_string(),
-                        });
-                    }
-                };
-                acc.insert(key, value);
+                if let Ok(value) = Value::try_from(bolt_value.clone()) {
+                    acc.insert(key, value);
+                } else {
+                    return Err(Error::TypeConversionFailed {
+                        src: format!("{:#?}", &bolt_value),
+                        dst: "Value".to_string(),
+                    });
+                }
                 Ok(acc)
             },
         )?;

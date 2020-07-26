@@ -415,6 +415,7 @@ impl From<std::sync::mpsc::RecvError> for Error {
     }
 }
 
+#[cfg(feature = "neo4j")]
 impl From<bb8::RunError<bb8_bolt::Error>> for Error {
     fn from(e: bb8::RunError<bb8_bolt::Error>) -> Self {
         Error::Neo4jPoolError { source: e }

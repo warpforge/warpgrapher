@@ -70,15 +70,20 @@ impl From<Vec<Value>> for Value {
 
 impl FromInputValue for Value {
     fn from_input_value(v: &InputValue) -> Option<Self> {
-        if let InputValue::Scalar(scalar) = v {
-            Some(match scalar {
+        match v {
+            InputValue::Scalar(scalar) => Some(match scalar {
                 DefaultScalarValue::Int(i) => Value::Int64(i64::from(*i)),
                 DefaultScalarValue::Float(f) => Value::Float64(*f),
                 DefaultScalarValue::String(s) => Value::String(s.to_string()),
                 DefaultScalarValue::Boolean(b) => Value::Bool(*b),
-            })
-        } else {
-            None
+            }),
+            _ => match serde_json::to_value(v) {
+                Err(_) => None,
+                Ok(serde_value) => match Value::try_from(serde_value) {
+                    Ok(value) => Some(value),
+                    _ => None,
+                },
+            },
         }
     }
 }
@@ -274,6 +279,32 @@ impl TryFrom<Value> for HashMap<String, Value> {
         }
     }
 }
+
+/*
+impl FromInputValue for Value {
+    fn from_input_value(v: &InputValue) -> Option<Value> {
+
+        let serde_json_value = serde_json::to_value(v) {
+            Err(_) => None,
+            Ok(v) => { v }
+        };
+
+        Value::try_from(serde_json_value).unwrap()
+
+        /*
+        match serde_json::to_value(v) {
+            Err(_) => None,
+            Ok(j) => {
+                match serde_json::from_value(j) {
+                    Err(_) => None ,
+                    Ok(v) => v
+                }
+            }
+        }
+        */
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {

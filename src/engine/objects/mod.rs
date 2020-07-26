@@ -189,7 +189,7 @@ where
         }
     }
 
-    /// Returns a new Node.
+    /// Returns the fields of a [`Node`].
     ///
     /// # Example
     /// ```rust
