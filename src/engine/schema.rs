@@ -424,41 +424,6 @@ fn fmt_node_create_mutation_input_name(t: &Type) -> String {
     t.name().to_string() + "CreateMutationInput"
 }
 
-fn fmt_node_dynamic_input_name(t: &Type) -> String {
-    t.name().to_string() + "DynamicInput"
-}
-
-/// Takes a WG type and returns a NodeType representing a GqlNodeDynamicInput
-///
-/// Format:
-/// input GqlNodeDynamicInput {
-///     prop[n]: <Scalar>
-///     rel[n]:  <GqlRelDynamicInput>
-/// }
-///
-/// Ex:
-/// input ProjectMutationInput {
-///     name: String
-///     owner: ProjectOwnerDynamicInput
-/// }
-fn generate_node_dynamic_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.props_as_slice(), false, false);
-
-    t.rels().for_each(|r| {
-        props.insert(
-            r.name().to_string(),
-            Property::new(
-                r.name().to_string(),
-                PropertyKind::Input,
-                fmt_rel_dynamic_input_name(t, &r),
-            )
-            .with_list(r.list()),
-        );
-    });
-
-    NodeType::new(fmt_node_dynamic_input_name(t), TypeKind::Input, props)
-}
-
 /// Takes a WG type and returns a NodeType representing a GqlNodeCreateMutationInput
 ///
 /// Format:
@@ -1016,25 +981,6 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
         ),
     );
     NodeType::new(fmt_rel_query_input_name(t, r), TypeKind::Input, props)
-}
-
-fn fmt_rel_dynamic_input_name(t: &Type, r: &Relationship) -> String {
-    t.name().to_string() + &r.name().to_string().to_title_case() + "DynamicInput"
-}
-
-fn generate_rel_dynamic_input(t: &Type, r: &Relationship) -> NodeType {
-    let mut props = HashMap::new();
-    r.nodes().for_each(|node| {
-        props.insert(
-            node.to_string(),
-            Property::new(
-                node.to_string(),
-                PropertyKind::Input,
-                node.to_string() + "DynamicInput",
-            ),
-        );
-    });
-    NodeType::new(fmt_rel_dynamic_input_name(t, r), TypeKind::Input, props)
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateMutationInput
@@ -1846,10 +1792,6 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
         let node_type = generate_node_object(t);
         nthm.insert(node_type.type_name.to_string(), node_type);
 
-        // GqlNodeDynamicInput
-        let node_dynamic_input = generate_node_dynamic_input(t);
-        nthm.insert(node_dynamic_input.type_name.to_string(), node_dynamic_input);
-
         // GqlNodeQueryInput
         let node_query_input = generate_node_query_input(t);
         nthm.insert(node_query_input.type_name.to_string(), node_query_input);
@@ -1923,10 +1865,6 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             // GqlRelNodesUnion
             let rel_nodes_union = generate_rel_nodes_union(t, r);
             nthm.insert(rel_nodes_union.type_name.to_string(), rel_nodes_union);
-
-            // GqlRelDynamicInput
-            let rel_dynamic_input = generate_rel_dynamic_input(t, r);
-            nthm.insert(rel_dynamic_input.type_name.to_string(), rel_dynamic_input);
 
             // GqlRelQueryInput
             let rel_query_input = generate_rel_query_input(t, r);
