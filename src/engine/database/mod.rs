@@ -54,8 +54,7 @@ pub enum DatabasePool {
 
 impl DatabasePool {
     #[cfg(feature = "neo4j")]
-    #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn into_neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
+    pub(crate) fn neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
         match self {
             DatabasePool::Neo4j(pool) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),
@@ -63,8 +62,7 @@ impl DatabasePool {
     }
 
     #[cfg(feature = "cosmos")]
-    #[allow(clippy::wrong_self_convention)]
-    pub(crate) fn into_cosmos(&self) -> Result<&GremlinClient, Error> {
+    pub(crate) fn cosmos(&self) -> Result<&GremlinClient, Error> {
         match self {
             DatabasePool::Cosmos(pool) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),
