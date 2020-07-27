@@ -851,15 +851,7 @@ where
                 let type_name = &n.labels()[0];
                 let properties: &HashMap<String, bolt_proto::value::Value> = &n.properties();
                 let props_value = Value::try_from(properties.clone())?;
-                let props = match HashMap::<String, Value>::try_from(props_value.clone()) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        return Err(Error::TypeConversionFailed {
-                            src: format!("{:#?}", props_value),
-                            dst: "HashMap::<String, Value>".to_string(),
-                        })
-                    }
-                };
+                let props = HashMap::<String, Value>::try_from(props_value)?;
                 Ok(Node::new(type_name.to_string(), props))
             }
             _ => Err(Error::TypeConversionFailed {
@@ -874,17 +866,11 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
     type Error = Error;
 
     fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
-        let hmv: HashMap<String, Value> = hm.into_iter().try_fold(
-            HashMap::<String, Value>::new(),
-            |mut acc, (key, bolt_value)| {
-                if let Ok(value) = Value::try_from(bolt_value.clone()) {
-                    acc.insert(key, value);
-                } else {
-                    return Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", &bolt_value),
-                        dst: "Value".to_string(),
-                    });
-                }
+        let hmv: HashMap<String, Value> = hm.into_iter().try_fold (
+            HashMap::new(),
+            |mut acc, (key, bolt_value)| -> Result<HashMap<String, Value>,Error> {
+                let value = Value::try_from(bolt_value)?;
+                acc.insert(key, value);
                 Ok(acc)
             },
         )?;
