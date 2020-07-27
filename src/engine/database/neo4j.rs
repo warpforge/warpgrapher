@@ -30,7 +30,12 @@ use tokio::runtime::Runtime;
 /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 /// #
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let ne = Neo4jEndpoint::from_env()?;
+///     let ne = Neo4jEndpoint::new(
+///         "127.0.0.1".to_string(),
+///         7687,
+///         "neo4j".to_string(),
+///         "password".to_string()
+///     );
 /// #    Ok(())
 /// # }
 /// ```
@@ -42,6 +47,33 @@ pub struct Neo4jEndpoint {
 }
 
 impl Neo4jEndpoint {
+    /// Returns a new [`Neo4jEndpoint`] from the provided values.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let ne = Neo4jEndpoint::new(
+    ///         "127.0.0.1".to_string(),
+    ///         7687,
+    ///         "neo4j".to_string(),
+    ///         "password".to_string()
+    ///     );
+    /// #    Ok(())
+    /// # }
+    /// ```
+    pub fn new(host: String, port: u16, user: String, pass: String) -> Self {
+        Neo4jEndpoint {
+            host,
+            port,
+            user,
+            pass,
+        }
+    }
+
     /// Reads an variable to construct a [`Neo4jEndpoint`]. The environment variable is
     ///
     /// * WG_NEO4J_ADDR - the address for the Neo4J DB. For example, `127.0.0.1`.
@@ -803,5 +835,45 @@ impl From<Value> for bolt_proto::value::Value {
             // allow for a TryFrom conversion here.
             Value::UInt64(u) => (u as i64).into(),
         }
+    }
+}
+
+impl<GlobalCtx, RequestCtx> TryFrom<bolt_proto::value::Value> for Node<GlobalCtx, RequestCtx>
+where
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
+{
+    type Error = crate::Error;
+
+    fn try_from(value: bolt_proto::value::Value) -> Result<Self, Error> {
+        match value {
+            bolt_proto::value::Value::Node(n) => {
+                let type_name = &n.labels()[0];
+                let properties: &HashMap<String, bolt_proto::value::Value> = &n.properties();
+                let props_value = Value::try_from(properties.clone())?;
+                let props = HashMap::<String, Value>::try_from(props_value)?;
+                Ok(Node::new(type_name.to_string(), props))
+            }
+            _ => Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Node".to_string(),
+            }),
+        }
+    }
+}
+
+impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
+    type Error = Error;
+
+    fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
+        let hmv: HashMap<String, Value> = hm.into_iter().try_fold (
+            HashMap::new(),
+            |mut acc, (key, bolt_value)| -> Result<HashMap<String, Value>,Error> {
+                let value = Value::try_from(bolt_value)?;
+                acc.insert(key, value);
+                Ok(acc)
+            },
+        )?;
+        Ok(Value::Map(hmv))
     }
 }

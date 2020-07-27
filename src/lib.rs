@@ -12,9 +12,11 @@
 
 #![doc(html_root_url = "https://docs.rs/warpgrapher/0.2.0")]
 
-pub use juniper::http::playground::playground_source;
-pub use juniper::http::GraphQLRequest;
-pub use juniper::FieldError;
+#[cfg(feature = "neo4j")]
+pub use bolt_client;
+#[cfg(feature = "neo4j")]
+pub use bolt_proto;
+pub use juniper;
 
 pub use client::Client;
 pub use engine::config::Configuration;

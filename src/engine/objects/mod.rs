@@ -144,7 +144,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust, norun
+/// ```rust, no_run
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
@@ -187,6 +187,20 @@ where
             _gctx: PhantomData,
             _rctx: PhantomData,
         }
+    }
+
+    /// Returns the fields of a [`Node`].
+    ///
+    /// # Example
+    /// ```rust
+    /// use warpgrapher::engine::objects::Node;
+    ///
+    /// fn handle_node(n: Node<(),()>) {
+    ///     let properties = n.fields();
+    /// }
+    /// ```
+    pub fn fields(&self) -> &HashMap<String, Value> {
+        &self.fields
     }
 
     pub(crate) fn id(&self) -> Result<&Value, Error> {
@@ -586,6 +600,8 @@ where
     }
 }
 
+/// Represents a reference to a [`Node`] object as either an [`Identifier`]
+/// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
 pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
@@ -610,7 +626,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust, norun
+/// ```rust, no_run
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;

@@ -52,6 +52,24 @@ pub enum DatabasePool {
     NoDatabase,
 }
 
+impl DatabasePool {
+    #[cfg(feature = "neo4j")]
+    pub(crate) fn neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
+        match self {
+            DatabasePool::Neo4j(pool) => Ok(pool),
+            _ => Err(Error::DatabaseNotFound {}),
+        }
+    }
+
+    #[cfg(feature = "cosmos")]
+    pub(crate) fn cosmos(&self) -> Result<&GremlinClient, Error> {
+        match self {
+            DatabasePool::Cosmos(pool) => Ok(pool),
+            _ => Err(Error::DatabaseNotFound {}),
+        }
+    }
+}
+
 impl Default for DatabasePool {
     fn default() -> Self {
         DatabasePool::NoDatabase
@@ -77,7 +95,7 @@ pub trait DatabaseEndpoint {
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::database::DatabaseEndpoint;

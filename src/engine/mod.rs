@@ -432,8 +432,9 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine, GraphQLRequest};
+    /// ```rust,no_run
+    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::juniper::http::GraphQLRequest;
     /// # use serde_json::{from_value, json};
     /// # use std::collections::HashMap;
     ///

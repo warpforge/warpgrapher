@@ -28,6 +28,9 @@ jobs:
       
     steps:
     - uses: actions/checkout@v2
+
+    - name: Cargo version
+      run: cargo version
       
     - name: Cache cargo registry
       uses: actions/cache@v1

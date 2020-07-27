@@ -18,7 +18,7 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
-/// ```rust,norun
+/// ```rust,no_run
 /// # #[cfg(feature = "neo4j")]
 /// # use tokio::runtime::Runtime;
 /// # #[cfg(feature = "neo4j")]
@@ -97,7 +97,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -152,7 +152,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -199,7 +199,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// use bolt_proto::Message;
     /// use std::iter::FromIterator;
@@ -276,7 +276,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -318,7 +318,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -361,7 +361,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -403,7 +403,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -464,7 +464,7 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust,norun
+    /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -550,7 +550,7 @@ where
 ///
 /// # Examples
 ///
-/// ```rust,norun
+/// ```rust,no_run
 /// # use warpgrapher::engine::context::GlobalContext;
 ///
 /// #[derive(Clone, Debug)]
@@ -571,7 +571,7 @@ impl GlobalContext for () {}
 ///
 /// # Examples
 ///
-/// ```rust,norun
+/// ```rust,no_run
 /// # use warpgrapher::engine::context::RequestContext;
 ///
 /// #[derive(Clone, Debug)]
