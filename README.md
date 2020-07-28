@@ -21,7 +21,7 @@ The project is currently in development. Prior to reaching v1.0.0:
 Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
-warpgrapher = { version = "0.2.0", features = ["cosmos","neo4j"] }
+warpgrapher = { version = "0.3.0", features = ["cosmos","neo4j"] }
 ```
 
 # Getting Started

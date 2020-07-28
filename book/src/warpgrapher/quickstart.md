@@ -10,9 +10,7 @@ Add warpgrapher to your project config:
 
 ```toml
 [dependencies]
-actix = "0.9.0"
-actix-web = "2.0.0"
-warpgrapher = { version = "0.2.0", features = ["neo4j"] }
+warpgrapher = { version = "0.3.0", features = ["neo4j"] }
 ```
 
 ## Config

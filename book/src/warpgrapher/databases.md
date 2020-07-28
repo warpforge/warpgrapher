@@ -17,7 +17,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.2.0", features = ["cosmos"] }
+warpgrapher = { version = "0.3.0", features = ["cosmos"] }
 ```
 
 Then set up environment variables to contact your Cosmos DB:
