@@ -10,17 +10,27 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'examples/**'
+      - '.github/**'
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     env:
-      DB_URL: http://neo4j:testpass@localhost:7474/db/data
-      DB_PASS: testpass
+      WG_NEO4J_HOST: 127.0.0.1
+      WG_NEO4J_PORT: 7687
+      WG_NEO4J_USER: neo4j
+      WG_NEO4J_PASS: testpass
+      WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
+      WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
+      WG_COSMOS_USER: ${{ secrets.WG_COSMOS_USER }}
+      WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
       
     steps:
     - uses: actions/checkout@v2
+
+    - name: Cargo version
+      run: cargo version
       
     - name: Cache cargo registry
       uses: actions/cache@v1
@@ -46,6 +56,15 @@ jobs:
         path: rustbins
         key: cargo-audit
  
+    - name: Check Featureless Build
+      run: cargo check
+      
+    - name: Check Cosmos Build
+      run: cargo check --features cosmos
+
+    - name: Check Neo4J Build
+      run: cargo check --features neo4j
+
     - name: Install Clippy
       run: rustup component add clippy
 
@@ -53,10 +72,10 @@ jobs:
       run: cargo clippy --all-targets --all-features -- -D warnings
       
     - name: Start neo4j database
-      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:3.5
-    
-    - name: Run Tests
-      run: cargo test
-    
+      run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
+
+    - name: Run Tests (All Features)
+      run: cargo test --all-features -- --test-threads=1
+
     - name: Stop neo4j database
       run: docker rm -f neo4j

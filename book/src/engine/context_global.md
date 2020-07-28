@@ -33,8 +33,8 @@ let engine: Engine<AppGlobalContext, ()> = Engine::new(config, db)
 #### 3. Use GlobalContext in a resolver
 
 ```rust
-fn resolve(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
-    let global_ctx = context.get_global_context()?;
+fn resolve(facade: ResolverFacade<AppGlobalContext, ()>) -> ExecutionResult {
+    let global_ctx = facade.global_context()?;
 
     // use global_ctx
 }
@@ -47,9 +47,9 @@ fn resolve(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
 ```rust
 use std::collections::HashMap;
 use warpgrapher::{Engine, Config};
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::resolvers::{Resolvers, ResolverContext, ExecutionResult};
-use warpgrapher::juniper::http::GraphQLRequest;
+use warpgrapher::engine::databases::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade, ExecutionResult};
+use warpgrapher::GraphQLRequest;
 
 static CONFIG : &'static str = "
 version: 1
@@ -78,9 +78,9 @@ struct AppGlobalContext {
     tenant_id: String
 }
 
-fn resolve_get_environment(context: ResolverContext<AppGlobalContext, ()>) -> ExecutionResult {
-    let global_ctx = context.get_global_context()?;
-    context.resolve_scalar(global_ctx.tenant_id.clone())
+fn resolve_get_environment(facade: ResolverFacade<AppGlobalContext, ()>) -> ExecutionResult {
+    let global_ctx = facade.global_context()?;
+    facade.resolve_scalar(global_ctx.tenant_id.clone())
 }
 
 fn main() {
@@ -90,7 +90,7 @@ fn main() {
         .expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+    let db = Neo4jEndpoint::from_env().unwrap();
 
     // define global context
     let global_ctx = AppGlobalContext {
@@ -102,7 +102,7 @@ fn main() {
     resolvers.insert("GetEnvironment".to_string(), Box::new(resolve_get_environment));
 
     // create warpgrapher engine
-    let engine: Engine<AppGlobalContext, ()> = Engine::new(config, db)
+    let engine: Engine<AppGlobalContext, ()> = Engine::new(config, db.pool().unwrap())
         .with_global_ctx(global_ctx)
         .with_resolvers(resolvers)
         .build()

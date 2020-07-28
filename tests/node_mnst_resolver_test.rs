@@ -1,26 +1,42 @@
 mod setup;
 
 use serde_json::json;
-use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
+use warpgrapher::client::Client;
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnst_new_nodes_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_new_nodes(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn create_mnst_new_nodes_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_new_nodes(client).await;
+}
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn create_mnst_new_nodes() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnst_new_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", 
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "dst": { "Commit": { "NEW": { "hash": "11111" } } } } ] })
         )
         .await
@@ -50,7 +66,7 @@ async fn create_mnst_new_nodes() {
     let p1 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project One", "activity": [ { "dst": { "Commit": { "NEW": { "hash": "22222" } } } }, { "dst": { "Commit": { "NEW": { "hash": "33333" } } } } ] })
         )
         .await
@@ -80,7 +96,7 @@ async fn create_mnst_new_nodes() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234"),
             None,
         )
         .await
@@ -132,24 +148,38 @@ async fn create_mnst_new_nodes() {
     assert!(activity3
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnst_existing_nodes_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_existing_nodes(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn create_mnst_existing_nodes_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_existing_nodes(client).await;
 }
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn create_mnst_existing_nodes() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnst_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let c0 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "00000"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234"),
+            &json!({"hash": "00000"}),
+        )
         .await
         .unwrap();
     assert!(c0.is_object());
@@ -157,7 +187,12 @@ async fn create_mnst_existing_nodes() {
     assert_eq!(c0.get("hash").unwrap(), "00000");
 
     let c1 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "11111"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234"),
+            &json!({"hash": "11111"}),
+        )
         .await
         .unwrap();
     assert!(c1.is_object());
@@ -167,7 +202,7 @@ async fn create_mnst_existing_nodes() {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "dst": { "Commit": { "EXISTING": { "hash": "00000" } } } }, { "dst": { "Commit": {"EXISTING": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -196,7 +231,7 @@ async fn create_mnst_existing_nodes() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id dst { ...on Commit { __typename id hash } } }", Some("1234"),
             None,
         )
         .await
@@ -227,26 +262,35 @@ async fn create_mnst_existing_nodes() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnst_by_rel_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_by_rel_props(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn read_mnst_by_rel_props_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_by_rel_props(client).await;
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn read_mnst_by_rel_props() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -258,7 +302,7 @@ async fn read_mnst_by_rel_props() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"activity": {"props": {"repo": "Repo Zero"}}}))
         )
         .await
@@ -290,26 +334,35 @@ async fn read_mnst_by_rel_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnst_by_dst_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_by_dst_props(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn read_mnst_by_dst_props_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_by_dst_props(client).await;
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn read_mnst_by_dst_props() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -321,7 +374,7 @@ async fn read_mnst_by_dst_props() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "11111"}}}}))
         )
         .await
@@ -353,27 +406,35 @@ async fn read_mnst_by_dst_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_new_node_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_new_node(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn update_mnst_new_node_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_new_node(client).await;
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn update_mnst_new_node() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_new_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -381,7 +442,7 @@ async fn update_mnst_new_node() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"NEW": {"hash": "22222"}}}}}})
         )
@@ -416,40 +477,53 @@ async fn update_mnst_new_node() {
     assert!(activityu
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_existing_node_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_existing_node(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn update_mnst_existing_node_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_existing_node(client).await;
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn update_mnst_existing_node() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
     let _c0 = client
-        .create_node("Commit", "__typename id hash", &json!({"hash": "22222"}))
+        .create_node(
+            "Commit",
+            "__typename id hash",
+            Some("1234"),
+            &json!({"hash": "22222"}),
+        )
         .await
         .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"EXISTING": {"hash": "22222"}}}}}})
         )
@@ -484,27 +558,35 @@ async fn update_mnst_existing_node() {
     assert!(activityu
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_relationship_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_relationship(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn update_mnst_relationship_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_relationship(client).await;
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn update_mnst_relationship() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
-            "__typename id name",
+            "__typename id name", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -512,7 +594,7 @@ async fn update_mnst_relationship() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"UPDATE": {"match": {"dst": {"Commit": {"hash": "00000"}}}, "update": {"props": {"repo": "Repo 0"}}}}})
         )
@@ -550,27 +632,35 @@ async fn update_mnst_relationship() {
     assert!(activityu
         .iter()
         .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnst_relationship_by_rel_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_relationship_by_rel_props(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn delete_mnst_relationship_by_rel_props_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_relationship_by_rel_props(client).await;
 }
 
 /// Passes if warpgrapher can delete a relationship by its properties
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn delete_mnst_relationship_by_rel_props() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnst_relationship_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -586,7 +676,7 @@ async fn delete_mnst_relationship_by_rel_props() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"props": {"repo": "Repo Zero"}}}}})
         )
@@ -624,27 +714,35 @@ async fn delete_mnst_relationship_by_rel_props() {
     assert!(activityu
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnst_relationship_by_dst_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_relationship_by_dst_props(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn delete_mnst_relationship_by_dst_props_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_relationship_by_dst_props(client).await;
 }
 
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn delete_mnst_relationship_by_dst_props() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnst_relationship_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -660,7 +758,7 @@ async fn delete_mnst_relationship_by_dst_props() {
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
             &json!({"activity": {"DELETE": {"match": {"dst": {"Commit": {"hash": "00000"}}}}}})
         )
@@ -698,27 +796,35 @@ async fn delete_mnst_relationship_by_dst_props() {
     assert!(activityu
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_node_by_mnst_rel_property_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node_by_mnst_rel_property(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn delete_node_by_mnst_rel_property_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node_by_mnst_rel_property(client).await;
 }
 
 /// Passes if warpgrapher can delete a node by the properties of a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn delete_node_by_mnst_rel_property() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_node_by_mnst_rel_property(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -734,6 +840,7 @@ async fn delete_node_by_mnst_rel_property() {
     client
         .delete_node(
             "Project",
+            Some("1234"),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
@@ -743,7 +850,7 @@ async fn delete_node_by_mnst_rel_property() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234"),
             None,
         )
         .await
@@ -752,27 +859,35 @@ async fn delete_node_by_mnst_rel_property() {
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 0);
+}
 
-    assert!(server.shutdown().is_ok());
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_node_by_mnst_dst_property_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node_by_mnst_dst_property(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn delete_node_by_mnst_dst_property_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node_by_mnst_dst_property(client).await;
 }
 
 /// Passes if warpgrapher can delete a node by the properties of the dst object at a relationship
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn delete_node_by_mnst_dst_property() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_node_by_mnst_dst_property(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234"),
             &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
@@ -788,6 +903,7 @@ async fn delete_node_by_mnst_dst_property() {
     client
         .delete_node(
             "Project",
+            Some("1234"),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": "00000"}}}})),
             Some(&json!({"activity": [{"match": {}}]})),
         )
@@ -797,7 +913,7 @@ async fn delete_node_by_mnst_dst_property() {
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",
+            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
             None,
         )
         .await
@@ -806,6 +922,4 @@ async fn delete_node_by_mnst_dst_property() {
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 0);
-
-    assert!(server.shutdown().is_ok());
 }

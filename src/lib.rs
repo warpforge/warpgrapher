@@ -6,15 +6,24 @@
 //! can supply your own custom resolvers. Warpgrapher will automatically
 //! generate the GraphQL configuration and invoke your custom resolvers when
 //! appropriate.
+//!
+//! * [Cargo Crate](https://crates.io/crates/warpgrapher)
+//! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
 
-#[macro_use]
-pub extern crate juniper;
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.2.0")]
 
-pub use engine::config::Config;
+#[cfg(feature = "neo4j")]
+pub use bolt_client;
+#[cfg(feature = "neo4j")]
+pub use bolt_proto;
+pub use juniper;
+
+pub use client::Client;
+pub use engine::config::Configuration;
+pub use engine::database::DatabasePool;
 pub use engine::Engine;
 pub use error::Error;
-pub use error::ErrorKind;
 
 pub mod client;
 pub mod engine;
-pub mod error;
+mod error;

@@ -2,7 +2,8 @@
 name = "warpgrapher"
 authors = ["Javier Vazquez"]
 description = "Automate web service creation with GraphQL and Neo4J"
-license = "MIT"
+homepage = "https://warpforge.github.io/warpgrapher/"
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
@@ -10,38 +11,33 @@ categories = ["web-programming"]
 version = "0.2.0"
 edition = "2018"
 
+[features]
+cosmos = ["gremlin-client"]
+neo4j = ["bb8", "bb8-bolt", "bolt-client", "bolt-proto"]
+
 [dependencies]
-actix = "0.9.0"
-actix-http = "1.0.1"
-actix-net = "0.2.6"
-actix-rt = "1.0.0"
-actix-server-config = "0.1.2"
-actix-service = "0.4.1"
-actix-threadpool = "0.1.1"
-actix-web = "2.0.0"
-actix-cors = "0.2.0"
-base64 = "0.10.1"
-clap = "2.32.0"
-env_logger = "0.6.1"
-frank_jwt = "3.1.1"
-futures = "0.3.1"
-indexmap = "1.0.2"
+# Mandatory dependencies
+async-trait = "0.1.36"
 Inflector = "0.11.4"
 juniper = "0.14.2"
 log = "0.4.6"
 num_cpus = "1.0"
-r2d2 = "0.8.4"
-r2d2_cypher = "0.4.0"
-regex = "1"
-reqwest = { version = "0.10.4", features = ["json"] }
-rusted_cypher = "1.1.0"
+reqwest = { version = "0.10.6", features = ["json"] }
 serde = { version = "1.0.89", features = ["derive"] }
 serde_json = "1.0.39"
 serde_yaml = "0.8.8"
-uuid = "0.7.4"
-wasm-bindgen = "0.2.33"
+tokio = "0.2.21"
+
+# Optional dependencies
+bb8 = { version = "0.4.2", optional = true }
+bb8-bolt = { version = "0.4.0", optional = true }
+bolt-client = { version = "0.7.0", optional = true }
+bolt-proto = { version = "0.8.0", optional = true }
+gremlin-client = { version = "0.5.0", optional = true }
 
 [dev-dependencies]
 assert_approx_eq = "1.1.0"
-serial_test = "0.3.2"
+env_logger = "0.6.1"
+futures = "0.3.1"
 tokio = { version = "0.2", features = ["rt-threaded", "macros"] }
+version-sync = "0.9.0"

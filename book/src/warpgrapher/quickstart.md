@@ -1,6 +1,6 @@
 # Quickstart
 
-This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. 
+This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. The back-end graph database in this example is Neo4J. 
 
 ## Dependencies
 
@@ -12,7 +12,7 @@ Add warpgrapher to your project config:
 [dependencies]
 actix = "0.9.0"
 actix-web = "2.0.0"
-warpgrapher = "0.2.0"
+warpgrapher = { version = "0.2.0", features = ["neo4j"] }
 ```
 
 ## Config
@@ -53,19 +53,21 @@ use actix_http::error::Error;
 use actix_web::web::{Data, Json};
 use actix_web::{web, App, HttpResponse, HttpServer};
 use std::collections::HashMap;
-use warpgrapher::{Engine, Config};
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::juniper::http::GraphQLRequest;
-use warpgrapher::juniper::http::playground::playground_source;
+use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::DatabaseEndpoint;
+use warpgrapher::{playground_source, Config, Engine, GraphQLRequest};
 
 #[derive(Clone)]
 struct ActixServerAppData {
     engine: Engine<(), ()>,
 }
 
-async fn graphql(data: Data<ActixServerAppData>, req: Json<GraphQLRequest>) -> Result<HttpResponse, Error> {
+async fn graphql(
+    data: Data<ActixServerAppData>,
+    req: Json<GraphQLRequest>,
+) -> Result<HttpResponse, Error> {
     let metadata: HashMap<String, String> = HashMap::new();
-    let resp = &data.engine.execute(req, metadata);
+    let resp = &data.engine.execute(req.into_inner(), metadata);
     match resp {
         Ok(body) => Ok(HttpResponse::Ok()
             .content_type("application/json")
@@ -79,16 +81,19 @@ async fn graphql(data: Data<ActixServerAppData>, req: Json<GraphQLRequest>) -> R
 #[allow(clippy::ptr_arg)]
 pub fn run_actix_server(engine: Engine<(), ()>) {
     let sys = System::new("warpgrapher-quickstart");
-    let app_data = ActixServerAppData { engine: engine };
+    let app_data = ActixServerAppData { engine };
     HttpServer::new(move || {
         App::new()
             .data(app_data.clone())
             .route("/graphql", web::post().to(graphql))
-            .route("/graphiql", web::get().to(|| {
-                HttpResponse::Ok()
-                    .content_type("text/html; charset=utf-8")
-                    .body(playground_source(&"/graphql"))
-            }))
+            .route(
+                "/graphiql",
+                web::get().to(|| {
+                    HttpResponse::Ok()
+                        .content_type("text/html; charset=utf-8")
+                        .body(playground_source(&"/graphql"))
+                }),
+            )
     })
     .bind("127.0.0.1:5000")
     .expect("Failed to start server")
@@ -97,16 +102,16 @@ pub fn run_actix_server(engine: Engine<(), ()>) {
 }
 
 fn main() -> Result<(), Error> {
-
     // load warpgrapher config
-    let config = Config::from_file("./src/config.yml".to_string())
-        .expect("Failed to load config file");
+    let config =
+        Config::from_file("./src/config.yml".to_string()).expect("Failed to load config file");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+    let db = Neo4jEndpoint::from_env().unwrap();
 
     // create warpgrapher engine
-    let engine: Engine<(), ()> = Engine::new(config, db).build()
+    let engine: Engine<(), ()> = Engine::new(config, db.pool().expect("Failed to build db pool"))
+        .build()
         .expect("Failed to build engine");
 
     // serve the warpgrapher engine on actix webserver
@@ -122,15 +127,16 @@ fn main() -> Result<(), Error> {
 Configure database settings:
 
 ```bash
-export DB_USERNAME=neo4j
-export DB_PASSWORD=password123
-export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
+export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_PORT=7687
+export WG_NEO4J_USER=neo4j
+export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 ```
 
 Start a 3.5 Neo4j database:
 
 ```bash
-docker run -e NEO4JAUTH="${DB_USERNAME}:${DB_PASSWORD}" neo4j:3.5
+docker run -e NEO4JAUTH="${WG_NEO4J_USER}:${WG_NEO4J_PASS}" neo4j:4.1
 ```
 
 Run quickstart app: 
@@ -233,7 +239,7 @@ Like before, you should see the newly created `Team` node:
 
 #### Add `User` to `Team`
 
-GraphQL and Neo4j are all about relationships. Create a `users` relationship between the `Team` and `User` nodes:
+GraphQL and Neo4j are all about relatinships. Create a `users` relationship between the `Team` and `User` nodes:
 
 ```
 mutation {

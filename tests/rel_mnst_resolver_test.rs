@@ -1,26 +1,43 @@
 mod setup;
 
 use serde_json::json;
-use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
+use warpgrapher::client::Client;
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn create_mnst_new_rel_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_new_rel(client).await;
+}
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnst_new_rel_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_new_rel(client).await;
+}
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn create_mnst_new_rel() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
@@ -30,7 +47,7 @@ async fn create_mnst_new_rel() {
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename props{repo} dst{...on Commit{__typename hash}}", Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
@@ -64,6 +81,7 @@ async fn create_mnst_new_rel() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             None,
         )
         .await
@@ -93,28 +111,47 @@ async fn create_mnst_new_rel() {
     assert!(activity
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn create_mnst_rel_existing_node() {
+async fn create_mnst_rel_existing_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_rel_existing_node(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnst_rel_existing_node_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnst_rel_existing_node(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnst_rel_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
-        .create_node("Project", "name", &json!({"name": "Project Zero"}))
+        .create_node(
+            "Project",
+            "name",
+            Some("1234"),
+            &json!({"name": "Project Zero"}),
+        )
         .await
         .unwrap();
 
     let c0 = client
-        .create_node("Commit", "__typename hash", &json!({"hash": "00000"}))
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234"),
+            &json!({"hash": "00000"}),
+        )
         .await
         .unwrap();
 
@@ -123,7 +160,12 @@ async fn create_mnst_rel_existing_node() {
     assert_eq!(c0.get("hash").unwrap(), "00000");
 
     let c1 = client
-        .create_node("Commit", "__typename hash", &json!({"hash": "11111"}))
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234"),
+            &json!({"hash": "11111"}),
+        )
         .await
         .unwrap();
 
@@ -135,7 +177,7 @@ async fn create_mnst_rel_existing_node() {
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename props{repo} dst{...on Commit{__typename hash}}",Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": "00000"}}}},
                     {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": "11111"}}}}])
@@ -166,6 +208,7 @@ async fn create_mnst_rel_existing_node() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             None,
         )
         .await
@@ -195,25 +238,35 @@ async fn create_mnst_rel_existing_node() {
     assert!(activity
         .iter()
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_mnst_rel_by_rel_props() {
+async fn read_mnst_rel_by_rel_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_rel_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnst_rel_by_rel_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_rel_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -236,6 +289,7 @@ async fn read_mnst_rel_by_rel_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234"),
             Some(&json!({"props": {"repo": "Repo Zero"}})),
         )
         .await
@@ -257,25 +311,35 @@ async fn read_mnst_rel_by_rel_props() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_mnst_rel_by_src_props() {
+async fn read_mnst_rel_by_src_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_src_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnst_rel_by_src_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_src_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -298,6 +362,7 @@ async fn read_mnst_rel_by_src_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{ __typename hash}}",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .await
@@ -325,25 +390,35 @@ async fn read_mnst_rel_by_src_props() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_mnst_rel_by_dst_props() {
+async fn read_mnst_rel_by_dst_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_dst_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnst_rel_by_dst_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnst_rel_by_dst_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -366,6 +441,7 @@ async fn read_mnst_rel_by_dst_props() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
         )
         .await
@@ -387,25 +463,35 @@ async fn read_mnst_rel_by_dst_props() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnst_rel_by_rel_prop() {
+async fn update_mnst_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -428,6 +514,7 @@ async fn update_mnst_rel_by_rel_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234"),
             Some(&json!({"props": {"repo": "Repo Zero"}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -458,6 +545,7 @@ async fn update_mnst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -491,25 +579,35 @@ async fn update_mnst_rel_by_rel_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnst_rel_by_src_prop() {
+async fn update_mnst_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -532,6 +630,7 @@ async fn update_mnst_rel_by_src_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -563,25 +662,35 @@ async fn update_mnst_rel_by_src_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnst_rel_by_dst_prop() {
+async fn update_mnst_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnst_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnst_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -604,6 +713,7 @@ async fn update_mnst_rel_by_dst_prop() {
             "Project",
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",
+            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": "00000"}}})),
             &json!({"props": {"repo": "Repo Two"}}),
         )
@@ -634,6 +744,7 @@ async fn update_mnst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -667,25 +778,35 @@ async fn update_mnst_rel_by_dst_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnst_rel_by_rel_prop() {
+async fn delete_mnst_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnst_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -707,6 +828,7 @@ async fn delete_mnst_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234"),
             Some(&json!({"props": {"repo": "Repo One"}})),
             None,
             None,
@@ -718,6 +840,7 @@ async fn delete_mnst_rel_by_rel_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             None,
         )
         .await
@@ -748,25 +871,35 @@ async fn delete_mnst_rel_by_rel_prop() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() != "11111"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnst_rel_by_dst_prop() {
+async fn delete_mnst_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnst_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -788,6 +921,7 @@ async fn delete_mnst_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": "11111"}}})),
             None,
             None,
@@ -799,6 +933,7 @@ async fn delete_mnst_rel_by_dst_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             None,
         )
         .await
@@ -829,25 +964,35 @@ async fn delete_mnst_rel_by_dst_prop() {
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() != "11111"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnst_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnst_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnst_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -869,6 +1014,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "activity": [
@@ -890,6 +1036,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "activity",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -901,6 +1048,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -910,6 +1058,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .read_node(
             "Project",
             "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -946,6 +1095,4 @@ async fn delete_mnst_rel_by_src_prop() {
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "33333"));
-
-    assert!(server.shutdown().is_ok());
 }

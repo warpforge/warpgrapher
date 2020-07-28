@@ -1,25 +1,24 @@
 mod setup;
 
+#[cfg(feature = "neo4j")]
 use log::trace;
+#[cfg(feature = "neo4j")]
 use serde_json::json;
-use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "neo4j")]
+use setup::{clear_db, init, neo4j_test_client};
 
 /// Passes if the custom validator executes correctly on create mutation
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
 async fn custom_input_validator_create() {
     init();
-    clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     // Test validator on create
     // Validator pass
     let result = client
-        .create_node("User", "id name", &json!({"name": "ORION"}))
+        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
         .await
         .unwrap();
 
@@ -29,7 +28,7 @@ async fn custom_input_validator_create() {
 
     // Validator fail
     let result = client
-        .create_node("User", "id name", &json!({"name": "KENOBI"}))
+        .create_node("User", "id name", Some("1234"), &json!({"name": "KENOBI"}))
         .await
         .unwrap();
 
@@ -42,21 +41,18 @@ async fn custom_input_validator_create() {
     assert_eq!(error, true);
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }
 
 /// Passes if the custom validator executes correctly on update mutation
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
 async fn custom_input_validator_update() {
     init();
-    clear_db();
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/config.yml");
-    assert!(server.serve(false).is_ok());
+    clear_db().await;
+    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
-        .create_node("User", "id name", &json!({"name": "ORION"}))
+        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
         .await
         .unwrap();
 
@@ -66,6 +62,7 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
+            Some("1234"),
             Some(&json!({"name": "ORION"})),
             &json!({"name": "SKYWALKER"}),
         )
@@ -81,6 +78,7 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
+            Some("1234"),
             Some(&json!({"name": "SKYWALKER"})),
             &json!({"name": "KENOBI"}),
         )
@@ -96,5 +94,4 @@ async fn custom_input_validator_update() {
     assert_eq!(error, true);
 
     // shutdown server
-    assert!(server.shutdown().is_ok());
 }

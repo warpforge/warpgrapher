@@ -38,8 +38,8 @@ let engine: Engine<(), AppRequestContext> = Engine::new(config, db)
 #### 3. Access Context inside resolver
 
 ```rust
-fn resolve(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
-    let request_ctx = context.get_request_context()?;
+fn resolve(facade: ResolverFacade<(), AppRequestContext>) -> ExecutionResult {
+    let request_ctx = facade.request_context()?;
 
     // use request_ctx
 }
@@ -50,9 +50,9 @@ fn resolve(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
 ```rust
 use std::collections::HashMap;
 use warpgrapher::{Engine, Config};
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::engine::resolvers::{Resolvers, ResolverContext, ExecutionResult};
-use warpgrapher::juniper::http::GraphQLRequest;
+use warpgrapher::engine::databases::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade, ExecutionResult};
+use warpgrapher::GraphQLRequest;
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {
@@ -72,8 +72,8 @@ impl warpgrapher::engine::context::RequestContext for AppRequestContext {
 }
 
 /// This function will return the randomly generated request id
-fn resolve_request_debug(context: ResolverContext<(), AppRequestContext>) -> ExecutionResult {
-    let request_ctx = context.get_request_context()?;
+fn resolve_request_debug(context: ResolverFacade<(), AppRequestContext>) -> ExecutionResult {
+    let request_ctx = context.request_context()?;
     context.resolve_scalar(request_ctx.request_id.clone())
 }
 
@@ -95,14 +95,14 @@ fn main() {
         .expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env("DB_URL").unwrap();
+    let db = Neo4jEndpoint::from_env().unwrap();
 
     // define resolvers
     let mut resolvers = Resolvers::<(), AppRequestContext>::new();
     resolvers.insert("RequestDebug".to_string(), Box::new(resolve_request_debug));
 
     // create warpgrapher engine
-    let engine: Engine<(), AppRequestContext> = Engine::new(config, db)
+    let engine: Engine<(), AppRequestContext> = Engine::new(config, db.pool().unwrap())
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

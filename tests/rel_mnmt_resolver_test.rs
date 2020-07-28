@@ -1,26 +1,43 @@
 mod setup;
 
 use serde_json::json;
-use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
+use warpgrapher::client::Client;
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn create_mnmt_new_rel_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_new_rel(client).await;
+}
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnmt_new_rel_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_new_rel(client).await;
+}
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn create_mnmt_new_rel() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnmt_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
@@ -30,7 +47,7 @@ async fn create_mnmt_new_rel() {
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!([{"props": {"since": "today"}, "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
                     {"props": {"since": "yesterday"}, "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
@@ -66,7 +83,7 @@ async fn create_mnmt_new_rel() {
     let projects = client
         .read_node(
             "Project",
-            "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -99,32 +116,47 @@ async fn create_mnmt_new_rel() {
     assert!(issues
         .iter()
         .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn create_mnmt_rel_existing_node() {
+async fn create_mnmt_rel_existing_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_rel_existing_node(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_mnmt_rel_existing_node_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_rel_existing_node(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnmt_rel_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
         .unwrap();
 
     let b0 = client
-        .create_node("Bug", "__typename name", &json!({"name": "Bug Zero"}))
+        .create_node(
+            "Bug",
+            "__typename name",
+            Some("1234"),
+            &json!({"name": "Bug Zero"}),
+        )
         .await
         .unwrap();
 
@@ -136,6 +168,7 @@ async fn create_mnmt_rel_existing_node() {
         .create_node(
             "Feature",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Feature Zero"}),
         )
         .await
@@ -149,7 +182,7 @@ async fn create_mnmt_rel_existing_node() {
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!([
                 {"props": {"since": "today"}, "dst": {"Feature": {"EXISTING": {"name": "Feature Zero"}}}},
@@ -186,7 +219,7 @@ async fn create_mnmt_rel_existing_node() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -219,25 +252,35 @@ async fn create_mnmt_rel_existing_node() {
     assert!(issues
         .iter()
         .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_mnmt_rel_by_rel_props() {
+async fn read_mnmt_rel_by_rel_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_rel_by_rel_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnmt_rel_by_rel_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_rel_by_rel_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnmt_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -259,7 +302,7 @@ async fn read_mnmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",Some("1234"),
             Some(&json!({"props": {"since": "yesterday"}})),
         )
         .await
@@ -281,25 +324,35 @@ async fn read_mnmt_rel_by_rel_props() {
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_mnmt_rel_by_src_props() {
+async fn read_mnmt_rel_by_src_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_rel_by_src_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_mnmt_rel_by_src_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_rel_by_src_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnmt_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -321,7 +374,7 @@ async fn read_mnmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .await
@@ -352,25 +405,25 @@ async fn read_mnmt_rel_by_src_props() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "cosmos")]
 #[tokio::test]
-#[serial]
-async fn read_mnmt_rel_by_dst_props() {
+async fn read_mnmt_rel_by_dst_props_cosmos() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_rel_by_dst_props(client).await;
+}
 
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnmt_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -400,7 +453,7 @@ async fn read_mnmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
         )
         .await
@@ -427,7 +480,7 @@ async fn read_mnmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"Feature": {"name": "Feature Zero"}}})),
         )
         .await
@@ -449,25 +502,35 @@ async fn read_mnmt_rel_by_dst_props() {
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnmt_rel_by_rel_prop() {
+async fn update_mnmt_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnmt_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -497,7 +560,7 @@ async fn update_mnmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
             Some(&json!({"props": {"since": "yesterday"}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -527,7 +590,7 @@ async fn update_mnmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -576,25 +639,35 @@ async fn update_mnmt_rel_by_rel_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnmt_rel_by_src_prop() {
+async fn update_mnmt_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnmt_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnmt_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -616,7 +689,7 @@ async fn update_mnmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -651,25 +724,35 @@ async fn update_mnmt_rel_by_src_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_mnmt_rel_by_dst_prop() {
+async fn update_mnmt_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_mnmt_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename id name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -699,7 +782,7 @@ async fn update_mnmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
@@ -729,7 +812,7 @@ async fn update_mnmt_rel_by_dst_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -778,25 +861,35 @@ async fn update_mnmt_rel_by_dst_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnmt_rel_by_rel_prop() {
+async fn delete_mnmt_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnmt_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -826,6 +919,7 @@ async fn delete_mnmt_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234"),
             Some(&json!({"props": {"since": "today"}})),
             None,
             None,
@@ -836,7 +930,7 @@ async fn delete_mnmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -882,25 +976,35 @@ async fn delete_mnmt_rel_by_rel_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnmt_rel_by_dst_prop() {
+async fn delete_mnmt_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnmt_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -930,6 +1034,7 @@ async fn delete_mnmt_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234"),
             Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
             None,
             None,
@@ -940,7 +1045,7 @@ async fn delete_mnmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -986,25 +1091,35 @@ async fn delete_mnmt_rel_by_dst_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnst_rel_by_src_prop() {
+async fn delete_mnmt_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "issues": [
@@ -1026,6 +1141,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "issues": [
@@ -1047,6 +1163,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "issues",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -1057,7 +1174,7 @@ async fn delete_mnst_rel_by_src_prop() {
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -1066,7 +1183,7 @@ async fn delete_mnst_rel_by_src_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -1105,6 +1222,4 @@ async fn delete_mnst_rel_by_src_prop() {
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
-
-    assert!(server.shutdown().is_ok());
 }

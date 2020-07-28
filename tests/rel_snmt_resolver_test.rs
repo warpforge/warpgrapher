@@ -1,26 +1,43 @@
 mod setup;
 
 use serde_json::json;
-use serial_test::serial;
-use setup::server::test_server;
-use setup::{clear_db, init, test_client};
+#[cfg(feature = "cosmos")]
+use setup::cosmos_test_client;
+#[cfg(feature = "neo4j")]
+use setup::neo4j_test_client;
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use setup::{clear_db, init};
+use setup::{AppGlobalCtx, AppRequestCtx};
+use warpgrapher::client::Client;
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn create_snmt_new_rel_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_snmt_new_rel(client).await;
+}
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_snmt_new_rel_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_snmt_new_rel(client).await;
+}
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
-#[allow(clippy::cognitive_complexity)]
-#[tokio::test]
-#[serial]
-async fn create_snmt_new_rel() {
-    init();
-    clear_db();
-
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
-
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_snmt_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
@@ -30,6 +47,7 @@ async fn create_snmt_new_rel() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project One"}),
         )
         .await
@@ -39,9 +57,9 @@ async fn create_snmt_new_rel() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
+            &json!({"props": {"publicized": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -49,15 +67,15 @@ async fn create_snmt_new_rel() {
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("public").unwrap() == true);
+    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
     let b1 = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project One"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -65,12 +83,12 @@ async fn create_snmt_new_rel() {
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("public").unwrap() == false);
+    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -85,12 +103,12 @@ async fn create_snmt_new_rel() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -105,26 +123,36 @@ async fn create_snmt_new_rel() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
-
-    assert!(server.shutdown().is_ok());
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn create_snmt_rel_existing_node() {
+async fn create_snmt_new_existing_node_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    create_snmt_rel_existing_node(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn create_snmt_rel_existing_node_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_snmt_rel_existing_node(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_snmt_rel_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project Zero"}),
         )
         .await
@@ -134,6 +162,7 @@ async fn create_snmt_rel_existing_node() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({"name": "Project One"}),
         )
         .await
@@ -143,6 +172,7 @@ async fn create_snmt_rel_existing_node() {
         .create_node(
             "ScrumBoard",
             "__typename name",
+            Some("1234"),
             &json!({"name": "ScrumBoard Zero"}),
         )
         .await
@@ -152,6 +182,7 @@ async fn create_snmt_rel_existing_node() {
         .create_node(
             "KanbanBoard",
             "__typename name",
+            Some("1234"),
             &json!({"name": "KanbanBoard Zero"}),
         )
         .await
@@ -161,10 +192,10 @@ async fn create_snmt_rel_existing_node() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!({
-                "props": {"public": true}, 
+                "props": {"publicized": true}, 
                 "dst": {"KanbanBoard": {"EXISTING": {"name": "KanbanBoard Zero"}}}
             }))
         .await
@@ -173,16 +204,16 @@ async fn create_snmt_rel_existing_node() {
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("public").unwrap() == true);
+    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
     let b1 = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project One"}),
             &json!({
-                "props": {"public": false}, 
+                "props": {"publicized": false}, 
                 "dst": {"ScrumBoard": {"EXISTING": {"name": "ScrumBoard Zero"}}}
             }))
         .await
@@ -191,12 +222,12 @@ async fn create_snmt_rel_existing_node() {
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("public").unwrap() == false);
+    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -209,12 +240,12 @@ async fn create_snmt_rel_existing_node() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -227,30 +258,40 @@ async fn create_snmt_rel_existing_node() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
-
-    assert!(server.shutdown().is_ok());
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_snmt_rel_by_rel_props() {
+async fn read_snmt_rel_by_rel_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_rel_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_snmt_rel_by_rel_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_rel_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_snmt_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -262,10 +303,11 @@ async fn read_snmt_rel_by_rel_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -277,8 +319,8 @@ async fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
-            Some(&json!({"props": {"public": true}})),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            Some(&json!({"props": {"publicized": true}})),
         )
         .await
         .unwrap();
@@ -292,7 +334,7 @@ async fn read_snmt_rel_by_rel_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -304,8 +346,8 @@ async fn read_snmt_rel_by_rel_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}",
-            Some(&json!({"props": {"public": false}})),
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234"),
+            Some(&json!({"props": {"publicized": false}})),
         )
         .await
         .unwrap();
@@ -319,36 +361,46 @@ async fn read_snmt_rel_by_rel_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_snmt_rel_by_src_props() {
+async fn read_snmt_rel_by_src_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_src_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_snmt_rel_by_src_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_src_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_snmt_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -360,10 +412,11 @@ async fn read_snmt_rel_by_src_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -375,7 +428,7 @@ async fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
         )
         .await
@@ -390,7 +443,7 @@ async fn read_snmt_rel_by_src_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -402,7 +455,7 @@ async fn read_snmt_rel_by_src_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
         )
         .await
@@ -417,36 +470,46 @@ async fn read_snmt_rel_by_src_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn read_snmt_rel_by_dst_props() {
+async fn read_snmt_rel_by_dst_props_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_dst_props(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn read_snmt_rel_by_dst_props_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_snmt_rel_by_dst_props(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_snmt_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -458,10 +521,11 @@ async fn read_snmt_rel_by_dst_props() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -473,7 +537,7 @@ async fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
         )
         .await
@@ -488,7 +552,7 @@ async fn read_snmt_rel_by_dst_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -500,7 +564,7 @@ async fn read_snmt_rel_by_dst_props() {
         .read_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
         )
         .await
@@ -515,36 +579,46 @@ async fn read_snmt_rel_by_dst_props() {
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_snmt_rel_by_rel_prop() {
+async fn update_snmt_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_snmt_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_snmt_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                  "props": {"public": true},
+                  "props": {"publicized": true},
                   "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -556,10 +630,11 @@ async fn update_snmt_rel_by_rel_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                  "props": {"public": false},
+                  "props": {"publicized": false},
                   "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -571,9 +646,9 @@ async fn update_snmt_rel_by_rel_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
-            Some(&json!({"props": {"public": true}})),
-            &json!({"props": {"public": false}}),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            Some(&json!({"props": {"publicized": true}})),
+            &json!({"props": {"publicized": false}}),
         )
         .await
         .unwrap();
@@ -590,10 +665,10 @@ async fn update_snmt_rel_by_rel_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -601,7 +676,7 @@ async fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -615,17 +690,17 @@ async fn update_snmt_rel_by_rel_prop() {
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() != true);
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
 
     let b1 = client
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
-            Some(&json!({"props": {"public": false}})),
-            &json!({"props": {"public": true}}),
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            Some(&json!({"props": {"publicized": false}})),
+            &json!({"props": {"publicized": true}}),
         )
         .await
         .unwrap();
@@ -645,10 +720,10 @@ async fn update_snmt_rel_by_rel_prop() {
         .any(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .any(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -659,7 +734,7 @@ async fn update_snmt_rel_by_rel_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -673,32 +748,42 @@ async fn update_snmt_rel_by_rel_prop() {
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() != false);
-    assert!(board.get("props").unwrap().get("public").unwrap() == true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_snmt_rel_by_src_prop() {
+async fn update_snmt_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_snmt_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_snmt_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -710,10 +795,11 @@ async fn update_snmt_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -725,9 +811,9 @@ async fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
-            &json!({"props": {"public": false}}),
+            &json!({"props": {"publicized": false}}),
         )
         .await
         .unwrap();
@@ -744,10 +830,10 @@ async fn update_snmt_rel_by_src_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
@@ -756,9 +842,9 @@ async fn update_snmt_rel_by_src_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
-            &json!({"props": {"public": true}}),
+            &json!({"props": {"publicized": true}}),
         )
         .await
         .unwrap();
@@ -775,36 +861,46 @@ async fn update_snmt_rel_by_src_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn update_snmt_rel_by_dst_prop() {
+async fn update_snmt_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn update_snmt_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_snmt_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn update_snmt_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                   }
             }),
@@ -816,10 +912,11 @@ async fn update_snmt_rel_by_dst_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                   }
             }),
@@ -831,9 +928,9 @@ async fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
-            &json!({"props": {"public": true}}),
+            &json!({"props": {"publicized": true}}),
         )
         .await
         .unwrap();
@@ -850,10 +947,10 @@ async fn update_snmt_rel_by_dst_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -862,9 +959,9 @@ async fn update_snmt_rel_by_dst_prop() {
         .update_rel(
             "Project",
             "board",
-            "__typename props {public} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}",
+            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
-            &json!({"props": {"public": false}}),
+            &json!({"props": {"publicized": false}}),
         )
         .await
         .unwrap();
@@ -881,36 +978,46 @@ async fn update_snmt_rel_by_dst_prop() {
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() != true));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
     assert!(board
         .iter()
-        .all(|b| b.get("props").unwrap().get("public").unwrap() == false));
+        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_snmt_rel_by_rel_prop() {
+async fn delete_snmt_rel_by_rel_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_rel_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_snmt_rel_by_rel_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_rel_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_snmt_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                      "props": {"public": true},
+                      "props": {"publicized": true},
                       "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                     }
             }),
@@ -922,7 +1029,8 @@ async fn delete_snmt_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "board",
-            Some(&json!({"props": {"public": true}})),
+            Some("1234"),
+            Some(&json!({"props": {"publicized": true}})),
             None,
             None,
         )
@@ -932,7 +1040,7 @@ async fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -952,9 +1060,9 @@ async fn delete_snmt_rel_by_rel_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -963,7 +1071,8 @@ async fn delete_snmt_rel_by_rel_prop() {
         .delete_rel(
             "Project",
             "board",
-            Some(&json!({"props": {"public": false}})),
+            Some("1234"),
+            Some(&json!({"props": {"publicized": false}})),
             None,
             None,
         )
@@ -972,7 +1081,7 @@ async fn delete_snmt_rel_by_rel_prop() {
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -987,29 +1096,39 @@ async fn delete_snmt_rel_by_rel_prop() {
         project.get("board").unwrap(),
         &serde_json::value::Value::Null
     );
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_snmt_rel_by_dst_prop() {
+async fn delete_snmt_rel_by_dst_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_dst_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_snmt_rel_by_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_snmt_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -1021,6 +1140,7 @@ async fn delete_snmt_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234"),
             Some(&json!({"dst": {"KanbanBoard": {"name": "KanbanBoard Zero"}}})),
             None,
             None,
@@ -1031,7 +1151,7 @@ async fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -1051,9 +1171,9 @@ async fn delete_snmt_rel_by_dst_prop() {
         .create_rel(
             "Project",
             "board",
-            "__typename props{public} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}",
+            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"public": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -1062,6 +1182,7 @@ async fn delete_snmt_rel_by_dst_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234"),
             Some(&json!({"dst": {"ScrumBoard": {"name": "ScrumBoard Zero"}}})),
             None,
             None,
@@ -1071,7 +1192,7 @@ async fn delete_snmt_rel_by_dst_prop() {
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -1086,29 +1207,39 @@ async fn delete_snmt_rel_by_dst_prop() {
         project.get("board").unwrap(),
         &serde_json::value::Value::Null
     );
-
-    assert!(server.shutdown().is_ok());
 }
 
-#[allow(clippy::cognitive_complexity)]
+#[cfg(feature = "neo4j")]
 #[tokio::test]
-#[serial]
-async fn delete_mnst_rel_by_src_prop() {
+async fn delete_snmt_rel_by_src_prop_neo4j() {
     init();
-    clear_db();
+    clear_db().await;
 
-    let mut client = test_client();
-    let mut server = test_server("./tests/fixtures/minimal.yml");
-    assert!(server.serve(false).is_ok());
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_src_prop(client).await;
+}
 
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_snmt_rel_by_src_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snmt_rel_by_src_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_snmt_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"public": true},
+                    "props": {"publicized": true},
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -1120,10 +1251,11 @@ async fn delete_mnst_rel_by_src_prop() {
         .create_node(
             "Project",
             "__typename name",
+            Some("1234"),
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"public": false},
+                    "props": {"publicized": false},
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard One"}}}
                 }
             }),
@@ -1135,6 +1267,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
             None,
             None,
@@ -1145,7 +1278,7 @@ async fn delete_mnst_rel_by_src_prop() {
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
         )
         .await
@@ -1154,7 +1287,7 @@ async fn delete_mnst_rel_by_src_prop() {
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -1181,8 +1314,8 @@ async fn delete_mnst_rel_by_src_prop() {
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() != "KanbanBoard");
-    assert!(board.get("props").unwrap().get("public").unwrap() == false);
-    assert!(board.get("props").unwrap().get("public").unwrap() != true);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard One");
     assert!(board.get("dst").unwrap().get("name").unwrap() != "KanbanBoard One");
 
@@ -1190,6 +1323,7 @@ async fn delete_mnst_rel_by_src_prop() {
         .delete_rel(
             "Project",
             "board",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": "Project One"}}})),
             None,
             None,
@@ -1200,7 +1334,7 @@ async fn delete_mnst_rel_by_src_prop() {
     let projects2 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{public} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}",
+            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": "Project One"})),
         )
         .await
@@ -1215,6 +1349,4 @@ async fn delete_mnst_rel_by_src_prop() {
         project.get("board").unwrap(),
         &serde_json::value::Value::Null
     );
-
-    assert!(server.shutdown().is_ok());
 }

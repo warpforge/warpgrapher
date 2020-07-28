@@ -3,14 +3,21 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Quickstart - Warpgrapher Book (v0.1.0)</title>
+        <title>Quickstart - Warpgrapher Book (v0.2.0)</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="../favicon.svg">
         <link rel="shortcut icon" href="../favicon.png">
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "../";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -80,8 +88,8 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html" class="active"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.2.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../warpgrapher/quickstart.html" class="active"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="../.warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="chapter-item expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -90,37 +98,36 @@
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Warpgrapher Book (v0.1.0)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (v0.2.0)</h1>
 
-                        <div class="right-buttons">
-                            <a href="../print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                            
-                        </div>
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -149,14 +156,14 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#quickstart" id="quickstart">Quickstart</a></h1>
-<p>This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. </p>
+<p>This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. The back-end graph database in this example is Neo4J. </p>
 <h2><a class="header" href="#dependencies" id="dependencies">Dependencies</a></h2>
 <p>Add warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
 actix = &quot;0.9.0&quot;
 actix-web = &quot;2.0.0&quot;
-warpgrapher = &quot;0.2.0&quot;
+warpgrapher = { version = &quot;0.2.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <h2><a class="header" href="#config" id="config">Config</a></h2>
 <p>Create a warpgrapher config containing your application's data model. The next section explains the model in more details. </p>
@@ -182,24 +189,26 @@ model:
 <h2><a class="header" href="#code" id="code">Code</a></h2>
 <p>Add the follow code to your project:</p>
 <p><code>src/main.rs</code></p>
-<pre><pre class="playpen"><code class="language-rust">use actix::System;
+<pre><pre class="playground"><code class="language-rust">use actix::System;
 use actix_http::error::Error;
 use actix_web::web::{Data, Json};
 use actix_web::{web, App, HttpResponse, HttpServer};
 use std::collections::HashMap;
-use warpgrapher::{Engine, Config};
-use warpgrapher::engine::neo4j::Neo4jEndpoint;
-use warpgrapher::juniper::http::GraphQLRequest;
-use warpgrapher::juniper::http::playground::playground_source;
+use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::DatabaseEndpoint;
+use warpgrapher::{playground_source, Config, Engine, GraphQLRequest};
 
 #[derive(Clone)]
 struct ActixServerAppData {
     engine: Engine&lt;(), ()&gt;,
 }
 
-async fn graphql(data: Data&lt;ActixServerAppData&gt;, req: Json&lt;GraphQLRequest&gt;) -&gt; Result&lt;HttpResponse, Error&gt; {
+async fn graphql(
+    data: Data&lt;ActixServerAppData&gt;,
+    req: Json&lt;GraphQLRequest&gt;,
+) -&gt; Result&lt;HttpResponse, Error&gt; {
     let metadata: HashMap&lt;String, String&gt; = HashMap::new();
-    let resp = &amp;data.engine.execute(req, metadata);
+    let resp = &amp;data.engine.execute(req.into_inner(), metadata);
     match resp {
         Ok(body) =&gt; Ok(HttpResponse::Ok()
             .content_type(&quot;application/json&quot;)
@@ -213,16 +222,19 @@ async fn graphql(data: Data&lt;ActixServerAppData&gt;, req: Json&lt;GraphQLReque
 #[allow(clippy::ptr_arg)]
 pub fn run_actix_server(engine: Engine&lt;(), ()&gt;) {
     let sys = System::new(&quot;warpgrapher-quickstart&quot;);
-    let app_data = ActixServerAppData { engine: engine };
+    let app_data = ActixServerAppData { engine };
     HttpServer::new(move || {
         App::new()
             .data(app_data.clone())
             .route(&quot;/graphql&quot;, web::post().to(graphql))
-            .route(&quot;/graphiql&quot;, web::get().to(|| {
-                HttpResponse::Ok()
-                    .content_type(&quot;text/html; charset=utf-8&quot;)
-                    .body(playground_source(&amp;&quot;/graphql&quot;))
-            }))
+            .route(
+                &quot;/graphiql&quot;,
+                web::get().to(|| {
+                    HttpResponse::Ok()
+                        .content_type(&quot;text/html; charset=utf-8&quot;)
+                        .body(playground_source(&amp;&quot;/graphql&quot;))
+                }),
+            )
     })
     .bind(&quot;127.0.0.1:5000&quot;)
     .expect(&quot;Failed to start server&quot;)
@@ -231,16 +243,16 @@ pub fn run_actix_server(engine: Engine&lt;(), ()&gt;) {
 }
 
 fn main() -&gt; Result&lt;(), Error&gt; {
-
     // load warpgrapher config
-    let config = Config::from_file(&quot;./src/config.yml&quot;.to_string())
-        .expect(&quot;Failed to load config file&quot;);
+    let config =
+        Config::from_file(&quot;./src/config.yml&quot;.to_string()).expect(&quot;Failed to load config file&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env(&quot;DB_URL&quot;).unwrap();
+    let db = Neo4jEndpoint::from_env().unwrap();
 
     // create warpgrapher engine
-    let engine: Engine&lt;(), ()&gt; = Engine::new(config, db).build()
+    let engine: Engine&lt;(), ()&gt; = Engine::new(config, db.pool().expect(&quot;Failed to build db pool&quot;))
+        .build()
         .expect(&quot;Failed to build engine&quot;);
 
     // serve the warpgrapher engine on actix webserver
@@ -252,12 +264,13 @@ fn main() -&gt; Result&lt;(), Error&gt; {
 </code></pre></pre>
 <h2><a class="header" href="#run" id="run">Run</a></h2>
 <p>Configure database settings:</p>
-<pre><code class="language-bash">export DB_USERNAME=neo4j
-export DB_PASSWORD=password123
-export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
+<pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_PORT=7687
+export WG_NEO4J_USER=neo4j
+export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 </code></pre>
 <p>Start a 3.5 Neo4j database:</p>
-<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${DB_USERNAME}:${DB_PASSWORD}&quot; neo4j:3.5
+<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_NEO4J_USER}:${WG_NEO4J_PASS}&quot; neo4j:4.1
 </code></pre>
 <p>Run quickstart app: </p>
 <pre><code class="language-bash">cargo run
@@ -328,7 +341,7 @@ export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
 }
 </code></pre>
 <h4><a class="header" href="#add-user-to-team" id="add-user-to-team">Add <code>User</code> to <code>Team</code></a></h4>
-<p>GraphQL and Neo4j are all about relationships. Create a <code>users</code> relationship between the <code>Team</code> and <code>User</code> nodes:</p>
+<p>GraphQL and Neo4j are all about relatinships. Create a <code>users</code> relationship between the <code>Team</code> and <code>User</code> nodes:</p>
 <pre><code>mutation {
   TeamUsersCreate(input: {
     match: {
@@ -402,7 +415,7 @@ export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
                         
 
                         
-                            <a rel="next" href="../warpgrapher/config.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../.warpgrapher/databases.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -414,13 +427,13 @@ export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../warpgrapher/intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../warpgrapher/intro.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../warpgrapher/config.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../.warpgrapher/databases.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -433,10 +446,10 @@ export DB_URL=http://${DB_USERNAME}:${DB_PASSWORD}@127.0.0.1:7474/db/data
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

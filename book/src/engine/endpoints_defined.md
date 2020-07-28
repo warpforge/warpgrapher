@@ -40,34 +40,31 @@ endpoints:
 #### 2. Implement endpoint resolver logic
 
 ```rust
-use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+use std::collections::HashMap;
+use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+use warpgrapher::value::Value;
 
 // resolver that returns a Scalar (String)
 fn resolve_getappname(
-  context: ResolverContext<(), ()>
+  context: ResolverFacade<(), ()>
 ) -> ExecutionResult {
 
-  context.resolve_scalar("MyAppName")
+  facade.resolve_scalar("MyAppName")
 }
 
 // resolver that returns a Node (Team)
 fn resolve_getlargestteam(
-  context: ResolverContext<(), ()>
+  facade: ResolverFacade<(), ()>
 ) -> ExecutionResult {
 
   // query database to get team ...
-  let largest_team_node = GraphNode {
-      typename: "Team",
-      props: json!({
-        "name": "Blue Team",
-        "size": 5
-      })
-      .as_object()
-      .unwrap(),
-    }
-  )
+  let mut hm = HashMap::new();
+  hm.insert("name".to_string(), Value::String("Blue Team".to_string()));
+  hm.insert("size".to_string(), Value::Int64(5));
+  
+  let largest_team_node = facade.create_node(("Team", &hm);
 
-  context.resolve_node(larget_team_node)
+  context.resolve_node(&larget_team_node)
 }
 ```
 

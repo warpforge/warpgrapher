@@ -1,10 +1,10 @@
 # Dynamic Props
 
-When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship props are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of props "dynamic props", and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. 
+When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties "dynamic properties", and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. 
 
 ## Usage
 
-#### 1. Mark a props as dynamic by setting the resolver field
+#### 1. Mark a properties as dynamic by setting the resolver field
 
 ```config
 version: 1
@@ -20,13 +20,13 @@ model:
 
 ```rust
 fn resolve_projectpoints(
-    context: ResolverContext<AppGlobalContext, ()>
+    context: ResolverFacade<AppGlobalContext, ()>
 ) -> ExecutionResult {
 
     // compute value ...
     let value = 
     
-    context.resolve_scalar(value)
+    facade.resolve_scalar(value)
 }
 ```
 

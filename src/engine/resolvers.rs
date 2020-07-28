@@ -1,195 +1,414 @@
-use super::context::{GraphQLContext, RequestContext};
-use super::objects::{Input, Node, Object, Rel};
-use super::schema::Info;
-use super::visitors::{
-    visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
-    visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
-    visit_rel_update_input, SuffixGenerator,
-};
-use crate::error::{Error, ErrorKind};
+//! Contains the type aliases, enumerations, and structures to allow for the creation of custom
+//! resolvers.
+
+use crate::engine::context::GraphQLContext;
+use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::objects::{Node, NodeRef, Rel};
+use crate::engine::schema::Info;
+use crate::engine::value::Value;
+use crate::Error;
 use inflector::Inflector;
-use juniper::{Arguments, Executor, FieldError};
-use log::{debug, error, trace};
-use r2d2_cypher::CypherConnectionManager;
-use rusted_cypher::Statement;
-use serde_json::Map;
-use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
+use std::collections::HashMap;
 
-pub use juniper::ExecutionResult;
+pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputValue};
 
-pub type ResolverFunc<GlobalCtx, ReqCtx> =
-    fn(ResolverContext<GlobalCtx, ReqCtx>) -> ExecutionResult;
+/// Wraps a Node or Rel, and provides a type-safe distinction between the two, when passing the
+/// object on which a field is being resolved to the custom resolver.
+#[derive(Debug)]
+pub enum Object<'a, GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+    /// Wraps a [`Node`] being passed to a custom resolver
+    ///
+    /// [`Node`] ../objects/struct.Node.html
+    Node(&'a Node<GlobalCtx, RequestCtx>),
 
-pub type Resolvers<GlobalCtx, ReqCtx> = HashMap<String, Box<ResolverFunc<GlobalCtx, ReqCtx>>>;
-
-#[derive(Clone, Debug)]
-pub struct GraphNode<'a> {
-    pub typename: &'a str,
-    pub props: &'a serde_json::map::Map<String, Value>,
+    /// Wraps a [`Rel`] being passed to a custom resolver
+    ///
+    /// [`Rel`] ../objects/struct.Rel.html
+    Rel(&'a Rel<GlobalCtx, RequestCtx>),
 }
 
-#[derive(Clone, Debug)]
-pub struct GraphRel<'a> {
-    pub id: &'a str,
-    pub props: Option<&'a serde_json::map::Map<String, Value>>,
-    pub dst: GraphNode<'a>,
-}
-
-/// A Warpgrapher ResolverContext.
+/// Type alias for custom resolver functions. Takes a [`ResolverFacade`] and returns an
+/// ExecutionResult.
 ///
-/// The [`ResolverContext`] struct is a collection of arguments and context
-/// structs that are passed as input to a custom resolver.
-pub struct ResolverContext<'a, GlobalCtx, ReqCtx>
+/// [`ResolverFacade`]: ./struct.ResolverFacade.html
+pub type ResolverFunc<GlobalCtx, RequestCtx> =
+    fn(ResolverFacade<GlobalCtx, RequestCtx>) -> ExecutionResult;
+
+/// Type alias for a mapping from a custom resolver name to a the Rust function that implements the
+/// custom resolver.
+pub type Resolvers<GlobalCtx, RequestCtx> =
+    HashMap<String, Box<ResolverFunc<GlobalCtx, RequestCtx>>>;
+
+/// Provides a simplified interface to primitive operations such as Node creation, Rel creation,
+/// resolution of both scalar and complex types. The [`ResolverFacade`] is the primary mechanism
+/// trough which a custom resolver interacts with the rest of the framework.
+///
+/// [`ResolverFacade`]: ./struct.ResolverFacade.html
+pub struct ResolverFacade<'a, GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
-    pub field_name: String,
-    pub info: &'a Info,
-    pub args: &'a Arguments<'a>,
-    pub parent: Object<'a, GlobalCtx, ReqCtx>,
-    pub executor: &'a Executor<'a, GraphQLContext<GlobalCtx, ReqCtx>>,
+    field_name: String,
+    info: &'a Info,
+    args: &'a Arguments<'a>,
+    parent: Object<'a, GlobalCtx, RequestCtx>,
+    partition_key_opt: Option<&'a Value>,
+    executor: &'a Executor<'a, GraphQLContext<GlobalCtx, RequestCtx>>,
 }
 
-impl<'a, GlobalCtx, ReqCtx> ResolverContext<'a, GlobalCtx, ReqCtx>
+impl<'a, GlobalCtx, RequestCtx> ResolverFacade<'a, GlobalCtx, RequestCtx>
 where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
+    GlobalCtx: GlobalContext,
+    RequestCtx: RequestContext,
 {
-    pub fn new(
+    pub(crate) fn new(
         field_name: String,
         info: &'a Info,
         args: &'a Arguments,
-        parent: Object<'a, GlobalCtx, ReqCtx>,
-        executor: &'a Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
+        parent: Object<'a, GlobalCtx, RequestCtx>,
+        partition_key_opt: Option<&'a Value>,
+        executor: &'a Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> Self {
-        ResolverContext {
+        ResolverFacade {
             field_name,
             info,
             args,
             parent,
+            partition_key_opt,
             executor,
         }
     }
 
-    /// Returns a handle to the database from the connection pool.
+    /// Returns a neo4j database driver from the pool.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
+    /// is not found
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     let db = context.get_db()?;
-    ///     // execute db queries
+    /// ```rust, no_run
+    /// # use tokio::runtime::Runtime;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    ///     context.resolve_null()
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let mut rt = Runtime::new().unwrap();
+    ///     rt.block_on(async {
+    ///
+    ///         let neo4j_client = facade.db_into_neo4j().await.unwrap();
+
+    ///         // use client
+    ///
+    ///     });
+    ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn get_db(&self) -> Result<r2d2::PooledConnection<CypherConnectionManager>, FieldError> {
-        self.executor.context().pool.get().map_err(|_| {
-            FieldError::new(
-                "Unable to access database driver pool.",
-                juniper::Value::Null,
-            )
-        })
+    #[cfg(feature = "neo4j")]
+    pub async fn db_into_neo4j(
+        &self,
+    ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
+        let pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
+            self.executor().context().pool().neo4j()?;
+        let client = pool.get().await?;
+        Ok(client)
     }
-    
-    /// Returns the global context, if the global context does not exist,
-    /// it returns a FieldError. 
+
+    /// Returns a cosmos database client from the pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
+    /// is not found
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     let global_context = context.get_global_context()?;
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    ///     // use global_context
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///
-    ///     context.resolve_null()
+    ///     let cosmos_client = facade.db_into_cosmos()?;
+    ///     
+    ///     // use client
+    ///
+    ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn get_global_context(&self) -> Result<&GlobalCtx, FieldError> {
-    // TODO: make mutable
-        match &self.executor.context().global_ctx {
-            None => {
-                error!("Attempted to access non-existing global context");
-                Err(FieldError::new(
-                    "Unable to access global context.",
-                    juniper::Value::Null,
-                ))
-            },
-            Some(ctx) => Ok(ctx)
+    #[cfg(feature = "cosmos")]
+    pub fn db_into_cosmos(&self) -> Result<&gremlin_client::GremlinClient, Error> {
+        let pool: &gremlin_client::GremlinClient = self.executor().context().pool().cosmos()?;
+        Ok(pool)
+    }
+
+    /// Returns the arguments provided to the resolver in the GraphQL query
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let args = facade.args();
+    ///
+    ///     // use arguments
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    pub fn args(&self) -> &Arguments {
+        self.args
+    }
+
+    /// Creates a [`Node`], of a given type, with a set of properites
+    ///
+    /// [`Node`]: ../objects/struct.Node.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let typename = "User";
+    ///
+    ///     let mut props = HashMap::new();
+    ///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+    ///
+    ///     let n = facade.create_node(typename, props);
+    ///
+    ///     facade.resolve_node(&n)
+    /// }
+    /// ```
+    pub fn create_node(
+        &self,
+        typename: &str,
+        props: HashMap<String, Value>,
+    ) -> Node<GlobalCtx, RequestCtx> {
+        Node::new(typename.to_string(), props)
+    }
+
+    /// Creates a [`Rel`], with a id, properties, and destination node id and label. The src node
+    /// of the relationship is the parent node on which the field is being resolved.
+    ///
+    /// # Error
+    ///
+    /// Returns an [`Error`] of variant [`TypeNotExpected`] if the parent object isn't a node
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`TypeNotExpected`]: ../../error/enum.Error.html#variant.TypeNotExpected
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///
+    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///     let mut rel_props = HashMap::new();
+    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///
+    ///     let rel = facade.create_rel(rel_id, Some(rel_props), node_id, "DstNodeLabel")?;
+    ///     facade.resolve_rel(&rel)
+    /// }
+    /// ```
+    pub fn create_rel(
+        &self,
+        id: Value,
+        props: Option<HashMap<String, Value>>,
+        dst_id: Value,
+        dst_label: &str,
+    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+        if let Object::Node(parent_node) = self.parent {
+            Ok(Rel::new(
+                id,
+                self.partition_key_opt.cloned(),
+                props.map(|p| Node::new("props".to_string(), p)),
+                NodeRef::Identifier {
+                    id: parent_node.id()?.clone(),
+                    label: parent_node.type_name().to_string(),
+                },
+                NodeRef::Identifier {
+                    id: dst_id,
+                    label: dst_label.to_string(),
+                },
+            ))
+        } else {
+            Err(Error::TypeNotExpected)
         }
     }
-    
-    /// Returns the request context, if the request context does not exist,
-    /// it returns a FieldError. 
+
+    /// Creates a [`Rel`], with a id, properties, and destination node. The src node of the
+    /// relationship is the parent node on which the field is being resolved.
+    ///
+    /// # Error
+    ///
+    /// Returns an [`Error`] of variant [`TypeNotExpected`] if the parent object isn't a node
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`TypeNotExpected`]: ../../error/enum.Error.html#variant.TypeNotExpected
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     let request_context = context.get_request_context()?;
+    /// ```rust,no_run
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
     ///
-    ///     // use request_context
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///     let typename = "User";
+    ///     let mut props = HashMap::new();
+    ///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+    ///     let n = facade.create_node(typename, props);
     ///
-    ///     context.resolve_null()
+    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///     let mut rel_props = HashMap::new();
+    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///
+    ///     let rel = facade.create_rel_with_dst_node(rel_id, Some(rel_props), n)?;
+    ///     facade.resolve_rel(&rel)
     /// }
     /// ```
-    pub fn get_request_context(&self) -> Result<&ReqCtx, FieldError> {
-    // TODO: make mutable
-        match &self.executor.context().req_ctx {
-            None => {
-                error!("Attempted to access non-existing request context");
-                Err(FieldError::new(
-                    "Unable to access request context.",
-                    juniper::Value::Null,
-                ))
-            },
-            Some(ctx) => Ok(ctx)
+    pub fn create_rel_with_dst_node(
+        &self,
+        id: Value,
+        props: Option<HashMap<String, Value>>,
+        dst: Node<GlobalCtx, RequestCtx>,
+    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+        if let Object::Node(parent_node) = self.parent {
+            Ok(Rel::new(
+                id,
+                self.partition_key_opt.cloned(),
+                props.map(|p| Node::new("props".to_string(), p)),
+                NodeRef::Identifier {
+                    id: parent_node.id()?.clone(),
+                    label: parent_node.type_name().to_string(),
+                },
+                NodeRef::Node(dst),
+            ))
+        } else {
+            Err(Error::TypeNotExpected)
         }
+    }
+
+    /// Returns the [`Info`] struct containing the type schema for the GraphQL model.
+    ///
+    /// [`Info`]: ../schema/struct.Info.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let info = facade.info();
+    ///
+    ///     // use info
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    pub fn info(&self) -> &Info {
+        self.info
+    }
+
+    /// Returns the [`Executor`] struct used to orchestrate calls to resolvers and to marshall
+    /// results into a query response
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::engine::resolvers::{Executor, ExecutionResult};
+    /// # use warpgrapher::engine::resolvers::ResolverFacade;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let exeuctor = facade.executor();
+    ///
+    ///     // use executor
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    pub fn executor(&self) -> &Executor<GraphQLContext<GlobalCtx, RequestCtx>> {
+        self.executor
+    }
+
+    /// Returns the global context
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     if let Some(global_context) = facade.global_context() {
+    ///         // use global_context
+    ///     }
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    pub fn global_context(&self) -> Option<&GlobalCtx> {
+        self.executor.context().global_context()
     }
 
     /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
     ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] of variant [`TypeNotExpected`] if the parent object is not a node
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`TypeNotExpected`]: ../../error/enum.Error.html#variant.TypeNotExpected
+    ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     let parent_node = context.get_parent_node()?;
-    ///     println!("Parent type: {:#?}", parent_node.concrete_typename);
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::objects::GraphQLType;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    ///     context.resolve_null()
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let parent_node = facade.parent_node()?;
+    ///     println!("Parent type: {:#?}",
+    ///         parent_node.concrete_type_name(facade.executor().context(), facade.info()));
+    ///
+    ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn get_parent_node(&self) -> Result<&Node<GlobalCtx, ReqCtx>, FieldError> {
-        match self.parent {
-            Object::Node(n) => Ok(n),
-            _ => {
-                Err(FieldError::new(
-                    "Unable to get parent node",
-                    juniper::Value::Null,
-                ))
-            }
+    pub fn parent_node(&self) -> Result<&Node<GlobalCtx, RequestCtx>, Error> {
+        if let Object::Node(n) = self.parent {
+            Ok(n)
+        } else {
+            Err(Error::TypeNotExpected)
         }
     }
 
     /// Returns a GraphQL Null
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return null
-    ///     context.resolve_null()
+    ///     facade.resolve_null()
     /// }
     /// ```
     pub fn resolve_null(&self) -> ExecutionResult {
@@ -199,14 +418,15 @@ where
     /// Returns a GraphQL Scalar
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
-    ///     context.resolve_scalar("Hello")
+    ///     facade.resolve_scalar("Hello")
     /// }
     /// ```
     pub fn resolve_scalar<T>(&self, v: T) -> ExecutionResult
@@ -219,1341 +439,140 @@ where
     /// Returns a GraphQL Scalar list
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult};
+    /// ```rust, no_run
+    /// use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
-    ///     context.resolve_scalar_list(vec![1, 2, 3])
+    ///     facade.resolve_scalar_list(vec![1, 2, 3])
     /// }
     /// ```
     pub fn resolve_scalar_list<T>(&self, v: Vec<T>) -> ExecutionResult
     where
-        T: std::convert::Into<juniper::DefaultScalarValue> + Clone,
+        T: std::convert::Into<juniper::DefaultScalarValue>,
     {
-        /*
-        //Ok(juniper::Value::scalar::<T>(v))
-        let list : Vec<juniper::Value::Scalar> = v
-            .iter()
-            .map(|v| juniper::Value::Scalar::<T>(v));
-        list
-        */
-        let x = v
-            .iter()
-            .map(|i| juniper::Value::scalar::<T>((*i).clone()))
-            .collect();
+        let x = v.into_iter().map(juniper::Value::scalar::<T>).collect();
         let list = juniper::Value::List(x);
         Ok(list)
-        //Ok(juniper::Value::list(v))
     }
 
-    /// Returns a GraphQL Object representing a graph node defined by
-    /// a type and a map of props.
+    /// Returns a GraphQL Object representing a graph node defined by a type and a map of props.
     ///
     /// # Examples
-    /// ```rust, norun
+    /// ```rust, no_run
     /// use serde_json::json;
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode};
+    /// use std::collections::HashMap;
+    /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
+    ///     let mut hm = HashMap::new();
+    ///     hm.insert("name".to_string(), Value::String("John Doe".to_string()));
+    ///     hm.insert("age".to_string(), Value::Int64(21));
     ///
     ///     // return node
-    ///     context.resolve_node(
-    ///         GraphNode {
-    ///             typename: "User",
-    ///             props: json!({
-    ///                 "name": "John Doe",
-    ///                 "age": 21
-    ///             })
-    ///             .as_object()
-    ///             .unwrap()
-    ///         }
-    ///     )
+    ///     facade.resolve_node(&facade.create_node("User", hm))
     /// }
     /// ```
-    pub fn resolve_node(&self, node: GraphNode) -> ExecutionResult {
+    pub fn resolve_node(&self, node: &Node<GlobalCtx, RequestCtx>) -> ExecutionResult {
         self.executor.resolve(
-            &Info::new(node.typename.to_string(), self.info.type_defs.clone()),
-            &Node::new(node.typename.to_string(), node.props.clone()),
+            &Info::new(node.typename().to_string(), self.info.type_defs()),
+            node,
         )
     }
 
-    /*
-    /// Returns a GraphQL Object array representing graph nodes defined by
-    /// a type and a map of props.
+    /// Returns a GraphQL Object representing a graph relationship defined by an ID, props, and a
+    /// destination Warpgrapher Node.
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use serde_json::json;
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode};
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
+    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
-    ///     // return node list
-    ///     context.resolve_node_list(
-    ///         vec![
-    ///             GraphNode::new(
-    ///                 "User",
-    ///                 json!({
-    ///                     "name": "John Doe",
-    ///                     "age": 21
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             ),
-    ///             GraphNode::new(
-    ///                 "User",
-    ///                 json!({
-    ///                     "name": "Jane Smith",
-    ///                     "age": 22
-    ///                 })
-    ///                 .as_object
-    ///                 .unwrap()
-    ///             )
-    ///         ]
-    ///     })
-    /// }
-    /// ```
-    pub fn resolve_node_list(
-        &self,
-        nodes: Vec<GraphNode>
-    ) -> ExecutionResult {
-
-        let node_list : Vec<Node<GlobalCtx, ReqCtx>> = nodes
-            .iter()
-            .map(|node| {
-                Node::new(
-                    node.typename,
-                    node.props
-                )
-            })
-            .collect();
-
-        // TODO: investigate the effect of returning a list of variable node types
-
-        self.executor.resolve(
-            &Info::new(object_name, self.info.type_defs.clone()),
-            &node_list
-        )
-    }
-    */
-
-    /// Returns a GraphQL Object representing a graph relationship defined by
-    /// an ID, props, and a destination Warpgrapher Node.
-    ///
-    /// # Examples
-    /// ```rust, norun
-    /// use serde_json::json;
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
-    ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
-    ///     // do work
+    ///     let mut hm1 = HashMap::new();
+    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
     ///
     ///     // return rel
-    ///     context.resolve_rel(
-    ///         GraphRel {
-    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
-    ///             props: Some(
-    ///                 json!({
-    ///                     "role": "member",
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             ),
-    ///             dst: GraphNode {
-    ///                 typename: "User",
-    ///                 props: json!({
-    ///                     "name": "Jane Smith",
-    ///                      "age": 24
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             }
-    ///         }
-    ///     )
+    ///     facade.resolve_rel(&facade.create_rel(
+    ///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///         Some(hm1), node_id, "DstNodeLabel")?)
     /// }
     /// ```
-    pub fn resolve_rel(&self, rel: GraphRel) -> ExecutionResult
-    where
-        GlobalCtx: Debug,
-        ReqCtx: Debug + RequestContext,
-    {
-        let id = serde_json::Value::String(rel.id.to_string());
+    pub fn resolve_rel(&self, rel: &Rel<GlobalCtx, RequestCtx>) -> ExecutionResult {
+        let rel_name =
+            self.info.name().to_string() + &self.field_name.to_string().to_title_case() + "Rel";
 
-        let props = match &rel.props {
-            None => None,
-            Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
-        };
-
-        let parent_node = match self.parent {
-            Object::Node(n) => n.to_owned(),
-            _ => {
-                return Err(FieldError::new(
-                    "Invalid parent passed",
-                    juniper::Value::Null,
-                ))
-            }
-        };
-
-        let src = Node::new(
-            parent_node.concrete_typename.clone(),
-            parent_node.fields.clone(),
-        );
-
-        let dst = Node::new(rel.dst.typename.to_string(), rel.dst.props.clone());
-
-        let r = Rel::new(id, props, src, dst);
-
-        let object_name = format!(
-            "{}{}{}",
-            self.info.name.to_owned(),
-            self.field_name.to_owned().to_title_case(),
-            "Rel".to_string()
-        );
         self.executor
-            .resolve(&Info::new(object_name, self.info.type_defs.clone()), &r)
+            .resolve(&Info::new(rel_name, self.info.type_defs()), rel)
     }
 
-    /// Returns a GraphQL Object array representing Warpgrapher Rels defined by
-    /// an ID, props, and a destination Warpgrapher Node.
+    /// Returns a GraphQL Object array representing Warpgrapher Rels defined by an ID, props, and
+    /// a destination Warpgrapher Node.
     ///
     /// # Examples
-    /// ```rust, norun
-    /// use serde_json::json;
-    /// use warpgrapher::engine::resolvers::{ResolverContext, ExecutionResult, GraphNode, GraphRel};
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(context: ResolverContext<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     ///     // do work
     ///
+    ///     let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///     let node_id2 = Value::String("87654321-4321-4321-4321-1234567890ab".to_string());
+    ///
+    ///     let mut hm1 = HashMap::new();
+    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+    ///
+    ///     let mut hm2 = HashMap::new();
+    ///     hm2.insert("role".to_string(), Value::String("leader".to_string()));
+    ///
     ///     // return rel list
-    ///     context.resolve_rel_list(vec![
-    ///         GraphRel {
-    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
-    ///             props: Some(
-    ///                 json!({
-    ///                     "role": "member",
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             ),
-    ///             dst: GraphNode {
-    ///                 typename: "User",
-    ///                 props: json!({
-    ///                     "name": "John Does",
-    ///                     "age": 21
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             }
-    ///         },
-    ///         GraphRel {
-    ///             id: "655c4e13-5075-45ea-97de-b43f800e5854",
-    ///             props: Some(
-    ///                 json!({
-    ///                     "role": "leader",
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             ),
-    ///             dst: GraphNode {
-    ///                 typename: "User",
-    ///                 props: json!({
-    ///                     "name": "Jane Smith",
-    ///                     "age": 24
-    ///                 })
-    ///                 .as_object()
-    ///                 .unwrap()
-    ///             }
-    ///         }
+    ///     facade.resolve_rel_list(vec![
+    ///         &facade.create_rel(
+    ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///             Some(hm1), node_id1, "DstNodeLabel")?,
+    ///         &facade.create_rel(
+    ///             Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///             Some(hm2), node_id2, "DstNodeLabel")?
     ///     ])
     /// }
     /// ```
-    pub fn resolve_rel_list(&self, rels: Vec<GraphRel>) -> ExecutionResult
-    where
-        GlobalCtx: Debug,
-        ReqCtx: Debug + RequestContext,
-    {
-        let object_name = format!(
-            "{}{}{}",
-            self.info.name.to_owned(),
-            self.field_name.to_owned().to_title_case(),
-            "Rel".to_string()
-        );
-        let parent_node = match self.parent {
-            Object::Node(n) => n.to_owned(),
-            _ => {
-                return Err(FieldError::new(
-                    "Invalid parent passed",
-                    juniper::Value::Null,
-                ))
-            }
-        };
+    pub fn resolve_rel_list(&self, rels: Vec<&Rel<GlobalCtx, RequestCtx>>) -> ExecutionResult {
+        let object_name =
+            self.info.name().to_string() + &self.field_name.to_string().to_title_case() + "Rel";
 
-        let rel_list: Vec<Rel<GlobalCtx, ReqCtx>> = rels
-            .iter()
-            .map(|rel| {
-                Rel::new(
-                    serde_json::Value::String(rel.id.to_string()),
-                    match &rel.props {
-                        None => None,
-                        Some(p) => Some(Node::new("props".to_string(), (*p).clone())),
-                    },
-                    Node::new(
-                        parent_node.concrete_typename.clone(),
-                        parent_node.fields.clone(),
-                    ),
-                    Node::new(rel.dst.typename.to_string(), rel.dst.props.clone()),
-                )
-            })
-            .collect();
-
-        self.executor.resolve(
-            &Info::new(object_name, self.info.type_defs.clone()),
-            &rel_list,
-        )
-    }
-}
-
-pub fn resolve_custom_endpoint<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    field_name: &str,
-    parent: Object<GlobalCtx, ReqCtx>,
-    args: &Arguments,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_custom_endpoint called -- field_name: {}, info.name: {:#?}",
-        field_name,
-        info.name,
-    );
-
-    // load resolver function
-    let resolvers = &executor.context().resolvers;
-
-    let func = resolvers.get(field_name).ok_or_else(|| {
-        Error::new(
-            ErrorKind::ResolverNotFound(
-                format!(
-                    "Could not find custom endpoint resolver {field_name}.",
-                    field_name = field_name
-                ),
-                field_name.to_owned(),
-            ),
-            None,
-        )
-    })?;
-
-    // TODO:
-    // pluginHooks
-
-    // results
-    func(ResolverContext::new(
-        field_name.to_string(),
-        info,
-        args,
-        parent,
-        executor,
-    ))
-}
-
-pub fn resolve_custom_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    field_name: &str,
-    resolver: &Option<String>,
-    parent: Object<GlobalCtx, ReqCtx>,
-    args: &Arguments,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_custom_field called -- field_name: {:#?}, info.name: {:#?}",
-        field_name,
-        info.name,
-    );
-
-    let resolvers = &executor.context().resolvers;
-
-    let resolver_name = resolver.as_ref().ok_or_else(|| {
-        Error::new(
-            ErrorKind::FieldMissingResolverError(
-                format!(
-                    "Failed to resolve custom field: {field_name}. Missing resolver name.",
-                    field_name = field_name
-                ),
-                field_name.to_string(),
-            ),
-            None,
-        )
-    })?;
-
-    let func = resolvers.get(resolver_name).ok_or_else(|| {
-        Error::new(
-            ErrorKind::ResolverNotFound(
-                format!(
-                    "Could not find resolver {resolver_name} for field {field_name}.",
-                    resolver_name = resolver_name,
-                    field_name = field_name
-                ),
-                resolver_name.to_owned(),
-            ),
-            None,
-        )
-    })?;
-
-    func(ResolverContext::new(
-        field_name.to_string(),
-        info,
-        args,
-        parent,
-        executor,
-    ))
-}
-
-pub fn resolve_custom_rel<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    rel_name: &str,
-    resolver: &Option<String>,
-    parent: Object<GlobalCtx, ReqCtx>,
-    args: &Arguments,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult
-where
-    GlobalCtx: Debug,
-    ReqCtx: Debug + RequestContext,
-{
-    trace!(
-        "resolve_custom_rel called -- rel_name: {:#?}, info.name: {:#?}",
-        rel_name,
-        info.name,
-    );
-
-    let resolvers = &executor.context().resolvers;
-
-    let resolver_name = resolver.as_ref().ok_or_else(|| {
-        Error::new(
-            ErrorKind::FieldMissingResolverError(
-                format!(
-                    "Failed to resolve custom rel: {rel_name}. Missing resolver name.",
-                    rel_name = rel_name
-                ),
-                rel_name.to_string(),
-            ),
-            None,
-        )
-    })?;
-
-    let func = resolvers.get(resolver_name).ok_or_else(|| {
-        Error::new(
-            ErrorKind::ResolverNotFound(
-                format!(
-                    "Could not find resolver {resolver_name} for rel {rel_name}.",
-                    resolver_name = resolver_name,
-                    rel_name = rel_name
-                ),
-                resolver_name.to_owned(),
-            ),
-            None,
-        )
-    })?;
-
-    func(ResolverContext::new(
-        rel_name.to_string(),
-        info,
-        args,
-        parent,
-        executor,
-    ))
-}
-
-pub fn resolve_node_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_node_create_mutation called -- info.name: {:#?}, field_name: {}",
-        info.name,
-        field_name,
-    );
-
-    let graph = executor.context().pool.get()?;
-    let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-
-    let raw_result = visit_node_create_mutation_input(
-        &p.type_name,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        validators,
-        &mut transaction,
-    );
-
-    if raw_result.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
+        self.executor
+            .resolve(&Info::new(object_name, self.info.type_defs()), &rels)
     }
 
-    let results = raw_result?;
-    trace!("resolve_node_create_mutation Results: {:#?}", results);
-
-    executor.resolve(
-        &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &Node::new(
-            p.type_name.to_owned(),
-            results
-                .rows()
-                .next()
-                .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?
-                .get("n")?,
-        ),
-    )
-}
-
-pub fn resolve_node_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    del_type: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_node_delete_mutation called -- info.name: {:#?}, field_name: {}",
-        info.name,
-        field_name,
-    );
-
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
-    let mut sg = SuffixGenerator::new();
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-
-    let var_suffix = sg.get_suffix();
-
-    let raw_results = visit_node_delete_input(
-        del_type,
-        &var_suffix,
-        &mut sg,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        &mut transaction,
-    );
-    trace!(
-        "resolve_node_delete_mutation Raw results: {:#?}",
-        raw_results
-    );
-
-    if raw_results.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_results?;
-
-    let ret_row = results
-        .rows()
-        .next()
-        .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-    let ret_val = ret_row
-        .get("count")
-        .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
-
-    if let Value::Number(n) = ret_val {
-        if let Some(i_val) = n.as_i64() {
-            executor.resolve_with_ctx(&(), &(i_val as i32))
-        } else {
-            Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-        }
-    } else {
-        Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-    }
-}
-
-pub fn resolve_node_read_query<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    info: &Info,
-    input_opt: Option<Input<GlobalCtx, ReqCtx>>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_node_read_query called -- field_name: {}, info.name: {:#?}, input_opt: {:#?}",
-        field_name,
-        info.name,
-        input_opt
-    );
-
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
-    let mut sg = SuffixGenerator::new();
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-
-    let var_suffix = sg.get_suffix();
-
-    let mut params = BTreeMap::new();
-
-    let query = visit_node_query_input(
-        &p.type_name,
-        &var_suffix,
-        false,
-        true,
-        "",
-        &mut params,
-        &mut sg,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        input_opt.as_ref().map(|i| &i.value),
-    )?;
-
-    let mut statement = Statement::new(query);
-    statement.set_parameters(&params)?;
-    debug!("resolve_node_read_query Query: {:#?}", statement);
-    let raw_results = transaction.exec(statement);
-    debug!("resolve_node_read_query Raw result: {:#?}", raw_results);
-
-    if raw_results.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_results?;
-
-    if p.list {
-        let mut v: Vec<Node<GlobalCtx, ReqCtx>> = Vec::new();
-        for row in results.rows() {
-            v.push(Node::new(
-                p.type_name.to_owned(),
-                row.get(&(p.type_name.to_owned() + &var_suffix))?,
-            ))
-        }
-
-        executor.resolve(
-            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
-        )
-    } else {
-        let row = results
-            .rows()
-            .next()
-            .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-        executor.resolve(
-            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &Node::new(
-                p.type_name.to_owned(),
-                row.get(&(p.type_name.to_owned() + &var_suffix))?,
-            ),
-        )
-    }
-}
-
-pub fn resolve_node_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
-        info.name,
-        field_name,
-        input
-    );
-
-    let graph = executor.context().pool.get()?;
-    let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-
-    let raw_result = visit_node_update_input(
-        &p.type_name,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        validators,
-        &mut transaction,
-    );
-    trace!("resolve_node_update_mutation Raw Result: {:#?}", raw_result);
-
-    if raw_result.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_result?;
-
-    let mut v: Vec<Node<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        v.push(Node::new(p.type_name.to_owned(), row.get("n")?))
-    }
-
-    executor.resolve(
-        &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &v,
-    )
-}
-
-pub fn resolve_object_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    _id_opt: Option<&Value>,
-    info: &Info,
-    input_opt: Option<Input<GlobalCtx, ReqCtx>>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_object_field called -- info.name: {}, field_name: {}, input_opt: {:#?}",
-        info.name,
-        field_name,
-        input_opt
-    );
-
-    let td = info.get_type_def()?;
-    let _p = td.get_prop(field_name)?;
-
-    if td.type_name == "Query" {
-        resolve_node_read_query(field_name, info, input_opt, executor)
-    } else {
-        Err(Error::new(
-            ErrorKind::InvalidPropertyType("To be implemented.".to_owned()),
-            None,
-        )
-        .into())
-    }
-}
-
-pub fn resolve_rel_create_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    src_label: &str,
-    rel_name: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name,
-        field_name,
-        src_label,
-        rel_name, input
-    );
-
-    let graph = executor.context().pool.get()?;
-    let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-    let rtd = info.get_type_def_by_name(&p.type_name)?;
-
-    let raw_result = visit_rel_create_input(
-        src_label,
-        rel_name,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        validators,
-        &mut transaction,
-    );
-
-    if raw_result.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_result?;
-    trace!("resolve_rel_create_mutation Results: {:#?}", results);
-
-    let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        if let Value::Array(labels) = row.get("b_label")? {
-            if let Value::String(dst_type) = &labels[0] {
-                v.push(
-                    Rel::new(
-                        row.get::<Value>("r")?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                            })?
-                            .to_owned(),
-                        match rtd.get_prop("props") {
-                            Ok(pp) => Some(Node::new(pp.type_name.to_owned(), row.get("r")?)),
-                            Err(_e) => None,
-                        },
-                        Node::new(rtd.get_prop("src")?.type_name.to_owned(), row.get("a")?),
-                        Node::new(dst_type.to_string(), row.get("b")?),
-                    ),
-                );
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(String::from("b_label")),
-                    None,
-                )
-                .into());
-            }
-        } else {
-            return Err(Error::new(
-                ErrorKind::InvalidPropertyType(String::from("b_label")),
-                None,
-            )
-            .into());
-        }
-    }
-
-    let mutations = match info.type_defs.get("Mutation") {
-        Some(v) => v,
-        None => {
-            return Err(Error::new(
-                ErrorKind::MissingSchemaElement("Mutation".to_string()),
-                None,
-            )
-            .into());
-        }
-    };
-    let endpoint_td = match mutations.props.get(field_name) {
-        Some(v) => v,
-        None => {
-            return Err(Error::new(
-                ErrorKind::MissingSchemaElement("Mutation".to_string()),
-                None,
-            )
-            .into());
-        }
-    };
-
-    if endpoint_td.list {
-        executor.resolve(
-            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
-        )
-    } else {
-        executor.resolve(
-            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v[0],
-        )
-    }
-}
-
-pub fn resolve_rel_delete_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    src_label: &str,
-    rel_name: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name,
-        field_name,
-        src_label, rel_name, input
-    );
-
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-
-    let raw_results = visit_rel_delete_input(
-        src_label,
-        None,
-        rel_name,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        &mut transaction,
-    );
-    trace!("Raw results: {:#?}", raw_results);
-
-    if raw_results.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_results?;
-
-    let ret_row = results
-        .rows()
-        .next()
-        .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-    let ret_val = ret_row
-        .get("count")
-        .map_err(|_| Error::new(ErrorKind::MissingResultElement("count".to_owned()), None))?;
-
-    if let Value::Number(n) = ret_val {
-        if let Some(i_val) = n.as_i64() {
-            executor.resolve_with_ctx(&(), &(i_val as i32))
-        } else {
-            Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-        }
-    } else {
-        Err(Error::new(ErrorKind::InvalidPropertyType("int".to_owned()), None).into())
-    }
-}
-
-pub fn resolve_rel_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    id_opt: Option<&Value>,
-    rel_name: &str,
-    info: &Info,
-    input_opt: Option<Input<GlobalCtx, ReqCtx>>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_field called -- info.name: {}, field_name: {}, id_opt: {:#?}, rel_name: {}, input_opt: {:#?}",
-        info.name,
-        field_name,
-        id_opt,
-        rel_name,
-        input_opt
-    );
-
-    let td = info.get_type_def()?;
-    let _p = td.get_prop(field_name)?;
-
-    if let Some(Value::String(id)) = id_opt {
-        resolve_rel_read_query(
-            field_name,
-            Some(&[id.to_owned()]),
-            rel_name,
-            info,
-            input_opt,
-            executor,
-        )
-    } else {
-        resolve_rel_read_query(field_name, None, rel_name, info, input_opt, executor)
-    }
-}
-
-pub fn resolve_rel_props<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    field_name: &str,
-    props: &Node<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_props called -- info.name: {:#?}, field_name: {}",
-        info.name,
-        field_name,
-    );
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-
-    executor.resolve(
-        &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        props,
-    )
-}
-
-pub fn resolve_rel_read_query<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    src_ids_opt: Option<&[String]>,
-    rel_name: &str,
-    info: &Info,
-    input_opt: Option<Input<GlobalCtx, ReqCtx>>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, input_opt: {:#?}",
-        info.name,
-        field_name,
-        src_ids_opt,
-        rel_name,
-        input_opt
-    );
-
-    let graph = executor.context().pool.get()?;
-    let mut transaction = graph.transaction().begin()?.0;
-    let mut sg = SuffixGenerator::new();
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-    let rtd = info.get_type_def_by_name(&p.type_name)?;
-    let props_prop = rtd.get_prop("props");
-    let src_prop = rtd.get_prop("src")?;
-    let dst_prop = rtd.get_prop("dst")?;
-
-    let mut params = BTreeMap::new();
-
-    let src_suffix = sg.get_suffix();
-    let dst_suffix = sg.get_suffix();
-
-    let query = visit_rel_query_input(
-        &src_prop.type_name,
-        &src_suffix,
-        src_ids_opt,
-        rel_name,
-        &dst_prop.type_name,
-        &dst_suffix,
-        true,
-        "",
-        &mut params,
-        &mut sg,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        input_opt.as_ref().map(|i| &i.value),
-    )?;
-
-    let mut statement = Statement::new(query);
-    statement.set_parameters(&params)?;
-    debug!("resolve_rel_read_query Query: {:#?}", statement);
-    let raw_results = transaction.exec(statement);
-    debug!("resolve_rel_read_query Raw result: {:#?}", raw_results);
-
-    if raw_results.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_results?;
-    trace!("resolve_rel_read_query Results: {:#?}", results);
-
-    if p.list {
-        let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-
-        for row in results.rows() {
-            if let Value::Array(labels) =
-                row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-            {
-                if let Value::String(dst_type) = &labels[0] {
-                    v.push(Rel::new(
-                        row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingResultElement("id".to_string()), None)
-                            })?
-                            .to_owned(),
-                        match &props_prop {
-                            Ok(p) => Some(Node::new(
-                                p.type_name.to_owned(),
-                                row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-                            )),
-                            Err(_e) => None,
-                        },
-                        Node::new(
-                            src_prop.type_name.to_owned(),
-                            row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-                        ),
-                        Node::new(
-                            dst_type.to_owned(),
-                            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-                        ),
-                    ))
-                } else {
-                    return Err(Error::new(
-                        ErrorKind::InvalidPropertyType(
-                            String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                        ),
-                        None,
-                    )
-                    .into());
-                }
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType(
-                        String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                    ),
-                    None,
-                )
-                .into());
-            };
-        }
-
-        executor.resolve(
-            &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-            &v,
-        )
-    } else {
-        let row = results
-            .rows()
-            .next()
-            .ok_or_else(|| Error::new(ErrorKind::MissingResultSet, None))?;
-
-        if let Value::Array(labels) =
-            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix + "_label"))?
-        {
-            if let Value::String(dst_type) = &labels[0] {
-                executor.resolve(
-                    &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-                    &Rel::new(
-                        row.get::<Value>(&(String::from(rel_name) + &src_suffix + &dst_suffix))?
-                            .get("id")
-                            .ok_or_else(|| {
-                                Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                            })?
-                            .to_owned(),
-                        match props_prop {
-                            Ok(pp) => Some(Node::new(
-                                pp.type_name.to_owned(),
-                                row.get(&(String::from(rel_name) + &src_suffix + &dst_suffix))?,
-                            )),
-                            Err(_e) => None,
-                        },
-                        Node::new(
-                            src_prop.type_name.to_owned(),
-                            row.get(&(String::from(&src_prop.type_name) + &src_suffix))?,
-                        ),
-                        Node::new(
-                            dst_type.to_string(),
-                            row.get(&(String::from(&dst_prop.type_name) + &dst_suffix))?,
-                        ),
-                    ),
-                )
-            } else {
-                Err(Error::new(
-                    ErrorKind::InvalidPropertyType(
-                        String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                    ),
-                    None,
-                )
-                .into())
-            }
-        } else {
-            Err(Error::new(
-                ErrorKind::InvalidPropertyType(
-                    String::from(&dst_prop.type_name) + &dst_suffix + "_label",
-                ),
-                None,
-            )
-            .into())
-        }
-    }
-}
-
-pub fn resolve_rel_update_mutation<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    field_name: &str,
-    src_label: &str,
-    rel_name: &str,
-    info: &Info,
-    input: Input<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name,
-        field_name,
-        src_label, rel_name,
-        input
-    );
-
-    let graph = executor.context().pool.get()?;
-    let validators = &executor.context().validators;
-
-    let mut transaction = graph.transaction().begin()?.0;
-
-    let td = info.get_type_def()?;
-    let p = td.get_prop(field_name)?;
-    let itd = p.get_input_type_definition(info)?;
-    let rtd = info.get_type_def_by_name(&p.type_name)?;
-
-    let raw_result = visit_rel_update_input(
-        src_label,
-        None,
-        rel_name,
-        &Info::new(itd.type_name.to_owned(), info.type_defs.clone()),
-        &input.value,
-        validators,
-        &mut transaction,
-    );
-    trace!("Raw Result: {:#?}", raw_result);
-
-    if raw_result.is_ok() {
-        transaction.commit()?;
-    } else {
-        transaction.rollback()?;
-    }
-
-    let results = raw_result?;
-
-    let mut v: Vec<Rel<GlobalCtx, ReqCtx>> = Vec::new();
-    for row in results.rows() {
-        if let Value::Array(labels) = row.get("b_label")? {
-            if let Value::String(dst_type) = &labels[0] {
-                v.push(Rel::new(
-                    row.get::<Value>("r")?
-                        .get("id")
-                        .ok_or_else(|| {
-                            Error::new(ErrorKind::MissingProperty("id".to_string(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None)
-                        })?
-                        .to_owned(),
-                    match rtd.get_prop("props") {
-                        Ok(pp) => Some(Node::new(pp.type_name.to_owned(), row.get("r")?)),
-                        Err(_e) => None,
-                    },
-                    Node::new(rtd.get_prop("src")?.type_name.to_owned(), row.get("a")?),
-                    Node::new(dst_type.to_string(), row.get("b")?),
-                ))
-            } else {
-                return Err(Error::new(
-                    ErrorKind::InvalidPropertyType("b_label".to_string()),
-                    None,
-                )
-                .into());
-            }
-        } else {
-            return Err(
-                Error::new(ErrorKind::InvalidPropertyType("b_label".to_string()), None).into(),
-            );
-        };
-    }
-
-    executor.resolve(
-        &Info::new(p.type_name.to_owned(), info.type_defs.clone()),
-        &v,
-    )
-}
-
-pub fn resolve_scalar_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    field_name: &str,
-    fields: &Map<String, Value>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_scalar_field called -- info.name: {}, field_name: {}",
-        info.name,
-        field_name,
-    );
-
-    fields.get(field_name).map_or_else(
-        || {
-            if field_name == "id" {
-                Err(Error::new(ErrorKind::MissingProperty("id".to_owned(), Some("This is likely because a custom resolver created a node or rel without an id field.".to_owned())), None).into())
-            } else {
-                executor.resolve_with_ctx(&(), &None::<String>)
-            }
-        },
-        |v| match v {
-            Value::Null => executor.resolve_with_ctx(&(), &None::<String>),
-            Value::Bool(b) => executor.resolve_with_ctx(&(), b),
-            Value::Number(n) => {
-                if let Some(i_val) = n.as_i64() {
-                    executor.resolve_with_ctx(&(), &(i_val as i32))
-                } else if n.is_f64() {
-                    executor.resolve_with_ctx(
-                        &(),
-                        &n.as_f64().ok_or_else(|| {
-                            Error::new(ErrorKind::InvalidPropertyType("f64".to_owned()), None)
-                        })?,
-                    )
-                } else {
-                    Err(Error::new(
-                        ErrorKind::InvalidPropertyType(
-                            "Could not convert numeric type.".to_owned(),
-                        ),
-                        None,
-                    )
-                    .into())
-                }
-            }
-            Value::String(s) => executor.resolve_with_ctx(&(), s),
-            Value::Array(a) => {
-                match &a.get(0) {
-                    None => {
-                        executor.resolve_with_ctx(&(), &(vec![] as Vec<String>))
-                    },
-                    Some(v) if v.is_string() => {
-                        let array : Vec<String> = a.iter().map(|x| x.as_str().unwrap().to_string()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(v) if v.is_boolean() => {
-                        let array : Vec<bool> = a.iter().map(|x| x.as_bool().unwrap()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(v) if v.is_f64() => {
-                        let array : Vec<f64> = a.iter().map(|x| x.as_f64().unwrap()).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    }
-                    Some(v) if v.is_i64() => {
-                        let array : Vec<i32> = a.iter().map(|x| x.as_i64().unwrap() as i32).collect();
-                        executor.resolve_with_ctx(&(), &array)
-                    },
-                    Some(_v) => {
-                        Err(Error::new(
-                            ErrorKind::InvalidPropertyType(
-                                String::from(field_name) + " is a non-scalar array. Expected a scalar or a scalar array.",
-                            ),
-                            None,
-                        )
-                        .into())
-                    }
-                }
-            },
-            Value::Object(_) => Err(Error::new(
-                ErrorKind::InvalidPropertyType(
-                    String::from(field_name) + " is an object. Expected a scalar or a scalar array.",
-                ),
-                None,
-            )
-            .into()),
-        },
-    )
-}
-
-pub fn resolve_static_version_query<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    _info: &Info,
-    _args: &Arguments,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    match &executor.context().version {
-        Some(v) => Ok(juniper::Value::scalar(v.clone())),
-        None => Ok(juniper::Value::Null),
-    }
-}
-
-pub fn resolve_union_field<GlobalCtx: Debug, ReqCtx: Debug + RequestContext>(
-    info: &Info,
-    field_name: &str,
-    src: &Node<GlobalCtx, ReqCtx>,
-    dst: &Node<GlobalCtx, ReqCtx>,
-    executor: &Executor<GraphQLContext<GlobalCtx, ReqCtx>>,
-) -> ExecutionResult {
-    trace!(
-        "resolve_union_field called -- info.name: {}, field_name: {}, src: {}, dst: {}",
-        info.name,
-        field_name,
-        src.concrete_typename,
-        dst.concrete_typename
-    );
-
-    match field_name {
-        "dst" => executor.resolve(
-            &Info::new(dst.concrete_typename.to_owned(), info.type_defs.clone()),
-            dst,
-        ),
-        "src" => executor.resolve(
-            &Info::new(src.concrete_typename.to_owned(), info.type_defs.clone()),
-            src,
-        ),
-        _ => Err(Error::new(
-            ErrorKind::InvalidProperty(String::from(&info.name) + "::" + field_name),
-            None,
-        )
-        .into()),
+    /// Returns the request context
+    ///
+    /// # Examples
+    /// ```rust, no_run
+    ///
+    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    ///
+    /// fn custom_resolve(context: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     if let Some(request_context) = context.request_context() {
+    ///         // use request_context
+    ///     }
+    ///
+    ///     context.resolve_null()
+    /// }
+    /// ```
+    pub fn request_context(&self) -> Option<&RequestCtx> {
+        self.executor.context().request_context()
     }
 }

@@ -14,13 +14,9 @@ mutation {
                 status: "INACTIVE"
             },
             $DELETE: {
-                force: true
             }
         }
     )
     { ... }
 }
 ```
-
-The `force` flag will delete nodes even if they have existing relationships. 
-

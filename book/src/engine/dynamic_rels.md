@@ -1,6 +1,6 @@
 # Dynamic Relationships
 
-Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic rels allows values to be computed at request time. 
+Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. 
 
 ## Usage
 
@@ -22,23 +22,17 @@ model:
 
 ```rust
 fn resolve_project_topcontributor(
-    context: ResolverContext<AppGlobalContext, ()>
+    facade: ResolverFacade<AppGlobalContext, ()>
 ) -> ExecutionResult {
 
     // compute ...
-    let rel = GraphRel {
-        id: "1234567890",
-        props: None,
-        dst: GraphNode {
-            typename: "User",
-            props: json!({
-                "id": "1234567890",
-                "name": "Joe"
-            })
-        }
-    };
+    let mut hm = HashMap::new();
+    hm.insert("id".to_string(), Value::String("1234567890".to_string()));
+    hm.insert("name".to_string(), Value::String("Joe".to_string()));
+
+    let rel = facade.create_rel("1234567890", None, &facade.create_node("User", &hm));
     
-    context.resolve_scalar(rel)
+    facade.resolve_scalar(rel)
 }
 ```
 
