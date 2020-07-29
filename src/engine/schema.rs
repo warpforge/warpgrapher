@@ -1598,7 +1598,7 @@ fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
         },
         fmt_rel_object_name(t, r),
     )
-    .with_list(r.list())
+    .with_list(true)
     .with_arguments(arguments)
 }
 
@@ -3931,7 +3931,7 @@ mod tests {
         });
         assert!(project_owner_create_endpoint.type_name == "ProjectOwnerRel");
         assert!(!project_owner_create_endpoint.required);
-        assert!(!project_owner_create_endpoint.list);
+        assert!(project_owner_create_endpoint.list);
         assert!(project_owner_create_endpoint
             .arguments
             .contains_key("input"));

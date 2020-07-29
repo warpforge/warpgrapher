@@ -631,7 +631,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let result: Vec<Rel<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_create_mutation_with_transaction(
                 field_name,
@@ -658,20 +658,10 @@ impl<'r> Resolver<'r> {
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
-        let mutations = info.type_def_by_name("Mutation")?;
-        let endpoint_td = mutations.property(field_name)?;
-
-        if endpoint_td.list() {
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &result,
-            )
-        } else {
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &result[0],
-            )
-        }
+        executor.resolve(
+            &Info::new(p.type_name().to_owned(), info.type_defs()),
+            &results,
+        )
     }
 
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
