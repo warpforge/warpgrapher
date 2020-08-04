@@ -133,83 +133,6 @@ impl<'r> Resolver<'r> {
         ))
     }
 
-    pub(super) fn resolve_node_by_id<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        &mut self,
-        label: &str,
-        info: &Info,
-        id: Value,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
-            label,
-            id
-        );
-
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
-        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_by_id_with_transaction(
-                label,
-                info,
-                id,
-                &mut CosmosTransaction::new(c.clone()),
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
-                self.resolve_node_by_id_with_transaction(
-                    label,
-                    info,
-                    id,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
-                )
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        executor.resolve(
-            &Info::new(label.to_string(), info.type_defs()),
-            results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
-        )
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    pub(super) fn resolve_node_by_id_with_transaction<GlobalCtx, RequestCtx, T>(
-        &mut self,
-        label: &str,
-        info: &Info,
-        id: Value,
-        transaction: &mut T,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-        T: Transaction,
-    {
-        trace!(
-            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
-            label,
-            id
-        );
-
-        let mut props = HashMap::new();
-        props.insert("id".to_string(), id);
-
-        let (query, params) = transaction.node_query(
-            Vec::new(),
-            HashMap::new(),
-            label,
-            "0",
-            false,
-            true,
-            "0",
-            props,
-        )?;
-        transaction.read_nodes(&query, self.partition_key_opt, Some(params), info)
-    }
-
     pub(super) fn resolve_node_create_mutation<
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -481,10 +404,18 @@ impl<'r> Resolver<'r> {
         let mut sg = SuffixGenerator::new();
 
         let p = info.type_def()?.property(field_name)?;
-        let itd = p.input_type_definition(info)?;
+        let itd = if info.name() == "Query" {
+            p.input_type_definition(info)?
+        } else {
+            info.type_def_by_name("Query")?
+                .property(p.type_name())?
+                .input_type_definition(&info)?
+        };
         let suffix = sg.suffix();
 
-        transaction.begin()?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin()?;
+        }
         let (query, params) = visit_node_query_input(
             &p.type_name(),
             &suffix,
@@ -503,10 +434,12 @@ impl<'r> Resolver<'r> {
             results
         );
 
-        if results.is_ok() {
-            transaction.commit()?;
-        } else {
-            transaction.rollback()?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            if results.is_ok() {
+                transaction.commit()?;
+            } else {
+                transaction.rollback()?;
+            }
         }
 
         results
@@ -706,6 +639,7 @@ impl<'r> Resolver<'r> {
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(p.type_name())?;
 
+        transaction.begin()?;
         let result = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             rel_name,
@@ -804,6 +738,7 @@ impl<'r> Resolver<'r> {
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
+        transaction.begin()?;
         let results = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,
@@ -948,6 +883,9 @@ impl<'r> Resolver<'r> {
         let src_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
 
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin()?;
+        }
         let (query, params) = visit_rel_query_input(
             &src_prop.type_name(),
             &src_suffix,
@@ -975,10 +913,12 @@ impl<'r> Resolver<'r> {
             Some(params),
         );
 
-        if results.is_ok() {
-            transaction.commit()?;
-        } else {
-            transaction.rollback()?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            if results.is_ok() {
+                transaction.commit()?;
+            } else {
+                transaction.rollback()?;
+            }
         }
 
         results
@@ -1074,6 +1014,7 @@ impl<'r> Resolver<'r> {
         let props_prop = rtd.property("props");
         let _src_prop = rtd.property("src")?;
 
+        transaction.begin()?;
         let results = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
             src_label,
             None,

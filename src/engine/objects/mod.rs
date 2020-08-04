@@ -613,6 +613,7 @@ where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn id(&self) -> Result<&Value, Error> {
         match self {
             NodeRef::Identifier { id, label: _ } => Ok(&id),
@@ -807,8 +808,11 @@ where
                 None => Err(Error::TypeNotExpected.into()),
             },
             (PropertyKind::Object, &"src") => match &self.src_ref {
-                NodeRef::Identifier { id, label } => {
-                    resolver.resolve_node_by_id(label, info, id.clone(), executor)
+                NodeRef::Identifier { id, label: _ } => {
+                    let mut hm = HashMap::new();
+                    hm.insert("id".to_string(), id.clone());
+                    let input = Input::new(Value::Map(hm));
+                    resolver.resolve_node_read_query(field_name, info, Some(input), executor)
                 }
                 NodeRef::Node(n) => {
                     executor.resolve(&Info::new(n.type_name().clone(), info.type_defs()), &n)
