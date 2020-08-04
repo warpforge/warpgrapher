@@ -510,13 +510,22 @@ where
                 resolver.resolve_node_read_query(field_name, info, input_opt, executor)
             }
             PropertyKind::Rel { rel_name } => {
-                let ids_opt = match sn {
-                    "Mutation" | "Query" => None,
-                    _ => Some(vec![self.id()?.clone()]),
+                let io = match sn {
+                    "Mutation" | "Query" => input_opt,
+                    _ => {
+                        let mut src_node = HashMap::new();
+                        src_node.insert("id".to_string(), self.id()?.clone());
+                        let mut src = HashMap::new();
+                        src.insert(
+                            info.type_def()?.type_name().to_string(),
+                            Value::Map(src_node),
+                        );
+                        let mut hm = HashMap::new();
+                        hm.insert("src".to_string(), Value::Map(src));
+                        Some(Input::new(Value::Map(hm)))
+                    }
                 };
-                resolver.resolve_rel_read_query(
-                    field_name, ids_opt, &rel_name, info, input_opt, executor,
-                )
+                resolver.resolve_rel_read_query(field_name, &rel_name, info, io, executor)
             }
             PropertyKind::RelCreateMutation {
                 src_label,

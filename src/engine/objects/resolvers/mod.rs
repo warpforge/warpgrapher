@@ -783,17 +783,15 @@ impl<'r> Resolver<'r> {
     pub(super) fn resolve_rel_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
-        src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
         executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name(),
         field_name,
-        src_ids_opt,
         rel_name,
         self.partition_key_opt,
         input_opt
@@ -807,7 +805,6 @@ impl<'r> Resolver<'r> {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
                 field_name,
-                src_ids_opt,
                 rel_name,
                 info,
                 input_opt,
@@ -818,7 +815,6 @@ impl<'r> Resolver<'r> {
                 let c = runtime.block_on(p.get())?;
                 self.resolve_rel_read_query_with_transaction(
                     field_name,
-                    src_ids_opt,
                     rel_name,
                     info,
                     input_opt,
@@ -850,7 +846,6 @@ impl<'r> Resolver<'r> {
     pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
-        src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
@@ -862,10 +857,9 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         trace!(
-        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name(),
         field_name,
-        src_ids_opt,
         rel_name,
         self.partition_key_opt,
         input_opt
@@ -889,7 +883,7 @@ impl<'r> Resolver<'r> {
         let (query, params) = visit_rel_query_input(
             &src_prop.type_name(),
             &src_suffix,
-            src_ids_opt,
+            None,
             rel_name,
             &dst_prop.type_name(),
             &dst_suffix,
