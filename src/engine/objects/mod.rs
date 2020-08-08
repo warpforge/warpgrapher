@@ -617,20 +617,6 @@ pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Node(Node<GlobalCtx, RequestCtx>),
 }
 
-impl<GlobalCtx, RequestCtx> NodeRef<GlobalCtx, RequestCtx>
-where
-    GlobalCtx: GlobalContext,
-    RequestCtx: RequestContext,
-{
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    pub(crate) fn id(&self) -> Result<&Value, Error> {
-        match self {
-            NodeRef::Identifier { id, label: _ } => Ok(&id),
-            NodeRef::Node(n) => n.id(),
-        }
-    }
-}
-
 /// Represents a relationship in the graph data structure for auto-generated CRUD operations and
 /// custom resolvers.
 ///
@@ -690,21 +676,6 @@ where
             _gctx: PhantomData,
             _rctx: PhantomData,
         }
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn dst_id(&self) -> Result<&Value, Error> {
-        self.dst_ref.id()
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn id(&self) -> &Value {
-        &self.id
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn src_id(&self) -> Result<&Value, Error> {
-        self.src_ref.id()
     }
 }
 

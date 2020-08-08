@@ -118,17 +118,50 @@ pub trait DatabaseEndpoint {
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
-    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    #[allow(clippy::too_many_arguments)]
+    fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
+        query: String,
+        params: HashMap<String, Value>,
         label: &str,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
+    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        label: &str,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        src_query: String,
+        params: HashMap<String, Value>,
+        src_var: &str,
+        dst_query: &str,
+        src_label: &str,
+        dst_label: &str,
+        dst_var: &str,
+        rel_name: &str,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
 
     #[allow(clippy::too_many_arguments)]
     fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
+        query: String,
+        params: HashMap<String, Value>,
         src_label: &str,
         src_ids: Vec<Value>,
         dst_label: &str,
@@ -141,78 +174,141 @@ pub(crate) trait Transaction {
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn node_query(
+    fn node_read_query(
         &mut self,
+        query: String,
         rel_query_fragments: Vec<String>,
         params: HashMap<String, Value>,
         label: &str,
-        var_suffix: &str,
+        node_suffix: &str,
         union_type: bool,
-        return_node: bool,
+        return_node: Option<&str>,
         param_suffix: &str,
-        props: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    #[allow(clippy::too_many_arguments)]
-    fn rel_query(
-        &mut self,
-        params: HashMap<String, Value>,
-        src_label: &str,
-        src_suffix: &str,
-        src_ids_opt: Option<Vec<Value>>,
-        src_query: Option<String>,
-        rel_name: &str,
-        dst_var: &str,
-        dst_suffix: &str,
-        dst_query: Option<String>,
-        return_rel: bool,
         props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: &str,
+        query: String,
         partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
+    #[allow(clippy::too_many_arguments)]
+    fn rel_read_query(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        src_label: &str,
+        src_var: &str,
+        src_query: Option<String>,
+        rel_name: &str,
+        rel_suffix: &str,
+        dst_var: &str,
+        dst_suffix: &str,
+        dst_query_opt: Option<String>,
+        return_rel: bool,
+        props: HashMap<String, Value>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
     fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: &str,
+        query: String,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
-    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    #[allow(clippy::too_many_arguments)]
+    fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        label: &str,
+        query: String,
+        params: HashMap<String, Value>,
+        node_suffix: &str,
         ids: Vec<Value>,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
+    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        label: &str,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
+    #[allow(clippy::too_many_arguments)]
+    fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        src_label: &str,
+        src_suffix: &str,
+        rel_name: &str,
+        rel_suffix: &str,
+        rel_var: &str,
+        dst_suffix: &str,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
+    #[allow(clippy::too_many_arguments)]
     fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
+        query: String,
+        params: HashMap<String, Value>,
         src_label: &str,
         rel_name: &str,
         rel_ids: Vec<Value>,
-        props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
+    #[allow(clippy::too_many_arguments)]
+    fn node_delete_query(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        node_var: &str,
+        label: &str,
+        ids: Vec<Value>,
+        partition_key_opt: Option<&Value>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
     fn delete_nodes(
         &mut self,
+        query: String,
+        params: HashMap<String, Value>,
         label: &str,
         ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
+    #[allow(clippy::too_many_arguments)]
+    fn rel_delete_query(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+        src_label: &str,
+        rel_name: &str,
+        rel_suffix: &str,
+        partition_key_opt: Option<&Value>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
     fn delete_rels(
         &mut self,
+        query: String,
+        params: HashMap<String, Value>,
         src_label: &str,
         rel_name: &str,
         rel_ids: Vec<Value>,
@@ -222,4 +318,20 @@ pub(crate) trait Transaction {
     fn commit(&mut self) -> Result<(), Error>;
 
     fn rollback(&mut self) -> Result<(), Error>;
+}
+
+#[derive(Default)]
+pub(crate) struct SuffixGenerator {
+    seed: i32,
+}
+
+impl SuffixGenerator {
+    pub(crate) fn new() -> SuffixGenerator {
+        SuffixGenerator { seed: -1 }
+    }
+
+    pub(crate) fn suffix(&mut self) -> String {
+        self.seed += 1;
+        "_".to_string() + &self.seed.to_string()
+    }
 }
