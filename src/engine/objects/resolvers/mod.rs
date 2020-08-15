@@ -4,9 +4,9 @@ use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
 use crate::engine::database::cosmos::CosmosTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::engine::database::Transaction;
 use crate::engine::database::{DatabasePool, SuffixGenerator};
+#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+use crate::engine::database::{ReturnClause, Transaction};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -203,12 +203,15 @@ impl<'r> Resolver<'r> {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
+        let node_var = "node".to_string() + &sg.suffix();
 
         transaction.begin()?;
         let (query, params) = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-            String::new(),
+            T::query_start(),
             HashMap::new(),
+            &node_var,
             &p.type_name(),
+            ReturnClause::Query("node".to_string()),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
@@ -307,7 +310,7 @@ impl<'r> Resolver<'r> {
             String::new(),
             HashMap::new(),
             label,
-            &suffix,
+            &("node".to_string() + &suffix),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
@@ -346,6 +349,7 @@ impl<'r> Resolver<'r> {
         let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_node_read_query_with_transaction(
+                "g".to_string(),
                 field_name,
                 info,
                 input_opt,
@@ -355,6 +359,7 @@ impl<'r> Resolver<'r> {
             DatabasePool::Neo4j(p) => {
                 let c = runtime.block_on(p.get())?;
                 self.resolve_node_read_query_with_transaction(
+                    String::new(),
                     field_name,
                     info,
                     input_opt,
@@ -385,6 +390,7 @@ impl<'r> Resolver<'r> {
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_node_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
+        query: String,
         field_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
@@ -405,18 +411,19 @@ impl<'r> Resolver<'r> {
                 .property(p.type_name())?
                 .input_type_definition(&info)?
         };
-        let suffix = sg.suffix();
+        let node_var = "node".to_string() + &sg.suffix();
 
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
         let (query, params) = visit_node_query_input(
-            String::new(),
+            query,
             HashMap::new(),
             p.type_name(),
-            &("node".to_string() + &suffix),
+            &node_var,
+            true,
             false,
-            Some("node"),
+            ReturnClause::Query(node_var.to_string()),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input_opt.map(|i| i.value),
@@ -511,7 +518,7 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let (query, params) = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
-            String::new(),
+            T::query_start(),
             HashMap::new(),
             &node_var,
             &p.type_name(),
@@ -739,7 +746,6 @@ impl<'r> Resolver<'r> {
             String::new(),
             HashMap::new(),
             src_label,
-            None,
             rel_name,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -811,6 +817,7 @@ impl<'r> Resolver<'r> {
         let results: Vec<Rel<GlobalCtx, RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
+                "g".to_string(),
                 field_name,
                 rel_name,
                 info,
@@ -821,6 +828,7 @@ impl<'r> Resolver<'r> {
             DatabasePool::Neo4j(p) => {
                 let c = runtime.block_on(p.get())?;
                 self.resolve_rel_read_query_with_transaction(
+                    String::new(),
                     field_name,
                     rel_name,
                     info,
@@ -852,6 +860,7 @@ impl<'r> Resolver<'r> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
+        query: String,
         field_name: &str,
         rel_name: &str,
         info: &Info,
@@ -880,7 +889,7 @@ impl<'r> Resolver<'r> {
             transaction.begin()?;
         }
         let (query, params) = visit_rel_query_input(
-            String::new(),
+            query,
             HashMap::new(),
             &src_prop.type_name(),
             &("src".to_string() + &src_suffix),
@@ -888,6 +897,7 @@ impl<'r> Resolver<'r> {
             &rel_suffix,
             &("dst".to_string() + &dst_suffix), //dst_prop.type_name(),
             &dst_suffix,
+            ReturnClause::Query(rel_name.to_string()),
             true,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -1004,6 +1014,7 @@ impl<'r> Resolver<'r> {
             src_label,
             None,
             rel_name,
+            true,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
@@ -1127,6 +1138,7 @@ impl<'r> Resolver<'r> {
         let results: Vec<Node<GlobalCtx, RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_union_field_with_transaction(
+                "g".to_string(),
                 info,
                 dst_label,
                 field_name,
@@ -1137,6 +1149,7 @@ impl<'r> Resolver<'r> {
             DatabasePool::Neo4j(p) => {
                 let c = runtime.block_on(p.get())?;
                 self.resolve_union_field_with_transaction(
+                    String::new(),
                     info,
                     dst_label,
                     field_name,
@@ -1171,6 +1184,7 @@ impl<'r> Resolver<'r> {
     #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(super) fn resolve_union_field_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
+        query: String,
         info: &Info,
         dst_label: &str,
         field_name: &str,
@@ -1186,16 +1200,18 @@ impl<'r> Resolver<'r> {
 
         match field_name {
             "dst" => {
+                let node_var = "node".to_string() + &sg.suffix();
                 let mut props = HashMap::new();
                 props.insert("id".to_string(), dst_id.clone());
                 let (query, params) = transaction.node_read_query(
-                    "".to_string(),
+                    query,
                     Vec::new(),
                     HashMap::new(),
                     dst_label,
-                    &("node".to_string() + &sg.suffix()),
+                    &node_var,
+                    true,
                     false,
-                    Some("node"),
+                    ReturnClause::Query(node_var.to_string()),
                     "",
                     props,
                 )?;

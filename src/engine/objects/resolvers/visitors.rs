@@ -1,5 +1,5 @@
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::database::Transaction;
+use crate::engine::database::{ReturnClause, Transaction};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
@@ -12,7 +12,9 @@ use std::collections::HashMap;
 pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
     query: String,
     params: HashMap<String, Value>,
+    node_var: &str,
     label: &str,
+    return_clause: ReturnClause,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -63,64 +65,85 @@ where
             },
         )?;
 
-        let (query, params) = transaction.node_create_query::<GlobalCtx, RequestCtx>(
+        let (rel_create_fragments, params) = inputs.into_iter().try_fold(
+            (Vec::new(), params),
+            |(mut rel_create_fragments, params),
+             (k, v)|
+             -> Result<(Vec<String>, HashMap<String, Value>), Error> {
+                let p = itd.property(&k)?;
+
+                let (rel_create_fragments, params) = match p.kind() {
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                        Ok((rel_create_fragments, params))
+                    } // Handled earlier
+                    PropertyKind::Input => {
+                        if let Value::Array(input_array) = v {
+                            input_array.into_iter().try_fold(
+                                (rel_create_fragments, params),
+                                |(mut rel_create_fragments, params), val| {
+                                    let (fragment, params) = visit_rel_create_mutation_input::<
+                                        T,
+                                        GlobalCtx,
+                                        RequestCtx,
+                                    >(
+                                        String::new(),
+                                        params,
+                                        label,
+                                        &node_var,
+                                        p.name(),
+                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                        partition_key_opt,
+                                        val,
+                                        validators,
+                                        None,
+                                        ReturnClause::SubQuery("rel".to_string() + &sg.suffix()),
+                                        transaction,
+                                        sg,
+                                    )?;
+                                    rel_create_fragments.push(fragment);
+                                    Ok((rel_create_fragments, params))
+                                },
+                            )
+                        } else {
+                            let (fragment, params) =
+                                visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                                    String::new(),
+                                    params,
+                                    label,
+                                    &node_var,
+                                    p.name(),
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    v,
+                                    validators,
+                                    None,
+                                    ReturnClause::None,
+                                    transaction,
+                                    sg,
+                                )?;
+                            rel_create_fragments.push(fragment);
+                            Ok((rel_create_fragments, params))
+                        }
+                    }
+                    _ => Err(Error::TypeNotExpected),
+                }?;
+
+                Ok((rel_create_fragments, params))
+            },
+        )?;
+
+        transaction.node_create_query::<GlobalCtx, RequestCtx>(
             query,
+            rel_create_fragments,
             params,
+            &node_var,
             label,
+            return_clause,
             partition_key_opt,
             props,
             info,
             sg,
-        )?;
-        // let ids = vec![node.id()?.clone()];
-
-        inputs.into_iter().try_for_each(|(k, v)| {
-            let p = itd.property(&k)?;
-
-            match p.kind() {
-                PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok(()), // Handled earlier
-                PropertyKind::Input => {
-                    if let Value::Array(input_array) = v {
-                        input_array.into_iter().try_for_each(|val| {
-                            visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                                query.clone(),
-                                params.clone(),
-                                label,
-                                "",
-                                p.name(),
-                                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
-                                val,
-                                validators,
-                                None,
-                                transaction,
-                                sg,
-                            )
-                            .map(|_| ())
-                        })
-                    } else {
-                        visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                            query.clone(),
-                            params.clone(),
-                            label,
-                            "",
-                            p.name(),
-                            &Info::new(p.type_name().to_owned(), info.type_defs()),
-                            partition_key_opt,
-                            v,
-                            validators,
-                            None,
-                            transaction,
-                            sg,
-                        )
-                        .map(|_| ())
-                    }
-                }
-                _ => Err(Error::TypeNotExpected),
-            }
-        })?;
-
-        Ok((query, params))
+        )
     } else {
         Err(Error::TypeNotExpected)
     }
@@ -155,8 +178,9 @@ where
             HashMap::new(),
             label,
             node_var,
+            true,
             false,
-            None,
+            ReturnClause::SubQuery(node_var.to_string()),
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -172,7 +196,6 @@ where
             params,
             node_var,
             label,
-            Vec::new(),
             &Info::new(
                 itd.property("delete")?.type_name().to_owned(),
                 info.type_defs(),
@@ -198,7 +221,6 @@ fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
-    ids: Vec<Value>,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
@@ -234,7 +256,6 @@ where
                                         query,
                                         params,
                                         label,
-                                        Some(ids.clone()),
                                         &k,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
@@ -249,7 +270,6 @@ where
                                 query,
                                 params,
                                 label,
-                                Some(ids.clone()),
                                 &k,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
@@ -284,7 +304,7 @@ fn visit_node_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
-    return_node: Option<&str>,
+    _return_clause: ReturnClause,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -320,7 +340,9 @@ where
             "NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 query,
                 params,
+                node_var,
                 label,
+                ReturnClause::SubQuery(node_var.to_string()),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 v,
@@ -334,9 +356,10 @@ where
                     query,
                     params,
                     label,
-                    &node_var,
+                    node_var,
+                    true,
                     false,
-                    return_node,
+                    ReturnClause::SubQuery(node_var.to_string()),
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                     partition_key_opt,
                     Some(v),
@@ -359,8 +382,9 @@ pub(super) fn visit_node_query_input<T>(
     params: HashMap<String, Value>,
     label: &str,
     node_var: &str,
+    name_node: bool,
     union_type: bool,
-    return_var: Option<&str>,
+    return_clause: ReturnClause,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
@@ -371,9 +395,16 @@ where
     T: Transaction,
 {
     trace!(
-             "visit_node_query_input called -- query: {}, params: {:#?}, label: {}, node_var: {}, union_type: {}, return_var: {:#?}, info.name: {}, input: {:#?}",
-             query, params, label, node_var, union_type, return_var, info.name(), input,
-         );
+        "visit_node_query_input called -- query: {}, params: {:#?}, label: {}, node_var: {}, union_type: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
+        query,
+        params,
+        label,
+        node_var,
+        union_type,
+        return_clause,
+        info.name(),
+        input,
+    );
     let itd = info.type_def()?;
     let param_suffix = sg.suffix();
     let dst_suffix = sg.suffix();
@@ -400,6 +431,7 @@ where
                             &rel_suffix,
                             &("dst".to_string() + &dst_suffix),
                             &dst_suffix,
+                            ReturnClause::None,
                             false,
                             &Info::new(p.type_name().to_owned(), info.type_defs()),
                             partition_key_opt,
@@ -418,8 +450,9 @@ where
             params,
             label,
             node_var,
+            name_node,
             union_type,
-            return_var,
+            return_clause,
             &param_suffix,
             props,
         )
@@ -430,8 +463,9 @@ where
             params,
             label,
             node_var,
+            name_node,
             union_type,
-            return_var,
+            return_clause,
             &param_suffix,
             props,
         )
@@ -475,8 +509,9 @@ where
             HashMap::new(),
             label,
             &node_var,
+            true,
             false,
-            None,
+            ReturnClause::SubQuery(node_var.to_string()),
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -572,63 +607,64 @@ where
             },
         )?;
 
-        let (query, params) = transaction.node_update_query::<GlobalCtx, RequestCtx>(
-            query,
+        let (change_query, params) =
+            inputs
+                .into_iter()
+                .try_fold((query, params), |(query, params), (k, v)| {
+                    let p = itd.property(&k)?;
+
+                    match p.kind() {
+                        PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((query, params)), // Properties handled above
+                        PropertyKind::Input => {
+                            if let Value::Array(input_array) = v {
+                                input_array.into_iter().try_fold(
+                                    (query, params),
+                                    |(query, params), val| {
+                                        visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
+                                            query,
+                                            params,
+                                            label,
+                                            Vec::new(),
+                                            &k,
+                                            &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                            partition_key_opt,
+                                            val,
+                                            validators,
+                                            transaction,
+                                            sg,
+                                        )
+                                    },
+                                )
+                            } else {
+                                visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
+                                    query,
+                                    params,
+                                    label,
+                                    Vec::new(),
+                                    &k,
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    v,
+                                    validators,
+                                    transaction,
+                                    sg,
+                                )
+                            }
+                        }
+                        _ => Err(Error::TypeNotExpected),
+                    }
+                })?;
+
+        transaction.node_update_query::<GlobalCtx, RequestCtx>(
+            change_query,
             params,
-            node_suffix,
-            Vec::new(),
+            label,
+            &("node".to_string() + node_suffix),
             props,
             partition_key_opt,
             info,
             sg,
-        )?;
-
-        inputs
-            .into_iter()
-            .try_fold((query, params), |(query, params), (k, v)| {
-                let p = itd.property(&k)?;
-
-                match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((query, params)), // Properties handled above
-                    PropertyKind::Input => {
-                        if let Value::Array(input_array) = v {
-                            input_array.into_iter().try_fold(
-                                (query, params),
-                                |(query, params), val| {
-                                    visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                        query,
-                                        params,
-                                        label,
-                                        Vec::new(),
-                                        &k,
-                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
-                                        val,
-                                        validators,
-                                        transaction,
-                                        sg,
-                                    )
-                                },
-                            )
-                        } else {
-                            visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                query,
-                                params,
-                                label,
-                                Vec::new(),
-                                &k,
-                                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
-                                v,
-                                validators,
-                                transaction,
-                                sg,
-                            )
-                        }
-                    }
-                    _ => Err(Error::TypeNotExpected),
-                }
-            })
+        )
     } else {
         Err(Error::TypeNotExpected)
     }
@@ -681,6 +717,7 @@ where
                 v,
                 validators,
                 None,
+                ReturnClause::None,
                 transaction,
                 sg,
             )
@@ -690,7 +727,6 @@ where
                 query,
                 params,
                 src_label,
-                Some(src_ids),
                 rel_name,
                 &Info::new(
                     itd.property("DELETE")?.type_name().to_owned(),
@@ -709,6 +745,7 @@ where
                 src_label,
                 Some(src_ids),
                 rel_name,
+                false,
                 &Info::new(
                     itd.property("UPDATE")?.type_name().to_owned(),
                     info.type_defs(),
@@ -769,8 +806,9 @@ where
             params,
             src_label,
             &src_var,
+            true,
             false,
-            None,
+            ReturnClause::None,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -808,6 +846,7 @@ where
                 create_input,
                 validators,
                 props_type_name,
+                ReturnClause::Query(rel_name.to_string()),
                 transaction,
                 sg,
             ),
@@ -828,6 +867,7 @@ where
                         create_input_value,
                         validators,
                         props_type_name,
+                        ReturnClause::Query(rel_name.to_string()),
                         transaction,
                         sg,
                     )
@@ -852,6 +892,7 @@ fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     validators: &Validators,
     props_type_name: Option<&str>,
+    return_clause: ReturnClause,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
 ) -> Result<(String, HashMap<String, Value>), Error>
@@ -880,7 +921,7 @@ where
                 name: "dst".to_string(),
             })?;
         let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
-            "".to_string(),
+            String::new(), //".V()".to_string(),
             params,
             &dst_var,
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
@@ -908,6 +949,7 @@ where
             rel_name,
             props,
             props_type_name,
+            return_clause,
             partition_key_opt,
             info,
             sg,
@@ -922,7 +964,6 @@ pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
     query: String,
     params: HashMap<String, Value>,
     src_label: &str,
-    src_ids_opt: Option<Vec<Value>>,
     rel_name: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -936,11 +977,10 @@ where
     T: Transaction,
 {
     trace!(
-         "visit_rel_delete_input called -- query: {}, params: {:#?}, src_label {}, src_ids_opt {:#?}, rel_name {}, info.name: {}, input: {:#?}",
+         "visit_rel_delete_input called -- query: {}, params: {:#?}, src_label {}, rel_name {}, info.name: {}, input: {:#?}",
          query,
          params,
          src_label,
-         src_ids_opt,
          rel_name,
          info.name(),
          input
@@ -953,7 +993,7 @@ where
         let dst_suffix = sg.suffix();
 
         let (read_query, params) = visit_rel_query_input(
-            query,
+            query.clone(),
             params,
             src_label,
             &("src".to_string() + &src_suffix),
@@ -961,6 +1001,7 @@ where
             &rel_suffix,
             &("dst".to_string() + &dst_suffix),
             &dst_suffix,
+            ReturnClause::None,
             false,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -996,23 +1037,13 @@ where
             .collect();
             */
 
-        let (query, params) = transaction.rel_delete_query(
-            read_query,
-            params,
-            src_label,
-            rel_name,
-            &rel_suffix,
-            partition_key_opt,
-            sg,
-        )?;
-
         if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
             visit_rel_src_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
                 query.clone(),
                 params.clone(),
                 src_label,
-                Vec::new(), // read_results.iter().map(|r| r.id().clone()).collect(),
+                &("src".to_string() + &src_suffix),
                 &Info::new(
                     itd.property("src")?.type_name().to_owned(),
                     info.type_defs(),
@@ -1022,14 +1053,14 @@ where
                 transaction,
                 sg,
             )?;
-        }
+        };
 
         if let Some(dst) = m.remove("dst") {
             // Uses remove to take ownership
             visit_rel_dst_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query.clone(),
+                query,
                 params.clone(),
-                Vec::new(), // read_results.iter().map(|r| r.id().clone()).collect(),
+                &("dst".to_string() + &dst_suffix),
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
                     info.type_defs(),
@@ -1039,9 +1070,17 @@ where
                 transaction,
                 sg,
             )?;
-        }
+        };
 
-        Ok((query, params))
+        transaction.rel_delete_query(
+            read_query,
+            params,
+            src_label,
+            rel_name,
+            &rel_suffix,
+            partition_key_opt,
+            sg,
+        )
     } else {
         Err(Error::TypeNotExpected)
     }
@@ -1051,7 +1090,7 @@ where
 fn visit_rel_dst_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     query: String,
     params: HashMap<String, Value>,
-    ids: Vec<Value>,
+    node_var: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1082,9 +1121,8 @@ where
         visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
             query,
             params,
-            &sg.suffix(),
+            node_var,
             &k,
-            ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             Some(v),
@@ -1101,7 +1139,7 @@ fn visit_rel_dst_query_input<T>(
     query: String,
     params: HashMap<String, Value>,
     label: &str,
-    node_var: &str,
+    var_name: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
@@ -1112,9 +1150,9 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_rel_dst_query_input called -- label: {}, node_var: {}, info.name: {}, input: {:#?}",
+        "visit_rel_dst_query_input called -- label: {}, var_name: {}, info.name: {}, input: {:#?}",
         label,
-        node_var,
+        var_name,
         info.name(),
         input
     );
@@ -1127,9 +1165,11 @@ where
                 query,
                 params,
                 label,
-                node_var,
+                var_name,
+                false,
                 true,
-                None,
+                ReturnClause::None,
+                // ReturnClause::SubQuery(node_var.to_string()),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 Some(v),
@@ -1233,7 +1273,7 @@ where
             params,
             node_var,
             &k,
-            Some(&node_var),
+            ReturnClause::SubQuery(node_var.to_string()),
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             v,
@@ -1256,7 +1296,8 @@ pub(super) fn visit_rel_query_input<T>(
     rel_suffix: &str,
     dst_var: &str,
     dst_suffix: &str,
-    return_rel: bool,
+    return_clause: ReturnClause,
+    top_level_query: bool,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input_opt: Option<Value>,
@@ -1267,13 +1308,13 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_rel_query_input called -- src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_rel: {:#?}, info.name: {}, input: {:#?}",
+        "visit_rel_query_input called -- src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
         src_label,
         src_var,
         rel_name,
         dst_var,
         dst_suffix,
-        return_rel,
+        return_clause,
         info.name(),
         input_opt,
     );
@@ -1297,7 +1338,7 @@ where
         // Remove used to take ownership
         let (src_query_opt, params) = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
-                query.clone(),
+                "".to_string(),
                 params,
                 src_label,
                 src_var,
@@ -1314,7 +1355,7 @@ where
         // Remove used to take ownership
         let (dst_query_opt, params) = if let Some(dst) = m.remove("dst") {
             visit_rel_dst_query_input(
-                query.clone(),
+                "".to_string(),
                 params,
                 "", // dst_label,
                 dst_var,
@@ -1339,7 +1380,8 @@ where
             dst_var,
             dst_suffix,
             dst_query_opt,
-            return_rel,
+            top_level_query,
+            return_clause,
             props,
             sg,
         )
@@ -1355,7 +1397,8 @@ where
             dst_var,
             dst_suffix,
             None,
-            return_rel,
+            false,
+            return_clause,
             HashMap::new(),
             sg,
         )
@@ -1367,7 +1410,7 @@ fn visit_rel_src_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     query: String,
     params: HashMap<String, Value>,
     label: &str,
-    ids: Vec<Value>,
+    node_var: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1380,9 +1423,8 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_rel_src_delete_mutation_input called -- info.name: {}, ids: {:#?}, input: {:#?}",
+        "visit_rel_src_delete_mutation_input called -- info.name: {}, input: {:#?}",
         info.name(),
-        ids,
         input
     );
 
@@ -1399,9 +1441,8 @@ where
         visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
             query,
             params,
-            &sg.suffix(),
+            node_var,
             label,
-            ids,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             Some(v),
@@ -1469,7 +1510,7 @@ fn visit_rel_src_query_input<T>(
     query: String,
     params: HashMap<String, Value>,
     label: &str,
-    label_suffix: &str,
+    var_name: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Option<Value>,
@@ -1480,9 +1521,10 @@ where
     T: Transaction,
 {
     trace!(
-         "visit_rel_src_query_input called -- label: {}, label_suffix: {}, info.name: {}, input: {:#?}",
+         "visit_rel_src_query_input called -- query: {}, label: {}, var_name: {}, info.name: {}, input: {:#?}",
+         query,
          label,
-         label_suffix,
+         var_name,
          info.name(),
          input
      );
@@ -1495,9 +1537,11 @@ where
                 query,
                 params,
                 label,
-                &("src".to_string() + &sg.suffix()),
+                &var_name,
                 false,
-                None,
+                false,
+                ReturnClause::None,
+                // ReturnClause::SubQuery(node_var.to_string()),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 Some(v),
@@ -1521,6 +1565,7 @@ pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     src_label: &str,
     src_ids: Option<Vec<Value>>,
     rel_name: &str,
+    top_level_query: bool,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1559,6 +1604,7 @@ where
             &rel_suffix,
             &("dst".to_string() + &dst_suffix),
             &dst_suffix,
+            ReturnClause::None,
             false,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -1582,6 +1628,7 @@ where
             &dst_suffix,
             None,
             false,
+            ReturnClause::None,
             HashMap::new(),
             &mut sg,
         )?;
@@ -1596,6 +1643,7 @@ where
                 rel_name,
                 &rel_suffix,
                 &dst_suffix,
+                top_level_query,
                 &Info::new(
                     itd.property("update")?.type_name().to_owned(),
                     info.type_defs(),
@@ -1626,6 +1674,7 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     rel_name: &str,
     rel_suffix: &str,
     dst_suffix: &str,
+    top_level_query: bool,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1668,6 +1717,7 @@ where
             rel_suffix,
             &("rel".to_string() + rel_suffix),
             dst_suffix,
+            top_level_query,
             props,
             props_type_name,
             partition_key_opt,

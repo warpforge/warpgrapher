@@ -118,12 +118,16 @@ pub trait DatabaseEndpoint {
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
+    fn query_start() -> String;
     #[allow(clippy::too_many_arguments)]
     fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
+        rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
+        node_var: &str,
         label: &str,
+        return_clause: ReturnClause,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
@@ -152,6 +156,7 @@ pub(crate) trait Transaction {
         rel_name: &str,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
+        return_clause: ReturnClause,
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
@@ -180,9 +185,10 @@ pub(crate) trait Transaction {
         rel_query_fragments: Vec<String>,
         params: HashMap<String, Value>,
         label: &str,
-        node_suffix: &str,
+        node_var: &str,
+        name_node: bool,
         union_type: bool,
-        return_node: Option<&str>,
+        return_clause: ReturnClause,
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error>;
@@ -208,7 +214,8 @@ pub(crate) trait Transaction {
         dst_var: &str,
         dst_suffix: &str,
         dst_query_opt: Option<String>,
-        return_rel: bool,
+        top_level_query: bool,
+        return_clause: ReturnClause,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
@@ -226,8 +233,8 @@ pub(crate) trait Transaction {
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        node_suffix: &str,
-        ids: Vec<Value>,
+        label: &str,
+        node_var: &str,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
@@ -254,6 +261,7 @@ pub(crate) trait Transaction {
         rel_suffix: &str,
         rel_var: &str,
         dst_suffix: &str,
+        top_level_query: bool,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
@@ -318,6 +326,13 @@ pub(crate) trait Transaction {
     fn commit(&mut self) -> Result<(), Error>;
 
     fn rollback(&mut self) -> Result<(), Error>;
+}
+
+#[derive(Debug)]
+pub(crate) enum ReturnClause {
+    None,
+    SubQuery(String),
+    Query(String),
 }
 
 #[derive(Default)]

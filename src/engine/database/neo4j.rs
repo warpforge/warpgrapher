@@ -2,6 +2,7 @@
 
 use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, SuffixGenerator, Transaction};
 use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::database::ReturnClause;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::schema::NodeType;
@@ -151,7 +152,11 @@ impl<'t> Neo4jTransaction<'t> {
     }
 
     fn add_node_return(mut query: String, node_var: &str, return_var: &str) -> String {
-        query.push_str(&("RETURN ".to_string() + node_var + " as " + return_var + "\n"));
+        query.push_str(&("RETURN ".to_string() + node_var));
+        if node_var != return_var {
+            query.push_str(&(" as ".to_string() + return_var));
+        }
+        query.push_str("\n");
         query
     }
 
@@ -337,11 +342,18 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
+    fn query_start() -> String {
+        String::new()
+    }
+
     fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         mut query: String,
+        rel_create_fragments: Vec<String>,
         mut params: HashMap<String, Value>,
+        node_var: &str,
         label: &str,
+        return_clause: ReturnClause,
         _partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         _info: &Info,
@@ -354,22 +366,40 @@ impl Transaction for Neo4jTransaction<'_> {
             label,
             props
         );
-        let node_suffix = sg.suffix();
+
         let props_suffix = sg.suffix();
         query.push_str(
-            &("CREATE (node".to_string()
-                + &node_suffix
+            &("CREATE (".to_string()
+                + node_var
                 + ":"
                 + label
                 + " { id: randomUUID() })\n"
-                + "SET node"
-                + &node_suffix
+                + "SET "
+                + node_var
                 + " += $props"
                 + &props_suffix
                 + "\n"),
         );
-        query =
-            Neo4jTransaction::add_node_return(query, &("node".to_string() + &node_suffix), "node");
+
+        if !rel_create_fragments.is_empty() {
+            query = rel_create_fragments.into_iter().fold(
+                query + "WITH " + node_var + "\n",
+                |mut query, fragment| {
+                    query.push_str(&fragment);
+                    query
+                },
+            );
+        }
+
+        let query = match return_clause {
+            ReturnClause::None => query,
+            ReturnClause::SubQuery(return_var) => {
+                Neo4jTransaction::add_node_return(query, node_var, &return_var)
+            }
+            ReturnClause::Query(return_var) => {
+                Neo4jTransaction::add_node_return(query, node_var, &return_var)
+            }
+        };
 
         params.insert("props".to_string() + &props_suffix, props.into());
 
@@ -419,6 +449,7 @@ impl Transaction for Neo4jTransaction<'_> {
         rel_name: &str,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
+        return_rel: ReturnClause,
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
@@ -445,7 +476,14 @@ impl Transaction for Neo4jTransaction<'_> {
         }
         */
 
-        let query = src_query
+        let query = match return_rel {
+            ReturnClause::None => "".to_string(),
+            ReturnClause::SubQuery(_) => "CALL {\nWITH ".to_string() + src_var + "\n",
+            ReturnClause::Query(_) => "".to_string(),
+        };
+
+        let query = query
+            + &src_query
             + "CALL {\n"
             + "WITH "
             + src_var
@@ -466,11 +504,18 @@ impl Transaction for Neo4jTransaction<'_> {
             + " += $"
             + &props_var
             + "\n";
-        let query = Neo4jTransaction::add_rel_return(query, src_var, &rel_var, dst_var);
 
         // params.insert("src_ids".to_string(), src_ids.into());
         // params.insert("dst_ids".to_string(), dst_ids.into());
         params.insert(props_var, props.into());
+
+        let query = match return_rel {
+            ReturnClause::None => query,
+            ReturnClause::SubQuery(_) => query + "RETURN " + &rel_var + "\n}\n",
+            ReturnClause::Query(_) => {
+                Neo4jTransaction::add_rel_return(query, src_var, &rel_var, dst_var)
+            }
+        };
 
         Ok((query, params))
     }
@@ -511,13 +556,14 @@ impl Transaction for Neo4jTransaction<'_> {
         mut params: HashMap<String, Value>,
         label: &str,
         node_var: &str,
+        _name_node: bool,
         union_type: bool,
-        return_node: Option<&str>,
+        return_clause: ReturnClause,
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("Neo4jTransaction::node_read_query called -- rel_query_fragments: {:#?}, params: {:#?}, label: {}, node_suffix: {}, untion_type: {:#?}, return_node: {:#?}, param_suffix: {}, props: {:#?}", 
-        rel_query_fragments, params, label, node_var, union_type, return_node, param_suffix, props);
+        trace!("Neo4jTransaction::node_read_query called -- rel_query_fragments: {:#?}, params: {:#?}, label: {}, node_suffix: {}, untion_type: {:#?}, return_clause: {:#?}, param_suffix: {}, props: {:#?}", 
+        rel_query_fragments, params, label, node_var, union_type, return_clause, param_suffix, props);
         let mut query = String::new();
 
         for rqf in rel_query_fragments {
@@ -549,9 +595,15 @@ impl Transaction for Neo4jTransaction<'_> {
         }
         params.insert("param".to_string() + param_suffix, props.into());
 
-        if let Some(return_var) = return_node {
-            query = Neo4jTransaction::add_node_return(query, node_var, return_var);
-        }
+        query = match return_clause {
+            ReturnClause::None => query,
+            ReturnClause::SubQuery(return_name) => {
+                Neo4jTransaction::add_node_return(query, node_var, &return_name)
+            }
+            ReturnClause::Query(return_name) => {
+                Neo4jTransaction::add_node_return(query, node_var, &return_name)
+            }
+        };
 
         Ok((query, params))
     }
@@ -587,7 +639,7 @@ impl Transaction for Neo4jTransaction<'_> {
 
     fn rel_read_query(
         &mut self,
-        _query: String,
+        mut query: String,
         mut params: HashMap<String, Value>,
         src_label: &str,
         src_var: &str,
@@ -597,13 +649,29 @@ impl Transaction for Neo4jTransaction<'_> {
         dst_var: &str,
         dst_suffix: &str,
         dst_query_opt: Option<String>,
-        return_rel: bool,
+        _top_level_query: bool,
+        return_rel: ReturnClause,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
         trace!("Neo4jTransaction::rel_read_query -- params: {:#?}, src_label: {}, src_var: {}, src_query_opt: {:#?}, rel_name: {}, dst_var: {}, dst_suffix: {}, dst_query_opt: {:#?}, return_rel: {:#?}, props: {:#?}", params, src_label, src_var, src_query_opt, rel_name, dst_var, dst_suffix, dst_query_opt, return_rel, props);
 
-        let mut query = "MATCH (".to_string()
+        if let Some(src_query) = src_query_opt {
+            query.push_str("CALL {\n");
+            query.push_str(&src_query);
+            query.push_str(&("RETURN ".to_string() + src_var + "\n"));
+            query.push_str("}\n");
+        }
+
+        if let Some(dst_query) = dst_query_opt {
+            query.push_str("CALL {\n");
+            query.push_str(&dst_query);
+            query.push_str(&("RETURN ".to_string() + dst_var + "\n"));
+            query.push_str("}\n");
+        }
+
+        query = query
+            + "MATCH ("
             + src_var
             + ":"
             + src_label
@@ -667,15 +735,7 @@ impl Transaction for Neo4jTransaction<'_> {
         query.push_str("\n");
         */
 
-        if let Some(src_query) = src_query_opt {
-            query.push_str(&src_query);
-        }
-
-        if let Some(dst_query) = dst_query_opt {
-            query.push_str(&dst_query);
-        }
-
-        if return_rel {
+        if let ReturnClause::Query(_return_name) = return_rel {
             query = Neo4jTransaction::add_rel_return(
                 query,
                 src_var,
@@ -713,26 +773,24 @@ impl Transaction for Neo4jTransaction<'_> {
 
     fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        mut query: String,
+        query: String,
         mut params: HashMap<String, Value>,
-        node_suffix: &str,
-        ids: Vec<Value>,
+        _label: &str,
+        node_var: &str,
         props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         _info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("Neo4jTransaction::node_update_query called -- query: {}, params: {:#?}, node_suffix: {}, ids: {:#?}, props: {:#?}", 
-        query, params, node_suffix, ids, props);
+        trace!("Neo4jTransaction::node_update_query called -- query: {}, params: {:#?}, node_var: {}, props: {:#?}", 
+        query, params, node_var, props);
+
+        let mut query = "CALL {\n".to_string() + &query + "}\n";
         let props_suffix = sg.suffix();
-        query.push_str(
-            &("SET node".to_string() + node_suffix + " += $props" + &props_suffix + "\n"),
-        );
-        query =
-            Neo4jTransaction::add_node_return(query, &("node".to_string() + node_suffix), "node");
+        query.push_str(&("SET ".to_string() + node_var + " += $props" + &props_suffix + "\n"));
+        query = Neo4jTransaction::add_node_return(query, node_var, "node");
 
         params.insert("props".to_string() + &props_suffix, props.into());
-        params.insert("ids".to_string(), ids.into());
 
         Ok((query, params))
     }
@@ -775,6 +833,7 @@ impl Transaction for Neo4jTransaction<'_> {
         rel_suffix: &str,
         rel_var: &str,
         dst_suffix: &str,
+        _top_level_query: bool,
         props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
@@ -841,6 +900,7 @@ impl Transaction for Neo4jTransaction<'_> {
             label,
             ids
         );
+        let query = "CALL {\n".to_string() + &query + "}\n";
         let query = query + "DETACH DELETE " + node_var + "\n" + "RETURN count(*) as count\n";
 
         let mut hm: HashMap<String, Value> = HashMap::new();
