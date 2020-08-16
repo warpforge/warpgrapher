@@ -307,7 +307,7 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let (query, params) = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
-            String::new(),
+            T::query_start(),
             HashMap::new(),
             label,
             &("node".to_string() + &suffix),
@@ -317,8 +317,7 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let results =
-            transaction.delete_nodes(query, params, label, Vec::new(), self.partition_key_opt);
+        let results = transaction.delete_nodes(query, params, label, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -753,14 +752,8 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let results = transaction.delete_rels(
-            query,
-            params,
-            src_label,
-            rel_name,
-            Vec::new(),
-            self.partition_key_opt,
-        );
+        let results =
+            transaction.delete_rels(query, params, src_label, rel_name, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;

@@ -152,7 +152,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_delete_input<T, GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
     query: String,
-    _params: HashMap<String, Value>,
+    params: HashMap<String, Value>,
     label: &str,
     node_var: &str,
     info: &Info,
@@ -175,7 +175,7 @@ where
         let itd = info.type_def()?;
         let (query, params) = visit_node_query_input(
             query,
-            HashMap::new(),
+            params,
             label,
             node_var,
             true,
@@ -233,7 +233,10 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_node_delete_mutation_input called -- info.name: {}, input: {:#?}",
+        "visit_node_delete_mutation_input called -- query: {}, params: {:#?}, node_var: {}, label: {}, info.name: {}, input: {:#?}",
+        query,
+        params,
+        node_var, label,
         info.name(),
         input
     );
@@ -241,9 +244,8 @@ where
     let itd = info.type_def()?;
 
     let (query, params) = if let Some(Value::Map(m)) = input {
-        m.into_iter().try_fold(
-            (String::new(), HashMap::new()),
-            |(query, params), (k, v)| {
+        m.into_iter()
+            .try_fold((query, params), |(query, params), (k, v)| {
                 let p = itd.property(&k)?;
 
                 match p.kind() {
@@ -281,8 +283,7 @@ where
                     }
                     _ => Err(Error::TypeNotExpected),
                 }
-            },
-        )?
+            })?
     } else {
         (query, params)
     };
@@ -292,7 +293,6 @@ where
         params,
         node_var,
         label,
-        Vec::new(),
         partition_key_opt,
         sg,
     )
@@ -412,41 +412,44 @@ where
 
     let mut props = HashMap::new();
     if let Some(Value::Map(m)) = input {
-        m.into_iter().try_fold(
-            (query.clone(), params.clone()),
-            |(query, params), (k, v)| {
-                itd.property(&k)
-                    .map_err(|e| e)
-                    .and_then(|p| match p.kind() {
-                        PropertyKind::Scalar => {
-                            props.insert(k, v);
-                            Ok((query, params))
-                        }
-                        PropertyKind::Input => visit_rel_query_input(
-                            query.clone(),
-                            params,
-                            label,
-                            node_var,
-                            &k,
-                            &rel_suffix,
-                            &("dst".to_string() + &dst_suffix),
-                            &dst_suffix,
-                            ReturnClause::None,
-                            false,
-                            &Info::new(p.type_name().to_owned(), info.type_defs()),
-                            partition_key_opt,
-                            Some(v),
-                            transaction,
-                            sg,
-                        ),
-                        _ => Err(Error::TypeNotExpected),
-                    })
-            },
-        )?;
+        let (rqfs, params) =
+            m.into_iter()
+                .try_fold((Vec::new(), params), |(mut rqfs, params), (k, v)| {
+                    itd.property(&k)
+                        .map_err(|e| e)
+                        .and_then(|p| match p.kind() {
+                            PropertyKind::Scalar => {
+                                props.insert(k, v);
+                                Ok((rqfs, params))
+                            }
+                            PropertyKind::Input => {
+                                let (query, params) = visit_rel_query_input(
+                                    String::new(),
+                                    params,
+                                    label,
+                                    node_var,
+                                    &k,
+                                    &rel_suffix,
+                                    &("dst".to_string() + &dst_suffix),
+                                    &dst_suffix,
+                                    ReturnClause::None,
+                                    false,
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    Some(v),
+                                    transaction,
+                                    sg,
+                                )?;
+                                rqfs.push(query);
+                                Ok((rqfs, params))
+                            }
+                            _ => Err(Error::TypeNotExpected),
+                        })
+                })?;
 
         transaction.node_read_query(
             query,
-            Vec::new(),
+            rqfs,
             params,
             label,
             node_var,
@@ -504,9 +507,9 @@ where
         let mut sg = SuffixGenerator::new();
         let node_suffix = sg.suffix();
 
-        let (query, params) = visit_node_query_input(
+        let (match_query, params) = visit_node_query_input(
             query,
-            HashMap::new(),
+            params,
             label,
             &node_var,
             true,
@@ -523,7 +526,7 @@ where
         )?;
 
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             &node_suffix,
             label,
@@ -549,7 +552,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     node_suffix: &str,
     label: &str,
@@ -566,8 +569,8 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_mutation_input called -- query: {}, params: {:#?}, node_suffix: {}, label: {}, info.name: {}, input: {:#?}",
-        query,
+        "visit_node_update_mutation_input called -- match_query: {}, params: {:#?}, node_suffix: {}, label: {}, info.name: {}, input: {:#?}",
+        match_query,
         params,
         node_suffix,
         label,
@@ -607,56 +610,78 @@ where
             },
         )?;
 
-        let (change_query, params) =
-            inputs
-                .into_iter()
-                .try_fold((query, params), |(query, params), (k, v)| {
+        let (change_queries, params) =
+            inputs.into_iter().try_fold(
+                (Vec::new(), params),
+                |(mut queries, params), (k, v)| {
                     let p = itd.property(&k)?;
 
                     match p.kind() {
-                        PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((query, params)), // Properties handled above
+                        PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((queries, params)), // Properties handled above
                         PropertyKind::Input => {
                             if let Value::Array(input_array) = v {
-                                input_array.into_iter().try_fold(
-                                    (query, params),
-                                    |(query, params), val| {
-                                        visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                            query,
-                                            params,
-                                            label,
-                                            Vec::new(),
-                                            &k,
-                                            &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                            partition_key_opt,
-                                            val,
-                                            validators,
-                                            transaction,
-                                            sg,
-                                        )
-                                    },
-                                )
+                                let (mut qs, params) =
+                                    input_array.into_iter().try_fold(
+                                        (Vec::new(), params),
+                                        |(mut queries, params),
+                                         val|
+                                         -> Result<
+                                            (Vec<String>, HashMap<String, Value>),
+                                            Error,
+                                        > {
+                                            let (query, params) =
+                                                visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
+                                                    String::new(),
+                                                    params,
+                                                    label,
+                                                    Vec::new(),
+                                                    &k,
+                                                    &Info::new(
+                                                        p.type_name().to_owned(),
+                                                        info.type_defs(),
+                                                    ),
+                                                    partition_key_opt,
+                                                    val,
+                                                    validators,
+                                                    transaction,
+                                                    sg,
+                                                )?;
+
+                                            queries.push(query);
+                                            Ok((queries, params))
+                                        },
+                                    )?;
+                                queries.append(&mut qs);
+
+                                Ok((queries, params))
                             } else {
-                                visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                    query,
-                                    params,
-                                    label,
-                                    Vec::new(),
-                                    &k,
-                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                    partition_key_opt,
-                                    v,
-                                    validators,
-                                    transaction,
-                                    sg,
-                                )
+                                let (query, params) =
+                                    visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
+                                        String::new(),
+                                        params,
+                                        label,
+                                        Vec::new(),
+                                        &k,
+                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                        partition_key_opt,
+                                        v,
+                                        validators,
+                                        transaction,
+                                        sg,
+                                    )?;
+
+                                queries.push(query);
+                                Ok((queries, params))
                             }
                         }
                         _ => Err(Error::TypeNotExpected),
                     }
-                })?;
+                },
+            )?;
 
         transaction.node_update_query::<GlobalCtx, RequestCtx>(
-            change_query,
+            match_query,
+            change_queries,
             params,
             label,
             &("node".to_string() + node_suffix),
@@ -1001,7 +1026,7 @@ where
             &rel_suffix,
             &("dst".to_string() + &dst_suffix),
             &dst_suffix,
-            ReturnClause::None,
+            ReturnClause::SubQuery(rel_name.to_string() + &rel_suffix),
             false,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -1308,7 +1333,8 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_rel_query_input called -- src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
+        "visit_rel_query_input called -- query: {}, src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
+        query, 
         src_label,
         src_var,
         rel_name,
@@ -1561,7 +1587,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
     query: String,
-    _params: HashMap<String, Value>,
+    params: HashMap<String, Value>,
     src_label: &str,
     src_ids: Option<Vec<Value>>,
     rel_name: &str,
@@ -1597,7 +1623,7 @@ where
 
         let (match_query, params) = visit_rel_query_input(
             query,
-            HashMap::new(),
+            params,
             src_label,
             &("src".to_string() + &src_suffix),
             rel_name,

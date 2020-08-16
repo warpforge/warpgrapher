@@ -231,7 +231,8 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: String,
+        match_query: String,
+        change_queries: Vec<String>,
         params: HashMap<String, Value>,
         label: &str,
         node_var: &str,
@@ -287,7 +288,6 @@ pub(crate) trait Transaction {
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
-        ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
@@ -297,7 +297,6 @@ pub(crate) trait Transaction {
         query: String,
         params: HashMap<String, Value>,
         label: &str,
-        ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
@@ -319,7 +318,6 @@ pub(crate) trait Transaction {
         params: HashMap<String, Value>,
         src_label: &str,
         rel_name: &str,
-        rel_ids: Vec<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 

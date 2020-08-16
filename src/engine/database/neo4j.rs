@@ -773,7 +773,8 @@ impl Transaction for Neo4jTransaction<'_> {
 
     fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: String,
+        match_query: String,
+        change_queries: Vec<String>,
         mut params: HashMap<String, Value>,
         _label: &str,
         node_var: &str,
@@ -782,10 +783,13 @@ impl Transaction for Neo4jTransaction<'_> {
         _info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("Neo4jTransaction::node_update_query called -- query: {}, params: {:#?}, node_var: {}, props: {:#?}", 
-        query, params, node_var, props);
+        trace!("Neo4jTransaction::node_update_query called -- match_query: {}, change_queries: {:#?}, params: {:#?}, node_var: {}, props: {:#?}", 
+        match_query, change_queries, params, node_var, props);
 
-        let mut query = "CALL {\n".to_string() + &query + "}\n";
+        let mut query = "CALL {\n".to_string() + &match_query + "}\n";
+        for cq in change_queries.iter() {
+            query.push_str(&("CALL {\n".to_string() + cq + "\n}\n"));
+        }
         let props_suffix = sg.suffix();
         query.push_str(&("SET ".to_string() + node_var + " += $props" + &props_suffix + "\n"));
         query = Neo4jTransaction::add_node_return(query, node_var, "node");
@@ -888,23 +892,18 @@ impl Transaction for Neo4jTransaction<'_> {
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
-        ids: Vec<Value>,
         _partition_key_opt: Option<&Value>,
         _sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
         trace!(
-            "Neo4jTransaction::node_delete_query called -- query: {}, params: {:#?}, node_var: {}, label: {}, ids: {:#?}",
+            "Neo4jTransaction::node_delete_query called -- query: {}, params: {:#?}, node_var: {}, label: {}",
             query,
             params,
             node_var,
             label,
-            ids
         );
         let query = "CALL {\n".to_string() + &query + "}\n";
         let query = query + "DETACH DELETE " + node_var + "\n" + "RETURN count(*) as count\n";
-
-        let mut hm: HashMap<String, Value> = HashMap::new();
-        hm.insert("ids".to_string(), ids.into());
 
         Ok((query, params))
     }
@@ -914,7 +913,6 @@ impl Transaction for Neo4jTransaction<'_> {
         query: String,
         params: HashMap<String, Value>,
         _label: &str,
-        _ids: Vec<Value>,
         _partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
         trace!(
@@ -959,7 +957,6 @@ impl Transaction for Neo4jTransaction<'_> {
         params: HashMap<String, Value>,
         _src_label: &str,
         _rel_name: &str,
-        _rel_ids: Vec<Value>,
         _partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
         trace!(
