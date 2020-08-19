@@ -320,6 +320,7 @@ pub(crate) trait Transaction {
         label: &str,
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
+        top_level_query: bool,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_nodes(
@@ -342,6 +343,7 @@ pub(crate) trait Transaction {
         rel_suffix: &str,
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
+        top_level_query: bool,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_rels(

@@ -218,6 +218,7 @@ where
             })?),
             transaction,
             sg,
+            true,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -235,6 +236,7 @@ fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     input: Option<Value>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
+    top_level_query: bool,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     GlobalCtx: GlobalContext,
@@ -272,6 +274,7 @@ where
                                         val,
                                         transaction,
                                         sg,
+                                        false
                                     )?;
                                     queries.push(query);
                                     Ok((queries, params))
@@ -288,6 +291,7 @@ where
                                 v,
                                 transaction,
                                 sg,
+                                false
                             )?;
 
                             queries.push(query);
@@ -309,6 +313,7 @@ where
         label,
         partition_key_opt,
         sg,
+        top_level_query,
     )
 }
 
@@ -788,6 +793,7 @@ where
                 v,
                 transaction,
                 sg,
+                false,
             )
         } else if let Some(v) = m.remove("UPDATE") {
             // Using remove to take ownership
@@ -1025,6 +1031,7 @@ pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
     input: Value,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
+    top_level_query: bool,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     GlobalCtx: GlobalContext,
@@ -1135,6 +1142,7 @@ where
             &rel_suffix,
             partition_key_opt,
             sg,
+            top_level_query,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1183,6 +1191,7 @@ where
             Some(v),
             transaction,
             sg,
+            false,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1493,6 +1502,7 @@ where
             Some(v),
             transaction,
             sg,
+            false,
         )
     } else {
         Err(Error::TypeNotExpected)

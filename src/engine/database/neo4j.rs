@@ -961,6 +961,7 @@ impl Transaction for Neo4jTransaction<'_> {
         label: &str,
         _partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
+        _top_level_query: bool,
     ) -> Result<(String, HashMap<String, Value>), Error> {
         trace!(
             "Neo4jTransaction::node_delete_query called -- match_query: {}, params: {:#?}, node_var: {}, label: {}",
@@ -1024,7 +1025,8 @@ impl Transaction for Neo4jTransaction<'_> {
         rel_name: &str,
         rel_suffix: &str,
         _partition_key_opt: Option<&Value>,
-        _sg: &mut SuffixGenerator,
+        sg: &mut SuffixGenerator,
+        _top_level_query: bool,
     ) -> Result<(String, HashMap<String, Value>), Error> {
         trace!("Neo4jTransaction::rel_delete_query called -- params: {:#?}, src_label: {}, rel_name: {}, rel_suffix: {:#?}", 
         params, src_label, rel_name, rel_suffix);
@@ -1037,7 +1039,13 @@ impl Transaction for Neo4jTransaction<'_> {
             query.push_str(&("CALL {\n".to_string() + &ddq + "}\n"));
         }
 
-        let query = query + "DELETE rel" + rel_suffix + "\n" + "RETURN count(*) as count\n";
+        let query = query
+            + "DELETE rel"
+            + rel_suffix
+            + "\n"
+            + "RETURN count(*) as count"
+            + &sg.suffix()
+            + "\n";
 
         Ok((query, params))
     }
