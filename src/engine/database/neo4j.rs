@@ -857,7 +857,7 @@ impl Transaction for Neo4jTransaction<'_> {
         if !change_queries.is_empty() {
             query.push_str(&("WITH ".to_string() + node_var + "\n"));
             for cq in change_queries.iter() {
-                query.push_str(&("CALL {\nWITH ".to_string() + node_var + "\n" + cq + "\n}\n"));
+                query.push_str(&("CALL {\nWITH ".to_string() + node_var + "\n" + cq + "}\n"));
             }
         }
         query = Neo4jTransaction::add_node_return(query, node_var, "node");
@@ -897,8 +897,9 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         query: String,
         mut params: HashMap<String, Value>,
+        src_var: &str,
         src_label: &str,
-        src_suffix: &str,
+        _src_suffix: &str,
         rel_name: &str,
         rel_suffix: &str,
         rel_var: &str,
@@ -917,7 +918,7 @@ impl Transaction for Neo4jTransaction<'_> {
         let mut query = query + "SET " + rel_var + " += $" + &props_var + "\n";
         query = Neo4jTransaction::add_rel_return(
             query,
-            &("src".to_string() + src_suffix),
+            src_var,
             &("rel".to_string() + rel_suffix),
             &("dst".to_string() + dst_suffix),
         );

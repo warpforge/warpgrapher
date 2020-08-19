@@ -935,6 +935,7 @@ impl Transaction for CosmosTransaction {
         &mut self,
         query: String,
         params: HashMap<String, Value>,
+        src_var: &str,
         _src_label: &str,
         _src_suffix: &str,
         rel_name: &str,
@@ -953,14 +954,17 @@ impl Transaction for CosmosTransaction {
             let query = if top_level_query {
                 query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
             } else {
-                query + ".outE('" + rel_name + "')"
+                query + ".select('" + src_var + "').outE('" + rel_name + "')"
                 // query + "outE('" + rel_name + "')"
             };
 
             // query = CosmosTransaction::add_has_id_clause(query, rel_ids)?;
 
             let (mut query, params) = CosmosTransaction::add_properties(query, params, props, sg);
-            query = CosmosTransaction::add_rel_return(query);
+
+            if top_level_query {
+                query = CosmosTransaction::add_rel_return(query);
+            }
 
             Ok((query, params))
         } else {

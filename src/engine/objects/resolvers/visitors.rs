@@ -560,9 +560,16 @@ where
             HashMap::new(),
         )?;
 
+        trace!(
+            "visit_node_update_input -- match_fragment: {}, where_fragment: {}",
+            match_fragment,
+            where_fragment
+        );
+
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
+            &node_var,
             &node_suffix,
             label,
             &Info::new(
@@ -589,6 +596,7 @@ where
 fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
+    node_var: &str,
     node_suffix: &str,
     label: &str,
     info: &Info,
@@ -668,7 +676,7 @@ where
                                                 visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                                                     params,
                                                     label,
-                                                    &("src".to_string() + &sg.suffix()),
+                                                    node_var,
                                                     &k,
                                                     &Info::new(
                                                         p.type_name().to_owned(),
@@ -693,7 +701,7 @@ where
                                     visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                                         params,
                                         label,
-                                        &("src".to_string() + &sg.suffix()),
+                                        node_var,
                                         &k,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
@@ -717,7 +725,7 @@ where
             change_queries,
             params,
             label,
-            &("node".to_string() + node_suffix),
+            node_var,
             props,
             partition_key_opt,
             info,
@@ -764,7 +772,7 @@ where
                 String::new(),
                 params,
                 src_label,
-                "",
+                src_var,
                 rel_name,
                 &Info::new(
                     itd.property("ADD")?.type_name().to_owned(),
@@ -774,7 +782,8 @@ where
                 v,
                 validators,
                 None,
-                ReturnClause::None,
+                // ReturnClause::None,
+                ReturnClause::SubQuery(rel_name.to_string()),
                 transaction,
                 sg,
             )
@@ -1281,10 +1290,14 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
+        let dst_suffix = sg.suffix();
+        let dst_var = "dst".to_string() + &dst_suffix;
+
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
-            &sg.suffix(),
+            &dst_var,
+            &dst_suffix,
             &k,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
@@ -1543,10 +1556,14 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
+        let src_suffix = sg.suffix();
+        let src_var = "src".to_string() + &src_suffix;
+
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
-            &sg.suffix(),
+            &src_var,
+            &src_suffix,
             label,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
@@ -1646,7 +1663,6 @@ where
         let src_suffix = sg.suffix();
         let rel_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
-        let src_var = "src".to_string() + &src_suffix;
         let dst_var = "dst".to_string() + &dst_suffix;
 
         let (match_fragment, where_fragment, params) = visit_rel_query_input(
@@ -1680,7 +1696,7 @@ where
             &dst_var,
             &dst_suffix,
             top_level_query,
-            ReturnClause::None,
+            ReturnClause::SubQuery(rel_name.to_string()),
             HashMap::new(),
             &mut sg,
         )?;
@@ -1708,6 +1724,7 @@ where
             visit_rel_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 match_query,
                 params,
+                src_var,
                 src_label,
                 &src_suffix,
                 rel_name,
@@ -1739,6 +1756,7 @@ where
 fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
+    src_var: &str,
     src_label: &str,
     src_suffix: &str,
     rel_name: &str,
@@ -1759,8 +1777,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_mutation_input called -- params: {:#?}, info.name: {}, src_label: {}, rel_name: {}, props_type_name: {:#?}, input: {:#?}",
+         "visit_rel_update_mutation_input called -- params: {:#?}, src_var: {}, info.name: {}, src_label: {}, rel_name: {}, props_type_name: {:#?}, input: {:#?}",
          params,
+         src_var,
          info.name(),
          src_label,
          rel_name,
@@ -1780,6 +1799,7 @@ where
         let results = transaction.rel_update_query::<GlobalCtx, RequestCtx>(
             match_query.clone(),
             params.clone(),
+            src_var,
             src_label,
             src_suffix,
             rel_name,
