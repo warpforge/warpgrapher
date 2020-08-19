@@ -122,7 +122,6 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: String,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
         node_var: &str,
@@ -146,7 +145,7 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        src_query: String,
+        src_query: Option<String>,
         params: HashMap<String, Value>,
         src_var: &str,
         dst_query: &str,
@@ -179,10 +178,24 @@ pub(crate) trait Transaction {
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
+    fn node_read_fragment(
+        &mut self,
+        rel_query_fragments: Vec<(String, String)>,
+        params: HashMap<String, Value>,
+        label: &str,
+        node_var: &str,
+        name_node: bool,
+        union_type: bool,
+        param_suffix: &str,
+        props: HashMap<String, Value>,
+        return_clause: ReturnClause,
+    ) -> Result<(String, String, HashMap<String, Value>), Error>;
+
+    #[allow(clippy::too_many_arguments)]
     fn node_read_query(
         &mut self,
-        query: String,
-        rel_query_fragments: Vec<String>,
+        match_fragment: &str,
+        where_fragment: &str,
         params: HashMap<String, Value>,
         label: &str,
         node_var: &str,
@@ -202,18 +215,34 @@ pub(crate) trait Transaction {
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn rel_read_query(
+    fn rel_read_fragment(
         &mut self,
-        query: String,
         params: HashMap<String, Value>,
         src_label: &str,
         src_var: &str,
-        src_query: Option<String>,
+        src_query: Option<(String, String)>,
         rel_name: &str,
         rel_suffix: &str,
         dst_var: &str,
         dst_suffix: &str,
-        dst_query_opt: Option<String>,
+        dst_query_opt: Option<(String, String)>,
+        top_level_query: bool,
+        props: HashMap<String, Value>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, String, HashMap<String, Value>), Error>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn rel_read_query(
+        &mut self,
+        match_fragment: &str,
+        where_fragment: &str,
+        params: HashMap<String, Value>,
+        src_label: &str,
+        src_var: &str,
+        rel_name: &str,
+        rel_suffix: &str,
+        dst_var: &str,
+        dst_suffix: &str,
         top_level_query: bool,
         return_clause: ReturnClause,
         props: HashMap<String, Value>,
@@ -254,7 +283,7 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: String,
+        match_query: String,
         params: HashMap<String, Value>,
         src_label: &str,
         src_suffix: &str,
@@ -284,7 +313,8 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn node_delete_query(
         &mut self,
-        query: String,
+        match_query: String,
+        rel_delete_fragments: Vec<String>,
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
@@ -303,7 +333,9 @@ pub(crate) trait Transaction {
     #[allow(clippy::too_many_arguments)]
     fn rel_delete_query(
         &mut self,
-        query: String,
+        match_query: String,
+        src_delete_query_opt: Option<String>,
+        dst_delete_query_opt: Option<String>,
         params: HashMap<String, Value>,
         src_label: &str,
         rel_name: &str,

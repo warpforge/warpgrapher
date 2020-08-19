@@ -10,7 +10,6 @@ use std::collections::HashMap;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
@@ -28,8 +27,8 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_create_mutation_input called -- query: {}, params: {:#?}, label: {}, info.name: {}",
-        query, params,
+        "visit_node_create_mutation_input called -- params: {:#?}, label: {}, info.name: {}",
+        params,
         label,
         info.name(),
     );
@@ -133,7 +132,6 @@ where
         )?;
 
         transaction.node_create_query::<GlobalCtx, RequestCtx>(
-            query,
             rel_create_fragments,
             params,
             &node_var,
@@ -151,7 +149,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_delete_input<T, GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-    query: String,
     params: HashMap<String, Value>,
     label: &str,
     node_var: &str,
@@ -173,8 +170,7 @@ where
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
-        let (query, params) = visit_node_query_input(
-            query,
+        let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             label,
             node_var,
@@ -191,8 +187,21 @@ where
             sg,
         )?;
 
+        let (match_query, params) = transaction.node_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            label,
+            node_var,
+            true,
+            false,
+            ReturnClause::None,
+            &sg.suffix(),
+            HashMap::new(),
+        )?;
+
         visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             node_var,
             label,
@@ -217,7 +226,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
@@ -233,8 +242,7 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_node_delete_mutation_input called -- query: {}, params: {:#?}, node_var: {}, label: {}, info.name: {}, input: {:#?}",
-        query,
+        "visit_node_delete_mutation_input called -- params: {:#?}, node_var: {}, label: {}, info.name: {}, input: {:#?}",
         params,
         node_var, label,
         info.name(),
@@ -243,20 +251,20 @@ where
 
     let itd = info.type_def()?;
 
-    let (query, params) = if let Some(Value::Map(m)) = input {
+    let (rel_delete_fragments, params) = if let Some(Value::Map(m)) = input {
         m.into_iter()
-            .try_fold((query, params), |(query, params), (k, v)| {
+            .try_fold((Vec::new(), params), |(mut queries, params), (k, v)| {
                 let p = itd.property(&k)?;
 
                 match p.kind() {
                     PropertyKind::Input => {
                         if let Value::Array(input_array) = v {
                             input_array.into_iter().try_fold(
-                                (query, params),
-                                |(query, params), val| {
-                                    visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
-                                        query,
+                                (queries, params),
+                                |(mut queries, params), val| {
+                                    let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                                         params,
+                                        node_var,
                                         label,
                                         &k,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -264,13 +272,15 @@ where
                                         val,
                                         transaction,
                                         sg,
-                                    )
+                                    )?;
+                                    queries.push(query);
+                                    Ok((queries, params))
                                 },
                             )
                         } else {
-                            visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
-                                query,
+                            let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                                 params,
+                                node_var,
                                 label,
                                 &k,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -278,18 +288,22 @@ where
                                 v,
                                 transaction,
                                 sg,
-                            )
+                            )?;
+
+                            queries.push(query);
+                            Ok((queries, params))
                         }
                     }
                     _ => Err(Error::TypeNotExpected),
                 }
             })?
     } else {
-        (query, params)
+        (Vec::new(), params)
     };
 
     transaction.node_delete_query(
-        query,
+        match_query,
+        rel_delete_fragments,
         params,
         node_var,
         label,
@@ -300,7 +314,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_node_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
@@ -338,7 +351,6 @@ where
 
         match k.as_ref() {
             "NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query,
                 params,
                 node_var,
                 label,
@@ -352,8 +364,7 @@ where
             ),
             "EXISTING" => {
                 let _node_suffix = sg.suffix();
-                visit_node_query_input(
-                    query,
+                let (match_fragment, where_fragment, params) = visit_node_query_input(
                     params,
                     label,
                     node_var,
@@ -365,6 +376,19 @@ where
                     Some(v),
                     transaction,
                     sg,
+                )?;
+
+                transaction.node_read_query(
+                    &match_fragment,
+                    &where_fragment,
+                    params,
+                    label,
+                    node_var,
+                    true,
+                    false,
+                    ReturnClause::SubQuery(node_var.to_string()),
+                    &sg.suffix(),
+                    HashMap::new(),
                 )
             }
             _ => Err(Error::SchemaItemNotFound {
@@ -378,7 +402,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_query_input<T>(
-    query: String,
     params: HashMap<String, Value>,
     label: &str,
     node_var: &str,
@@ -390,13 +413,12 @@ pub(super) fn visit_node_query_input<T>(
     input: Option<Value>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<(String, String, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
     trace!(
-        "visit_node_query_input called -- query: {}, params: {:#?}, label: {}, node_var: {}, union_type: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
-        query,
+        "visit_node_query_input called -- params: {:#?}, label: {}, node_var: {}, union_type: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
         params,
         label,
         node_var,
@@ -423,61 +445,58 @@ where
                                 Ok((rqfs, params))
                             }
                             PropertyKind::Input => {
-                                let (query, params) = visit_rel_query_input(
-                                    String::new(),
-                                    params,
-                                    label,
-                                    node_var,
-                                    &k,
-                                    &rel_suffix,
-                                    &("dst".to_string() + &dst_suffix),
-                                    &dst_suffix,
-                                    ReturnClause::None,
-                                    false,
-                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                    partition_key_opt,
-                                    Some(v),
-                                    transaction,
-                                    sg,
-                                )?;
-                                rqfs.push(query);
+                                let (match_fragment, where_fragment, params) =
+                                    visit_rel_query_input(
+                                        params,
+                                        label,
+                                        node_var,
+                                        &k,
+                                        &rel_suffix,
+                                        &("dst".to_string() + &dst_suffix),
+                                        &dst_suffix,
+                                        ReturnClause::None,
+                                        false,
+                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                        partition_key_opt,
+                                        Some(v),
+                                        transaction,
+                                        sg,
+                                    )?;
+                                rqfs.push((match_fragment, where_fragment));
                                 Ok((rqfs, params))
                             }
                             _ => Err(Error::TypeNotExpected),
                         })
                 })?;
 
-        transaction.node_read_query(
-            query,
+        transaction.node_read_fragment(
             rqfs,
             params,
             label,
             node_var,
             name_node,
             union_type,
-            return_clause,
             &param_suffix,
             props,
+            return_clause,
         )
     } else {
-        transaction.node_read_query(
-            query,
+        transaction.node_read_fragment(
             Vec::new(),
             params,
             label,
             node_var,
             name_node,
             union_type,
-            return_clause,
             &param_suffix,
             props,
+            return_clause,
         )
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     label: &str,
@@ -494,8 +513,7 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_input called -- query: {}, params: {:#?}, label: {}, info.name: {}, input: {:#?}",
-        query,
+        "visit_node_update_input called -- params: {:#?}, label: {}, info.name: {}, input: {:#?}",
         params,
         label,
         info.name(),
@@ -507,8 +525,7 @@ where
         let mut sg = SuffixGenerator::new();
         let node_suffix = sg.suffix();
 
-        let (match_query, params) = visit_node_query_input(
-            query,
+        let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             label,
             &node_var,
@@ -523,6 +540,19 @@ where
             m.remove("match"), // Remove used to take ownership
             transaction,
             &mut sg,
+        )?;
+
+        let (match_query, params) = transaction.node_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            label,
+            &node_var,
+            true,
+            false,
+            ReturnClause::None,
+            &sg.suffix(),
+            HashMap::new(),
         )?;
 
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
@@ -631,10 +661,9 @@ where
                                         > {
                                             let (query, params) =
                                                 visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                                    String::new(),
                                                     params,
                                                     label,
-                                                    Vec::new(),
+                                                    &("src".to_string() + &sg.suffix()),
                                                     &k,
                                                     &Info::new(
                                                         p.type_name().to_owned(),
@@ -657,10 +686,9 @@ where
                             } else {
                                 let (query, params) =
                                     visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                        String::new(),
                                         params,
                                         label,
-                                        Vec::new(),
+                                        &("src".to_string() + &sg.suffix()),
                                         &k,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
@@ -697,10 +725,9 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     src_label: &str,
-    src_ids: Vec<Value>,
+    src_var: &str,
     rel_name: &str,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -715,9 +742,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_change_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
+         "visit_rel_change_input called -- src_label {}, src_var {}, rel_name {}, info.name: {}, input: {:#?}",
          src_label,
-         src_ids,
+         src_var,
          rel_name,
          info.name(),
          input
@@ -729,7 +756,7 @@ where
         if let Some(v) = m.remove("ADD") {
             // Using remove to take ownership
             visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query,
+                String::new(),
                 params,
                 src_label,
                 "",
@@ -749,8 +776,8 @@ where
         } else if let Some(v) = m.remove("DELETE") {
             // Using remove to take ownership
             visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
-                query,
                 params,
+                src_var,
                 src_label,
                 rel_name,
                 &Info::new(
@@ -765,10 +792,9 @@ where
         } else if let Some(v) = m.remove("UPDATE") {
             // Using remove to take ownership
             visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
-                query,
                 params,
                 src_label,
-                Some(src_ids),
+                src_var,
                 rel_name,
                 false,
                 &Info::new(
@@ -794,7 +820,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     src_label: &str,
     rel_name: &str,
@@ -812,8 +837,7 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_create_input called -- query: {}, params: {:#?}, info.name: {}, rel_name {}, input: {:#?}",
-        query,
+        "visit_rel_create_input called -- params: {:#?}, info.name: {}, rel_name {}, input: {:#?}",
         params,
         info.name(),
         rel_name,
@@ -826,8 +850,7 @@ where
         let itd = info.type_def()?;
         let _src_suffix = sg.suffix();
 
-        let (match_query, params) = visit_node_query_input(
-            query,
+        let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             src_label,
             &src_var,
@@ -843,6 +866,20 @@ where
             transaction,
             sg,
         )?;
+
+        let (src_query, params) = transaction.node_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            src_label,
+            &src_var,
+            true,
+            false,
+            ReturnClause::None,
+            &sg.suffix(),
+            HashMap::new(),
+        )?;
+
         let create_input = m.remove("create").ok_or_else(|| {
             // Using remove to take ownership
             Error::InputItemNotFound {
@@ -850,15 +887,9 @@ where
             }
         })?;
 
-        trace!(
-            "visit_rel_create_input -- match_query: {}, params: {:#?}",
-            match_query,
-            params
-        );
-
         match create_input {
             Value::Map(_) => visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                match_query,
+                src_query,
                 params,
                 src_label,
                 &src_var,
@@ -876,7 +907,7 @@ where
                 sg,
             ),
             Value::Array(create_input_array) => create_input_array.into_iter().try_fold(
-                (match_query, params),
+                (src_query, params),
                 |(query, params), create_input_value| {
                     visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                         query,
@@ -946,7 +977,6 @@ where
                 name: "dst".to_string(),
             })?;
         let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
-            String::new(), //".V()".to_string(),
             params,
             &dst_var,
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
@@ -964,7 +994,7 @@ where
         };
 
         transaction.rel_create_query::<GlobalCtx, RequestCtx>(
-            src_query,
+            Some(src_query),
             params,
             src_var,
             &dst_query,
@@ -986,8 +1016,8 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
+    src_var: &str,
     src_label: &str,
     rel_name: &str,
     info: &Info,
@@ -1002,9 +1032,9 @@ where
     T: Transaction,
 {
     trace!(
-         "visit_rel_delete_input called -- query: {}, params: {:#?}, src_label {}, rel_name {}, info.name: {}, input: {:#?}",
-         query,
+         "visit_rel_delete_input called -- params: {:#?}, src_var: {}, src_label: {}, rel_name: {}, info.name: {}, input: {:#?}",
          params,
+         src_var,
          src_label,
          rel_name,
          info.name(),
@@ -1013,18 +1043,18 @@ where
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
-        let src_suffix = sg.suffix();
+        let _src_suffix = sg.suffix();
         let rel_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
+        let dst_var = "dst".to_string() + &dst_suffix;
 
-        let (read_query, params) = visit_rel_query_input(
-            query.clone(),
+        let (match_fragment, where_fragment, params) = visit_rel_query_input(
             params,
             src_label,
-            &("src".to_string() + &src_suffix),
+            src_var,
             rel_name,
             &rel_suffix,
-            &("dst".to_string() + &dst_suffix),
+            &dst_var,
             &dst_suffix,
             ReturnClause::SubQuery(rel_name.to_string() + &rel_suffix),
             false,
@@ -1038,37 +1068,29 @@ where
             sg,
         )?;
 
-        /*
-        let (query, params) = transaction.rel_read_query(
-            query,
+        let (match_query, params) = transaction.rel_read_query(
+            &match_fragment,
+            &where_fragment,
             params,
             src_label,
-            &("src".to_string() + &src_suffix),
-            Some(read_query),
+            src_var,
             rel_name,
             &rel_suffix,
-            &("dst".to_string() + &dst_suffix),
+            &dst_var,
             &dst_suffix,
-            None,
-            true,
+            false,
+            ReturnClause::SubQuery(rel_name.to_string() + &rel_suffix),
             HashMap::new(),
             sg,
         )?;
-        */
-        /*
-        let rel_ids = read_results
-            .iter()
-            .map(|r: &Rel<GlobalCtx, RequestCtx>| r.id().clone())
-            .collect();
-            */
 
-        if let Some(src) = m.remove("src") {
+        let (src_delete_query_opt, params) = if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
-            visit_rel_src_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query.clone(),
-                params.clone(),
+            let (query, params) = visit_rel_src_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+                match_query.clone(),
+                params,
                 src_label,
-                &("src".to_string() + &src_suffix),
+                src_var,
                 &Info::new(
                     itd.property("src")?.type_name().to_owned(),
                     info.type_defs(),
@@ -1078,13 +1100,16 @@ where
                 transaction,
                 sg,
             )?;
+            (Some(query), params)
+        } else {
+            (None, params)
         };
 
-        if let Some(dst) = m.remove("dst") {
+        let (dst_delete_query_opt, params) = if let Some(dst) = m.remove("dst") {
             // Uses remove to take ownership
-            visit_rel_dst_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query,
-                params.clone(),
+            let (query, params) = visit_rel_dst_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+                match_query.clone(),
+                params,
                 &("dst".to_string() + &dst_suffix),
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
@@ -1095,10 +1120,15 @@ where
                 transaction,
                 sg,
             )?;
+            (Some(query), params)
+        } else {
+            (None, params)
         };
 
         transaction.rel_delete_query(
-            read_query,
+            match_query,
+            src_delete_query_opt,
+            dst_delete_query_opt,
             params,
             src_label,
             rel_name,
@@ -1113,7 +1143,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_dst_delete_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     info: &Info,
@@ -1144,7 +1174,7 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             node_var,
             &k,
@@ -1160,8 +1190,8 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn visit_rel_dst_query_input<T>(
-    query: String,
     params: HashMap<String, Value>,
     label: &str,
     var_name: &str,
@@ -1170,7 +1200,7 @@ fn visit_rel_dst_query_input<T>(
     input: Option<Value>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
-) -> Result<(Option<String>, HashMap<String, Value>), Error>
+) -> Result<(Option<(String, String)>, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
@@ -1186,8 +1216,7 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = info.type_def()?.property(&k)?;
 
-            let (query, params) = visit_node_query_input(
-                query,
+            let (match_fragment, where_fragment, params) = visit_node_query_input(
                 params,
                 label,
                 var_name,
@@ -1202,7 +1231,7 @@ where
                 sg,
             )?;
 
-            Ok((Some(query), params))
+            Ok((Some((match_fragment, where_fragment)), params))
         } else {
             Ok((None, params))
         }
@@ -1213,7 +1242,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -1244,7 +1273,7 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             &sg.suffix(),
             &k,
@@ -1262,7 +1291,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     node_var: &str,
     info: &Info,
@@ -1294,7 +1322,6 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_input::<T, GlobalCtx, RequestCtx>(
-            query,
             params,
             node_var,
             &k,
@@ -1313,7 +1340,6 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_query_input<T>(
-    query: String,
     params: HashMap<String, Value>,
     src_label: &str,
     src_var: &str,
@@ -1328,13 +1354,12 @@ pub(super) fn visit_rel_query_input<T>(
     input_opt: Option<Value>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<(String, String, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
     trace!(
-        "visit_rel_query_input called -- query: {}, src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
-        query, 
+        "visit_rel_query_input called -- src_label: {}, src_var: {}, rel_name: {}, dst_var: {}, dst_suffix: {}, return_clause: {:#?}, info.name: {}, input: {:#?}",
         src_label,
         src_var,
         rel_name,
@@ -1364,7 +1389,6 @@ where
         // Remove used to take ownership
         let (src_query_opt, params) = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
-                "".to_string(),
                 params,
                 src_label,
                 src_var,
@@ -1381,7 +1405,6 @@ where
         // Remove used to take ownership
         let (dst_query_opt, params) = if let Some(dst) = m.remove("dst") {
             visit_rel_dst_query_input(
-                "".to_string(),
                 params,
                 "", // dst_label,
                 dst_var,
@@ -1395,8 +1418,7 @@ where
             (None, params)
         };
 
-        transaction.rel_read_query(
-            query,
+        transaction.rel_read_fragment(
             params,
             src_label,
             src_var,
@@ -1407,13 +1429,11 @@ where
             dst_suffix,
             dst_query_opt,
             top_level_query,
-            return_clause,
             props,
             sg,
         )
     } else {
-        transaction.rel_read_query(
-            query,
+        transaction.rel_read_fragment(
             params,
             src_label,
             src_var,
@@ -1424,7 +1444,6 @@ where
             dst_suffix,
             None,
             false,
-            return_clause,
             HashMap::new(),
             sg,
         )
@@ -1433,7 +1452,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_src_delete_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     label: &str,
     node_var: &str,
@@ -1465,7 +1484,7 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             node_var,
             label,
@@ -1482,7 +1501,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     label: &str,
     info: &Info,
@@ -1515,7 +1534,7 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-            query,
+            match_query,
             params,
             &sg.suffix(),
             label,
@@ -1532,8 +1551,8 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn visit_rel_src_query_input<T>(
-    query: String,
     params: HashMap<String, Value>,
     label: &str,
     var_name: &str,
@@ -1542,25 +1561,23 @@ fn visit_rel_src_query_input<T>(
     input: Option<Value>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
-) -> Result<(Option<String>, HashMap<String, Value>), Error>
+) -> Result<(Option<(String, String)>, HashMap<String, Value>), Error>
 where
     T: Transaction,
 {
     trace!(
-         "visit_rel_src_query_input called -- query: {}, label: {}, var_name: {}, info.name: {}, input: {:#?}",
-         query,
-         label,
-         var_name,
-         info.name(),
-         input
-     );
+        "visit_rel_src_query_input called -- label: {}, var_name: {}, info.name: {}, input: {:#?}",
+        label,
+        var_name,
+        info.name(),
+        input
+    );
 
     if let Some(Value::Map(m)) = input {
         if let Some((k, v)) = m.into_iter().next() {
             let p = info.type_def()?.property(&k)?;
 
-            let (query, params) = visit_node_query_input(
-                query,
+            let (match_fragment, where_fragment, params) = visit_node_query_input(
                 params,
                 label,
                 &var_name,
@@ -1575,7 +1592,7 @@ where
                 sg,
             )?;
 
-            Ok((Some(query), params))
+            Ok((Some((match_fragment, where_fragment)), params))
         } else {
             Ok((None, params))
         }
@@ -1586,10 +1603,9 @@ where
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
-    query: String,
     params: HashMap<String, Value>,
     src_label: &str,
-    src_ids: Option<Vec<Value>>,
+    src_var: &str,
     rel_name: &str,
     top_level_query: bool,
     info: &Info,
@@ -1606,9 +1622,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_input called -- src_label {}, src_ids {:#?}, rel_name {}, info.name: {}, input: {:#?}",
+         "visit_rel_update_input called -- src_label {}, src_var {}, rel_name {}, info.name: {}, input: {:#?}",
          src_label,
-         src_ids,
+         src_var,
          rel_name,
          info.name(),
          input
@@ -1620,15 +1636,16 @@ where
         let src_suffix = sg.suffix();
         let rel_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
+        let src_var = "src".to_string() + &src_suffix;
+        let dst_var = "dst".to_string() + &dst_suffix;
 
-        let (match_query, params) = visit_rel_query_input(
-            query,
+        let (match_fragment, where_fragment, params) = visit_rel_query_input(
             params,
             src_label,
-            &("src".to_string() + &src_suffix),
+            &src_var,
             rel_name,
             &rel_suffix,
-            &("dst".to_string() + &dst_suffix),
+            &dst_var,
             &dst_suffix,
             ReturnClause::None,
             false,
@@ -1642,8 +1659,24 @@ where
             &mut sg,
         )?;
 
+        let (match_query, params) = transaction.rel_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            &src_label,
+            &src_var,
+            rel_name,
+            &rel_suffix,
+            &dst_var,
+            &dst_suffix,
+            top_level_query,
+            ReturnClause::None,
+            HashMap::new(),
+            &mut sg,
+        )?;
+
+        /*
         let (query, params) = transaction.rel_read_query(
-            match_query,
             params,
             src_label,
             &("src".to_string() + &src_suffix),
@@ -1658,11 +1691,12 @@ where
             HashMap::new(),
             &mut sg,
         )?;
+        */
 
         if let Some(update) = m.remove("update") {
             // remove used to take ownership
             visit_rel_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query,
+                match_query,
                 params,
                 src_label,
                 &src_suffix,
@@ -1693,7 +1727,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
-    query: String,
+    match_query: String,
     params: HashMap<String, Value>,
     src_label: &str,
     src_suffix: &str,
@@ -1715,8 +1749,7 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_mutation_input called -- query: {}, params: {:#?}, info.name: {}, src_label: {}, rel_name: {}, props_type_name: {:#?}, input: {:#?}",
-         query,
+         "visit_rel_update_mutation_input called -- params: {:#?}, info.name: {}, src_label: {}, rel_name: {}, props_type_name: {:#?}, input: {:#?}",
          params,
          info.name(),
          src_label,
@@ -1735,7 +1768,7 @@ where
         };
 
         let results = transaction.rel_update_query::<GlobalCtx, RequestCtx>(
-            query.clone(),
+            match_query.clone(),
             params.clone(),
             src_label,
             src_suffix,
@@ -1753,7 +1786,7 @@ where
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership
             visit_rel_src_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query.clone(),
+                match_query.clone(),
                 params.clone(),
                 src_label,
                 &Info::new(
@@ -1771,7 +1804,7 @@ where
         if let Some(dst) = m.remove("dst") {
             // calling remove to take ownership
             visit_rel_dst_update_mutation_input::<T, GlobalCtx, RequestCtx>(
-                query,
+                match_query,
                 params,
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),

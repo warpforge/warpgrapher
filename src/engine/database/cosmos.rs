@@ -132,13 +132,16 @@ impl CosmosTransaction {
         Ok(ret_query)
     }
 
-    fn add_node_return(mut query: String, var_name: &str) -> String {
+    fn add_node_return(mut query: String, _var_name: &str) -> String {
+        /*
         query.push_str(
             &(".select('".to_string()
                 + var_name
                 + "')"
                 + ".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())"),
         );
+        */
+        query.push_str(".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())");
         query
     }
 
@@ -386,12 +389,11 @@ impl Transaction for CosmosTransaction {
 
     fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        query: String,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
-        _return_clause: ReturnClause,
+        return_clause: ReturnClause,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         _info: &Info,
@@ -402,20 +404,29 @@ impl Transaction for CosmosTransaction {
 
         if let Some(_pk) = partition_key_opt {
             let (mut query, params) = CosmosTransaction::add_properties(
-                query + ".addV('" + label + "').property('partitionKey', partitionKey)",
+                ".addV('".to_string() + label + "').property('partitionKey', partitionKey)",
                 params,
                 props,
                 sg,
             );
-            query = query + ".as('" + node_var + "')";
 
-            let mut query = rel_create_fragments
-                .into_iter()
-                .fold(query, |mut query, fragment| {
-                    query.push_str(&fragment);
-                    query
-                });
-            query = CosmosTransaction::add_node_return(query, node_var);
+            if !rel_create_fragments.is_empty() {
+                query = query + ".as('" + node_var + "')";
+                query = rel_create_fragments
+                    .into_iter()
+                    .fold(query, |mut query, fragment| {
+                        query.push_str(&fragment);
+                        query
+                    });
+
+                query.push_str(&(".select('".to_string() + node_var + "')"));
+            }
+
+            query = if let ReturnClause::Query(return_var) = return_clause {
+                CosmosTransaction::add_node_return(query, &return_var)
+            } else {
+                query
+            };
 
             Ok((query, params))
         } else {
@@ -455,7 +466,7 @@ impl Transaction for CosmosTransaction {
 
     fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        src_query: String,
+        src_query_opt: Option<String>,
         params: HashMap<String, Value>,
         src_var: &str,
         dst_query: &str,
@@ -493,7 +504,14 @@ impl Transaction for CosmosTransaction {
             }
             */
 
-            let mut query = src_query + dst_query;
+            let mut query = if let Some(src_query) = src_query_opt {
+                src_query
+            } else {
+                String::new()
+            };
+
+            query = query + dst_query + ".as('" + dst_var + "')";
+
             /*
             let mut query = "V().has('partitionKey', partitionKey)".to_string();
             query.push_str(&(".hasLabel('".to_string() + dst_label + "')"));
@@ -517,11 +535,12 @@ impl Transaction for CosmosTransaction {
                     + dst_var
                     + "')"),
             );
-            let (mut query, params) = CosmosTransaction::add_properties(query, params, props, sg);
+            let (query, params) = CosmosTransaction::add_properties(query, params, props, sg);
 
-            query = match return_clause {
+            let query = match return_clause {
                 ReturnClause::None => query,
-                _ => CosmosTransaction::add_rel_return(query),
+                ReturnClause::SubQuery(return_var) => query + ".as('" + &return_var + "')",
+                ReturnClause::Query(_return_var) => CosmosTransaction::add_rel_return(query),
             };
 
             Ok((query, params))
@@ -563,25 +582,22 @@ impl Transaction for CosmosTransaction {
         }
     }
 
-    fn node_read_query(
+    fn node_read_fragment(
         &mut self,
-        mut query: String,
-        rel_query_fragments: Vec<String>,
+        rel_query_fragments: Vec<(String, String)>,
         mut params: HashMap<String, Value>,
         label: &str,
-        node_var: &str,
+        _node_var: &str,
         _name_node: bool,
         union_type: bool,
-        return_node: ReturnClause,
         param_suffix: &str,
         props: HashMap<String, Value>,
-    ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_read_query called -- rel_query_fragments: {:#?}, params: {:#?}, label: {}, union_type: {:#?}, return_node: {:#?}, param_suffix: {}, props: {:#?}", rel_query_fragments, params, label, union_type, return_node, param_suffix, props);
+        _return_clause: ReturnClause,
+    ) -> Result<(String, String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::node_read_fragment: rel_query_fragment: {:#?}, params: {:#?}, label: {}, union_type: {}, param_suffix: {}, props: {:#?}",
+        rel_query_fragments, params, label, union_type, param_suffix, props);
 
-        match return_node {
-            ReturnClause::None => (),
-            _ => query.push_str(".V()"),
-        };
+        let mut query = String::new();
 
         if !union_type {
             query.push_str(&(".hasLabel('".to_string() + label + "')"));
@@ -608,12 +624,21 @@ impl Transaction for CosmosTransaction {
                 .enumerate()
                 .fold(query, |mut qs, (i, rqf)| {
                     if i == 0 {
-                        qs.push_str(&rqf);
+                        qs.push_str(&("outE()".to_string() + &rqf.1));
                     } else {
-                        qs.push_str(&(", ".to_string() + &rqf));
+                        qs.push_str(&(", outE()".to_string() + &rqf.1));
                     }
                     qs
                 });
+            /*
+            let mut query = match return_rel {
+                ReturnClause::None => query + "outE('" + rel_name + "')",
+                ReturnClause::SubQuery(_) => query + ".outE('" + rel_name + "')",
+                ReturnClause::Query(_) => {
+                    query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
+                }
+            };
+            */
 
             if multiple_rqfs {
                 query.push_str(")");
@@ -622,11 +647,41 @@ impl Transaction for CosmosTransaction {
             query.push_str(")");
         }
 
+        Ok(("".to_string(), query, params))
+    }
+
+    fn node_read_query(
+        &mut self,
+        match_fragment: &str,
+        where_fragment: &str,
+        params: HashMap<String, Value>,
+        _label: &str,
+        _node_var: &str,
+        _name_node: bool,
+        _union_type: bool,
+        return_node: ReturnClause,
+        _param_suffix: &str,
+        _props: HashMap<String, Value>,
+    ) -> Result<(String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, return_node: {:#?}",
+        match_fragment, where_fragment, params, return_node);
+
+        let mut query = ".V()".to_string() + match_fragment;
+
+        /*
         match return_node {
             ReturnClause::None => (),
-            ReturnClause::SubQuery(var_name) => query = query + ".as('" + &var_name + "')",
+            _ => query.push_str(".V()"),
+        };
+        */
+
+        query.push_str(where_fragment);
+
+        match return_node {
+            ReturnClause::None => (),
+            ReturnClause::SubQuery(_var_name) => (), //query = query + ".as('" + &var_name + "')",
             ReturnClause::Query(var_name) => {
-                query = query + ".as('" + node_var + "')";
+                // query = query + ".as('" + node_var + "')";
                 query = CosmosTransaction::add_node_return(query, &var_name);
             }
         }
@@ -663,26 +718,27 @@ impl Transaction for CosmosTransaction {
         }
     }
 
-    fn rel_read_query(
+    fn rel_read_fragment(
         &mut self,
-        query: String,
         mut params: HashMap<String, Value>,
         src_label: &str,
-        src_var: &str,
-        src_query_opt: Option<String>,
+        _src_var: &str,
+        src_query_opt: Option<(String, String)>,
         rel_name: &str,
         rel_suffix: &str,
         _dst_var: &str,
-        dst_suffix: &str,
-        dst_query_opt: Option<String>,
+        _dst_suffix: &str,
+        dst_query_opt: Option<(String, String)>,
         _top_level_query: bool,
-        return_rel: ReturnClause,
         props: HashMap<String, Value>,
         _sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_read_query called -- query: {}, params: {:#?}, src_label: {}, src_var: {}, src_query_opt: {:#?}, rel_name: {}, dst_suffix: {}, dst_query_opt: {:#?}, return_rel: {:#?}, props: {:#?}", 
-        query, params, src_label, src_var, src_query_opt, rel_name, dst_suffix, dst_query_opt, return_rel, props);
+    ) -> Result<(String, String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::rel_read_fragment called -- params: {:#?}, src_label: {}, src_query_opt: {:#?}, rel_name: {}, rel_suffix: {}, dst_query_opt: {:#?}, props: {:#?}",
+        params, src_label, src_query_opt, rel_name, rel_suffix, dst_query_opt, props);
 
+        let mut query = String::new();
+
+        /*
         let mut query = match return_rel {
             ReturnClause::None => query + "outE('" + rel_name + "')",
             ReturnClause::SubQuery(_) => query + ".outE('" + rel_name + "')",
@@ -690,34 +746,92 @@ impl Transaction for CosmosTransaction {
                 query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
             }
         };
+        */
+
+        query.push_str(&(".hasLabel('".to_string() + rel_name + "')"));
 
         props.into_iter().for_each(|(k, v)| {
             query.push_str(&(".has('".to_string() + &k + "', " + &k + rel_suffix + ")"));
             params.insert(k + rel_suffix, v);
         });
-        query.push_str(".where(");
 
-        if dst_query_opt.is_some() {
-            query.push_str("and(");
+        if src_query_opt.is_some() || dst_query_opt.is_some() {
+            query.push_str(".where(");
+
+            let both = src_query_opt.is_some() && dst_query_opt.is_some();
+
+            if both {
+                query.push_str("and(");
+            }
+
+            if let Some(src_query) = src_query_opt {
+                query.push_str(&("outV()".to_string() + &src_query.1));
+            } else {
+                // query.push_str(&("outV().hasLabel('".to_string() + src_label + "')"));
+            }
+
+            if both {
+                query.push_str(", ");
+            }
+
+            /*
+            if let Some(src_ids) = src_ids_opt {
+                query = CosmosTransaction::add_has_id_clause(query, src_ids)?;
+            }
+            */
+
+            if let Some(dst_query) = dst_query_opt {
+                query.push_str(&("inV()".to_string() + &dst_query.1));
+            }
+
+            if both {
+                query.push_str(")");
+            }
+            query.push_str(")");
         }
 
-        if let Some(src_query) = src_query_opt {
-            query.push_str(&("outV()".to_string() + &src_query));
-        } else {
-            query.push_str(&("outV().hasLabel('".to_string() + src_label + "')"));
-        }
+        Ok(("".to_string(), query, params))
+    }
+
+    fn rel_read_query(
+        &mut self,
+        match_fragment: &str,
+        where_fragment: &str,
+        params: HashMap<String, Value>,
+        _src_label: &str,
+        _src_var: &str,
+        rel_name: &str,
+        rel_suffix: &str,
+        _dst_var: &str,
+        _dst_suffix: &str,
+        _top_level_query: bool,
+        return_rel: ReturnClause,
+        _props: HashMap<String, Value>,
+        _sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_name: {}, rel_suffix: {}, return_rel: {:#?}",
+        match_fragment, where_fragment, params, rel_name, rel_suffix, return_rel);
+
+        let mut query = match return_rel {
+            ReturnClause::None => "outE('".to_string() + rel_name + "')",
+            ReturnClause::SubQuery(_) => ".outE('".to_string() + rel_name + "')",
+            ReturnClause::Query(_) => {
+                ".E().hasLabel('".to_string() + rel_name + "').has('partitionKey', partitionKey)"
+            }
+        };
+        query.push_str(&match_fragment);
 
         /*
-        if let Some(src_ids) = src_ids_opt {
-            query = CosmosTransaction::add_has_id_clause(query, src_ids)?;
-        }
+        let mut query = match return_rel {
+            ReturnClause::None => query + "outE('" + rel_name + "')",
+            ReturnClause::SubQuery(_) => query + ".outE('" + rel_name + "')",
+            ReturnClause::Query(_) => {
+                query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
+            }
+        };
         */
 
-        if let Some(dst_query) = dst_query_opt {
-            query.push_str(&(", ".to_string() + "inV()" + &dst_query + ")"));
-        }
-
-        query.push_str(")");
+        query.push_str(where_fragment);
 
         let query = match return_rel {
             ReturnClause::None => query,
@@ -774,12 +888,14 @@ impl Transaction for CosmosTransaction {
 
         if let Some(_pk) = partition_key_opt {
             let mut query = match_query;
-            for cq in change_queries.iter() {
-                query.push_str(cq);
+            if !change_queries.is_empty() {
+                query.push_str(&(".as('".to_string() + node_var + "')"));
+                for cq in change_queries.iter() {
+                    query.push_str(cq);
+                }
+                query.push_str(&(".select('".to_string() + node_var + "')"));
             }
-            query.push_str(&(".select('".to_string() + node_var + "')"));
-            let (mut query, mut _params) =
-                CosmosTransaction::add_properties(query, params.clone(), props, sg);
+            let (mut query, params) = CosmosTransaction::add_properties(query, params, props, sg);
             query = CosmosTransaction::add_node_return(query, node_var);
 
             Ok((query, params))
@@ -882,18 +998,27 @@ impl Transaction for CosmosTransaction {
 
     fn node_delete_query(
         &mut self,
-        mut query: String,
+        match_query: String,
+        rel_delete_fragments: Vec<String>,
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
         partition_key_opt: Option<&Value>,
         _sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_delete_query -- query: {}, params: {:#?}, label: {}, partition_key_opt: {:#?}", 
-        query, params, label, partition_key_opt);
+        trace!("CosmosTransaction::node_delete_query -- match_query: {}, params: {:#?}, label: {}, partition_key_opt: {:#?}", 
+        match_query, params, label, partition_key_opt);
+        let mut query = match_query;
+
         if let Some(_pk) = partition_key_opt {
-            // query.push_str(&(".sideEffect(".to_string() + node_var + ".drop())"));
-            query.push_str(&(".select('".to_string() + node_var + "').sideEffect(__.drop())"));
+            if !rel_delete_fragments.is_empty() {
+                query.push_str(&(".as('".to_string() + node_var + "')"));
+                for q in rel_delete_fragments.iter() {
+                    query.push_str(q)
+                }
+                query.push_str(&(".select(".to_string() + node_var + "')"));
+            }
+            query.push_str(&(".sideEffect(drop()).count()"));
             Ok((query, params))
         } else {
             Err(Error::PartitionKeyNotFound)
@@ -914,18 +1039,17 @@ impl Transaction for CosmosTransaction {
             partition_key_opt
         );
         if let Some(pk) = partition_key_opt {
-            // let length = ids.len();
-            let length = 0;
-
             let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
             params
                 .iter()
                 .for_each(|(k, v)| param_list.push((k.as_str(), v)));
             param_list.push(("partitionKey", pk));
 
-            self.client.execute(query, param_list.as_slice())?;
+            let raw_results = self.client.execute(query, param_list.as_slice())?;
+            let results = raw_results
+                .map(|r| Ok(r?))
+                .collect::<Result<Vec<GValue>, Error>>()?;
 
-            let results: Vec<GValue> = vec![(GValue::Int32(length))];
             CosmosTransaction::extract_count(results)
         } else {
             Err(Error::PartitionKeyNotFound)
@@ -935,6 +1059,8 @@ impl Transaction for CosmosTransaction {
     fn rel_delete_query(
         &mut self,
         mut query: String,
+        src_delete_query_opt: Option<String>,
+        dst_delete_query_opt: Option<String>,
         params: HashMap<String, Value>,
         _src_label: &str,
         rel_name: &str,
@@ -946,6 +1072,13 @@ impl Transaction for CosmosTransaction {
         query, params, rel_name, rel_suffix, partition_key_opt);
         if let Some(_pk) = partition_key_opt {
             // let _length = rel_ids.len();
+
+            if let Some(sdq) = src_delete_query_opt {
+                query.push_str(&sdq);
+            }
+            if let Some(ddq) = dst_delete_query_opt {
+                query.push_str(&ddq);
+            }
 
             // query = CosmosTransaction::add_has_id_clause(query, rel_ids)?;
             query.push_str(&(".select('rel".to_string() + rel_suffix + "').sideEffect(__.drop())"));

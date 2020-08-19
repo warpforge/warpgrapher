@@ -612,15 +612,6 @@ async fn error_on_node_missing_id(mut client: Client<AppGlobalCtx, AppRequestCtx
 
     assert!(pu.is_null());
 
-    let pd = client
-        .delete_node(
-            "Project",
-            Some("1234"),
-            Some(&json!({"name": "Project One"})),
-            None,
-        )
-        .await
-        .unwrap();
-
-    assert!(pd.is_null());
+    // No error thrown for deletion of nodes, because the node ID isn't accessed during deletion.
+    // Therefore, there is no delete_node test here.
 }
