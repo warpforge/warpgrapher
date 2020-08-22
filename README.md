@@ -7,6 +7,11 @@
 
 As a developer you can focus on defining your applications data model and warpgrapher takes care of generating a graph-based API for interacting with that model. In addition to generating CRUD APIs for interacting with the model, warpgrapher provides a set of advanced features to customize and extend your service. 
 
+Supported Databases:
+
+* Neo4j
+* CosmosDB
+
 ## Quickstart
 
 To get started right away, visit the [Quickstart](https://warpforge.github.io/warpgrapher/quickstart) section of the Book. Alternatively, look through the sample integration projects:
