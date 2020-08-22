@@ -1,6 +1,5 @@
 # Warpgrapher
-====================================
-[![Crates.io](https://img.shields.io/crates/v/diesel.svg)](https://crates.io/crates/diesel)
+[![Crates.io](https://img.shields.io/crates/v/warpgrapher.svg)](https://crates.io/crates/warpgrapher)
 
 Warpgrapher is a framework for creating GraphQL API services (backed by graph databases) from a domain data model. 
 
