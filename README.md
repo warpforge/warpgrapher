@@ -1,6 +1,6 @@
 # Warpgrapher
 [![Build Status](https://github.com/warpforge/warpgrapher/workflows/Test/badge.svg)](https://github.com/warpforge/warpgrapher/actions?query=workflow%3A%22Test%22+branch%3Amaster)
-[![GitHub Release](https://img.shields.io/github/release/warpgrapher/PlayMusic.svg?style=flat)]()  
+[![GitHub Release](https://img.shields.io/github/release/warpforge/warpgrapher.svg?style=flat)]()  
 [![Crates.io](https://img.shields.io/crates/v/warpgrapher.svg)](https://crates.io/crates/warpgrapher)
 
 ##### Framework for creating GraphQL API services from data models 
