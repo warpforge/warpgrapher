@@ -118,18 +118,14 @@ pub trait DatabaseEndpoint {
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
-    fn query_start() -> String;
-    #[allow(clippy::too_many_arguments)]
     fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
         node_var: &str,
-        label: &str,
-        clause: ClauseType,
-        partition_key_opt: Option<&Value>,
+        node_label: &str,
         props: HashMap<String, Value>,
-        info: &Info,
+        clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
@@ -173,6 +169,7 @@ pub(crate) trait Transaction {
         dst_vars: Vec<String>,
         params: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
+        clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     #[allow(clippy::too_many_arguments)]
@@ -283,6 +280,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
+        clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -311,6 +309,7 @@ pub(crate) trait Transaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
+        clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     #[allow(clippy::too_many_arguments)]
@@ -336,6 +335,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
         top_level_query: bool,
+        clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_nodes(
@@ -359,6 +359,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
         top_level_query: bool,
+        clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_rels(
@@ -380,7 +381,7 @@ pub(crate) enum ClauseType {
     Parameter(String),
     FirstSubQuery(String),
     SubQuery(String),
-    Query(String),
+    Query,
 }
 
 #[derive(Default)]

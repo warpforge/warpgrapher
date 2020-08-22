@@ -210,7 +210,7 @@ impl<'r> Resolver<'r> {
             HashMap::new(),
             &node_var,
             &p.type_name(),
-            ClauseType::Query(node_var.clone()),
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
@@ -218,7 +218,6 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let results =
             transaction.create_node(query, params, &p.type_name(), self.partition_key_opt, info);
 
@@ -316,7 +315,6 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let results = transaction.delete_nodes(query, params, label, self.partition_key_opt);
 
         if results.is_ok() {
@@ -418,7 +416,7 @@ impl<'r> Resolver<'r> {
             &node_var,
             true,
             false,
-            ClauseType::Query(node_var.to_string()),
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input_opt.map(|i| i.value),
@@ -433,11 +431,10 @@ impl<'r> Resolver<'r> {
             &node_var,
             true,
             false,
-            ClauseType::Query(node_var.to_string()),
+            ClauseType::Query,
             &sg.suffix(),
             HashMap::new(),
         )?;
-        let query = T::query_start() + &query;
         let results = transaction.read_nodes(query, self.partition_key_opt, Some(params), info);
 
         if info.name() == "Mutation" || info.name() == "Query" {
@@ -536,7 +533,6 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let result =
             transaction.update_nodes(query, params, &p.type_name(), self.partition_key_opt, info);
 
@@ -656,7 +652,6 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let result = transaction.create_rels(
             query,
             params,
@@ -763,7 +758,6 @@ impl<'r> Resolver<'r> {
             &mut sg,
             true,
         )?;
-        let query = T::query_start() + &query;
         let results =
             transaction.delete_rels(query, params, src_label, rel_name, self.partition_key_opt);
 
@@ -915,7 +909,7 @@ impl<'r> Resolver<'r> {
             &rel_suffix,
             &dst_var,
             &dst_suffix,
-            ClauseType::Query(rel_name.to_string()),
+            ClauseType::Query,
             true,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -934,11 +928,10 @@ impl<'r> Resolver<'r> {
             &dst_var,
             &dst_suffix,
             true,
-            ClauseType::Query(rel_name.to_string()),
+            ClauseType::Query,
             HashMap::new(),
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let results = transaction.read_rels(
             query,
             Some(p.type_name()),
@@ -1055,7 +1048,6 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let query = T::query_start() + &query;
         let results = transaction.update_rels(
             query,
             params,
@@ -1241,7 +1233,7 @@ impl<'r> Resolver<'r> {
                     false,
                     "",
                     props.clone(),
-                    ClauseType::Query(node_var.to_string()),
+                    ClauseType::Query,
                 )?;
                 let (query, params) = transaction.node_read_query(
                     &match_fragment,
@@ -1251,11 +1243,10 @@ impl<'r> Resolver<'r> {
                     &node_var,
                     true,
                     false,
-                    ClauseType::Query(node_var.to_string()),
+                    ClauseType::Query,
                     "",
                     props,
                 )?;
-                let query = T::query_start() + &query;
                 transaction.read_nodes(query, self.partition_key_opt, Some(params), info)
             }
             _ => Err(Error::SchemaItemNotFound {

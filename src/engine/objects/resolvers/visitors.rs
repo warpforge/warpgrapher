@@ -146,10 +146,8 @@ where
             params,
             &node_var,
             label,
-            clause,
-            partition_key_opt,
             props,
-            info,
+            clause,
             sg,
         )
     } else {
@@ -229,6 +227,7 @@ where
             transaction,
             sg,
             true,
+            ClauseType::Query,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -247,6 +246,7 @@ fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     transaction: &mut T,
     sg: &mut SuffixGenerator,
     top_level_query: bool,
+    clause: ClauseType,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     GlobalCtx: GlobalContext,
@@ -324,6 +324,7 @@ where
         partition_key_opt,
         sg,
         top_level_query,
+        clause,
     )
 }
 
@@ -598,6 +599,7 @@ where
             validators,
             transaction,
             sg,
+            ClauseType::Query,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -617,6 +619,7 @@ fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     validators: &Validators,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
+    clause: ClauseType,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
@@ -742,6 +745,7 @@ where
             partition_key_opt,
             info,
             sg,
+            clause,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -962,6 +966,7 @@ where
                     vec![dst_var],
                     params,
                     sg,
+                    ClauseType::Query,
                 )
             }
             Value::Array(create_input_array) => {
@@ -1018,6 +1023,7 @@ where
                     dst_vars,
                     params,
                     sg,
+                    ClauseType::Query,
                 )
             }
             _ => Err(Error::TypeNotExpected),
@@ -1235,6 +1241,11 @@ where
             partition_key_opt,
             sg,
             top_level_query,
+            if top_level_query {
+                ClauseType::Query
+            } else {
+                ClauseType::SubQuery(rel_name.to_string())
+            },
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1284,6 +1295,7 @@ where
             transaction,
             sg,
             false,
+            ClauseType::SubQuery(node_var.to_string()),
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1388,6 +1400,7 @@ where
             validators,
             transaction,
             sg,
+            ClauseType::SubQuery(dst_var.to_string()),
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1602,6 +1615,7 @@ where
             transaction,
             sg,
             false,
+            ClauseType::SubQuery(node_var.to_string()),
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1657,6 +1671,7 @@ where
             validators,
             transaction,
             sg,
+            ClauseType::SubQuery(src_var.to_string()),
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1836,6 +1851,11 @@ where
                 props_type_name,
                 transaction,
                 sg,
+                if top_level_query {
+                    ClauseType::Query
+                } else {
+                    ClauseType::SubQuery("rel".to_string() + &rel_suffix)
+                },
             )
         } else {
             Err(Error::InputItemNotFound {
@@ -1865,6 +1885,7 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
     props_type_name: Option<&str>,
     transaction: &mut T,
     sg: &mut SuffixGenerator,
+    clause: ClauseType,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
@@ -1907,6 +1928,7 @@ where
             props_type_name,
             partition_key_opt,
             sg,
+            clause,
         )?;
 
         if let Some(src) = m.remove("src") {
