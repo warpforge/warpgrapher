@@ -2,7 +2,7 @@
 
 - [Warpgrapher](./warpgrapher/intro.md)
   - [Quickstart](./warpgrapher/quickstart.md)
-  - [Databases](.warpgrapher/databases.md)
+  - [Databases](./warpgrapher/databases.md)
   - [Config](./warpgrapher/config.md)
 - [CRUD API](./api/intro.md)
   - [Node Read](./api/node_read.md)
@@ -20,3 +20,4 @@
   - [Dynamic Relationships](./engine/dynamic_rels.md)
   - [Global Context](./engine/context_global.md)
   - [Request Context](./engine/context_request.md)
+- [Contribution Guide](./contribution/main.md)

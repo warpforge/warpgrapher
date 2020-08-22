@@ -39,7 +39,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.2.0", features = ["neo4j"] }
+warpgrapher = { version = "0.3.0", features = ["neo4j"] }
 ```
 
 Then set up environment variables to contact your Neo4J DB:

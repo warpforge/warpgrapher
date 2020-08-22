@@ -1,6 +1,6 @@
 # Defined Endpoints
 
-In addition to the CRUD endpoints auto-generated for each type, a Warpgrapher app serve additional defined GraphQL endpoints (root queries/mutations).
+In addition to the CRUD endpoints auto-generated for each type, Warpgrapher provides the ability to define additional endpoints. 
 
 ## Usage
 
