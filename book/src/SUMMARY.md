@@ -20,4 +20,3 @@
   - [Dynamic Relationships](./engine/dynamic_rels.md)
   - [Global Context](./engine/context_global.md)
   - [Request Context](./engine/context_request.md)
-- [Contribution Guide](./contribution/main.md)
