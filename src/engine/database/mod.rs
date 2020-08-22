@@ -126,7 +126,7 @@ pub(crate) trait Transaction {
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         info: &Info,
@@ -143,7 +143,7 @@ pub(crate) trait Transaction {
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_query: Option<String>,
         params: HashMap<String, Value>,
@@ -152,12 +152,26 @@ pub(crate) trait Transaction {
         src_label: &str,
         dst_label: &str,
         dst_var: &str,
+        rel_var: &str,
         rel_name: &str,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         partition_key_opt: Option<&Value>,
         info: &Info,
+        sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error>;
+
+    #[allow(clippy::too_many_arguments)]
+    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        src_query_opt: Option<String>,
+        rel_create_fragments: Vec<String>,
+        src_var: &str,
+        src_label: &str,
+        rel_vars: Vec<String>,
+        dst_vars: Vec<String>,
+        params: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
@@ -188,7 +202,7 @@ pub(crate) trait Transaction {
         union_type: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-        return_clause: ReturnClause,
+        clause: ClauseType,
     ) -> Result<(String, String, HashMap<String, Value>), Error>;
 
     #[allow(clippy::too_many_arguments)]
@@ -201,7 +215,7 @@ pub(crate) trait Transaction {
         node_var: &str,
         name_node: bool,
         union_type: bool,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         param_suffix: &str,
         props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error>;
@@ -244,7 +258,7 @@ pub(crate) trait Transaction {
         dst_var: &str,
         dst_suffix: &str,
         top_level_query: bool,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
@@ -361,9 +375,10 @@ pub(crate) trait Transaction {
     fn rollback(&mut self) -> Result<(), Error>;
 }
 
-#[derive(Debug)]
-pub(crate) enum ReturnClause {
-    None,
+#[derive(Clone, Debug)]
+pub(crate) enum ClauseType {
+    Parameter(String),
+    FirstSubQuery(String),
     SubQuery(String),
     Query(String),
 }

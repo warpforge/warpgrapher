@@ -4,9 +4,9 @@ use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
 use crate::engine::database::cosmos::CosmosTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
-use crate::engine::database::{DatabasePool, SuffixGenerator};
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::engine::database::{ReturnClause, Transaction};
+use crate::engine::database::{ClauseType, Transaction};
+use crate::engine::database::{DatabasePool, SuffixGenerator};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -210,7 +210,7 @@ impl<'r> Resolver<'r> {
             HashMap::new(),
             &node_var,
             &p.type_name(),
-            ReturnClause::Query(node_var.clone()),
+            ClauseType::Query(node_var.clone()),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
@@ -418,7 +418,7 @@ impl<'r> Resolver<'r> {
             &node_var,
             true,
             false,
-            ReturnClause::Query(node_var.to_string()),
+            ClauseType::Query(node_var.to_string()),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input_opt.map(|i| i.value),
@@ -433,7 +433,7 @@ impl<'r> Resolver<'r> {
             &node_var,
             true,
             false,
-            ReturnClause::Query(node_var.to_string()),
+            ClauseType::Query(node_var.to_string()),
             &sg.suffix(),
             HashMap::new(),
         )?;
@@ -849,7 +849,21 @@ impl<'r> Resolver<'r> {
             )
         } else {
             if results.len() > 1 {
-                return Err(Error::TypeNotExpected.into());
+                return Err(Error::RelDuplicated {
+                    rel_name: rel_name.to_string(),
+                    ids: results.iter().enumerate().try_fold(
+                        String::new(),
+                        |mut ids, (i, r)| -> Result<String, Error> {
+                            if i > 0 {
+                                ids.push_str(", ");
+                            }
+                            let id: String = r.id().clone().try_into()?;
+                            ids.push_str(&id);
+                            Ok(ids)
+                        },
+                    )?,
+                }
+                .into());
             }
 
             executor.resolve(
@@ -901,7 +915,7 @@ impl<'r> Resolver<'r> {
             &rel_suffix,
             &dst_var,
             &dst_suffix,
-            ReturnClause::Query(rel_name.to_string()),
+            ClauseType::Query(rel_name.to_string()),
             true,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -920,7 +934,7 @@ impl<'r> Resolver<'r> {
             &dst_var,
             &dst_suffix,
             true,
-            ReturnClause::Query(rel_name.to_string()),
+            ClauseType::Query(rel_name.to_string()),
             HashMap::new(),
             &mut sg,
         )?;
@@ -1227,7 +1241,7 @@ impl<'r> Resolver<'r> {
                     false,
                     "",
                     props.clone(),
-                    ReturnClause::Query(node_var.to_string()),
+                    ClauseType::Query(node_var.to_string()),
                 )?;
                 let (query, params) = transaction.node_read_query(
                     &match_fragment,
@@ -1237,7 +1251,7 @@ impl<'r> Resolver<'r> {
                     &node_var,
                     true,
                     false,
-                    ReturnClause::Query(node_var.to_string()),
+                    ClauseType::Query(node_var.to_string()),
                     "",
                     props,
                 )?;

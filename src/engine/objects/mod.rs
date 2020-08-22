@@ -677,6 +677,10 @@ where
             _rctx: PhantomData,
         }
     }
+
+    pub(crate) fn id(&self) -> &Value {
+        &self.id
+    }
 }
 
 impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>

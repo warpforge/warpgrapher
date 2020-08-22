@@ -2,7 +2,7 @@
 
 use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, Transaction};
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::database::{ReturnClause, SuffixGenerator};
+use crate::engine::database::{ClauseType, SuffixGenerator};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
@@ -107,29 +107,6 @@ pub(crate) struct CosmosTransaction {
 impl CosmosTransaction {
     pub fn new(client: GremlinClient) -> CosmosTransaction {
         CosmosTransaction { client }
-    }
-
-    fn add_has_id_clause(mut query: String, ids: Vec<Value>) -> Result<String, Error> {
-        query.push_str(".hasId(");
-
-        let mut ret_query = ids
-            .iter()
-            .enumerate()
-            .try_fold(query, |mut query, (i, id_val)| {
-                if let Value::String(id) = id_val {
-                    if i == 0 {
-                        query.push_str(&("'".to_string() + &id + "'"));
-                    } else {
-                        query.push_str(&(", '".to_string() + &id + "'"));
-                    }
-                    Ok(query)
-                } else {
-                    Err(Error::TypeNotExpected)
-                }
-            })?;
-
-        ret_query.push_str(")");
-        Ok(ret_query)
     }
 
     fn add_node_return(mut query: String, _var_name: &str) -> String {
@@ -287,7 +264,8 @@ impl CosmosTransaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::rels called");
+        trace!("CosmosTransaction::rels called -- results: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        results, props_type_name, partition_key_opt);
         results
             .into_iter()
             .map(|r| {
@@ -339,43 +317,6 @@ impl CosmosTransaction {
             })
             .collect()
     }
-
-    #[allow(dead_code)]
-    fn single_rel_check<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        &self,
-        src_label: &str,
-        src_ids: Vec<Value>,
-        dst_ids: Vec<Value>,
-        rel_name: &str,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<(), Error> {
-        if let Some(pk) = partition_key_opt {
-            let param_list: Vec<(&str, &dyn ToGValue)> = vec![("partitionKey", pk)];
-            let mut query = CosmosTransaction::add_has_id_clause(
-                ".V().has('partitionKey', partitionKey)".to_string()
-                    + ".has('label', '"
-                    + src_label
-                    + "')",
-                src_ids,
-            )?;
-            query.push_str(&(".outE('".to_string() + rel_name + "').count()"));
-
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
-
-            if CosmosTransaction::extract_count(results)? > 0 || dst_ids.len() > 1 {
-                Err(Error::RelDuplicated {
-                    rel_name: rel_name.to_string(),
-                })
-            } else {
-                Ok(())
-            }
-        } else {
-            Err(Error::PartitionKeyNotFound)
-        }
-    }
 }
 
 impl Transaction for CosmosTransaction {
@@ -393,36 +334,45 @@ impl Transaction for CosmosTransaction {
         params: HashMap<String, Value>,
         node_var: &str,
         label: &str,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         partition_key_opt: Option<&Value>,
         props: HashMap<String, Value>,
         _info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmsosTransaction::node_create_query called -- params: {:#?}, label: {}, partition_key_opt: {:#?}, props: {:#?}", 
-        params, label, partition_key_opt, props);
+        trace!("CosmsosTransaction::node_create_query called -- rel_create_fragments: {:#?}, params: {:#?}, label: {}, partition_key_opt: {:#?}, props: {:#?}", 
+        rel_create_fragments, params, label, partition_key_opt, props);
 
         if let Some(_pk) = partition_key_opt {
-            let (mut query, params) = CosmosTransaction::add_properties(
-                ".addV('".to_string() + label + "').property('partitionKey', partitionKey)",
-                params,
-                props,
-                sg,
-            );
+            let (mut query, params) = if let ClauseType::Parameter(_) = clause {
+                CosmosTransaction::add_properties(
+                    "addV('".to_string() + label + "').property('partitionKey', partitionKey)",
+                    params,
+                    props,
+                    sg,
+                )
+            } else {
+                CosmosTransaction::add_properties(
+                    ".addV('".to_string() + label + "').property('partitionKey', partitionKey)",
+                    params,
+                    props,
+                    sg,
+                )
+            };
+
+            query = query + ".as('" + node_var + "')";
 
             if !rel_create_fragments.is_empty() {
-                query = query + ".as('" + node_var + "')";
                 query = rel_create_fragments
                     .into_iter()
                     .fold(query, |mut query, fragment| {
                         query.push_str(&fragment);
                         query
                     });
-
                 query.push_str(&(".select('".to_string() + node_var + "')"));
             }
 
-            query = if let ReturnClause::Query(return_var) = return_clause {
+            query = if let ClauseType::Query(return_var) = clause {
                 CosmosTransaction::add_node_return(query, &return_var)
             } else {
                 query
@@ -464,7 +414,7 @@ impl Transaction for CosmosTransaction {
         }
     }
 
-    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_query_opt: Option<String>,
         params: HashMap<String, Value>,
@@ -473,16 +423,17 @@ impl Transaction for CosmosTransaction {
         src_label: &str,
         dst_label: &str,
         dst_var: &str,
+        _rel_var: &str,
         rel_name: &str,
         props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
-        return_clause: ReturnClause,
+        clause: ClauseType,
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_create_query called -- params: {:#?}, src_var: {}, src_label: {}, dst_label: {}, dst_var: {:#?}, rel_name: {}, props: {:#?}, partition_key_opt: {:#?}, info.name: {}", 
-        params, src_var, src_label, dst_label, dst_var, rel_name, props, partition_key_opt, info.name());
+        trace!("CosmosTransaction::rel_create_fragment called -- src_query_opt: {:#?}, params: {:#?}, src_var: {}, src_label: {}, dst_query: {}, dst_label: {}, dst_var: {:#?}, rel_name: {}, props: {:#?}, partition_key_opt: {:#?}, info.name: {}", 
+        src_query_opt, params, src_var, src_label, dst_query, dst_label, dst_var, rel_name, props, partition_key_opt, info.name());
         if let Some(pk) = partition_key_opt {
             let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
             params
@@ -510,7 +461,7 @@ impl Transaction for CosmosTransaction {
                 String::new()
             };
 
-            query = query + dst_query + ".as('" + dst_var + "')";
+            query.push_str(dst_query); // + ".as('" + dst_var + "')";
 
             /*
             let mut query = "V().has('partitionKey', partitionKey)".to_string();
@@ -537,16 +488,69 @@ impl Transaction for CosmosTransaction {
             );
             let (query, params) = CosmosTransaction::add_properties(query, params, props, sg);
 
-            let query = match return_clause {
-                ReturnClause::None => query,
-                ReturnClause::SubQuery(return_var) => query + ".as('" + &return_var + "')",
-                ReturnClause::Query(_return_var) => CosmosTransaction::add_rel_return(query),
+            let query = match clause {
+                ClauseType::Parameter(return_var) => query + ".as('" + &return_var + "')",
+                ClauseType::FirstSubQuery(return_var) => query + ".as('" + &return_var + "')",
+                ClauseType::SubQuery(return_var) => query + ".as('" + &return_var + "')",
+                ClauseType::Query(_return_var) => CosmosTransaction::add_rel_return(query),
             };
 
             Ok((query, params))
         } else {
             Err(Error::PartitionKeyNotFound)
         }
+    }
+
+    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+        &mut self,
+        src_query_opt: Option<String>,
+        rel_create_fragments: Vec<String>,
+        _src_var: &str,
+        _src_label: &str,
+        rel_vars: Vec<String>,
+        _dst_vars: Vec<String>,
+        params: HashMap<String, Value>,
+        _sg: &mut SuffixGenerator,
+    ) -> Result<(String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::rel_create_query called -- src_query_opt: {:#?}, rel_create_fragments: {:#?}, params: {:#?}", 
+        src_query_opt, rel_create_fragments, params);
+
+        let mut query = if let Some(src_query) = src_query_opt {
+            src_query
+        } else {
+            String::new()
+        };
+
+        query.push_str(
+            &rel_create_fragments
+                .iter()
+                .fold(String::new(), |mut rcfs, rcf| {
+                    rcfs.push_str(rcf);
+                    rcfs
+                }),
+        );
+        if rel_vars.len() > 1 {
+            query.push_str(".union(");
+        } else {
+            query.push_str(".")
+        }
+
+        query.push_str(&rel_vars.iter().enumerate().fold(
+            String::new(),
+            |mut rvs, (i, return_var)| {
+                if i > 0 {
+                    rvs.push_str(", ");
+                }
+                rvs.push_str(&("select('".to_string() + return_var + "')"));
+                CosmosTransaction::add_rel_return(rvs)
+            },
+        ));
+
+        if rel_create_fragments.len() > 1 {
+            query.push_str(")");
+        }
+
+        Ok((query, params))
     }
 
     fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -563,7 +567,7 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         _info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::rel_create_query called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}", query, params, props_type_name, partition_key_opt);
+        trace!("CosmosTransaction::create_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}", query, params, props_type_name, partition_key_opt);
         if let Some(pk) = partition_key_opt {
             let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
             params
@@ -592,7 +596,7 @@ impl Transaction for CosmosTransaction {
         union_type: bool,
         param_suffix: &str,
         props: HashMap<String, Value>,
-        _return_clause: ReturnClause,
+        clause: ClauseType,
     ) -> Result<(String, String, HashMap<String, Value>), Error> {
         trace!("CosmosTransaction::node_read_fragment: rel_query_fragment: {:#?}, params: {:#?}, label: {}, union_type: {}, param_suffix: {}, props: {:#?}",
         rel_query_fragments, params, label, union_type, param_suffix, props);
@@ -647,6 +651,10 @@ impl Transaction for CosmosTransaction {
             query.push_str(")");
         }
 
+        if let ClauseType::SubQuery(return_name) = clause {
+            query.push_str(&(".as('".to_string() + &return_name + "')"));
+        }
+
         Ok(("".to_string(), query, params))
     }
 
@@ -659,12 +667,12 @@ impl Transaction for CosmosTransaction {
         _node_var: &str,
         _name_node: bool,
         _union_type: bool,
-        return_node: ReturnClause,
+        clause: ClauseType,
         _param_suffix: &str,
         _props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, return_node: {:#?}",
-        match_fragment, where_fragment, params, return_node);
+        trace!("CosmosTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, clause: {:#?}",
+        match_fragment, where_fragment, params, clause);
 
         let mut query = ".V()".to_string() + match_fragment;
 
@@ -677,13 +685,8 @@ impl Transaction for CosmosTransaction {
 
         query.push_str(where_fragment);
 
-        match return_node {
-            ReturnClause::None => (),
-            ReturnClause::SubQuery(_var_name) => (), //query = query + ".as('" + &var_name + "')",
-            ReturnClause::Query(var_name) => {
-                // query = query + ".as('" + node_var + "')";
-                query = CosmosTransaction::add_node_return(query, &var_name);
-            }
+        if let ClauseType::Query(var_name) = clause {
+            query = CosmosTransaction::add_node_return(query, &var_name);
         }
 
         Ok((query, params))
@@ -748,7 +751,9 @@ impl Transaction for CosmosTransaction {
         };
         */
 
-        query.push_str(&(".hasLabel('".to_string() + rel_name + "')"));
+        query.push_str(
+            &(".hasLabel('".to_string() + rel_name + "').has('partitionKey', partitionKey)"),
+        );
 
         props.into_iter().for_each(|(k, v)| {
             query.push_str(&(".has('".to_string() + &k + "', " + &k + rel_suffix + ")"));
@@ -805,19 +810,18 @@ impl Transaction for CosmosTransaction {
         _dst_var: &str,
         _dst_suffix: &str,
         _top_level_query: bool,
-        return_rel: ReturnClause,
+        clause: ClauseType,
         _props: HashMap<String, Value>,
         _sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_name: {}, rel_suffix: {}, return_rel: {:#?}",
-        match_fragment, where_fragment, params, rel_name, rel_suffix, return_rel);
+        trace!("CosmosTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_name: {}, rel_suffix: {}, clause: {:#?}",
+        match_fragment, where_fragment, params, rel_name, rel_suffix, clause);
 
-        let mut query = match return_rel {
-            ReturnClause::None => "outE('".to_string() + rel_name + "')",
-            ReturnClause::SubQuery(_) => ".outE('".to_string() + rel_name + "')",
-            ReturnClause::Query(_) => {
-                ".E().hasLabel('".to_string() + rel_name + "').has('partitionKey', partitionKey)"
-            }
+        let mut query = match clause {
+            ClauseType::Parameter(_) => "outE('".to_string() + rel_name + "')",
+            ClauseType::FirstSubQuery(_) => ".E()".to_string(),
+            ClauseType::SubQuery(_) => ".outE('".to_string() + rel_name + "')",
+            ClauseType::Query(_) => ".E()".to_string(),
         };
         query.push_str(&match_fragment);
 
@@ -833,10 +837,11 @@ impl Transaction for CosmosTransaction {
 
         query.push_str(where_fragment);
 
-        let query = match return_rel {
-            ReturnClause::None => query,
-            ReturnClause::SubQuery(_return_var) => query + ".as('rel" + rel_suffix + "')",
-            ReturnClause::Query(_return_var) => CosmosTransaction::add_rel_return(query),
+        let query = match clause {
+            ClauseType::Parameter(_) => query,
+            ClauseType::FirstSubQuery(_return_var) => query + ".as('rel" + rel_suffix + "')",
+            ClauseType::SubQuery(_return_var) => query + ".as('rel" + rel_suffix + "')",
+            ClauseType::Query(_return_var) => CosmosTransaction::add_rel_return(query),
         };
 
         Ok((query, params))
@@ -889,7 +894,7 @@ impl Transaction for CosmosTransaction {
         if let Some(_pk) = partition_key_opt {
             let mut query = match_query;
             if !change_queries.is_empty() {
-                query.push_str(&(".as('".to_string() + node_var + "')"));
+                // query.push_str(&(".as('".to_string() + node_var + "')"));
                 for cq in change_queries.iter() {
                     query.push_str(cq);
                 }
@@ -935,12 +940,12 @@ impl Transaction for CosmosTransaction {
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        src_var: &str,
+        _src_var: &str,
         _src_label: &str,
         _src_suffix: &str,
         rel_name: &str,
         _rel_suffix: &str,
-        _rel_var: &str,
+        rel_var: &str,
         _dst_suffix: &str,
         top_level_query: bool,
         props: HashMap<String, Value>,
@@ -951,12 +956,16 @@ impl Transaction for CosmosTransaction {
         trace!("CosmosTransaction::rel_update_query called -- query: {}, params: {:#?}, rel_name: {}, props: {:#?}, partition_key_opt: {:#?}", 
         query, params, rel_name, props, partition_key_opt);
         if let Some(_pk) = partition_key_opt {
+            /*
             let query = if top_level_query {
-                query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
+                // query + ".E().hasLabel('" + rel_name + "').has('partitionKey', partitionKey)"
+                query + ".select('" + rel_var + "')"
             } else {
                 query + ".select('" + src_var + "').outE('" + rel_name + "')"
                 // query + "outE('" + rel_name + "')"
             };
+            */
+            let query = query + ".select('" + rel_var + "')";
 
             // query = CosmosTransaction::add_has_id_clause(query, rel_ids)?;
 
