@@ -1,4 +1,5 @@
 # Warpgrapher
+[![Build Status](https://github.com/warpforge/warpgrapher/workflows/Test/badge.svg)](https://github.com/warpforge/warpgrapher/actions?query=workflow%3A%22Test%22+branch%3Amaster)
 [![Crates.io](https://img.shields.io/crates/v/warpgrapher.svg)](https://crates.io/crates/warpgrapher)
 
 Warpgrapher is a framework for creating GraphQL API services (backed by graph databases) from a domain data model. 
