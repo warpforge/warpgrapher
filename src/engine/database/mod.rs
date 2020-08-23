@@ -122,8 +122,7 @@ pub(crate) trait Transaction {
         &mut self,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
-        node_var: &str,
-        node_label: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         clause: ClauseType,
         sg: &mut SuffixGenerator,
@@ -133,23 +132,16 @@ pub(crate) trait Transaction {
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        label: &str,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        src_query: Option<String>,
+        src_query_opt: Option<String>,
         params: HashMap<String, Value>,
-        src_var: &str,
+        rel_var: &RelQueryVar,
         dst_query: &str,
-        src_label: &str,
-        dst_label: &str,
-        dst_var: &str,
-        rel_var: &str,
-        rel_name: &str,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         clause: ClauseType,
@@ -377,10 +369,91 @@ pub(crate) trait Transaction {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) struct NodeQueryVar<'a> {
+    base: &'a str,
+    suffix: &'a str,
+    label: Option<&'a str>,
+    name: String,
+}
+
+impl<'a> NodeQueryVar<'a> {
+    pub(crate) fn new(label: Option<&'a str>, base: &'a str, suffix: &'a str) -> NodeQueryVar<'a> {
+        NodeQueryVar {
+            base,
+            suffix,
+            label,
+            name: base.to_string() + suffix,
+        }
+    }
+
+    pub(crate) fn base(&self) -> &str {
+        self.base
+    }
+
+    pub(crate) fn label(&self) -> Result<&str, Error> {
+        self.label.ok_or_else(|| Error::LabelNotFound)
+    }
+
+    pub(crate) fn suffix(&self) -> &str {
+        self.suffix
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RelQueryVar<'a> {
+    label: &'a str,
+    suffix: &'a str,
+    name: String,
+    src: &'a NodeQueryVar<'a>,
+    dst: &'a NodeQueryVar<'a>,
+}
+
+impl<'a> RelQueryVar<'a> {
+    pub(crate) fn new(
+        label: &'a str,
+        suffix: &'a str,
+        src: &'a NodeQueryVar<'a>,
+        dst: &'a NodeQueryVar<'a>,
+    ) -> RelQueryVar<'a> {
+        RelQueryVar {
+            label,
+            suffix,
+            name: "rel".to_string() + suffix,
+            src,
+            dst,
+        }
+    }
+
+    pub(crate) fn label(&self) -> &str {
+        self.label
+    }
+
+    pub(crate) fn suffix(&self) -> &str {
+        self.suffix
+    }
+
+    pub(crate) fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub(crate) fn src(&self) -> &NodeQueryVar {
+        self.src
+    }
+
+    pub(crate) fn dst(&self) -> &NodeQueryVar {
+        self.dst
+    }
+}
+
+#[derive(Clone, Debug)]
 pub(crate) enum ClauseType {
-    Parameter(String),
-    FirstSubQuery(String),
-    SubQuery(String),
+    Parameter,
+    FirstSubQuery,
+    SubQuery,
     Query,
 }
 

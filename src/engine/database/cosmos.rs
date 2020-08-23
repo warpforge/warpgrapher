@@ -1,8 +1,10 @@
 //! Provides database interface types and functions for Cosmos DB
 
-use super::{env_string, env_u16, DatabaseEndpoint, DatabasePool, Transaction};
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::database::{ClauseType, SuffixGenerator};
+use crate::engine::database::{
+    env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar,
+    SuffixGenerator, Transaction,
+};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
@@ -316,22 +318,23 @@ impl Transaction for CosmosTransaction {
         &mut self,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
-        node_var: &str,
-        node_label: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
+        trace!("CosmosTransaction::node_create_query called -- rel_create_fragments: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}", 
+        rel_create_fragments, params, node_var, props, clause);
         let first = match clause {
-            ClauseType::Parameter(_) => "addV('".to_string(),
-            ClauseType::FirstSubQuery(_) | ClauseType::SubQuery(_) => ".addV('".to_string(),
+            ClauseType::Parameter => "addV('".to_string(),
+            ClauseType::FirstSubQuery | ClauseType::SubQuery => ".addV('".to_string(),
             ClauseType::Query => "g.addV('".to_string(),
-        } + node_label
+        } + node_var.label()?
             + "').property('partitionKey', partitionKey)";
 
         let (mut query, params) = CosmosTransaction::add_properties(first, params, props, sg);
 
-        query.push_str(&(".as('".to_string() + node_var + "')"));
+        query.push_str(&(".as('".to_string() + node_var.name() + "')"));
 
         if !rel_create_fragments.is_empty() {
             query.push_str(&rel_create_fragments.into_iter().fold(
@@ -341,7 +344,7 @@ impl Transaction for CosmosTransaction {
                     acc
                 },
             ));
-            query.push_str(&(".select('".to_string() + node_var + "')"));
+            query.push_str(&(".select('".to_string() + node_var.name() + "')"));
         }
 
         if let ClauseType::Query = clause {
@@ -355,11 +358,11 @@ impl Transaction for CosmosTransaction {
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        _label: &str,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
-        trace!("CosmosTransaction::create_node called -- query: {}, params: {:#?}, partition_key_opt: {:#?}, info.name: {}", query, params, partition_key_opt, info.name());
+        trace!("CosmosTransaction::create_node called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", query, params, partition_key_opt);
+
         if let Some(pk) = partition_key_opt {
             let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
             params
@@ -385,13 +388,8 @@ impl Transaction for CosmosTransaction {
         &mut self,
         src_query_opt: Option<String>,
         params: HashMap<String, Value>,
-        src_var: &str,
+        rel_var: &RelQueryVar,
         dst_query: &str,
-        src_label: &str,
-        dst_label: &str,
-        dst_var: &str,
-        _rel_var: &str,
-        rel_name: &str,
         props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         clause: ClauseType,
@@ -399,16 +397,12 @@ impl Transaction for CosmosTransaction {
         info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_create_fragment called -- src_query_opt: {:#?}, params: {:#?}, src_var: {}, src_label: {}, dst_query: {}, dst_label: {}, dst_var: {:#?}, rel_name: {}, props: {:#?}, partition_key_opt: {:#?}, info.name: {}", 
-        src_query_opt, params, src_var, src_label, dst_query, dst_label, dst_var, rel_name, props, partition_key_opt, info.name());
         if let Some(pk) = partition_key_opt {
             let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
             params
                 .iter()
                 .for_each(|(k, v)| param_list.push((k.as_str(), v)));
             param_list.push(("partitionKey", pk));
-
-            let _src_prop = info.type_def_by_name(src_label)?.property(rel_name)?;
 
             /*
             if !src_prop.list() {
@@ -446,19 +440,19 @@ impl Transaction for CosmosTransaction {
 
             query.push_str(
                 &(".addE('".to_string()
-                    + rel_name
+                    + rel_var.label()
                     + "').from('"
-                    + src_var
+                    + rel_var.src().name()
                     + "').to('"
-                    + dst_var
+                    + rel_var.dst().name()
                     + "')"),
             );
-            let (query, params) = CosmosTransaction::add_properties(query, params, props, sg);
+            let (mut query, params) = CosmosTransaction::add_properties(query, params, props, sg);
 
-            let query = match clause {
-                ClauseType::Parameter(return_var) => query + ".as('" + &return_var + "')",
-                ClauseType::FirstSubQuery(return_var) => query + ".as('" + &return_var + "')",
-                ClauseType::SubQuery(return_var) => query + ".as('" + &return_var + "')",
+            query = match clause {
+                ClauseType::Parameter => query + ".as('" + rel_var.name() + "')",
+                ClauseType::FirstSubQuery => query + ".as('" + rel_var.name() + "')",
+                ClauseType::SubQuery => query + ".as('" + rel_var.name() + "')",
                 ClauseType::Query => CosmosTransaction::add_rel_return(query),
             };
 
@@ -565,7 +559,7 @@ impl Transaction for CosmosTransaction {
         rel_query_fragments: Vec<(String, String)>,
         mut params: HashMap<String, Value>,
         label: &str,
-        _node_var: &str,
+        node_var: &str,
         _name_node: bool,
         union_type: bool,
         param_suffix: &str,
@@ -625,8 +619,8 @@ impl Transaction for CosmosTransaction {
             query.push_str(")");
         }
 
-        if let ClauseType::SubQuery(return_name) = clause {
-            query.push_str(&(".as('".to_string() + &return_name + "')"));
+        if let ClauseType::SubQuery = clause {
+            query.push_str(&(".as('".to_string() + node_var + "')"));
         }
 
         Ok(("".to_string(), query, params))
@@ -798,9 +792,9 @@ impl Transaction for CosmosTransaction {
         match_fragment, where_fragment, params, rel_name, rel_suffix, clause);
 
         let mut query = match clause {
-            ClauseType::Parameter(_) => "outE('".to_string() + rel_name + "')",
-            ClauseType::FirstSubQuery(_) => ".E()".to_string(),
-            ClauseType::SubQuery(_) => ".outE('".to_string() + rel_name + "')",
+            ClauseType::Parameter => "outE('".to_string() + rel_name + "')",
+            ClauseType::FirstSubQuery => ".E()".to_string(),
+            ClauseType::SubQuery => ".outE('".to_string() + rel_name + "')",
             ClauseType::Query => "g.E()".to_string(),
         };
         query.push_str(&match_fragment);
@@ -818,9 +812,9 @@ impl Transaction for CosmosTransaction {
         query.push_str(where_fragment);
 
         let query = match clause {
-            ClauseType::Parameter(_) => query,
-            ClauseType::FirstSubQuery(_return_var) => query + ".as('rel" + rel_suffix + "')",
-            ClauseType::SubQuery(_return_var) => query + ".as('rel" + rel_suffix + "')",
+            ClauseType::Parameter => query,
+            ClauseType::FirstSubQuery => query + ".as('rel" + rel_suffix + "')",
+            ClauseType::SubQuery => query + ".as('rel" + rel_suffix + "')",
             ClauseType::Query => CosmosTransaction::add_rel_return(query),
         };
 

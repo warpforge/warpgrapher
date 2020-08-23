@@ -83,6 +83,12 @@ pub enum Error {
     /// missing an expected field.
     InputItemNotFound { name: String },
 
+    /// Returned if an internal CRUD handler tries to retrieve the label for a node or relationship
+    /// from an internal temporary bookkeeping structure and is unable to do so. This likely
+    /// indicates an internal bug. Thus, if you happen to see it, please open an issue at the
+    /// Warpgrapher project.
+    LabelNotFound,
+
     /// Returned if a Neo4J query fails to execute correctly
     #[cfg(feature = "neo4j")]
     Neo4jQueryFailed {
@@ -229,6 +235,9 @@ impl Display for Error {
             Error::InputItemNotFound { name } => {
                 write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
             }
+            Error::LabelNotFound => {
+                write!(f, "Could not find a label for a destination node.")
+            }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
@@ -308,6 +317,7 @@ impl std::error::Error for Error {
             Error::EnvironmentVariableNotParsed { source } => Some(source),
             Error::ExtensionFailed { source } => Some(source.as_ref()),
             Error::InputItemNotFound { name: _ } => None,
+            Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
             #[cfg(feature = "neo4j")]

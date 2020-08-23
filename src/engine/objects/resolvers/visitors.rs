@@ -1,5 +1,5 @@
 use crate::engine::context::{GlobalContext, RequestContext};
-use crate::engine::database::{ClauseType, Transaction};
+use crate::engine::database::{ClauseType, NodeQueryVar, RelQueryVar, Transaction};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
-    node_var: &str,
+    node_var: &NodeQueryVar,
     label: &str,
     clause: ClauseType,
     info: &Info,
@@ -27,8 +27,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_create_mutation_input called -- params: {:#?}, label: {}, info.name: {}",
+        "visit_node_create_mutation_input called -- params: {:#?}, node_var: {:#?}, label: {}, info.name: {}",
         params,
+        node_var,
         label,
         info.name(),
     );
@@ -81,7 +82,7 @@ where
                                 (rel_create_fragments, params),
                                 |(mut rel_create_fragments, params), val| {
                                     let rel_var = "rel".to_string() + &sg.suffix();
-                                    let dst_var = "dst".to_string() + &sg.suffix();
+                                    // let dst_var = "dst".to_string() + &sg.suffix();
                                     let (fragment, params) = visit_rel_create_mutation_input::<
                                         T,
                                         GlobalCtx,
@@ -89,17 +90,18 @@ where
                                     >(
                                         String::new(),
                                         params,
-                                        label,
-                                        &node_var,
-                                        &rel_var,
-                                        p.name(),
-                                        &dst_var,
+                                        &RelQueryVar::new(
+                                            p.name(),
+                                            &sg.suffix(),
+                                            node_var,
+                                            &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                                        ),
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
                                         val,
                                         validators,
                                         None,
-                                        ClauseType::SubQuery(rel_var.clone()),
+                                        ClauseType::SubQuery,
                                         // clause.clone(),
                                         transaction,
                                         sg,
@@ -110,22 +112,22 @@ where
                             )
                         } else {
                             let rel_var = "rel".to_string() + &sg.suffix();
-                            let dst_var = "dst".to_string() + &sg.suffix();
                             let (fragment, params) =
                                 visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                                     String::new(),
                                     params,
-                                    label,
-                                    &node_var,
-                                    &rel_var,
-                                    p.name(),
-                                    &dst_var,
+                                    &RelQueryVar::new(
+                                        p.name(),
+                                        &sg.suffix(),
+                                        node_var,
+                                        &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                                    ),
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     v,
                                     validators,
                                     None,
-                                    ClauseType::SubQuery(rel_var.to_string()),
+                                    ClauseType::SubQuery,
                                     // clause.clone(),
                                     transaction,
                                     sg,
@@ -144,8 +146,7 @@ where
         transaction.node_create_query::<GlobalCtx, RequestCtx>(
             rel_create_fragments,
             params,
-            &node_var,
-            label,
+            node_var,
             props,
             clause,
             sg,
@@ -170,8 +171,9 @@ where
     T: Transaction,
 {
     trace!(
-        "visit_node_delete_input called -- info.name: {}, label: {}, input: {:#?}",
+        "visit_node_delete_input called -- info.name: {}, node_var: {:#?}, label: {}, input: {:#?}",
         info.name(),
+        node_var,
         label,
         input
     );
@@ -184,7 +186,7 @@ where
             node_var,
             true,
             false,
-            ClauseType::SubQuery(node_var.to_string()),
+            ClauseType::SubQuery,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -203,7 +205,7 @@ where
             node_var,
             true,
             false,
-            ClauseType::Parameter(node_var.to_string()),
+            ClauseType::Parameter,
             &sg.suffix(),
             HashMap::new(),
         )?;
@@ -331,7 +333,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn visit_node_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
-    node_var: &str,
+    node_var: &NodeQueryVar,
     label: &str,
     clause: ClauseType,
     info: &Info,
@@ -347,7 +349,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_input Called -- label: {}, info.name: {}, input: {:#?}",
+        "visit_node_input Called -- params: {:#?}, node_var: {:#?}, label: {}, info.name: {}, input: {:#?}",
+        params,
+        node_var,
         label,
         info.name(),
         input
@@ -384,7 +388,7 @@ where
                 let (match_fragment, where_fragment, params) = visit_node_query_input(
                     params,
                     label,
-                    node_var,
+                    node_var.name(),
                     true,
                     false,
                     // ClauseType::SubQuery(node_var.to_string()),
@@ -401,10 +405,10 @@ where
                     &where_fragment,
                     params,
                     label,
-                    node_var,
+                    node_var.name(),
                     true,
                     false,
-                    ClauseType::SubQuery(node_var.to_string()),
+                    ClauseType::SubQuery,
                     //clause,
                     &sg.suffix(),
                     HashMap::new(),
@@ -473,7 +477,8 @@ where
                                         &rel_suffix,
                                         &("dst".to_string() + &dst_suffix),
                                         &dst_suffix,
-                                        ClauseType::Parameter(node_var.to_string()),
+                                        // ClauseType::Parameter(node_var.to_string()),
+                                        ClauseType::Parameter,
                                         false,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
@@ -517,8 +522,11 @@ where
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
+    node_var: &NodeQueryVar,
+    /*
     node_var: &str,
     label: &str,
+    */
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -532,9 +540,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_input called -- params: {:#?}, label: {}, info.name: {}, input: {:#?}",
+        "visit_node_update_input called -- params: {:#?}, node_var: {:#?}, info.name: {}, input: {:#?}",
         params,
-        label,
+        node_var,
         info.name(),
         input,
     );
@@ -545,11 +553,11 @@ where
 
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
-            label,
-            &node_var,
+            node_var.label()?,
+            node_var.name(),
             true,
             false,
-            ClauseType::SubQuery(node_var.to_string()),
+            ClauseType::SubQuery,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -564,11 +572,11 @@ where
             &match_fragment,
             &where_fragment,
             params,
-            label,
-            node_var,
+            node_var.label()?,
+            node_var.name(),
             true,
             false,
-            ClauseType::Parameter(node_var.to_string()),
+            ClauseType::Parameter,
             &sg.suffix(),
             HashMap::new(),
         )?;
@@ -582,9 +590,12 @@ where
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
+            node_var,
+            /*
             &node_var,
             &node_suffix,
             label,
+            */
             &Info::new(
                 itd.property("modify")?.type_name().to_owned(),
                 info.type_defs(),
@@ -610,9 +621,12 @@ where
 fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
+    node_var: &NodeQueryVar,
+    /*
     node_var: &str,
     node_suffix: &str,
     label: &str,
+    */
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -627,11 +641,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_mutation_input called -- match_query: {}, params: {:#?}, node_suffix: {}, label: {}, info.name: {}, input: {:#?}",
+        "visit_node_update_mutation_input called -- match_query: {}, params: {:#?}, info.name: {}, input: {:#?}",
         match_query,
         params,
-        node_suffix,
-        label,
         info.name(),
         input
     );
@@ -687,22 +699,33 @@ where
                                             (Vec<String>, HashMap<String, Value>),
                                             Error,
                                         > {
-                                            let (query, params) =
-                                                visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                                    params,
-                                                    label,
-                                                    node_var,
+                                            let (query, params) = visit_rel_change_input::<
+                                                T,
+                                                GlobalCtx,
+                                                RequestCtx,
+                                            >(
+                                                params,
+                                                &RelQueryVar::new(
                                                     &k,
-                                                    &Info::new(
-                                                        p.type_name().to_owned(),
-                                                        info.type_defs(),
-                                                    ),
-                                                    partition_key_opt,
-                                                    val,
-                                                    validators,
-                                                    transaction,
-                                                    sg,
-                                                )?;
+                                                    &sg.suffix(),
+                                                    node_var,
+                                                    &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                                                ),
+                                                /*
+                                                label,
+                                                node_var,
+                                                &k,
+                                                */
+                                                &Info::new(
+                                                    p.type_name().to_owned(),
+                                                    info.type_defs(),
+                                                ),
+                                                partition_key_opt,
+                                                val,
+                                                validators,
+                                                transaction,
+                                                sg,
+                                            )?;
 
                                             queries.push(query);
                                             Ok((queries, params))
@@ -715,9 +738,17 @@ where
                                 let (query, params) =
                                     visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
                                         params,
+                                        &RelQueryVar::new(
+                                            &k,
+                                            &sg.suffix(),
+                                            node_var,
+                                            &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                                        ),
+                                        /*
                                         label,
                                         node_var,
                                         &k,
+                                        */
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
                                         v,
@@ -739,8 +770,12 @@ where
             match_query,
             change_queries,
             params,
+            node_var.label()?,
+            node_var.name(),
+            /*
             label,
             node_var,
+            */
             props,
             partition_key_opt,
             info,
@@ -755,9 +790,12 @@ where
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
+    rel_var: &RelQueryVar,
+    /*
     src_label: &str,
     src_var: &str,
     rel_name: &str,
+    */
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -771,18 +809,12 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_change_input called -- src_label {}, src_var {}, rel_name {}, info.name: {}, input: {:#?}",
-         src_label,
-         src_var,
-         rel_name,
-         info.name(),
-         input
-     );
+        "visit_rel_change_input called -- info.name: {}, input: {:#?}",
+        info.name(),
+        input
+    );
 
     let itd = info.type_def()?;
-
-    let rel_var = "rel".to_string() + &sg.suffix();
-    let dst_var = "dst".to_string() + &sg.suffix();
 
     if let Value::Map(mut m) = input {
         if let Some(v) = m.remove("ADD") {
@@ -790,11 +822,14 @@ where
             visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 String::new(),
                 params,
+                rel_var,
+                /*
                 src_label,
                 src_var,
                 &rel_var,
                 rel_name,
-                &dst_var,
+                &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                */
                 &Info::new(
                     itd.property("ADD")?.type_name().to_owned(),
                     info.type_defs(),
@@ -804,7 +839,7 @@ where
                 validators,
                 None,
                 // ClauseType::None,
-                ClauseType::SubQuery(rel_var.clone()),
+                ClauseType::SubQuery,
                 transaction,
                 sg,
             )
@@ -812,9 +847,14 @@ where
             // Using remove to take ownership
             visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                 params,
+                rel_var.src().name(),
+                rel_var.src().label()?,
+                rel_var.label(),
+                /*
                 src_var,
                 src_label,
                 rel_name,
+                */
                 &Info::new(
                     itd.property("DELETE")?.type_name().to_owned(),
                     info.type_defs(),
@@ -829,9 +869,14 @@ where
             // Using remove to take ownership
             visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
                 params,
+                rel_var.src().label()?,
+                rel_var.src().name(),
+                rel_var.label(),
+                /*
                 src_label,
                 src_var,
                 rel_name,
+                */
                 false,
                 &Info::new(
                     itd.property("UPDATE")?.type_name().to_owned(),
@@ -874,14 +919,17 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_create_input called -- params: {:#?}, info.name: {}, rel_name {}, input: {:#?}",
+        "visit_rel_create_input called -- params: {:#?}, src_label: {}, rel_name: {}, info.name: {}, rel_name {}, input: {:#?}",
         params,
+        src_label,
+        rel_name,
         info.name(),
         rel_name,
         input
     );
 
-    let src_var = "src".to_string() + &sg.suffix();
+    let src_suffix = sg.suffix();
+    let sqv = NodeQueryVar::new(Some(src_label), "src", &src_suffix);
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
@@ -889,11 +937,11 @@ where
 
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
-            src_label,
-            &src_var,
+            sqv.label()?,
+            sqv.name(),
             true,
             false,
-            ClauseType::SubQuery(src_var.clone()),
+            ClauseType::SubQuery,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
                 info.type_defs(),
@@ -915,11 +963,12 @@ where
             &where_fragment,
             params,
             src_label,
-            &src_var,
+            sqv.name(),
+            // src.name(),
             true,
             false,
             // ClauseType::SubQuery(src_var.clone()),
-            ClauseType::Parameter(src_var.clone()),
+            ClauseType::Parameter,
             &sg.suffix(),
             HashMap::new(),
         )?;
@@ -933,17 +982,22 @@ where
 
         match create_input {
             Value::Map(_) => {
-                let rel_var = "rel".to_string() + &sg.suffix();
-                let dst_var = "dst".to_string() + &sg.suffix();
+                let dst_suffix = sg.suffix();
+                let rel_suffix = sg.suffix();
+                let dqv = NodeQueryVar::new(None, "dst", &dst_suffix);
+                let rqv = RelQueryVar::new(rel_name, &rel_suffix, &sqv, &dqv);
 
                 let (cf, params) = visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                     String::new(),
                     params,
+                    &rqv,
+                    /*
                     src_label,
                     &src_var,
                     &rel_var,
                     rel_name,
-                    &dst_var,
+                    &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                    */
                     &Info::new(
                         itd.property("create")?.type_name().to_owned(),
                         info.type_defs(),
@@ -952,7 +1006,7 @@ where
                     create_input,
                     validators,
                     props_type_name,
-                    ClauseType::SubQuery(rel_var.to_string()),
+                    ClauseType::SubQuery,
                     transaction,
                     sg,
                 )?;
@@ -960,10 +1014,10 @@ where
                 transaction.rel_create_query::<GlobalCtx, RequestCtx>(
                     Some(src_query),
                     vec![cf],
-                    &src_var,
-                    src_label,
-                    vec![rel_var],
-                    vec![dst_var],
+                    rqv.src().name(),
+                    rqv.src().label()?,
+                    vec![rqv.name().to_string()],
+                    vec![rqv.dst().name().to_string()],
                     params,
                     sg,
                     ClauseType::Query,
@@ -983,17 +1037,23 @@ where
                         ),
                         Error,
                     > {
-                        let rel_var = "rel".to_string() + &sg.suffix();
-                        let dst_var = "dst".to_string() + &sg.suffix();
+                        let dst_suffix = sg.suffix();
+                        let rel_suffix = sg.suffix();
+                        let dqv = NodeQueryVar::new(None, "dst", &dst_suffix);
+                        let rqv = RelQueryVar::new(rel_name, &rel_suffix, &sqv, &dqv);
+
                         let (query, params) =
                             visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                                 String::new(),
                                 params,
+                                &rqv,
+                                /*
                                 src_label,
                                 &src_var,
                                 &rel_var,
                                 rel_name,
-                                &dst_var,
+                                &NodeQueryVar::new(None, "dst", &sg.suffix()),
+                                */
                                 &Info::new(
                                     itd.property("create")?.type_name().to_owned(),
                                     info.type_defs(),
@@ -1002,14 +1062,14 @@ where
                                 create_input_value,
                                 validators,
                                 props_type_name,
-                                ClauseType::SubQuery(rel_var.clone()),
+                                ClauseType::SubQuery,
                                 transaction,
                                 sg,
                             )?;
 
                         rcfs.push(query);
-                        rel_vars.push(rel_var);
-                        dst_vars.push(dst_var);
+                        rel_vars.push(rqv.name().to_string());
+                        dst_vars.push(rqv.dst().name().to_string());
                         Ok((rcfs, rel_vars, dst_vars, params))
                     },
                 )?;
@@ -1017,7 +1077,7 @@ where
                 transaction.rel_create_query::<GlobalCtx, RequestCtx>(
                     Some(src_query),
                     rcfs,
-                    &src_var,
+                    sqv.name(),
                     src_label,
                     rel_vars,
                     dst_vars,
@@ -1037,11 +1097,7 @@ where
 fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
     src_query: String,
     params: HashMap<String, Value>,
-    src_label: &str,
-    src_var: &str,
-    rel_var: &str,
-    rel_name: &str,
-    dst_var: &str,
+    rel_var: &RelQueryVar,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1057,12 +1113,10 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-            "visit_rel_create_mutation_input called -- src_query: {}, params: {:#?}, src_label: {}, src_var: {:#?}, rel_name: {}, info.name: {}, input: {:#?}",
+            "visit_rel_create_mutation_input called -- src_query: {}, params: {:#?}, rel_var: {:#?}, info.name: {}, input: {:#?}",
             src_query,
             params,
-            src_label,
-            src_var,
-            rel_name,
+            rel_var,
             info.name(),
             input
         );
@@ -1076,14 +1130,14 @@ where
             })?;
         let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
             params,
-            dst_var,
+            rel_var.dst(),
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             dst,
             validators,
             transaction,
             sg,
-            ClauseType::SubQuery(dst_var.to_string()),
+            ClauseType::SubQuery,
         )?;
 
         let props = match m.remove("props") {
@@ -1095,13 +1149,8 @@ where
         transaction.rel_create_fragment::<GlobalCtx, RequestCtx>(
             Some(src_query),
             params,
-            src_var,
-            &dst_query,
-            src_label,
-            "dst_label",
-            dst_var,
             rel_var,
-            rel_name,
+            &dst_query,
             props,
             props_type_name,
             clause,
@@ -1157,7 +1206,7 @@ where
             &rel_suffix,
             &dst_var,
             &dst_suffix,
-            ClauseType::SubQuery(rel_name.to_string() + &rel_suffix),
+            ClauseType::SubQuery,
             false,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -1181,9 +1230,9 @@ where
             &dst_suffix,
             false,
             if top_level_query {
-                ClauseType::FirstSubQuery(rel_name.to_string() + &rel_suffix)
+                ClauseType::FirstSubQuery
             } else {
-                ClauseType::SubQuery(rel_name.to_string() + &rel_suffix)
+                ClauseType::SubQuery
             },
             HashMap::new(),
             sg,
@@ -1244,7 +1293,7 @@ where
             if top_level_query {
                 ClauseType::Query
             } else {
-                ClauseType::SubQuery(rel_name.to_string())
+                ClauseType::SubQuery
             },
         )
     } else {
@@ -1295,7 +1344,7 @@ where
             transaction,
             sg,
             false,
-            ClauseType::SubQuery(node_var.to_string()),
+            ClauseType::SubQuery,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1335,7 +1384,7 @@ where
                 var_name,
                 false,
                 true,
-                ClauseType::Parameter(var_name.to_string()),
+                ClauseType::Parameter,
                 // ClauseType::SubQuery(node_var.to_string()),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -1391,16 +1440,19 @@ where
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
+            &NodeQueryVar::new(Some(&k), "dst", &sg.suffix()),
+            /*
             &dst_var,
             &dst_suffix,
             &k,
+            */
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             v,
             validators,
             transaction,
             sg,
-            ClauseType::SubQuery(dst_var.to_string()),
+            ClauseType::SubQuery,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1410,7 +1462,7 @@ where
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
     params: HashMap<String, Value>,
-    node_var: &str,
+    node_var: &NodeQueryVar,
     info: &Info,
     partition_key_opt: Option<&Value>,
     input: Value,
@@ -1425,7 +1477,9 @@ where
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_nodes_mutation_input_union called -- info.name: {}, input: {:#?}",
+        "visit_rel_nodes_mutation_input_union called -- params: {:#?}, node_var: {:#?}, info.name: {}, input: {:#?}",
+        params,
+        node_var,
         info.name(),
         input
     );
@@ -1442,7 +1496,7 @@ where
 
         visit_node_input::<T, GlobalCtx, RequestCtx>(
             params,
-            node_var,
+            &NodeQueryVar::new(Some(&k), node_var.base(), node_var.suffix()),
             &k,
             // ClauseType::SubQuery(node_var.to_string()),
             // ClauseType::None,
@@ -1615,7 +1669,7 @@ where
             transaction,
             sg,
             false,
-            ClauseType::SubQuery(node_var.to_string()),
+            ClauseType::SubQuery,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1662,16 +1716,19 @@ where
         visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
             match_query,
             params,
+            &NodeQueryVar::new(Some(label), "src", &sg.suffix()),
+            /*
             &src_var,
             &src_suffix,
             label,
+            */
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             v,
             validators,
             transaction,
             sg,
-            ClauseType::SubQuery(src_var.to_string()),
+            ClauseType::SubQuery,
         )
     } else {
         Err(Error::TypeNotExpected)
@@ -1711,7 +1768,7 @@ where
                 &var_name,
                 false,
                 false,
-                ClauseType::Parameter(var_name.to_string()),
+                ClauseType::Parameter,
                 // ClauseType::SubQuery(node_var.to_string()),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
@@ -1773,7 +1830,7 @@ where
             &rel_suffix,
             &dst_var,
             &dst_suffix,
-            ClauseType::Parameter("rel".to_string() + &rel_suffix),
+            ClauseType::Parameter,
             false,
             &Info::new(
                 itd.property("match")?.type_name().to_owned(),
@@ -1797,9 +1854,9 @@ where
             &dst_suffix,
             top_level_query,
             if top_level_query {
-                ClauseType::FirstSubQuery(rel_name.to_string())
+                ClauseType::FirstSubQuery
             } else {
-                ClauseType::SubQuery(rel_name.to_string())
+                ClauseType::SubQuery
             },
             HashMap::new(),
             sg,
@@ -1854,7 +1911,7 @@ where
                 if top_level_query {
                     ClauseType::Query
                 } else {
-                    ClauseType::SubQuery("rel".to_string() + &rel_suffix)
+                    ClauseType::SubQuery
                 },
             )
         } else {

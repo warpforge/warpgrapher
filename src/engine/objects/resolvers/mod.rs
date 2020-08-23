@@ -6,7 +6,7 @@ use crate::engine::database::cosmos::CosmosTransaction;
 use crate::engine::database::neo4j::Neo4jTransaction;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::{ClauseType, Transaction};
-use crate::engine::database::{DatabasePool, SuffixGenerator};
+use crate::engine::database::{DatabasePool, NodeQueryVar, SuffixGenerator};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -203,12 +203,13 @@ impl<'r> Resolver<'r> {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let node_var = "node".to_string() + &sg.suffix();
+        let node_suffix = sg.suffix();
 
         transaction.begin()?;
+        let nqv = NodeQueryVar::new(Some(&p.type_name()), "node", &node_suffix);
         let (query, params) = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            &node_var,
+            &nqv,
             &p.type_name(),
             ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
@@ -218,8 +219,7 @@ impl<'r> Resolver<'r> {
             transaction,
             &mut sg,
         )?;
-        let results =
-            transaction.create_node(query, params, &p.type_name(), self.partition_key_opt, info);
+        let results = transaction.create_node(query, params, self.partition_key_opt, info);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -524,8 +524,7 @@ impl<'r> Resolver<'r> {
         transaction.begin()?;
         let (query, params) = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            &node_var,
-            &p.type_name(),
+            &NodeQueryVar::new(Some(p.type_name()), "node", &sg.suffix()),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             input.value,
