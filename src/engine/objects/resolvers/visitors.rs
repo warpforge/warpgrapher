@@ -733,53 +733,57 @@ where
             .map(|n: &Node<GlobalCtx, RequestCtx>| Ok(n.id()?.clone()))
             .collect::<Result<Vec<Value>, Error>>()?;
 
-        let create_input = m.remove("create").ok_or_else(|| {
-            // Using remove to take ownership
-            Error::InputItemNotFound {
-                name: "input::create".to_string(),
-            }
-        })?;
+        if ids.is_empty() {
+            Ok(Vec::new())
+        } else {
+            let create_input = m.remove("create").ok_or_else(|| {
+                // Using remove to take ownership
+                Error::InputItemNotFound {
+                    name: "input::create".to_string(),
+                }
+            })?;
 
-        match create_input {
-            Value::Map(_) => Ok(visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                src_label,
-                ids,
-                rel_name,
-                &Info::new(
-                    itd.property("create")?.type_name().to_owned(),
-                    info.type_defs(),
+            match create_input {
+                Value::Map(_) => Ok(visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                    src_label,
+                    ids,
+                    rel_name,
+                    &Info::new(
+                        itd.property("create")?.type_name().to_owned(),
+                        info.type_defs(),
+                    ),
+                    partition_key_opt,
+                    create_input,
+                    validators,
+                    props_type_name,
+                    transaction,
+                )?),
+                Value::Array(create_input_array) => create_input_array.into_iter().try_fold(
+                    Vec::new(),
+                    |mut results, create_input_value| {
+                        results.append(&mut visit_rel_create_mutation_input::<
+                            T,
+                            GlobalCtx,
+                            RequestCtx,
+                        >(
+                            src_label,
+                            ids.clone(),
+                            rel_name,
+                            &Info::new(
+                                itd.property("create")?.type_name().to_owned(),
+                                info.type_defs(),
+                            ),
+                            partition_key_opt,
+                            create_input_value,
+                            validators,
+                            props_type_name,
+                            transaction,
+                        )?);
+                        Ok(results)
+                    },
                 ),
-                partition_key_opt,
-                create_input,
-                validators,
-                props_type_name,
-                transaction,
-            )?),
-            Value::Array(create_input_array) => create_input_array.into_iter().try_fold(
-                Vec::new(),
-                |mut results, create_input_value| {
-                    results.append(&mut visit_rel_create_mutation_input::<
-                        T,
-                        GlobalCtx,
-                        RequestCtx,
-                    >(
-                        src_label,
-                        ids.clone(),
-                        rel_name,
-                        &Info::new(
-                            itd.property("create")?.type_name().to_owned(),
-                            info.type_defs(),
-                        ),
-                        partition_key_opt,
-                        create_input_value,
-                        validators,
-                        props_type_name,
-                        transaction,
-                    )?);
-                    Ok(results)
-                },
-            ),
-            _ => Err(Error::TypeNotExpected),
+                _ => Err(Error::TypeNotExpected),
+            }
         }
     } else {
         Err(Error::TypeNotExpected)

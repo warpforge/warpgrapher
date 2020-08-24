@@ -866,9 +866,9 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
     type Error = Error;
 
     fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
-        let hmv: HashMap<String, Value> = hm.into_iter().try_fold (
+        let hmv: HashMap<String, Value> = hm.into_iter().try_fold(
             HashMap::new(),
-            |mut acc, (key, bolt_value)| -> Result<HashMap<String, Value>,Error> {
+            |mut acc, (key, bolt_value)| -> Result<HashMap<String, Value>, Error> {
                 let value = Value::try_from(bolt_value)?;
                 acc.insert(key, value);
                 Ok(acc)

@@ -43,7 +43,7 @@ async fn create_snst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
         .await
         .unwrap();
 
-    let o0 = client
+    let o0a = client
         .create_rel(
             "Project",
             "owner",
@@ -53,6 +53,10 @@ async fn create_snst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
         )
         .await
         .unwrap();
+
+    assert!(o0a.is_array());
+    assert_eq!(o0a.as_array().unwrap().len(), 1);
+    let o0 = o0a.as_array().unwrap().iter().next().unwrap();
 
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
@@ -79,6 +83,57 @@ async fn create_snst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
     assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn snst_without_src_no_new_dst_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    snst_without_src_no_new_dst(client).await;
+}
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn snst_without_src_no_new_dst_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    snst_without_src_no_new_dst(client).await;
+}
+
+/// Passes if warpgrapher does not create the destination node if it can't find any source nodes
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn snst_without_src_no_new_dst(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+    let o0 = client
+        .create_rel(
+            "Project",
+            "owner",
+            "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
+            &json!({"name": "Project Zero"}),
+            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+        )
+        .await
+        .unwrap();
+
+    assert!(o0.is_array());
+    assert_eq!(o0.as_array().unwrap().len(), 0);
+
+    let users = client
+        .read_node(
+            "User",
+            "id name",
+            Some("1234"),
+            Some(&json!({"name": "User Zero"})),
+        )
+        .await
+        .unwrap();
+
+    let users_a = users.as_array().unwrap();
+    assert_eq!(users_a.len(), 0)
 }
 
 #[cfg(feature = "neo4j")]
@@ -123,7 +178,7 @@ async fn create_snst_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
         .await
         .unwrap();
 
-    let o0 = client
+    let o0a = client
         .create_rel(
             "Project",
             "owner",
@@ -137,6 +192,10 @@ async fn create_snst_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
         )
         .await
         .unwrap();
+
+    assert!(o0a.is_array());
+    assert_eq!(o0a.as_array().unwrap().len(), 1);
+    let o0 = o0a.as_array().unwrap().iter().next().unwrap();
 
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
