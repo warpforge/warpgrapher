@@ -4,16 +4,17 @@ use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
 use crate::engine::database::cosmos::CosmosTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
+use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::engine::database::{ClauseType, Transaction};
-use crate::engine::database::{DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator};
+use crate::engine::database::{
+    ClauseType, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
+};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;

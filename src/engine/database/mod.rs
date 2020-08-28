@@ -305,6 +305,7 @@ pub(crate) struct NodeQueryVar {
 }
 
 impl NodeQueryVar {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn new(label: Option<String>, base: String, suffix: String) -> NodeQueryVar {
         NodeQueryVar {
             base: base.clone(),
@@ -314,18 +315,22 @@ impl NodeQueryVar {
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn base(&self) -> &str {
         &self.base
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn label(&self) -> Result<&str, Error> {
         self.label.as_deref().ok_or_else(|| Error::LabelNotFound)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn suffix(&self) -> &str {
         &self.suffix
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
@@ -341,6 +346,7 @@ pub(crate) struct RelQueryVar {
 }
 
 impl RelQueryVar {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn new(
         label: String,
         suffix: String,
@@ -356,18 +362,22 @@ impl RelQueryVar {
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn src(&self) -> &NodeQueryVar {
         &self.src
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn dst(&self) -> &NodeQueryVar {
         &self.dst
     }
@@ -375,22 +385,29 @@ impl RelQueryVar {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum ClauseType {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     Parameter,
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     FirstSubQuery,
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     SubQuery,
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     Query,
 }
 
 #[derive(Default)]
 pub(crate) struct SuffixGenerator {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     seed: i32,
 }
 
 impl SuffixGenerator {
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
         "_".to_string() + &self.seed.to_string()
