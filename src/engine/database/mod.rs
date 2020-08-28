@@ -138,126 +138,83 @@ pub(crate) trait Transaction {
 
     fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
-        src_query_opt: Option<String>,
+        dst_query: &str,
         params: HashMap<String, Value>,
         rel_var: &RelQueryVar,
-        dst_query: &str,
         props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
         clause: ClauseType,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         src_query_opt: Option<String>,
         rel_create_fragments: Vec<String>,
-        src_var: &str,
-        src_label: &str,
-        rel_vars: Vec<String>,
-        dst_vars: Vec<String>,
         params: HashMap<String, Value>,
-        sg: &mut SuffixGenerator,
+        rel_vars: Vec<RelQueryVar>,
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        src_label: &str,
-        src_ids: Vec<Value>,
-        dst_label: &str,
-        dst_ids: Vec<Value>,
-        rel_name: &str,
-        props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-        info: &Info,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn node_read_fragment(
         &mut self,
         rel_query_fragments: Vec<(String, String)>,
         params: HashMap<String, Value>,
-        label: &str,
-        node_var: &str,
-        name_node: bool,
-        union_type: bool,
-        param_suffix: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         clause: ClauseType,
+        sg: &mut SuffixGenerator,
     ) -> Result<(String, String, HashMap<String, Value>), Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn node_read_query(
         &mut self,
         match_fragment: &str,
         where_fragment: &str,
         params: HashMap<String, Value>,
-        label: &str,
-        node_var: &str,
-        name_node: bool,
-        union_type: bool,
+        node_var: &NodeQueryVar,
         clause: ClauseType,
-        param_suffix: &str,
-        props: HashMap<String, Value>,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
-        partition_key_opt: Option<&Value>,
         params: Option<HashMap<String, Value>>,
+        partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn rel_read_fragment(
         &mut self,
-        params: HashMap<String, Value>,
-        src_label: &str,
-        src_var: &str,
-        src_query: Option<(String, String)>,
-        rel_name: &str,
-        rel_suffix: &str,
-        dst_var: &str,
-        dst_suffix: &str,
+        src_query_opt: Option<(String, String)>,
         dst_query_opt: Option<(String, String)>,
-        top_level_query: bool,
+        params: HashMap<String, Value>,
+        rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, String, HashMap<String, Value>), Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn rel_read_query(
         &mut self,
         match_fragment: &str,
         where_fragment: &str,
         params: HashMap<String, Value>,
-        src_label: &str,
-        src_var: &str,
-        rel_name: &str,
-        rel_suffix: &str,
-        dst_var: &str,
-        dst_suffix: &str,
-        top_level_query: bool,
+        rel_var: &RelQueryVar,
         clause: ClauseType,
-        props: HashMap<String, Value>,
-        sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
+        params: Option<HashMap<String, Value>>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-        params: Option<HashMap<String, Value>>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
@@ -266,75 +223,52 @@ pub(crate) trait Transaction {
         match_query: String,
         change_queries: Vec<String>,
         params: HashMap<String, Value>,
-        label: &str,
-        node_var: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-        sg: &mut SuffixGenerator,
         clause: ClauseType,
+        sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        label: &str,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         params: HashMap<String, Value>,
-        src_var: &str,
-        src_label: &str,
-        src_suffix: &str,
-        rel_name: &str,
-        rel_suffix: &str,
-        rel_var: &str,
-        dst_suffix: &str,
-        top_level_query: bool,
+        rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-        sg: &mut SuffixGenerator,
         clause: ClauseType,
+        sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        src_label: &str,
-        rel_name: &str,
-        rel_ids: Vec<Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn node_delete_query(
         &mut self,
         match_query: String,
         rel_delete_fragments: Vec<String>,
         params: HashMap<String, Value>,
-        node_var: &str,
-        label: &str,
-        partition_key_opt: Option<&Value>,
-        sg: &mut SuffixGenerator,
-        top_level_query: bool,
+        node_var: &NodeQueryVar,
         clause: ClauseType,
+        sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_nodes(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        label: &str,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
@@ -345,21 +279,15 @@ pub(crate) trait Transaction {
         src_delete_query_opt: Option<String>,
         dst_delete_query_opt: Option<String>,
         params: HashMap<String, Value>,
-        src_label: &str,
-        rel_name: &str,
-        rel_suffix: &str,
-        partition_key_opt: Option<&Value>,
-        sg: &mut SuffixGenerator,
-        top_level_query: bool,
+        rel_var: &RelQueryVar,
         clause: ClauseType,
+        sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
     fn delete_rels(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
-        src_label: &str,
-        rel_name: &str,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
@@ -369,33 +297,33 @@ pub(crate) trait Transaction {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct NodeQueryVar<'a> {
-    base: &'a str,
-    suffix: &'a str,
-    label: Option<&'a str>,
+pub(crate) struct NodeQueryVar {
+    base: String,
+    suffix: String,
+    label: Option<String>,
     name: String,
 }
 
-impl<'a> NodeQueryVar<'a> {
-    pub(crate) fn new(label: Option<&'a str>, base: &'a str, suffix: &'a str) -> NodeQueryVar<'a> {
+impl NodeQueryVar {
+    pub(crate) fn new(label: Option<String>, base: String, suffix: String) -> NodeQueryVar {
         NodeQueryVar {
-            base,
-            suffix,
+            base: base.clone(),
+            suffix: suffix.clone(),
             label,
-            name: base.to_string() + suffix,
+            name: base + &suffix,
         }
     }
 
     pub(crate) fn base(&self) -> &str {
-        self.base
+        &self.base
     }
 
     pub(crate) fn label(&self) -> Result<&str, Error> {
-        self.label.ok_or_else(|| Error::LabelNotFound)
+        self.label.as_deref().ok_or_else(|| Error::LabelNotFound)
     }
 
     pub(crate) fn suffix(&self) -> &str {
-        self.suffix
+        &self.suffix
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -404,36 +332,32 @@ impl<'a> NodeQueryVar<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct RelQueryVar<'a> {
-    label: &'a str,
-    suffix: &'a str,
+pub(crate) struct RelQueryVar {
+    label: String,
+    suffix: String,
     name: String,
-    src: &'a NodeQueryVar<'a>,
-    dst: &'a NodeQueryVar<'a>,
+    src: NodeQueryVar,
+    dst: NodeQueryVar,
 }
 
-impl<'a> RelQueryVar<'a> {
+impl RelQueryVar {
     pub(crate) fn new(
-        label: &'a str,
-        suffix: &'a str,
-        src: &'a NodeQueryVar<'a>,
-        dst: &'a NodeQueryVar<'a>,
-    ) -> RelQueryVar<'a> {
+        label: String,
+        suffix: String,
+        src: NodeQueryVar,
+        dst: NodeQueryVar,
+    ) -> RelQueryVar {
         RelQueryVar {
             label,
-            suffix,
-            name: "rel".to_string() + suffix,
+            suffix: suffix.clone(),
+            name: "rel".to_string() + &suffix,
             src,
             dst,
         }
     }
 
     pub(crate) fn label(&self) -> &str {
-        self.label
-    }
-
-    pub(crate) fn suffix(&self) -> &str {
-        self.suffix
+        &self.label
     }
 
     pub(crate) fn name(&self) -> &str {
@@ -441,15 +365,15 @@ impl<'a> RelQueryVar<'a> {
     }
 
     pub(crate) fn src(&self) -> &NodeQueryVar {
-        self.src
+        &self.src
     }
 
     pub(crate) fn dst(&self) -> &NodeQueryVar {
-        self.dst
+        &self.dst
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) enum ClauseType {
     Parameter,
     FirstSubQuery,

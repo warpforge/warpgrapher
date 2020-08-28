@@ -84,9 +84,9 @@ pub enum Error {
     InputItemNotFound { name: String },
 
     /// Returned if an internal CRUD handler tries to retrieve the label for a node or relationship
-    /// from an internal temporary bookkeeping structure and is unable to do so. This likely
-    /// indicates an internal bug. Thus, if you happen to see it, please open an issue at the
-    /// Warpgrapher project.
+    /// from an internal temporary bookkeeping structure and is unable to do so. This almost
+    /// certainly indicates an internal bug. Thus, if you happen to see it, please open an issue at
+    /// the Warpgrapher project.
     LabelNotFound,
 
     /// Returned if a Neo4J query fails to execute correctly

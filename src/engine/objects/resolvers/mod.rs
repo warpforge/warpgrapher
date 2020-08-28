@@ -6,7 +6,7 @@ use crate::engine::database::cosmos::CosmosTransaction;
 use crate::engine::database::neo4j::Neo4jTransaction;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
 use crate::engine::database::{ClauseType, Transaction};
-use crate::engine::database::{DatabasePool, NodeQueryVar, SuffixGenerator};
+use crate::engine::database::{DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -203,21 +203,23 @@ impl<'r> Resolver<'r> {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let node_suffix = sg.suffix();
 
         transaction.begin()?;
-        let nqv = NodeQueryVar::new(Some(&p.type_name()), "node", &node_suffix);
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
         let (query, params) = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            &nqv,
-            &p.type_name(),
+            &node_var,
+            input.value,
             ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            &executor.context().validators(),
-            transaction,
             &mut sg,
+            transaction,
+            &executor.context().validators(),
         )?;
         let results = transaction.create_node(query, params, self.partition_key_opt, info);
 
@@ -302,20 +304,19 @@ impl<'r> Resolver<'r> {
             .type_def()?
             .property(field_name)?
             .input_type_definition(info)?;
-        let suffix = sg.suffix();
 
         transaction.begin()?;
+        let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
         let (query, params) = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            label,
-            &("node".to_string() + &suffix),
+            &node_var,
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            transaction,
             &mut sg,
+            transaction,
         )?;
-        let results = transaction.delete_nodes(query, params, label, self.partition_key_opt);
+        let results = transaction.delete_nodes(query, params, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -405,37 +406,33 @@ impl<'r> Resolver<'r> {
                 .property(p.type_name())?
                 .input_type_definition(&info)?
         };
-        let node_var = "node".to_string() + &sg.suffix();
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
 
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             HashMap::new(),
-            p.type_name(),
             &node_var,
-            true,
-            false,
+            input_opt.map(|i| i.value),
             ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input_opt.map(|i| i.value),
-            transaction,
             &mut sg,
+            transaction,
         )?;
         let (query, params) = transaction.node_read_query(
             &match_fragment,
             &where_fragment,
             params,
-            p.type_name(),
             &node_var,
-            true,
-            false,
             ClauseType::Query,
-            &sg.suffix(),
-            HashMap::new(),
         )?;
-        let results = transaction.read_nodes(query, self.partition_key_opt, Some(params), info);
+        let results = transaction.read_nodes(query, Some(params), self.partition_key_opt, info);
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -517,23 +514,25 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         let mut sg = SuffixGenerator::new();
-        let node_var = "node".to_string() + &sg.suffix();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
         transaction.begin()?;
         let (query, params) = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            &NodeQueryVar::new(Some(p.type_name()), "node", &sg.suffix()),
+            &NodeQueryVar::new(
+                Some(p.type_name().to_string()),
+                "node".to_string(),
+                sg.suffix(),
+            ),
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            &executor.context().validators(),
-            transaction,
             &mut sg,
+            transaction,
+            &executor.context().validators(),
         )?;
-        let result =
-            transaction.update_nodes(query, params, &p.type_name(), self.partition_key_opt, info);
+        let result = transaction.update_nodes(query, params, self.partition_key_opt, info);
 
         if result.is_ok() {
             transaction.commit()?;
@@ -634,35 +633,30 @@ impl<'r> Resolver<'r> {
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(p.type_name())?;
+        let src_var =
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
         transaction.begin()?;
         let (query, params) = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            src_label,
+            &src_var,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
             // as it's expected that some relationship types may not have props defined
             // in their schema, in which case the missing property is fine.
             rtd.property("props").map(|pp| pp.type_name()).ok(),
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            validators,
-            transaction,
             &mut sg,
+            transaction,
+            validators,
         )?;
         let result = transaction.create_rels(
             query,
             params,
-            src_label,
-            Vec::new(),
-            "",
-            Vec::new(),
-            rel_name,
-            HashMap::new(),
             rtd.property("props").map(|pp| pp.type_name()).ok(),
             self.partition_key_opt,
-            info,
         );
 
         if result.is_ok() {
@@ -742,23 +736,26 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let src_var = "src".to_string() + &sg.suffix();
+
+        let rel_var = RelQueryVar::new(
+            rel_name.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix()),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
 
         transaction.begin()?;
         let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            &src_var,
-            src_label,
-            rel_name,
+            &rel_var,
+            input.value,
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            transaction,
             &mut sg,
-            true,
+            transaction,
         )?;
-        let results =
-            transaction.delete_rels(query, params, src_label, rel_name, self.partition_key_opt);
+        let results = transaction.delete_rels(query, params, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -886,56 +883,44 @@ impl<'r> Resolver<'r> {
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(&p.type_name())?;
-        let _props_prop = rtd.property("props");
         let src_prop = rtd.property("src")?;
-        let _dst_prop = rtd.property("dst")?;
 
-        let src_suffix = sg.suffix();
-        let rel_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
+        let rel_suffix = sg.suffix();
 
-        let src_var = "src".to_string() + &src_suffix;
-        let dst_var = "dst".to_string() + &dst_suffix;
+        let src_var = NodeQueryVar::new(
+            Some(src_prop.type_name().to_string()),
+            "src".to_string(),
+            sg.suffix(),
+        );
+        let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
+        let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
 
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
         let (match_fragment, where_fragment, params) = visit_rel_query_input(
             HashMap::new(),
-            &src_prop.type_name(),
-            &src_var,
-            rel_name,
-            &rel_suffix,
-            &dst_var,
-            &dst_suffix,
+            &rel_var,
+            input_opt.map(|i| i.value),
             ClauseType::Query,
-            true,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input_opt.map(|i| i.value),
-            transaction,
             &mut sg,
+            transaction,
         )?;
         let (query, params) = transaction.rel_read_query(
             &match_fragment,
             &where_fragment,
             params,
-            src_prop.type_name(),
-            &src_var,
-            rel_name,
-            &rel_suffix,
-            &dst_var,
-            &dst_suffix,
-            true,
+            &rel_var,
             ClauseType::Query,
-            HashMap::new(),
-            &mut sg,
         )?;
         let results = transaction.read_rels(
             query,
+            Some(params),
             Some(p.type_name()),
             self.partition_key_opt,
-            Some(params),
         );
 
         if info.name() == "Mutation" || info.name() == "Query" {
@@ -1030,29 +1015,29 @@ impl<'r> Resolver<'r> {
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(&p.type_name())?;
         let props_prop = rtd.property("props");
-        let _src_prop = rtd.property("src")?;
+        let rel_var = RelQueryVar::new(
+            rel_name.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix()),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
 
         transaction.begin()?;
         let (query, params) = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
             HashMap::new(),
-            src_label,
-            &("src".to_string() + &sg.suffix()),
-            rel_name,
-            true,
+            &rel_var,
+            props_prop.map(|_| p.type_name()).ok(),
+            input.value,
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            validators,
-            props_prop.map(|_| p.type_name()).ok(),
-            transaction,
             &mut sg,
+            transaction,
+            validators,
         )?;
         let results = transaction.update_rels(
             query,
             params,
-            src_label,
-            rel_name,
-            Vec::new(),
             rtd.property("props").map(|_| p.type_name()).ok(),
             self.partition_key_opt,
         );
@@ -1220,33 +1205,26 @@ impl<'r> Resolver<'r> {
 
         match field_name {
             "dst" => {
-                let node_var = "node".to_string() + &sg.suffix();
+                let node_var =
+                    NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
                 props.insert("id".to_string(), dst_id.clone());
                 let (match_fragment, where_fragment, params) = transaction.node_read_fragment(
                     Vec::new(),
                     HashMap::new(),
-                    dst_label,
                     &node_var,
-                    true,
-                    false,
-                    "",
-                    props.clone(),
+                    props,
                     ClauseType::Query,
+                    &mut sg,
                 )?;
                 let (query, params) = transaction.node_read_query(
                     &match_fragment,
                     &where_fragment,
                     params,
-                    dst_label,
                     &node_var,
-                    true,
-                    false,
                     ClauseType::Query,
-                    "",
-                    props,
                 )?;
-                transaction.read_nodes(query, self.partition_key_opt, Some(params), info)
+                transaction.read_nodes(query, Some(params), self.partition_key_opt, info)
             }
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,

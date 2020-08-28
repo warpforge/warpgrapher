@@ -488,7 +488,7 @@ pub(crate) fn project_top_dev(
         }
 
         let dev_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")
@@ -534,7 +534,7 @@ pub(crate) fn project_top_issues(
         }
 
         let bug_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")
@@ -555,7 +555,7 @@ pub(crate) fn project_top_issues(
         }
 
         let feature_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")
