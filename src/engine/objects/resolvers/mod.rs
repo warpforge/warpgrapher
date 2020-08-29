@@ -6,15 +6,15 @@ use crate::engine::database::cosmos::CosmosTransaction;
 use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use crate::engine::database::Transaction;
+use crate::engine::database::{
+    ClauseType, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
+};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
-use log::debug;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -24,7 +24,7 @@ use tokio::runtime::Runtime;
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
-    visit_rel_update_input, SuffixGenerator,
+    visit_rel_update_input,
 };
 
 #[cfg(any(feature = "cosmos", feature = "neo4j"))]
@@ -133,83 +133,6 @@ impl<'r> Resolver<'r> {
         ))
     }
 
-    pub(super) fn resolve_node_by_id<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
-        &mut self,
-        label: &str,
-        info: &Info,
-        id: Value,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
-            label,
-            id
-        );
-
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
-        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_by_id_with_transaction(
-                label,
-                info,
-                id,
-                &mut CosmosTransaction::new(c.clone()),
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
-                self.resolve_node_by_id_with_transaction(
-                    label,
-                    info,
-                    id,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
-                )
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        executor.resolve(
-            &Info::new(label.to_string(), info.type_defs()),
-            results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
-        )
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    pub(super) fn resolve_node_by_id_with_transaction<GlobalCtx, RequestCtx, T>(
-        &mut self,
-        label: &str,
-        info: &Info,
-        id: Value,
-        transaction: &mut T,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
-    where
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-        T: Transaction,
-    {
-        trace!(
-            "Resolver::resolve_node_by_id called -- label: {}, id: {:#?}",
-            label,
-            id
-        );
-
-        let mut props = HashMap::new();
-        props.insert("id".to_string(), id);
-
-        let (query, params) = transaction.node_query(
-            Vec::new(),
-            HashMap::new(),
-            label,
-            "0",
-            false,
-            true,
-            "0",
-            props,
-        )?;
-        transaction.read_nodes(&query, self.partition_key_opt, Some(params), info)
-    }
-
     pub(super) fn resolve_node_create_mutation<
         GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
@@ -254,6 +177,10 @@ impl<'r> Resolver<'r> {
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
+        trace!(
+            "Resolver::resolve_node_create_mutation -- result: {:#?}",
+            result
+        );
         executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             &result,
@@ -274,29 +201,28 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-            "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
-            info.name(),
-            field_name,
-            input
-        );
-
+        let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
         transaction.begin()?;
-        let results = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-            &p.type_name(),
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+        let (query, params) = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &node_var,
+            input.value,
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            &executor.context().validators(),
+            &mut sg,
             transaction,
-        );
-        trace!(
-            "Resolver::resolve_node_create_mutation -- results: {:#?}",
-            results
-        );
+            &executor.context().validators(),
+        )?;
+        let results = transaction.create_node(query, params, self.partition_key_opt, info);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -352,6 +278,11 @@ impl<'r> Resolver<'r> {
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
+        trace!(
+            "Resolver::resolve_node_delete_mutation -- results: {:#?}",
+            results
+        );
+
         executor.resolve_with_ctx(&(), &results)
     }
 
@@ -369,34 +300,24 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-            "Resolver::resolve_node_delete_mutation called -- info.name: {}, field_name: {}: input: {:#?}",
-            info.name(),
-            field_name,
-            input
-        );
-
         let mut sg = SuffixGenerator::new();
         let itd = info
             .type_def()?
             .property(field_name)?
             .input_type_definition(info)?;
-        let suffix = sg.suffix();
 
         transaction.begin()?;
-        let results = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
-            label,
-            &suffix,
-            &mut sg,
+        let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
+        let (query, params) = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &node_var,
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
+            &mut sg,
             transaction,
-        );
-        trace!(
-            "Resolver::resolve_node_delete_mutation -- results: {:#?}",
-            results
-        );
+        )?;
+        let results = transaction.delete_nodes(query, params, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -445,6 +366,11 @@ impl<'r> Resolver<'r> {
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
+        trace!(
+            "Resolver::resolve_node_read_query -- results: {:#?}",
+            results
+        );
+
         if p.list() {
             executor.resolve(
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -471,42 +397,50 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-            "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
-            info.name(),
-            field_name,
-            input_opt
-        );
-
         let mut sg = SuffixGenerator::new();
 
         let p = info.type_def()?.property(field_name)?;
-        let itd = p.input_type_definition(info)?;
-        let suffix = sg.suffix();
-
-        transaction.begin()?;
-        let (query, params) = visit_node_query_input(
-            &p.type_name(),
-            &suffix,
-            false,
-            true,
-            HashMap::new(),
-            &mut sg,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
-            input_opt.map(|i| i.value),
-            transaction,
-        )?;
-        let results = transaction.read_nodes(&query, self.partition_key_opt, Some(params), info);
-        trace!(
-            "Resolver::resolve_node_read_query -- results: {:#?}",
-            results
+        let itd = if info.name() == "Query" {
+            p.input_type_definition(info)?
+        } else {
+            info.type_def_by_name("Query")?
+                .property(p.type_name())?
+                .input_type_definition(&info)?
+        };
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
         );
 
-        if results.is_ok() {
-            transaction.commit()?;
-        } else {
-            transaction.rollback()?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin()?;
+        }
+        let (match_fragment, where_fragment, params) = visit_node_query_input(
+            HashMap::new(),
+            &node_var,
+            input_opt.map(|i| i.value),
+            ClauseType::Query,
+            &Info::new(itd.type_name().to_owned(), info.type_defs()),
+            self.partition_key_opt,
+            &mut sg,
+            transaction,
+        )?;
+        let (query, params) = transaction.node_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            &node_var,
+            ClauseType::Query,
+        )?;
+        let results = transaction.read_nodes(query, Some(params), self.partition_key_opt, info);
+
+        if info.name() == "Mutation" || info.name() == "Query" {
+            if results.is_ok() {
+                transaction.commit()?;
+            } else {
+                transaction.rollback()?;
+            }
         }
 
         results
@@ -555,6 +489,11 @@ impl<'r> Resolver<'r> {
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
+        trace!(
+            "Resolver::resolve_node_update_mutation result: {:#?}",
+            results
+        );
+
         executor.resolve(
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             &results,
@@ -575,29 +514,26 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-            "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
-            info.name(),
-            field_name,
-            input
-        );
-
+        let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
         transaction.begin()?;
-        let result = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
-            &p.type_name(),
+        let (query, params) = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &NodeQueryVar::new(
+                Some(p.type_name().to_string()),
+                "node".to_string(),
+                sg.suffix(),
+            ),
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            &executor.context().validators(),
+            &mut sg,
             transaction,
-        );
-        trace!(
-            "Resolver::resolve_node_update_mutation result: {:#?}",
-            result
-        );
+            &executor.context().validators(),
+        )?;
+        let result = transaction.update_nodes(query, params, self.partition_key_opt, info);
 
         if result.is_ok() {
             transaction.commit()?;
@@ -681,33 +617,37 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-        "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name(),
-        field_name,
-        src_label,
-        rel_name, input
-    );
-
+        let mut sg = SuffixGenerator::new();
         let validators = &executor.context().validators();
 
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(p.type_name())?;
+        let src_var =
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
-        let result = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
-            src_label,
+        transaction.begin()?;
+        let (query, params) = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &src_var,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
             // as it's expected that some relationship types may not have props defined
             // in their schema, in which case the missing property is fine.
             rtd.property("props").map(|pp| pp.type_name()).ok(),
+            input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            validators,
+            &mut sg,
             transaction,
+            validators,
+        )?;
+        let result = transaction.create_rels(
+            query,
+            params,
+            rtd.property("props").map(|pp| pp.type_name()).ok(),
+            self.partition_key_opt,
         );
 
         if result.is_ok() {
@@ -783,26 +723,30 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-        "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name(),
-        field_name,
-        src_label, rel_name, input
-    );
-
+        let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        let results = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
-            src_label,
-            None,
-            rel_name,
+        let rel_var = RelQueryVar::new(
+            rel_name.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix()),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
+
+        transaction.begin()?;
+        let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &rel_var,
+            input.value,
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
+            &mut sg,
             transaction,
-        );
+        )?;
+        let results = transaction.delete_rels(query, params, self.partition_key_opt);
 
         if results.is_ok() {
             transaction.commit()?;
@@ -838,17 +782,15 @@ impl<'r> Resolver<'r> {
     pub(super) fn resolve_rel_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
-        src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
         executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
         info.name(),
         field_name,
-        src_ids_opt,
         rel_name,
         self.partition_key_opt,
         input_opt
@@ -862,7 +804,6 @@ impl<'r> Resolver<'r> {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
                 field_name,
-                src_ids_opt,
                 rel_name,
                 info,
                 input_opt,
@@ -873,7 +814,6 @@ impl<'r> Resolver<'r> {
                 let c = runtime.block_on(p.get())?;
                 self.resolve_rel_read_query_with_transaction(
                     field_name,
-                    src_ids_opt,
                     rel_name,
                     info,
                     input_opt,
@@ -890,7 +830,21 @@ impl<'r> Resolver<'r> {
             )
         } else {
             if results.len() > 1 {
-                return Err(Error::TypeNotExpected.into());
+                return Err(Error::RelDuplicated {
+                    rel_name: rel_name.to_string(),
+                    ids: results.iter().enumerate().try_fold(
+                        String::new(),
+                        |mut ids, (i, r)| -> Result<String, Error> {
+                            if i > 0 {
+                                ids.push_str(", ");
+                            }
+                            let id: String = r.id().clone().try_into()?;
+                            ids.push_str(&id);
+                            Ok(ids)
+                        },
+                    )?,
+                }
+                .into());
             }
 
             executor.resolve(
@@ -905,7 +859,6 @@ impl<'r> Resolver<'r> {
     pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
-        src_ids_opt: Option<Vec<Value>>,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<GlobalCtx, RequestCtx>>,
@@ -916,59 +869,57 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, src_ids: {:#?}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
-        info.name(),
-        field_name,
-        src_ids_opt,
-        rel_name,
-        self.partition_key_opt,
-        input_opt
-    );
-
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(&p.type_name())?;
-        let _props_prop = rtd.property("props");
         let src_prop = rtd.property("src")?;
-        let dst_prop = rtd.property("dst")?;
 
-        let src_suffix = sg.suffix();
         let dst_suffix = sg.suffix();
+        let rel_suffix = sg.suffix();
 
-        let (query, params) = visit_rel_query_input(
-            &src_prop.type_name(),
-            &src_suffix,
-            src_ids_opt,
-            rel_name,
-            &dst_prop.type_name(),
-            &dst_suffix,
-            true,
+        let src_var = NodeQueryVar::new(
+            Some(src_prop.type_name().to_string()),
+            "src".to_string(),
+            sg.suffix(),
+        );
+        let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
+        let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
+
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin()?;
+        }
+        let (match_fragment, where_fragment, params) = visit_rel_query_input(
             HashMap::new(),
-            &mut sg,
+            &rel_var,
+            input_opt.map(|i| i.value),
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input_opt.map(|i| i.value),
+            &mut sg,
             transaction,
         )?;
-
-        debug!(
-            "Resolver::resolve_rel_read_query Query query, params: {} {:#?}",
-            query, params
-        );
+        let (query, params) = transaction.rel_read_query(
+            &match_fragment,
+            &where_fragment,
+            params,
+            &rel_var,
+            ClauseType::Query,
+        )?;
         let results = transaction.read_rels(
-            &query,
+            query,
+            Some(params),
             Some(p.type_name()),
             self.partition_key_opt,
-            Some(params),
         );
 
-        if results.is_ok() {
-            transaction.commit()?;
-        } else {
-            transaction.rollback()?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            if results.is_ok() {
+                transaction.commit()?;
+            } else {
+                transaction.rollback()?;
+            }
         }
 
         results
@@ -1048,32 +999,38 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-        "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
-        info.name(),
-        field_name,
-        src_label, rel_name,
-        input
-    );
-
+        let mut sg = SuffixGenerator::new();
         let validators = &executor.context().validators();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
         let rtd = info.type_def_by_name(&p.type_name())?;
         let props_prop = rtd.property("props");
-        let _src_prop = rtd.property("src")?;
+        let rel_var = RelQueryVar::new(
+            rel_name.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix()),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
 
-        let results = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
-            src_label,
-            None,
-            rel_name,
+        transaction.begin()?;
+        let (query, params) = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
+            HashMap::new(),
+            &rel_var,
+            props_prop.map(|_| p.type_name()).ok(),
+            input.value,
+            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
-            input.value,
-            validators,
-            props_prop.map(|_| p.type_name()).ok(),
+            &mut sg,
             transaction,
+            validators,
+        )?;
+        let results = transaction.update_rels(
+            query,
+            params,
+            rtd.property("props").map(|_| p.type_name()).ok(),
+            self.partition_key_opt,
         );
 
         if results.is_ok() {
@@ -1235,28 +1192,30 @@ impl<'r> Resolver<'r> {
         RequestCtx: RequestContext,
         T: Transaction,
     {
-        trace!(
-            "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
-            info.name(),
-            field_name,
-            dst_id
-        );
+        let mut sg = SuffixGenerator::new();
 
         match field_name {
             "dst" => {
+                let node_var =
+                    NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
                 props.insert("id".to_string(), dst_id.clone());
-                let (query, params) = transaction.node_query(
+                let (match_fragment, where_fragment, params) = transaction.node_read_fragment(
                     Vec::new(),
                     HashMap::new(),
-                    dst_label,
-                    "",
-                    false,
-                    true,
-                    "",
+                    &node_var,
                     props,
+                    ClauseType::Query,
+                    &mut sg,
                 )?;
-                transaction.read_nodes(&query, self.partition_key_opt, Some(params), info)
+                let (query, params) = transaction.node_read_query(
+                    &match_fragment,
+                    &where_fragment,
+                    params,
+                    &node_var,
+                    ClauseType::Query,
+                )?;
+                transaction.read_nodes(query, Some(params), self.partition_key_opt, info)
             }
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,

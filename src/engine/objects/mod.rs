@@ -510,13 +510,22 @@ where
                 resolver.resolve_node_read_query(field_name, info, input_opt, executor)
             }
             PropertyKind::Rel { rel_name } => {
-                let ids_opt = match sn {
-                    "Mutation" | "Query" => None,
-                    _ => Some(vec![self.id()?.clone()]),
+                let io = match sn {
+                    "Mutation" | "Query" => input_opt,
+                    _ => {
+                        let mut src_node = HashMap::new();
+                        src_node.insert("id".to_string(), self.id()?.clone());
+                        let mut src = HashMap::new();
+                        src.insert(
+                            info.type_def()?.type_name().to_string(),
+                            Value::Map(src_node),
+                        );
+                        let mut hm = HashMap::new();
+                        hm.insert("src".to_string(), Value::Map(src));
+                        Some(Input::new(Value::Map(hm)))
+                    }
                 };
-                resolver.resolve_rel_read_query(
-                    field_name, ids_opt, &rel_name, info, input_opt, executor,
-                )
+                resolver.resolve_rel_read_query(field_name, &rel_name, info, io, executor)
             }
             PropertyKind::RelCreateMutation {
                 src_label,
@@ -608,19 +617,6 @@ pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
     Node(Node<GlobalCtx, RequestCtx>),
 }
 
-impl<GlobalCtx, RequestCtx> NodeRef<GlobalCtx, RequestCtx>
-where
-    GlobalCtx: GlobalContext,
-    RequestCtx: RequestContext,
-{
-    pub(crate) fn id(&self) -> Result<&Value, Error> {
-        match self {
-            NodeRef::Identifier { id, label: _ } => Ok(&id),
-            NodeRef::Node(n) => n.id(),
-        }
-    }
-}
-
 /// Represents a relationship in the graph data structure for auto-generated CRUD operations and
 /// custom resolvers.
 ///
@@ -682,19 +678,8 @@ where
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn dst_id(&self) -> Result<&Value, Error> {
-        self.dst_ref.id()
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn id(&self) -> &Value {
+    pub(crate) fn id(&self) -> &Value {
         &self.id
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
-    fn src_id(&self) -> Result<&Value, Error> {
-        self.src_ref.id()
     }
 }
 
@@ -807,8 +792,11 @@ where
                 None => Err(Error::TypeNotExpected.into()),
             },
             (PropertyKind::Object, &"src") => match &self.src_ref {
-                NodeRef::Identifier { id, label } => {
-                    resolver.resolve_node_by_id(label, info, id.clone(), executor)
+                NodeRef::Identifier { id, label: _ } => {
+                    let mut hm = HashMap::new();
+                    hm.insert("id".to_string(), id.clone());
+                    let input = Input::new(Value::Map(hm));
+                    resolver.resolve_node_read_query(field_name, info, Some(input), executor)
                 }
                 NodeRef::Node(n) => {
                     executor.resolve(&Info::new(n.type_name().clone(), info.type_defs()), &n)

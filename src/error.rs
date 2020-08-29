@@ -83,6 +83,12 @@ pub enum Error {
     /// missing an expected field.
     InputItemNotFound { name: String },
 
+    /// Returned if an internal CRUD handler tries to retrieve the label for a node or relationship
+    /// from an internal temporary bookkeeping structure and is unable to do so. This almost
+    /// certainly indicates an internal bug. Thus, if you happen to see it, please open an issue at
+    /// the Warpgrapher project.
+    LabelNotFound,
+
     /// Returned if a Neo4J query fails to execute correctly
     #[cfg(feature = "neo4j")]
     Neo4jQueryFailed {
@@ -111,11 +117,12 @@ pub enum Error {
     /// [`Client`]: ./client/enum.Client.html
     PayloadNotFound { response: serde_json::Value },
 
-    /// Returned if a query tries to create a single-node relationship on a node that already has
-    /// a relationship in place for that relationship type. The `rel_name` field holds the name of
-    /// the relationship. This could also occur if the query to select the node to which to
-    /// establish a single-node relationship returns more than one destination.
-    RelDuplicated { rel_name: String },
+    /// Return if a query tries to read and return a relationship defined in the GraphQL schema as
+    /// being a single relationship (one-to-one), for which the back-end database has multiple
+    /// outgoing relationship edges (one-to-many or many-to-many).  The `rel_name` field holds the
+    /// name of the relationship, and the `ids` field holds a list of ids of the relationships
+    /// found.
+    RelDuplicated { rel_name: String, ids: String },
 
     /// Returned if a custom endpoint is defined or a resolver is defined for a field, but the
     /// corresponding resolver is not provided. The `name` field contains the name of the resolver
@@ -228,6 +235,9 @@ impl Display for Error {
             Error::InputItemNotFound { name } => {
                 write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
             }
+            Error::LabelNotFound => {
+                write!(f, "Could not find a label for a destination node.")
+            }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
@@ -246,8 +256,8 @@ impl Display for Error {
             Error::PayloadNotFound { response } => {
                 write!(f, "Required data and/or error fields are missing from the response: {}", response)
             }
-            Error::RelDuplicated { rel_name } => {
-                write!(f, "Tried to add more than one instance of a single-node (i.e. one-to-one) relationship named {}", rel_name)
+            Error::RelDuplicated { rel_name, ids } => {
+                write!(f, "Tried to read the single-node (i.e. one-to-one) relationship named {}, but found multipled ids: {}", rel_name, ids)
             }
             Error::ResolverNotFound { name } => {
                 write!(f, "Could not find a custom resolver named {}", name)
@@ -307,6 +317,7 @@ impl std::error::Error for Error {
             Error::EnvironmentVariableNotParsed { source } => Some(source),
             Error::ExtensionFailed { source } => Some(source.as_ref()),
             Error::InputItemNotFound { name: _ } => None,
+            Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
             #[cfg(feature = "neo4j")]
@@ -315,7 +326,10 @@ impl std::error::Error for Error {
             Error::Neo4jQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
-            Error::RelDuplicated { rel_name: _ } => None,
+            Error::RelDuplicated {
+                rel_name: _,
+                ids: _,
+            } => None,
             Error::ResolverNotFound { name: _ } => None,
             Error::ResponseItemNotFound { name: _ } => None,
             Error::ResponseSetNotFound => None,
