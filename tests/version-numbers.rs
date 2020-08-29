@@ -2,7 +2,7 @@
 fn test_doc_book_toml() {
     version_sync::assert_contains_regex!(
         "book/book.toml",
-        "title = \"Warpgrapher Book \\(v{version}\\)"
+        "title = \"Warpgrapher Book \\({version}\\)"
     );
 }
 

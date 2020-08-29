@@ -6,37 +6,18 @@ When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relation
 
 #### 1. Mark a properties as dynamic by setting the resolver field
 
-```config
-version: 1
-model: 
- - name: Project
-   props: 
-    - name: points
-      type: int
-      resolver: project_points
+```rust,no_run,noplayground
+{{#include ../../../examples/request_context/main.rs:11:20}}
 ```
 
 #### 2. Define custom logic that resolve the prop value
 
-```rust
-fn resolve_projectpoints(
-    context: ResolverFacade<AppGlobalContext, ()>
-) -> ExecutionResult {
-
-    // compute value ...
-    let value = 
-    
-    facade.resolve_scalar(value)
-}
+```rust,no_run,noplayground
+{{#include ../../../examples/request_context/main.rs:22:30}}
 ```
 
 #### 3. Add prop resolver when building `Engine`
 
-```rust
-let mut resolvers = Resolvers<(), ()>::new();
-resolvers.insert("project_points".to_string, Box::new(resolve_projectpoints));
-
-let engine = Engine<(), ()>::new(config, db)
-    .with_resolvers(resolvers)
-    .build()
+```rust,no_run,noplayground
+{{#include ../../../examples/request_context/main.rs:44:52}}
 ```
