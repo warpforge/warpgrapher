@@ -141,7 +141,6 @@ pub(crate) async fn bolt_client() -> bolt_client::Client {
     .await
     .expect("Expected client.");
     let handshake = graph.handshake(&[4, 0, 0, 0]).await;
-    trace!("Handshake: {:#?}", handshake);
     handshake.expect("Expected successful handshake.");
 
     let hello = graph
@@ -152,7 +151,6 @@ pub(crate) async fn bolt_client() -> bolt_client::Client {
             ("credentials", &neo4j_pass()),
         ])))
         .await;
-    trace!("Hello: {:#?}", hello);
 
     hello.expect("Expected successful handshake.");
 
@@ -289,29 +287,23 @@ fn clear_cosmos_db() {
     )
     .expect("Expected successful gremlin client creation.");
 
-    let results = client.execute("g.V().drop()", &[]);
-    trace!("{:#?}", results);
+    let _ = client.execute("g.V().drop()", &[]);
 }
 
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
 async fn clear_neo4j_db() {
-    trace!("clear_neo4j_db called");
     let mut graph = bolt_client().await;
     let result = graph
         .run_with_metadata("MATCH (n) DETACH DELETE (n);", None, None)
         .await;
-    trace!("clear_neo4j_db result: {:#?}", result);
     result.expect("Expected successful query run.");
 
     let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
-    let (response, records) = graph
+    let (_response, _records) = graph
         .pull(Some(pull_meta))
         .await
         .expect("Expected pull to succeed.");
-
-    trace!("clear_neo4j_db response: {:#?}", response);
-    trace!("clear_neo4j_db records: {:#?}", records);
 }
 
 #[allow(dead_code)]
@@ -403,7 +395,6 @@ pub(crate) fn project_count(
     facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
 ) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        trace!("POOL: {:#?}", p);
         let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
         let query = "MATCH (n:Project) RETURN (n);";
@@ -488,7 +479,7 @@ pub(crate) fn project_top_dev(
         }
 
         let dev_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")
@@ -534,7 +525,7 @@ pub(crate) fn project_top_issues(
         }
 
         let bug_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")
@@ -555,7 +546,7 @@ pub(crate) fn project_top_issues(
         }
 
         let feature_id = if let bolt_proto::value::Value::Node(n) =
-            &records.iter().next().expect("Expected result").fields()[0]
+            &records.get(0).expect("Expected result").fields()[0]
         {
             Value::try_from(n.properties().get("id").expect("Expected id").clone())
                 .expect("Expected string")

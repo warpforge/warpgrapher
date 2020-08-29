@@ -53,7 +53,7 @@ async fn create_snmt_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
         .await
         .unwrap();
 
-    let b0 = client
+    let b0a = client
         .create_rel(
             "Project",
             "board",
@@ -64,12 +64,16 @@ async fn create_snmt_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
         .await
         .unwrap();
 
+    assert!(b0a.is_array());
+    assert_eq!(b0a.as_array().unwrap().len(), 1);
+    let b0 = b0a.as_array().unwrap().iter().next().unwrap();
+
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
     assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
-    let b1 = client
+    let b1a = client
         .create_rel(
             "Project",
             "board",
@@ -79,6 +83,10 @@ async fn create_snmt_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
         )
         .await
         .unwrap();
+
+    assert!(b1a.is_array());
+    assert_eq!(b1a.as_array().unwrap().len(), 1);
+    let b1 = b1a.as_array().unwrap().iter().next().unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
@@ -188,7 +196,7 @@ async fn create_snmt_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
         .await
         .unwrap();
 
-    let b0 = client
+    let b0a = client
         .create_rel(
             "Project",
             "board",
@@ -201,12 +209,16 @@ async fn create_snmt_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
         .await
         .unwrap();
 
+    assert!(b0a.is_array());
+    assert_eq!(b0a.as_array().unwrap().len(), 1);
+    let b0 = b0a.as_array().unwrap().iter().next().unwrap();
+
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
     assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
 
-    let b1 = client
+    let b1a = client
         .create_rel(
             "Project",
             "board",
@@ -218,6 +230,10 @@ async fn create_snmt_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
             }))
         .await
         .unwrap();
+
+    assert!(b1a.is_array());
+    assert_eq!(b1a.as_array().unwrap().len(), 1);
+    let b1 = b1a.as_array().unwrap().iter().next().unwrap();
 
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");

@@ -1,4 +1,5 @@
 *.freeze
+*.log
 *.swo
 *.swp
 .old

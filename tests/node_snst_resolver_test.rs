@@ -712,7 +712,13 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppGlobalCtx, AppReque
         .unwrap();
 
     // Cannot add a rel to a single-node rel slot that's already filled.
-    assert_eq!(projects, serde_json::value::Value::Null);
+    assert_eq!(
+        projects.as_array().unwrap()[0]
+            .get("owner")
+            .unwrap()
+            .clone(),
+        serde_json::value::Value::Null
+    );
 
     let users = client
         .read_node(
@@ -846,7 +852,10 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppGlobalCtx, App
         .await
         .unwrap();
 
-    assert_eq!(pu, serde_json::value::Value::Null);
+    assert_eq!(
+        pu.as_array().unwrap()[0].get("owner").unwrap().clone(),
+        serde_json::value::Value::Null
+    );
 
     let users = client
         .read_node(
