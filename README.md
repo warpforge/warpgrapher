@@ -1,11 +1,11 @@
 # Warpgrapher
 [![Build Status](https://github.com/warpforge/warpgrapher/workflows/Test/badge.svg)](https://github.com/warpforge/warpgrapher/actions?query=workflow%3A%22Test%22+branch%3Amaster)
-[![GitHub Release](https://img.shields.io/github/release/warpforge/warpgrapher.svg?style=flat)](https://github.com/warpforge/warpgrapher/releases/tag/v0.2.0)
+[![GitHub Release](https://img.shields.io/github/release/warpforge/warpgrapher.svg?style=flat)](https://github.com/warpforge/warpgrapher/releases/tag/v0.3.0)
 [![Crates.io](https://img.shields.io/crates/v/warpgrapher.svg)](https://crates.io/crates/warpgrapher)
 
 #### Framework for creating data model-driven GraphQL API services
 
-As a developer you can focus on defining your applications data model and warpgrapher takes care of generating a graph-based API for interacting with that model. In addition to generating CRUD APIs for interacting with the model, warpgrapher provides a set of advanced features to customize and extend your service. 
+As a developer you can focus on defining your application's data model, and Warpgrapher takes care of generating a graph-based API for interacting with that model. In addition to generating CRUD APIs for interacting with the model, Warpgrapher provides a set of advanced features to customize and extend your service. 
 
 Supported Databases:
 
