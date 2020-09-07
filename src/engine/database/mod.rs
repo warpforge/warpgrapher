@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::env::var_os;
 use std::fmt::Debug;
 
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(feature = "gremlin")]
 fn env_bool(var_name: &str) -> Result<bool, Error> {
     Ok(env_string(var_name)?.parse::<bool>()?)
 }

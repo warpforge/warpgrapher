@@ -23,16 +23,13 @@ endpoints:
 ";
 
 // endpoint returning a list of `Issue` nodes
-fn resolve_top_issue(
-    facade: ResolverFacade<(), ()>
-) -> ExecutionResult {
-
+fn resolve_top_issue(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     let top_issue = facade.create_node(
         "Issue",
         hashmap! {
             "name".to_string() => Value::from("Learn more rust".to_string()),
             "point".to_string() => Value::from(5 as i64)
-        }
+        },
     );
 
     facade.resolve_node(&top_issue)
@@ -52,7 +49,10 @@ async fn main() {
 
     // define resolvers
     let mut resolvers = Resolvers::<(), ()>::new();
-    resolvers.insert("resolve_project_points".to_string(), Box::new(resolve_top_issue));
+    resolvers.insert(
+        "resolve_project_points".to_string(),
+        Box::new(resolve_top_issue),
+    );
 
     // create warpgrapher engine
     let engine: Engine<(), ()> = Engine::new(config, db)

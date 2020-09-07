@@ -1,18 +1,21 @@
 //! Provides database interface types and functions for Cosmos DB and other Gremlin-based DBs
 
 use crate::engine::context::{GlobalContext, RequestContext};
+#[cfg(feature = "gremlin")]
+use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_bool, env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar,
+    SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
+#[cfg(feature = "gremlin")]
+use gremlin_client::TlsOptions;
 use gremlin_client::{
-    ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, TlsOptions, ToGValue,
-    VertexProperty,
+    ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
 };
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -40,6 +43,7 @@ static REL_RETURN_FRAGMENT: &str = ".project('rID', 'rProps', 'srcID', 'srcLabel
 /// #    Ok(())
 /// # }
 /// ```
+#[cfg(feature = "cosmos")]
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CosmosEndpoint {
     host: String,
@@ -48,6 +52,7 @@ pub struct CosmosEndpoint {
     pass: String,
 }
 
+#[cfg(feature = "cosmos")]
 impl CosmosEndpoint {
     /// Reads a set of environment variables to construct a [`CosmosEndpoint`]. The environment
     /// variables are as follows
@@ -91,6 +96,7 @@ impl CosmosEndpoint {
     }
 }
 
+#[cfg(feature = "cosmos")]
 #[async_trait]
 impl DatabaseEndpoint for CosmosEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error> {
@@ -122,6 +128,7 @@ impl DatabaseEndpoint for CosmosEndpoint {
 /// #    Ok(())
 /// # }
 /// ```
+#[cfg(feature = "gremlin")]
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct GremlinEndpoint {
     host: String,
@@ -132,6 +139,7 @@ pub struct GremlinEndpoint {
     uuid: bool,
 }
 
+#[cfg(feature = "gremlin")]
 impl GremlinEndpoint {
     /// Reads a set of environment variables to construct a [`GremlinEndpoint`]. The environment
     /// variables are as follows
@@ -183,6 +191,7 @@ impl GremlinEndpoint {
     }
 }
 
+#[cfg(feature = "gremlin")]
 #[async_trait]
 impl DatabaseEndpoint for GremlinEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error> {

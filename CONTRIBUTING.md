@@ -175,7 +175,7 @@ cargo fmt
 ## Generate Documentation
 
 ```bash
-book/build.sh
+cd book; ./build.sh
 ```
 
 ## Check API Docs for Dead Links

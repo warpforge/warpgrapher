@@ -667,19 +667,11 @@ async fn update_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestC
     assert_eq!(b0.get("name").unwrap(), "Bug Zero");
 
     let p0 = client
-    /*
         .create_node(
             "Project",
             "__typename id name description status priority estimate active", Some("1234"),
             &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
-        */
-        .create_node(
-            "Project",
-            "__typename id name description status priority estimate active", Some("1234"),
-            &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
-        )
- 
         .await
         .unwrap();
 

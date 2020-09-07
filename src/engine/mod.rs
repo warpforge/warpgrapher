@@ -417,7 +417,7 @@ where
 
     /// Executes a [`GraphQLRequest`], returning a serialized JSON response.
     ///
-    /// [`GraphQLRequest`]: ../struct.GraphQLRequest.html
+    /// [`GraphQLRequest`]: ../../juniper/http/struct.GraphQLRequest.html
     ///
     /// # Errors
     ///
