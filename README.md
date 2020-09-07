@@ -15,7 +15,7 @@ Supported Databases:
 
 ## Quickstart
 
-To get started right away, visit the [Quickstart](https://warpforge.github.io/warpgrapher/quickstart) section of the Book, or look through our sample integration projects:
+To get started right away, visit the [Quickstart](https://warpforge.github.io/warpgrapher/warpgrapher/quickstart.html) section of the Book, or look through our sample integration projects:
 
 * [warpgrapher-rocket](https://github.com/warpforge/warpgrapher-rocket)
 * [warpgrapher-actixweb](https://github.com/warpforge/warpgrapher-actixweb)
