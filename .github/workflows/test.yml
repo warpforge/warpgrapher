@@ -22,7 +22,7 @@ jobs:
       WG_COSMOS_USER: ${{ secrets.WG_COSMOS_USER }}
       WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
       WG_GREMLIN_HOST: 127.0.0.1
-      WG_GREMLIN_PORT: 8192
+      WG_GREMLIN_PORT: 8182
       WG_GREMLIN_USER: testuser
       WG_GREMLIN_PASS: testpass
       WG_GREMLIN_CERT: true
