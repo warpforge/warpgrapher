@@ -87,7 +87,7 @@ jobs:
       run: docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
 
     - name: Start gremlin database
-      run: docker run --rm --name gremlin -p 8192:8192 gremlin:latest
+      run: docker run --rm -d --name gremlin -p 8192:8192 gremlin:latest
       
     - name: Start neo4j database
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
