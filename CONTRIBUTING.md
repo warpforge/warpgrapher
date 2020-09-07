@@ -19,6 +19,12 @@ To build for use with Cosmos DB:
 cargo build --features cosmos
 ```
 
+To build for use with a Gremlin-based database, such as Apache Tinkerpop or AWS Neptune:
+
+```bash
+cargo build --features gremlin
+```
+
 To build for use with Neo4J:
 
 ```bash
@@ -38,6 +44,26 @@ export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 ```
 
+For Gremlin-based DB graphs:
+
+```bash
+export WG_GREMLIN_HOST=localhost
+export WG_GREMLIN_PORT=8182
+export WG_GREMLIN_USER=stephen
+export WG_GREMLIN_PASS=password
+export WG_GREMLIN_CERT=true
+export WG_GREMLIN_UUID=true
+```
+
+The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
+certificates. This may be necessary in a development or test environment, but should always be set
+to false in production.
+
+The `WG_GREMLIN_UUID` environment variable is set to true if Wargrapher is connecting to a back-end,
+like Apache Tinkerpop, that uses a UUID type for the identifier of a node or vertex. If the back-end
+uses a `String` type that contains a string representation of an identifier, such as Cosmos DB, then
+set this evironment variable to `false`.
+
 For Neo4J:
 
 ```bash
@@ -56,10 +82,33 @@ emulator, start the service based on its instructions. Note that when setting up
 database, you must 1) choose Gremlin (graph) API support, and 2) use the string `partitionKey` as 
 the name of the partition key for the database.
 
+For Gremlin-based databases:
+
+Start your database in accordance with it's instructions.  For example, for the Apache Tinkerpop 
+reference implementation, run: 
+
+```bash
+docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
+docker run --rm -p 8182:8182 gremlin:latest
+```
+
+To use an interactive gremlin console to manually inspect test instances, run
+
+```bash
+docker build -t gremlin-console -f tests/fixtures/gremlin-console/Dockerfile tests/fixtures/gremlin-console
+docker run -i --net=host --rm gremlin-console:latest
+```
+
+In the console, connect to the remote graph:
+
+```
+:remote connect tinkerpop.server conf/remote.yaml
+:remote console
+```
+
 For neo4j:
 
-Note that Warpgrapher is only compatible with Neo4J up to version 3.5. (If anyone knows of a Rust
-driver that works with Neo4J version 4, please open an issue and point us to it!)
+Note that Warpgrapher is only compatible with version 4.0 and later of Neo4J.
 
 ```bash
 docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.1
@@ -79,6 +128,12 @@ For Cosmos DB:
 
 ```bash
 cargo test --features cosmos -- --test-threads=1
+```
+
+For Gremlin-based DBs:
+
+```bash
+cargo test --features gremlin -- --test-threads=1
 ```
 
 For Neo4J:

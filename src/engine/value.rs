@@ -2,10 +2,11 @@ use crate::Error;
 use juniper::{DefaultScalarValue, FromInputValue, InputValue};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use uuid::Uuid;
 
 /// Intermediate data structure for serialized values, allowing for translation between the values
 /// returned by the back-end database (serde_json for Neo4j, and a library-specific seralized
-/// format for Cosmos DB), and the serde_json format used to return data to the client.
+/// format for Cosmos and Gremlin DBs), and the serde_json format used to return data to the client.
 ///
 /// # Examples
 ///
@@ -24,6 +25,7 @@ pub enum Value {
     Null,
     String(String),
     UInt64(u64),
+    Uuid(Uuid),
 }
 
 impl From<bool> for Value {
@@ -59,6 +61,12 @@ impl From<String> for Value {
 impl From<u64> for Value {
     fn from(v: u64) -> Self {
         Value::UInt64(v)
+    }
+}
+
+impl From<Uuid> for Value {
+    fn from(v: Uuid) -> Self {
+        Value::Uuid(v)
     }
 }
 
@@ -236,6 +244,7 @@ impl TryFrom<Value> for serde_json::Value {
             Value::Null => Ok(serde_json::Value::Null),
             Value::String(s) => Ok(serde_json::Value::String(s)),
             Value::UInt64(i) => Ok(serde_json::Value::Number(i.into())),
+            Value::Uuid(uuid) => Ok(serde_json::Value::String(uuid.to_hyphenated().to_string())),
         }
     }
 }

@@ -148,6 +148,36 @@ where
         Ok(pool)
     }
 
+    /// Returns a gremlin database client from the pool
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
+    /// is not found
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///
+    ///     let gremlin_client = facade.db_into_gremlin()?;
+    ///     
+    ///     // use client
+    ///
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    #[cfg(feature = "gremlin")]
+    pub fn db_into_gremlin(&self) -> Result<&gremlin_client::GremlinClient, Error> {
+        let pool: &gremlin_client::GremlinClient = self.executor().context().pool().gremlin()?;
+        Ok(pool)
+    }
+
     /// Returns the arguments provided to the resolver in the GraphQL query
     ///
     /// # Examples

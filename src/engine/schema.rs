@@ -165,7 +165,7 @@ impl Property {
         self.arguments.values()
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn input_type_definition<'i>(&self, info: &'i Info) -> Result<&'i NodeType, Error> {
         self.arguments
             .get("input")
@@ -205,7 +205,7 @@ impl Property {
         &self.type_name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn validator(&self) -> Option<&String> {
         self.validator.as_ref()
     }

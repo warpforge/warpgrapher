@@ -3,9 +3,11 @@ mod setup;
 use serde_json::json;
 #[cfg(feature = "cosmos")]
 use setup::cosmos_test_client;
+#[cfg(feature = "gremlin")]
+use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
 use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
@@ -17,6 +19,16 @@ async fn scalar_lists_test_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/scalar_list.yml").await;
+    scalar_lists_test(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn scalar_lists_test_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -91,6 +103,16 @@ async fn scalar_lists_no_array_cosmos() {
     scalar_lists_no_array_test(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn scalar_lists_no_array_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/scalar_list.yml").await;
+    scalar_lists_no_array_test(client).await;
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn scalar_lists_no_array_neo4j() {
@@ -147,6 +169,16 @@ async fn scalar_no_lists_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    scalar_no_lists_test(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn scalar_no_lists_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -219,6 +251,16 @@ async fn scalar_no_lists_no_array_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    scalar_no_lists_no_array_test(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn scalar_no_lists_no_array_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 

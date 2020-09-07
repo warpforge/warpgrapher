@@ -3,9 +3,11 @@ mod setup;
 use serde_json::json;
 #[cfg(feature = "cosmos")]
 use setup::cosmos_test_client;
+#[cfg(feature = "gremlin")]
+use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", gremlin = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
 use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
@@ -27,6 +29,16 @@ async fn create_snst_new_node_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_snst_new_node(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn create_snst_new_node_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     create_snst_new_node(client).await;
 }
 
@@ -139,6 +151,16 @@ async fn create_node_with_rel_to_existing_cosmos() {
     create_node_with_rel_to_existing(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn create_node_with_rel_to_existing_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    create_node_with_rel_to_existing(client).await;
+}
+
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_node_with_rel_to_existing(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _u0 = client
@@ -248,6 +270,16 @@ async fn read_multiple_snst_node_with_rel_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_multiple_snst_node_with_rel(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn read_multiple_snst_node_with_rel_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     read_multiple_snst_node_with_rel(client).await;
 }
 
@@ -426,6 +458,16 @@ async fn read_snst_node_by_rel_props_cosmos() {
     read_snst_node_by_rel_props(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn read_snst_node_by_rel_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    read_snst_node_by_rel_props(client).await;
+}
+
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_snst_node_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _u0 = client
@@ -525,6 +567,16 @@ async fn read_snst_node_by_dst_props_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_snst_node_by_dst_props(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn read_snst_node_by_dst_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     read_snst_node_by_dst_props(client).await;
 }
 
@@ -629,6 +681,16 @@ async fn update_snst_node_with_new_rel_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_snst_node_with_new_rel(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_snst_node_with_new_rel_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_node_with_new_rel(client).await;
 }
 
@@ -758,6 +820,16 @@ async fn update_snst_node_with_existing_rel_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_snst_node_with_existing_rel(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_snst_node_with_existing_rel_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     update_snst_node_with_existing_rel(client).await;
 }
 
@@ -898,6 +970,16 @@ async fn delete_snst_rel_by_dst_props_cosmos() {
     delete_snst_rel_by_dst_props(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_snst_rel_by_dst_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snst_rel_by_dst_props(client).await;
+}
+
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _u0 = client
@@ -1026,6 +1108,16 @@ async fn delete_snst_rel_by_rel_props_cosmos() {
     delete_snst_rel_by_rel_props(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_snst_rel_by_rel_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snst_rel_by_rel_props(client).await;
+}
+
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _u0 = client
@@ -1149,6 +1241,16 @@ async fn delete_snst_node_by_dst_prop_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snst_node_by_dst_prop(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_snst_node_by_dst_prop_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     delete_snst_node_by_dst_prop(client).await;
 }
 
@@ -1279,6 +1381,16 @@ async fn delete_snst_node_by_rel_prop_cosmos() {
     delete_snst_node_by_rel_prop(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_snst_node_by_rel_prop_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    delete_snst_node_by_rel_prop(client).await;
+}
+
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_node_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
     let _u0 = client
@@ -1401,6 +1513,16 @@ async fn detach_snst_rel_by_dst_delete_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    detach_snst_rel_by_dst_delete(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn detach_snst_rel_by_dst_delete_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     detach_snst_rel_by_dst_delete(client).await;
 }
 

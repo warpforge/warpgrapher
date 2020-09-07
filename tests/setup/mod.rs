@@ -5,15 +5,15 @@ use bolt_proto::Message;
 #[cfg(feature = "neo4j")]
 use extension::MetadataExtension;
 use extension::{Metadata, MetadataExtensionCtx};
-#[cfg(feature = "cosmos")]
-use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient, TlsOptions};
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use log::trace;
 #[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use std::convert::TryFrom;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use std::convert::TryInto;
 use std::env::var_os;
 use std::fs::File;
@@ -26,10 +26,12 @@ use std::sync::Arc;
 use tokio::runtime::Runtime;
 use warpgrapher::engine::context::{GlobalContext, RequestContext};
 #[cfg(feature = "cosmos")]
-use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+use warpgrapher::engine::database::gremlin::CosmosEndpoint;
+#[cfg(feature = "gremlin")]
+use warpgrapher::engine::database::gremlin::GremlinEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::DatabasePool;
@@ -44,7 +46,7 @@ use warpgrapher::engine::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
 
@@ -89,6 +91,45 @@ fn cosmos_pass() -> String {
         .expect("Expected WG_COSMOS_PASS to be set.")
         .to_str()
         .expect("Expected WG_COSMOS_PASS to be a string.")
+        .to_owned()
+}
+
+#[cfg(feature = "gremlin")]
+fn gremlin_host() -> String {
+    var_os("WG_GREMLIN_HOST")
+        .expect("Expected WG_GREMLIN_HOST to be set.")
+        .to_str()
+        .expect("Expected WG_GREMLIN_HOST to be a string.")
+        .to_owned()
+}
+
+#[cfg(feature = "gremlin")]
+fn gremlin_port() -> u16 {
+    var_os("WG_GREMLIN_PORT")
+        .expect("Expected WG_GREMLIN_PORT to be set.")
+        .to_str()
+        .expect("Expected WG_GREMLIN_PORT to be a string.")
+        .parse::<u16>()
+        .expect("Expected WG_GREMLIN_PORT to be a u16.")
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_user() -> String {
+    var_os("WG_GREMLIN_USER")
+        .expect("Expected WG_GREMLIN_USER to be set.")
+        .to_str()
+        .expect("Expected WG_GREMLIN_USER to be a string.")
+        .to_owned()
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_pass() -> String {
+    var_os("WG_GREMLIN_PASS")
+        .expect("Expected WG_GREMLIN_PASS to be set.")
+        .to_str()
+        .expect("Expected WG_GREMLIN_PASS to be a string.")
         .to_owned()
 }
 
@@ -155,40 +196,6 @@ pub(crate) async fn bolt_client() -> bolt_client::Client {
     hello.expect("Expected successful handshake.");
 
     graph
-}
-
-#[allow(dead_code)]
-fn server_addr() -> String {
-    let port = match var_os("WG_SAMPLE_PORT") {
-        None => 5000,
-        Some(os) => os.to_str().unwrap_or("5000").parse::<u16>().unwrap_or(5000),
-    };
-
-    format!("127.0.0.1:{}", port)
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-fn neo4j_server_addr() -> String {
-    "127.0.0.1:5000".to_string()
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "cosmos")]
-fn cosmos_server_addr() -> String {
-    "127.0.0.1:5001".to_string()
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-fn neo4j_gql_endpoint() -> String {
-    format!("http://{}/graphql", neo4j_server_addr())
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "cosmos")]
-fn cosmos_gql_endpoint() -> String {
-    format!("http://{}/graphql", cosmos_server_addr())
 }
 
 #[allow(dead_code)]
@@ -290,6 +297,54 @@ fn clear_cosmos_db() {
     let _ = client.execute("g.V().drop()", &[]);
 }
 
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+    // load config
+    //let config_path = "./tests/fixtures/config.yml".to_string();
+    let config: Configuration = File::open(config_path)
+        .expect("Failed to load config file")
+        .try_into()
+        .unwrap();
+
+    let database_pool = GremlinEndpoint::from_env().unwrap().pool().await.unwrap();
+
+    // create app context
+    let global_ctx = AppGlobalCtx {
+        version: "0.0.0".to_owned(),
+    };
+
+    let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config, database_pool)
+        .with_version("1.0".to_string())
+        .with_global_ctx(global_ctx)
+        .build()
+        .expect("Could not create warpgrapher engine");
+
+    Client::new_with_engine(engine)
+}
+
+#[cfg(feature = "gremlin")]
+#[allow(dead_code)]
+fn clear_gremlin_db() {
+    let client = GremlinClient::connect(
+        ConnectionOptions::builder()
+            .host(gremlin_host())
+            .port(gremlin_port())
+            .pool_size(1)
+            .ssl(true)
+            .tls_options(TlsOptions {
+                accept_invalid_certs: true,
+            })
+            .serializer(GraphSON::V3)
+            .deserializer(GraphSON::V3)
+            .credentials(&gremlin_user(), &gremlin_pass())
+            .build(),
+    )
+    .expect("Expected successful gremlin client creation.");
+
+    let _ = client.execute("g.V().drop()", &[]);
+}
+
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
 async fn clear_neo4j_db() {
@@ -310,6 +365,9 @@ async fn clear_neo4j_db() {
 pub(crate) async fn clear_db() {
     #[cfg(feature = "cosmos")]
     clear_cosmos_db();
+
+    #[cfg(feature = "gremlin")]
+    clear_gremlin_db();
 
     #[cfg(feature = "neo4j")]
     clear_neo4j_db().await;

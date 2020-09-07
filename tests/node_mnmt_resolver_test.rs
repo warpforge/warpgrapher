@@ -4,9 +4,11 @@ use log::trace;
 use serde_json::json;
 #[cfg(feature = "cosmos")]
 use setup::cosmos_test_client;
+#[cfg(feature = "gremlin")]
+use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
 use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
@@ -18,6 +20,16 @@ async fn create_mnmt_new_nodes_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_new_nodes(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn create_mnmt_new_nodes_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     create_mnmt_new_nodes(client).await;
 }
 
@@ -190,6 +202,18 @@ async fn create_mnmt_existing_nodes_cosmos() {
     println!("create_mnmt_new_nodes::end");
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn create_mnmt_existing_nodes_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    create_mnmt_existing_nodes(client).await;
+
+    println!("create_mnmt_new_nodes::end");
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn create_mnmt_existing_nodes_neo4j() {
@@ -313,6 +337,18 @@ async fn read_mnmt_by_rel_props_cosmos() {
     println!("create_mnmt_existing_nodes::end");
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn read_mnmt_by_rel_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_by_rel_props(client).await;
+
+    println!("create_mnmt_existing_nodes::end");
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn read_mnmt_by_rel_props_neo4j() {
@@ -391,6 +427,16 @@ async fn read_mnmt_by_dst_props_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    read_mnmt_by_dst_props(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn read_mnmt_by_dst_props_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     read_mnmt_by_dst_props(client).await;
 }
 
@@ -487,6 +533,16 @@ async fn update_mnmt_new_node_cosmos() {
     update_mnmt_new_node(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_mnmt_new_node_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_new_node(client).await;
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn update_mnmt_new_node_neo4j() {
@@ -574,6 +630,16 @@ async fn update_mnmt_existing_nodes_cosmos() {
     update_mnmt_existing_nodes(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_mnmt_existing_nodes_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_existing_nodes(client).await;
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn update_mnmt_existing_nodes_neo4j() {
@@ -601,11 +667,19 @@ async fn update_mnmt_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestC
     assert_eq!(b0.get("name").unwrap(), "Bug Zero");
 
     let p0 = client
+    /*
         .create_node(
             "Project",
             "__typename id name description status priority estimate active", Some("1234"),
             &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
+        */
+        .create_node(
+            "Project",
+            "__typename id name description status priority estimate active", Some("1234"),
+            &json!({"name": "Project Zero", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+        )
+ 
         .await
         .unwrap();
 
@@ -670,6 +744,16 @@ async fn update_mnmt_relationship_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    update_mnmt_relationship(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_mnmt_relationship_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     update_mnmt_relationship(client).await;
 }
 
@@ -804,6 +888,16 @@ async fn update_only_correct_mnmt_relationship_cosmos() {
     update_only_correct_mnmt_relationship(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn update_only_correct_mnmt_relationship_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    update_only_correct_mnmt_relationship(client).await;
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn update_only_correct_mnmt_relationship_neo4j() {
@@ -903,6 +997,16 @@ async fn delete_mnmt_relationship_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_relationship(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_mnmt_relationship_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     delete_mnmt_relationship(client).await;
 }
 
@@ -1019,6 +1123,16 @@ async fn delete_node_by_mnmt_rel_property_cosmos() {
     delete_node_by_mnmt_rel_property(client).await;
 }
 
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_node_by_mnmt_rel_property_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node_by_mnmt_rel_property(client).await;
+}
+
 #[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn delete_node_by_mnmt_rel_property_neo4j() {
@@ -1089,6 +1203,16 @@ async fn delete_node_cosmos() {
     clear_db().await;
 
     let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_node(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_node_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
     delete_node(client).await;
 }
 
