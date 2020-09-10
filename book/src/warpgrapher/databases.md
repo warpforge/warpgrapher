@@ -58,8 +58,8 @@ Then set up environment variables to contact your Gremlin-based DB:
 ```bash
 export WG_GREMLIN_HOST=localhost
 export WG_GREMLIN_PORT=8182
-export WG_GREMLIN_USER=test-user
-export WG_GREMLIN_PASS=*REDACTED*
+export WG_GREMLIN_USER=stephen
+export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
 export WG_GREMLIN_UUID=true
 ```
