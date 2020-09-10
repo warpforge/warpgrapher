@@ -1015,6 +1015,7 @@ impl From<Value> for bolt_proto::value::Value {
             // This last conversion may be lossy, but interoperability with bolt_proto doesn't
             // allow for a TryFrom conversion here.
             Value::UInt64(u) => (u as i64).into(),
+            Value::Uuid(uuid) => uuid.to_hyphenated().to_string().into(),
         }
     }
 }

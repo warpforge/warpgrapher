@@ -1,7 +1,7 @@
 //! Traits and helper structs for interacting with the graph storage database
 
-#[cfg(feature = "cosmos")]
-pub mod cosmos;
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+pub mod gremlin;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
 
@@ -15,14 +15,19 @@ use async_trait::async_trait;
 use bb8::Pool;
 #[cfg(feature = "neo4j")]
 use bb8_bolt::BoltConnectionManager;
-#[cfg(feature = "cosmos")]
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinClient;
 use std::collections::HashMap;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
 
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(feature = "gremlin")]
+fn env_bool(var_name: &str) -> Result<bool, Error> {
+    Ok(env_string(var_name)?.parse::<bool>()?)
+}
+
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 fn env_string(var_name: &str) -> Result<String, Error> {
     var_os(var_name)
         .map(|osstr| osstr.to_string_lossy().into_owned())
@@ -31,7 +36,7 @@ fn env_string(var_name: &str) -> Result<String, Error> {
         })
 }
 
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
@@ -47,6 +52,12 @@ pub enum DatabasePool {
     /// Contains a pool of Cosmos DB database clients
     #[cfg(feature = "cosmos")]
     Cosmos(GremlinClient),
+
+    /// Contains a pool of Gremlin-based DB database clients, and a boolean indicating whether the
+    /// back-end database stores identifiers using a UUID type (true) or a UUID in a String type
+    /// (false).
+    #[cfg(feature = "gremlin")]
+    Gremlin((GremlinClient, bool)),
 
     /// Used to serve the schema without a database backend
     NoDatabase,
@@ -65,6 +76,14 @@ impl DatabasePool {
     pub(crate) fn cosmos(&self) -> Result<&GremlinClient, Error> {
         match self {
             DatabasePool::Cosmos(pool) => Ok(pool),
+            _ => Err(Error::DatabaseNotFound {}),
+        }
+    }
+
+    #[cfg(feature = "gremlin")]
+    pub(crate) fn gremlin(&self) -> Result<&GremlinClient, Error> {
+        match self {
+            DatabasePool::Gremlin((pool, _)) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),
         }
     }
@@ -305,7 +324,7 @@ pub(crate) struct NodeQueryVar {
 }
 
 impl NodeQueryVar {
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(label: Option<String>, base: String, suffix: String) -> NodeQueryVar {
         NodeQueryVar {
             base: base.clone(),
@@ -315,22 +334,22 @@ impl NodeQueryVar {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn base(&self) -> &str {
         &self.base
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn label(&self) -> Result<&str, Error> {
         self.label.as_deref().ok_or_else(|| Error::LabelNotFound)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn suffix(&self) -> &str {
         &self.suffix
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
@@ -346,7 +365,7 @@ pub(crate) struct RelQueryVar {
 }
 
 impl RelQueryVar {
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
         label: String,
         suffix: String,
@@ -362,22 +381,22 @@ impl RelQueryVar {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn label(&self) -> &str {
         &self.label
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn src(&self) -> &NodeQueryVar {
         &self.src
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn dst(&self) -> &NodeQueryVar {
         &self.dst
     }
@@ -385,29 +404,29 @@ impl RelQueryVar {
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum ClauseType {
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     Parameter,
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     FirstSubQuery,
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     SubQuery,
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     Query,
 }
 
 #[derive(Default)]
 pub(crate) struct SuffixGenerator {
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     seed: i32,
 }
 
 impl SuffixGenerator {
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
         "_".to_string() + &self.seed.to_string()

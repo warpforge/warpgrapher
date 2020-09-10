@@ -19,13 +19,10 @@ model:
       resolver: resolve_project_points
 ";
 
-fn resolve_project_points(
-    facade: ResolverFacade<(), ()>
-) -> ExecutionResult {
-
+fn resolve_project_points(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     // compute value
     let points = 5;
-    
+
     facade.resolve_scalar(points)
 }
 
@@ -43,7 +40,10 @@ async fn main() {
 
     // define resolvers
     let mut resolvers = Resolvers::<(), ()>::new();
-    resolvers.insert("resolve_project_points".to_string(), Box::new(resolve_project_points));
+    resolvers.insert(
+        "resolve_project_points".to_string(),
+        Box::new(resolve_project_points),
+    );
 
     // create warpgrapher engine
     let engine: Engine<(), ()> = Engine::new(config, db)

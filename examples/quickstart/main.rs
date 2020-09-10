@@ -1,5 +1,5 @@
-use std::convert::TryFrom;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -18,8 +18,7 @@ model:
 #[tokio::main]
 async fn main() {
     // parse warpgrapher config
-    let config = Configuration::try_from(CONFIG.to_string())
-        .expect("Failed to parse CONFIG");
+    let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
     let db = Neo4jEndpoint::from_env()
@@ -41,9 +40,10 @@ async fn main() {
                 email
             }
         }
-        ".to_string(),
+        "
+        .to_string(),
         None,
-        None
+        None,
     );
     let metadata = HashMap::new();
     let result = engine.execute(&request, &metadata).unwrap();

@@ -25,10 +25,7 @@ model:
        resolver: resolve_project_top_contributor
 ";
 
-fn resolve_project_top_contributor(
-    facade: ResolverFacade<(), ()>
-) -> ExecutionResult {
-
+fn resolve_project_top_contributor(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     // create dynamic dst node
     let mut top_contributor_props = HashMap::<String, Value>::new();
     top_contributor_props.insert("name".to_string(), Value::from("user0".to_string()));
@@ -36,12 +33,9 @@ fn resolve_project_top_contributor(
 
     // create dynamic rel
     let rel_id = "1234567890".to_string();
-    let top_contributor_rel = facade.create_rel_with_dst_node(
-        Value::from(rel_id),
-        None,
-        top_contributor
-    )?;
-    
+    let top_contributor_rel =
+        facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+
     facade.resolve_rel(&top_contributor_rel)
 }
 
@@ -59,7 +53,10 @@ async fn main() {
 
     // define resolvers
     let mut resolvers = Resolvers::<(), ()>::new();
-    resolvers.insert("resolve_project_points".to_string(), Box::new(resolve_project_top_contributor));
+    resolvers.insert(
+        "resolve_project_points".to_string(),
+        Box::new(resolve_project_top_contributor),
+    );
 
     // create warpgrapher engine
     let engine: Engine<(), ()> = Engine::new(config, db)

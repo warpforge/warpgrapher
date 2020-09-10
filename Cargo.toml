@@ -13,6 +13,7 @@ edition = "2018"
 
 [features]
 cosmos = ["gremlin-client"]
+gremlin = ["gremlin-client"]
 neo4j = ["bb8", "bb8-bolt", "bolt-client", "bolt-proto"]
 
 [dependencies]
@@ -27,13 +28,14 @@ serde = { version = "1.0.89", features = ["derive"] }
 serde_json = "1.0.39"
 serde_yaml = "0.8.8"
 tokio = "0.2.21"
+uuid = "0.8.1"
 
 # Optional dependencies
 bb8 = { version = "0.4.2", optional = true }
 bb8-bolt = { version = "0.4.0", optional = true }
 bolt-client = { version = "0.7.0", optional = true }
 bolt-proto = { version = "0.8.0", optional = true }
-gremlin-client = { version = "0.5.0", optional = true }
+gremlin-client = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
 assert_approx_eq = "1.1.0"

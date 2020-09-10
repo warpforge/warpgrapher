@@ -25,16 +25,14 @@ endpoints:
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {
-    request_id: String
+    request_id: String,
 }
 
 impl RequestContext for AppRequestContext {
     fn new() -> AppRequestContext {
         // generate random request id
         let request_id = "1234".to_string();
-        AppRequestContext {
-            request_id
-        }
+        AppRequestContext { request_id }
     }
 }
 
@@ -74,7 +72,7 @@ async fn main() {
         "
         .to_string(),
         None,
-        None
+        None,
     );
     let metadata = HashMap::new();
     let result = engine.execute(&request, &metadata).unwrap();

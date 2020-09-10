@@ -1,11 +1,11 @@
 use super::{Input, Node, Rel};
 use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
-#[cfg(feature = "cosmos")]
-use crate::engine::database::cosmos::CosmosTransaction;
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+use crate::engine::database::gremlin::GremlinTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::database::{
     ClauseType, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
 };
@@ -20,14 +20,14 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 #[cfg(feature = "neo4j")]
 use tokio::runtime::Runtime;
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input,
 };
 
-#[cfg(any(feature = "cosmos", feature = "neo4j"))]
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 mod visitors;
 
 pub(super) struct Resolver<'r> {
@@ -160,7 +160,15 @@ impl<'r> Resolver<'r> {
                 field_name,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_create_mutation_with_transaction(
+                field_name,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 executor,
             ),
             #[cfg(feature = "neo4j")]
@@ -187,7 +195,7 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_node_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -262,7 +270,15 @@ impl<'r> Resolver<'r> {
                 label,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_delete_mutation_with_transaction(
+                field_name,
+                label,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -286,7 +302,7 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_node_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -351,7 +367,14 @@ impl<'r> Resolver<'r> {
                 field_name,
                 info,
                 input_opt,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_read_query_with_transaction(
+                field_name,
+                info,
+                input_opt,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -384,7 +407,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_node_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -472,7 +495,15 @@ impl<'r> Resolver<'r> {
                 field_name,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_update_mutation_with_transaction(
+                field_name,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 executor,
             ),
             #[cfg(feature = "neo4j")]
@@ -500,7 +531,7 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_node_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -575,7 +606,17 @@ impl<'r> Resolver<'r> {
                 rel_name,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_create_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 executor,
             ),
             #[cfg(feature = "neo4j")]
@@ -600,7 +641,7 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_rel_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
@@ -688,7 +729,16 @@ impl<'r> Resolver<'r> {
                 rel_name,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_delete_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -708,7 +758,7 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_rel_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -807,7 +857,15 @@ impl<'r> Resolver<'r> {
                 rel_name,
                 info,
                 input_opt,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_read_query_with_transaction(
+                field_name,
+                rel_name,
+                info,
+                input_opt,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -854,7 +912,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
@@ -957,7 +1015,17 @@ impl<'r> Resolver<'r> {
                 rel_name,
                 info,
                 input,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_update_mutation_with_transaction(
+                field_name,
+                src_label,
+                rel_name,
+                info,
+                input,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 executor,
             ),
             #[cfg(feature = "neo4j")]
@@ -982,7 +1050,7 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_rel_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
@@ -1080,8 +1148,11 @@ impl<'r> Resolver<'r> {
                 Value::String(_) => {
                     executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?)
                 }
+                Value::Uuid(_) => {
+                    executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(v.clone())?)
+                }
                 Value::Array(a) => match a.get(0) {
-                    Some(Value::Null) | Some(Value::String(_)) => executor
+                    Some(Value::Null) | Some(Value::String(_)) | Some(Value::Uuid(_)) => executor
                         .resolve_with_ctx(&(), &TryInto::<Vec<String>>::try_into(v.clone())?),
                     Some(Value::Bool(_)) => {
                         executor.resolve_with_ctx(&(), &TryInto::<Vec<bool>>::try_into(v.clone())?)
@@ -1141,7 +1212,15 @@ impl<'r> Resolver<'r> {
                 dst_label,
                 field_name,
                 dst_id,
-                &mut CosmosTransaction::new(c.clone()),
+                &mut GremlinTransaction::new(c.clone(), true, false),
+            ),
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => self.resolve_union_field_with_transaction(
+                info,
+                dst_label,
+                field_name,
+                dst_id,
+                &mut GremlinTransaction::new(c.clone(), false, *uuid),
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -1178,7 +1257,7 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    #[cfg(any(feature = "cosmos", feature = "neo4j"))]
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(super) fn resolve_union_field_with_transaction<GlobalCtx, RequestCtx, T>(
         &mut self,
         info: &Info,

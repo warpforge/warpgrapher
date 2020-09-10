@@ -5,12 +5,19 @@
         <meta charset="UTF-8">
         <title>Databases - Warpgrapher Book (0.3.0)</title>
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="../favicon.svg">
         <link rel="shortcut icon" href="../favicon.png">
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
@@ -19,8 +26,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -36,7 +44,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "../";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -80,8 +88,8 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/databases.html" class="active"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="../warpgrapher/databases.html" class="active"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="../api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="../engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="chapter-item expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -90,37 +98,36 @@
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Warpgrapher Book (0.3.0)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.3.0)</h1>
 
-                        <div class="right-buttons">
-                            <a href="../print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                            
-                        </div>
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -152,6 +159,7 @@
 <p>Warppgrapher supports using either of two database back-ends for graph data:</p>
 <ol>
 <li>Azure Cosmos DB</li>
+<li>Gremlin-based Databases (e.g. Apache Tinkerpop and AWS Neptune)</li>
 <li>Neo4J</li>
 </ol>
 <p>Using each of the databases requires correctly selecting a crate feature and 
@@ -171,6 +179,46 @@ export WG_COSMOS_PASS=*MY-COSMOS-KEY*
 </code></pre>
 <p>Note that when setting up your Cosmos database, you must configure it to offer a Gremlin graph API.</p>
 <p>Note also that you must set your partition key to be named <code>partitionKey</code>.</p>
+<p>Be advised that Gremlin traversals are not executed atomically within Cosmos DB. A traversal may 
+fail part way through if, for example, one reaches the read unit capacity limit.  See 
+<a href="https://medium.com/@jayanta.mondal/cosmos-db-graph-gremlin-api-how-to-executing-multiple-writes-as-a-unit-via-a-single-gremlin-2ce82d8bf365">this article</a> 
+for details. The workaround proposed in the article helps, but even idempotent queries do not 
+guarantee atomicity.  Warpgrapher does not use idempotent queries with automated retries to overcome
+this shortcoming of Cosmos DB, so note that if using Cosmos, there is a risk that a failed query 
+could leave partially applied results behind.</p>
+<h2><a class="header" href="#gremlin-based-database" id="gremlin-based-database">Gremlin-Based Database</a></h2>
+<p>Add Warpgrapher to your project config:</p>
+<p><code>cargo.toml</code></p>
+<pre><code class="language-toml">[dependencies]
+warpgrapher = { version = &quot;0.3.0&quot;, features = [&quot;gremlin&quot;] }
+</code></pre>
+<p>Then set up environment variables to contact your Gremlin-based DB:</p>
+<pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
+export WG_GREMLIN_PORT=8182
+export WG_GREMLIN_USER=stephen
+export WG_GREMLIN_PASS=password
+export WG_GREMLIN_CERT=true
+export WG_GREMLIN_UUID=true
+</code></pre>
+<p>The <code>WG_GREMLIN_CERT</code> environment variable is true if Warpgrapher should ignore the validity of 
+certificates. This may be necessary in a development or test environment, but should always be set
+to false in production.</p>
+<p>The <code>WG_GREMLIN_UUID</code> environment variable is set to true if Wargrapher is connecting to a back-end,
+like Apache Tinkerpop, that uses a UUID type for the identifier of a node or vertex. If the back-end
+uses a <code>String</code> type that contains a string representation of an identifier, such as Cosmos DB, then
+set this evironment variable to <code>false</code>.</p>
+<p>If you do not already have a Gremlin-based database running, you can run one using Docker:</p>
+<pre><code class="language-bash">docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
+docker run --rm -p 8182:8182 gremlin:latest
+</code></pre>
+<p>To use an interactive gremlin console to manually inspect test instances, run</p>
+<pre><code class="language-bash">docker build -t gremlin-console -f tests/fixtures/gremlin-console/Dockerfile tests/fixtures/gremlin-console
+docker run -i --net=host --rm gremlin-console:latest
+</code></pre>
+<p>In the console, connect to the remote graph:</p>
+<pre><code>:remote connect tinkerpop.server conf/remote.yaml
+:remote console
+</code></pre>
 <h2><a class="header" href="#neo4j" id="neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <pre><code class="language-toml">[dependencies]
@@ -209,13 +257,13 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../warpgrapher/quickstart.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../warpgrapher/quickstart.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../warpgrapher/config.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="../warpgrapher/config.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -228,10 +276,10 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 

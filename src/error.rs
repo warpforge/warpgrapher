@@ -1,9 +1,10 @@
 //! Provides the [`Error`] type for Warpgrapher
 
-#[cfg(feature = "cosmos")]
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinError;
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
+use std::str::ParseBoolError;
 
 /// Error type for Warpgrapher
 ///
@@ -49,12 +50,6 @@ pub enum Error {
     /// [`Config`]: ../engine/config/struct.Config.html
     ConfigVersionMismatched { expected: i32, found: i32 },
 
-    /// Returned if a client for a Cosmos database pool cannot be built or a query fails.
-    #[cfg(feature = "cosmos")]
-    CosmosActionFailed {
-        source: Box<gremlin_client::GremlinError>,
-    },
-
     /// Returned if the engine is configured to operate without a database. Typically this would
     /// never be done in production
     DatabaseNotFound,
@@ -69,13 +64,23 @@ pub enum Error {
     /// the environment variable that could not be found.
     EnvironmentVariableNotFound { name: String },
 
+    /// Returned if an environemtn variable for a boolean flag cannot be parsed from the
+    /// environment variable string into a bool
+    EnvironmentVariableBoolNotParsed { source: ParseBoolError },
+
     /// Returned if an environment variable for a port number cannot be parsed from the
     /// environment variable string into a number
-    EnvironmentVariableNotParsed { source: ParseIntError },
+    EnvironmentVariableIntNotParsed { source: ParseIntError },
 
     /// Returned if a registered extension function returns an error
     ExtensionFailed {
         source: Box<dyn std::error::Error + Sync + Send>,
+    },
+
+    /// Returned if a client for a Cosmos or Gremlin database pool cannot be built or a query fails.
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    GremlinActionFailed {
+        source: Box<gremlin_client::GremlinError>,
     },
 
     /// Returned if a GraphQL query is missing an expected argument. For example, if a create
@@ -182,6 +187,9 @@ pub enum Error {
     /// [`Value`]: ./engine/value/enum.Value.html
     TypeNotExpected,
 
+    /// Returned if the String argument for an id cannot be parsed into a UUID
+    UuidNotParsed { source: uuid::Error },
+
     /// This error is returned by a custom input validator when the validation fails. The message
     /// String describes the reason the field failed validation.
     ValidationFailed { message: String },
@@ -213,11 +221,7 @@ impl Display for Error {
             Error::ConfigVersionMismatched { expected, found } => {
                 write!(f, "Configs must be the same version: expected {} but found {}", expected, found)
             }
-            #[cfg(feature = "cosmos")]
-            Error::CosmosActionFailed { source } => {
-                write!(f, "Either building a database connection pool or query failed. Source error: {}", source)
-            }
-            Error::DatabaseNotFound => {
+           Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
             }
             Error::DeserializationFailed { source } => {
@@ -226,11 +230,18 @@ impl Display for Error {
             Error::EnvironmentVariableNotFound { name } => {
                 write!(f, "Could not find environment variable: {}", name)
             }
-            Error::EnvironmentVariableNotParsed { source } => {
+            Error::EnvironmentVariableBoolNotParsed { source } => {
+                write!(f, "Failed to parse environment variable to boolean flag. Source error: {}", source)
+            }
+            Error::EnvironmentVariableIntNotParsed { source } => {
                 write!(f, "Failed to parse environment variable to integer port number. Source error: {}", source)
             }
             Error::ExtensionFailed { source } => {
                 write!(f, "Extension returned an error: {}", source)
+            }
+            #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+            Error::GremlinActionFailed { source } => {
+                write!(f, "Either building a database connection pool or query failed. Source error: {}", source)
             }
             Error::InputItemNotFound { name } => {
                 write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
@@ -285,6 +296,9 @@ impl Display for Error {
             }
             Error::TypeNotExpected => {
                 write!(f, "Warpgrapher encountered a type that was not expected, such as a non-string ID")
+            },
+        Error::UuidNotParsed { source } => {
+                write!(f, "Failed to parse id attribute value. Source error: {}", source)
             }
             Error::ValidationFailed { message } => {
                 write!(f, "{}", message)
@@ -309,13 +323,14 @@ impl std::error::Error for Error {
                 expected: _,
                 found: _,
             } => None,
-            #[cfg(feature = "cosmos")]
-            Error::CosmosActionFailed { source } => Some(source),
             Error::DatabaseNotFound => None,
             Error::DeserializationFailed { source } => Some(source),
             Error::EnvironmentVariableNotFound { name: _ } => None,
-            Error::EnvironmentVariableNotParsed { source } => Some(source),
+            Error::EnvironmentVariableBoolNotParsed { source } => Some(source),
+            Error::EnvironmentVariableIntNotParsed { source } => Some(source),
             Error::ExtensionFailed { source } => Some(source.as_ref()),
+            #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+            Error::GremlinActionFailed { source } => Some(source),
             Error::InputItemNotFound { name: _ } => None,
             Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
@@ -339,6 +354,7 @@ impl std::error::Error for Error {
             Error::TransactionFinished => None,
             Error::TypeConversionFailed { src: _, dst: _ } => None,
             Error::TypeNotExpected => None,
+            Error::UuidNotParsed { source } => Some(source),
             Error::ValidationFailed { message: _ } => None,
             Error::ValidatorNotFound { name: _ } => None,
         }
@@ -375,10 +391,10 @@ impl From<bolt_proto::error::Error> for Error {
     }
 }
 
-#[cfg(feature = "cosmos")]
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
 impl From<GremlinError> for Error {
     fn from(e: GremlinError) -> Self {
-        Error::CosmosActionFailed {
+        Error::GremlinActionFailed {
             source: Box::new(e),
         }
     }
@@ -408,9 +424,15 @@ impl From<std::io::Error> for Error {
     }
 }
 
+impl From<std::str::ParseBoolError> for Error {
+    fn from(e: std::str::ParseBoolError) -> Self {
+        Error::EnvironmentVariableBoolNotParsed { source: e }
+    }
+}
+
 impl From<std::num::ParseIntError> for Error {
     fn from(e: std::num::ParseIntError) -> Self {
-        Error::EnvironmentVariableNotParsed { source: e }
+        Error::EnvironmentVariableIntNotParsed { source: e }
     }
 }
 
@@ -433,6 +455,12 @@ impl From<std::sync::mpsc::RecvError> for Error {
 impl From<bb8::RunError<bb8_bolt::Error>> for Error {
     fn from(e: bb8::RunError<bb8_bolt::Error>) -> Self {
         Error::Neo4jPoolError { source: e }
+    }
+}
+
+impl From<uuid::Error> for Error {
+    fn from(e: uuid::Error) -> Self {
+        Error::UuidNotParsed { source: e }
     }
 }
 

@@ -1,6 +1,8 @@
-//! Provides database interface types and functions for Cosmos DB
+//! Provides database interface types and functions for Cosmos DB and other Gremlin-based DBs
 
 use crate::engine::context::{GlobalContext, RequestContext};
+#[cfg(feature = "gremlin")]
+use crate::engine::database::env_bool;
 use crate::engine::database::{
     env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar,
     SuffixGenerator, Transaction,
@@ -10,6 +12,8 @@ use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
+#[cfg(feature = "gremlin")]
+use gremlin_client::TlsOptions;
 use gremlin_client::{
     ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
 };
@@ -18,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
+use uuid::Uuid;
 
 static NODE_RETURN_FRAGMENT: &str =
     ".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())";
@@ -31,13 +36,14 @@ static REL_RETURN_FRAGMENT: &str = ".project('rID', 'rProps', 'srcID', 'srcLabel
 ///
 /// ```rust,no_run
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+/// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 /// #
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let ce = CosmosEndpoint::from_env()?;
 /// #    Ok(())
 /// # }
 /// ```
+#[cfg(feature = "cosmos")]
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CosmosEndpoint {
     host: String,
@@ -46,6 +52,7 @@ pub struct CosmosEndpoint {
     pass: String,
 }
 
+#[cfg(feature = "cosmos")]
 impl CosmosEndpoint {
     /// Reads a set of environment variables to construct a [`CosmosEndpoint`]. The environment
     /// variables are as follows
@@ -72,7 +79,7 @@ impl CosmosEndpoint {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use warpgrapher::engine::database::cosmos::CosmosEndpoint;
+    /// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let ce = CosmosEndpoint::from_env()?;
@@ -89,6 +96,7 @@ impl CosmosEndpoint {
     }
 }
 
+#[cfg(feature = "cosmos")]
 #[async_trait]
 impl DatabaseEndpoint for CosmosEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error> {
@@ -106,14 +114,121 @@ impl DatabaseEndpoint for CosmosEndpoint {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct CosmosTransaction {
-    client: GremlinClient,
+/// A Gremlin DB endpoint collects the information necessary to generate a connection string and
+/// build a database connection pool.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::database::gremlin::GremlinEndpoint;
+/// #
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let ge = GremlinEndpoint::from_env()?;
+/// #    Ok(())
+/// # }
+/// ```
+#[cfg(feature = "gremlin")]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct GremlinEndpoint {
+    host: String,
+    port: u16,
+    user: String,
+    pass: String,
+    accept_invalid_certs: bool,
+    uuid: bool,
 }
 
-impl CosmosTransaction {
-    pub fn new(client: GremlinClient) -> CosmosTransaction {
-        CosmosTransaction { client }
+#[cfg(feature = "gremlin")]
+impl GremlinEndpoint {
+    /// Reads a set of environment variables to construct a [`GremlinEndpoint`]. The environment
+    /// variables are as follows
+    ///
+    /// * WG_GREMLIN_HOST - the hostname for the Gremlin-based DB. For example, `localhost`.
+    /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
+    /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
+    /// * WG_GREMLIN_PASS - the password used to authenticate the user.
+    /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
+    /// necessary in a test environment, but it should be set to false in production environments.
+    /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
+    /// false if the UUIDs for node and vertex ids are represented as string types
+    ///
+    /// The accept_invalid_certs option may be set to true in a test environment, where a test
+    /// Gremlin server is running with an invalid cert. It should be set to false in production
+    /// environments.
+    ///
+    /// [`GremlinEndpoint`]: ./struct.GremlinEndpoint.html
+    ///
+    /// # Errors
+    ///
+    /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
+    /// * [`EnvironmentVariableParseError`] - if an environment variable has the wrong type,
+    /// typically meaning that the WG_GREMLIN_PORT variable cannot be parsed from a string into an
+    /// integer
+    ///
+    /// [`EnvironmentVariableNotFound`]: ../../enum.ErrorKind.html
+    /// [`EnvironmentVariableParseError`]: ../../enum.ErrorKind.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use warpgrapher::engine::database::gremlin::GremlinEndpoint;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    ///     let ge = GremlinEndpoint::from_env()?;
+    /// #    Ok(())
+    /// # }
+    /// ```
+    pub fn from_env() -> Result<GremlinEndpoint, Error> {
+        Ok(GremlinEndpoint {
+            host: env_string("WG_GREMLIN_HOST")?,
+            port: env_u16("WG_GREMLIN_PORT")?,
+            user: env_string("WG_GREMLIN_USER")?,
+            pass: env_string("WG_GREMLIN_PASS")?,
+            accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
+            uuid: env_bool("WG_GREMLIN_UUID")?,
+        })
+    }
+}
+
+#[cfg(feature = "gremlin")]
+#[async_trait]
+impl DatabaseEndpoint for GremlinEndpoint {
+    async fn pool(&self) -> Result<DatabasePool, Error> {
+        Ok(DatabasePool::Gremlin((
+            GremlinClient::connect(
+                ConnectionOptions::builder()
+                    .host(&self.host)
+                    .port(self.port)
+                    .pool_size(num_cpus::get().try_into().unwrap_or(8))
+                    .ssl(true)
+                    .tls_options(TlsOptions {
+                        accept_invalid_certs: self.accept_invalid_certs,
+                    })
+                    .serializer(GraphSON::V3)
+                    .deserializer(GraphSON::V3)
+                    .credentials(&self.user, &self.pass)
+                    .build(),
+            )?,
+            self.uuid,
+        )))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct GremlinTransaction {
+    client: GremlinClient,
+    partition: bool,
+    uuid: bool,
+}
+
+impl GremlinTransaction {
+    pub fn new(client: GremlinClient, partition: bool, uuid: bool) -> GremlinTransaction {
+        GremlinTransaction {
+            client,
+            partition,
+            uuid,
+        }
     }
 
     fn add_properties(
@@ -176,7 +291,7 @@ impl CosmosTransaction {
         props: Map,
         type_def: &NodeType,
     ) -> Result<HashMap<String, Value>, Error> {
-        trace!("CosmosTransaction::extract_node_properties called");
+        trace!("GremlinTransaction::extract_node_properties called");
         props
             .into_iter()
             .map(|(key, property_list)| {
@@ -208,12 +323,12 @@ impl CosmosTransaction {
     fn gmap_to_hashmap(gv: GValue) -> Result<HashMap<String, GValue>, Error> {
         if let GValue::Map(map) = gv {
             map.into_iter()
-                .map(|(k, v)| {
-                    if let GKey::String(s) = k {
-                        Ok((s, v))
-                    } else {
-                        Err(Error::TypeNotExpected)
+                .map(|(k, v)| match (k, v) {
+                    (GKey::String(s), GValue::Uuid(uuid)) => {
+                        Ok((s, GValue::String(uuid.to_hyphenated().to_string())))
                     }
+                    (GKey::String(s), v) => Ok((s, v)),
+                    (_, _) => Err(Error::TypeNotExpected),
                 })
                 .collect()
         } else {
@@ -225,12 +340,16 @@ impl CosmosTransaction {
         results: Vec<GValue>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::nodes called");
+        trace!(
+            "GremlinTransaction::nodes called -- info.name: {}, results: {:#?}",
+            info.name(),
+            results
+        );
 
         results
             .into_iter()
             .map(|r| {
-                let mut hm = CosmosTransaction::gmap_to_hashmap(r)?;
+                let mut hm = GremlinTransaction::gmap_to_hashmap(r)?;
 
                 if let (
                     Some(GValue::String(id)),
@@ -239,7 +358,7 @@ impl CosmosTransaction {
                 ) = (hm.remove("nID"), hm.remove("nLabel"), hm.remove("nProps"))
                 {
                     let type_def = info.type_def_by_name(&label)?;
-                    let mut fields = CosmosTransaction::extract_node_properties(props, type_def)?;
+                    let mut fields = GremlinTransaction::extract_node_properties(props, type_def)?;
                     fields.insert("id".to_string(), Value::String(id));
                     Ok(Node::new(label, fields))
                 } else {
@@ -256,12 +375,12 @@ impl CosmosTransaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::rels called -- results: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        trace!("GremlinTransaction::rels called -- results: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         results, props_type_name, partition_key_opt);
         results
             .into_iter()
             .map(|r| {
-                let mut hm = CosmosTransaction::gmap_to_hashmap(r)?;
+                let mut hm = GremlinTransaction::gmap_to_hashmap(r)?;
                 if let (
                     Some(GValue::String(rel_id)),
                     Some(GValue::Map(rel_props)),
@@ -311,7 +430,7 @@ impl CosmosTransaction {
     }
 }
 
-impl Transaction for CosmosTransaction {
+impl Transaction for GremlinTransaction {
     fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
@@ -325,16 +444,20 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_create_query called -- rel_create_fragments: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}", 
+        trace!("GremlinTransaction::node_create_query called -- rel_create_fragments: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}", 
         rel_create_fragments, params, node_var, props, clause);
-        let first = match clause {
+        let mut first = match clause {
             ClauseType::Parameter => "addV('".to_string(),
             ClauseType::FirstSubQuery | ClauseType::SubQuery => ".addV('".to_string(),
             ClauseType::Query => "g.addV('".to_string(),
         } + node_var.label()?
-            + "').property('partitionKey', partitionKey)";
+            + "')";
 
-        let (mut query, params) = CosmosTransaction::add_properties(first, params, props, sg);
+        if self.partition {
+            first.push_str(".property('partitionKey', partitionKey)");
+        }
+
+        let (mut query, params) = GremlinTransaction::add_properties(first, params, props, sg);
 
         query.push_str(&(".as('".to_string() + node_var.name() + "')"));
 
@@ -363,27 +486,37 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
-        trace!("CosmosTransaction::create_node called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", query, params, partition_key_opt);
+        trace!("GremlinTransaction::create_node called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", query, params, partition_key_opt);
 
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
-
-            CosmosTransaction::nodes(results, info)?
-                .into_iter()
-                .next()
-                .ok_or_else(|| Error::ResponseSetNotFound)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let r0 = self.client.execute(query, param_list.as_slice());
+        trace!("GremlinTransaction::create_node -- r0: {:#?}", r0);
+        let raw_results = r0?;
+        trace!(
+            "GremlinTransaction::create_node -- raw_results: {:#?}",
+            raw_results
+        );
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::nodes(results, info)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::ResponseSetNotFound)
     }
 
     fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -395,7 +528,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_create_fragment called -- dst_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, clause: {:#?}", 
+        trace!("GremlinTransaction::rel_create_fragment called -- dst_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, clause: {:#?}", 
         dst_query, params, rel_var, props, clause);
 
         let query = dst_query.to_string()
@@ -406,7 +539,7 @@ impl Transaction for CosmosTransaction {
             + "').to('"
             + rel_var.dst().name()
             + "')";
-        let (mut q, p) = CosmosTransaction::add_properties(query, params, props, sg);
+        let (mut q, p) = GremlinTransaction::add_properties(query, params, props, sg);
 
         match clause {
             ClauseType::Parameter | ClauseType::FirstSubQuery | ClauseType::SubQuery => {
@@ -426,7 +559,7 @@ impl Transaction for CosmosTransaction {
         rel_vars: Vec<RelQueryVar>,
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_create_query called -- src_query_opt: {:#?}, rel_create_fragments: {:#?}, params: {:#?}, rel_vars: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::rel_create_query called -- src_query_opt: {:#?}, rel_create_fragments: {:#?}, params: {:#?}, rel_vars: {:#?}, clause: {:#?}",
         src_query_opt, rel_create_fragments, params, rel_vars, clause);
         let mut query = if let ClauseType::Query = clause {
             "g".to_string()
@@ -470,24 +603,29 @@ impl Transaction for CosmosTransaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::create_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        trace!("GremlinTransaction::create_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
 
-            CosmosTransaction::rels(results, props_type_name, partition_key_opt)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
     fn node_read_fragment(
@@ -499,7 +637,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}",
         rel_query_fragments, params, node_var, props, clause);
 
         let param_suffix = sg.suffix();
@@ -508,12 +646,34 @@ impl Transaction for CosmosTransaction {
         } else {
             String::new()
         };
-        query.push_str(".has('partitionKey', partitionKey)");
 
-        props.into_iter().for_each(|(k, v)| {
-            query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
-            params.insert(k + &param_suffix, v);
-        });
+        if self.partition {
+            query.push_str(".has('partitionKey', partitionKey)");
+        }
+
+        for (k, v) in props.into_iter() {
+            if k == "id" {
+                // For id, we omit the single quotes, because it's a "system" property, not just a
+                // user defined property.
+                query.push_str(&(".has(".to_string() + &k + ", " + &k + &param_suffix + ")"));
+            } else {
+                // For all user-defined properties, we single-quote the property name
+                query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
+            }
+
+            if self.uuid && k == "id" {
+                if let Value::String(s) = v {
+                    params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
+                } else {
+                    return Err(Error::TypeConversionFailed {
+                        src: format!("{:#?}", v),
+                        dst: "String".to_string(),
+                    });
+                }
+            } else {
+                params.insert(k + &param_suffix, v);
+            }
+        }
 
         if !rel_query_fragments.is_empty() {
             query.push_str(".where(");
@@ -552,7 +712,7 @@ impl Transaction for CosmosTransaction {
         _node_var: &NodeQueryVar,
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, clause: {:#?}",
         match_fragment, where_fragment, params, clause);
 
         let mut query = if let ClauseType::Query = clause {
@@ -577,28 +737,30 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::read_nodes called -- query: {}, partition_key_opt: {:#?}, params_opt: {:#?}, info.name: {}", 
+        trace!("GremlinTransaction::read_nodes called -- query: {}, partition_key_opt: {:#?}, params_opt: {:#?}, info.name: {}", 
         query, partition_key_opt, params_opt, info.name());
 
-        if let Some(pk) = partition_key_opt {
-            let params = params_opt.unwrap_or_else(HashMap::new);
-            let param_list: Vec<(&str, &dyn ToGValue)> =
-                params
-                    .iter()
-                    .fold(vec![("partitionKey", pk)], |mut param_list, (k, v)| {
-                        param_list.push((k, v));
-                        param_list
-                    });
+        let params = params_opt.unwrap_or_else(HashMap::new);
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k, v));
+                pl
+            });
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
-
-            CosmosTransaction::nodes(results, info)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::nodes(results, info)
     }
 
     fn rel_read_fragment(
@@ -610,17 +772,39 @@ impl Transaction for CosmosTransaction {
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_read_fragment called -- src_query_opt: {:#?}, dst_query_opt: {:#?}, params: {:#?}, rel_var: {:#?}, props: {:#?}",
+        trace!("GremlinTransaction::rel_read_fragment called -- src_query_opt: {:#?}, dst_query_opt: {:#?}, params: {:#?}, rel_var: {:#?}, props: {:#?}",
         src_query_opt, dst_query_opt, params, rel_var, props);
 
         let param_suffix = sg.suffix();
-        let mut query =
-            ".hasLabel('".to_string() + rel_var.label() + "').has('partitionKey', partitionKey)";
+        let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
 
-        props.into_iter().for_each(|(k, v)| {
-            query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
-            params.insert(k + &param_suffix, v);
-        });
+        if self.partition {
+            query.push_str(".has('partitionKey', partitionKey)");
+        }
+
+        for (k, v) in props.into_iter() {
+            if k == "id" {
+                // For id, we omit the single quotes, because it's a "system" property, not just a
+                // user defined property.
+                query.push_str(&(".has(".to_string() + &k + ", " + &k + &param_suffix + ")"));
+            } else {
+                // For all other user defined properties, we sinlge quote the property name.
+                query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
+            }
+
+            if self.uuid && k == "id" {
+                if let Value::String(s) = v {
+                    params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
+                } else {
+                    return Err(Error::TypeConversionFailed {
+                        src: format!("{:#?}", v),
+                        dst: "String".to_string(),
+                    });
+                }
+            } else {
+                params.insert(k + &param_suffix, v);
+            }
+        }
 
         if src_query_opt.is_some() || dst_query_opt.is_some() {
             query.push_str(".where(");
@@ -660,7 +844,7 @@ impl Transaction for CosmosTransaction {
         rel_var: &RelQueryVar,
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_var: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_var: {:#?}, clause: {:#?}",
         match_fragment, where_fragment, params, rel_var, clause);
 
         let mut q = match clause {
@@ -679,7 +863,7 @@ impl Transaction for CosmosTransaction {
             ClauseType::Parameter => q,
             ClauseType::FirstSubQuery => q + ".as('" + rel_var.name() + "')",
             ClauseType::SubQuery => q + ".as('" + rel_var.name() + "')",
-            ClauseType::Query => CosmosTransaction::add_rel_return(q),
+            ClauseType::Query => GremlinTransaction::add_rel_return(q),
         };
 
         Ok((query, params))
@@ -692,28 +876,34 @@ impl Transaction for CosmosTransaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::read_rels called -- query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}, params_opt: {:#?}", 
+        trace!("GremlinTransaction::read_rels called -- query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}, params_opt: {:#?}", 
         query, props_type_name, partition_key_opt, params_opt);
 
-        if let Some(pk) = partition_key_opt {
-            let params = params_opt.unwrap_or_else(HashMap::new);
-            let param_list: Vec<(&str, &dyn ToGValue)> =
-                params
-                    .iter()
-                    .fold(vec![("partitionKey", pk)], |mut param_list, (k, v)| {
-                        param_list.push((k, v));
-                        param_list
-                    });
+        let params = params_opt.unwrap_or_else(HashMap::new);
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k, v));
+                pl
+            });
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
-
-            CosmosTransaction::rels(results, props_type_name, partition_key_opt)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        trace!(
+            "GremlinTransaction::read_rels -- raw_results: {:#?}",
+            raw_results
+        );
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
     fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -726,7 +916,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_update_query called: match_query: {}, change_queries: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::node_update_query called: match_query: {}, change_queries: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}",
         match_query, change_queries, params, node_var, props, clause);
         let mut query = if let ClauseType::Query = clause {
             "g".to_string() + &match_query
@@ -740,7 +930,7 @@ impl Transaction for CosmosTransaction {
             }
             query.push_str(&(".select('".to_string() + node_var.name() + "')"));
         }
-        let (mut query, params) = CosmosTransaction::add_properties(query, params, props, sg);
+        let (mut query, params) = GremlinTransaction::add_properties(query, params, props, sg);
         query.push_str(NODE_RETURN_FRAGMENT);
 
         Ok((query, params))
@@ -753,24 +943,33 @@ impl Transaction for CosmosTransaction {
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::update_nodes called: query: {}, params: {:#?}, partition_key_opt: {:#?}",
+        trace!("GremlinTransaction::update_nodes called: query: {}, params: {:#?}, partition_key_opt: {:#?}",
         query, params, partition_key_opt);
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
 
-            CosmosTransaction::nodes(results, info)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        trace!(
+            "GremlinTransaction::update_nodes -- raw_results: {:#?}",
+            raw_results
+        );
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::nodes(results, info)
     }
 
     fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
@@ -782,7 +981,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_update_query called -- match_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::rel_update_query called -- match_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, clause: {:#?}",
         match_query, params, rel_var, props, clause);
 
         let mut fragment = if let ClauseType::Query = clause {
@@ -792,11 +991,11 @@ impl Transaction for CosmosTransaction {
         };
 
         fragment.push_str(&(".select('".to_string() + rel_var.name() + "')"));
-        let (q, p) = CosmosTransaction::add_properties(fragment, params, props, sg);
+        let (q, p) = GremlinTransaction::add_properties(fragment, params, props, sg);
 
         match clause {
             ClauseType::Parameter | ClauseType::FirstSubQuery | ClauseType::SubQuery => Ok((q, p)),
-            ClauseType::Query => Ok((CosmosTransaction::add_rel_return(q), p)),
+            ClauseType::Query => Ok((GremlinTransaction::add_rel_return(q), p)),
         }
     }
 
@@ -807,23 +1006,29 @@ impl Transaction for CosmosTransaction {
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
-        trace!("CosmosTransaction::update_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        trace!("GremlinTransaction::update_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
 
-            CosmosTransaction::rels(results, props_type_name, partition_key_opt)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
+
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
     fn node_delete_query(
@@ -835,7 +1040,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         _sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::node_delete_query -- match_query: {}, rel_delete_fragments: {:#?}, params: {:#?}, node_var: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::node_delete_query -- match_query: {}, rel_delete_fragments: {:#?}, params: {:#?}, node_var: {:#?}, clause: {:#?}",
         match_query, rel_delete_fragments, params, node_var, clause);
 
         let mut query = if let ClauseType::Query = clause {
@@ -864,24 +1069,29 @@ impl Transaction for CosmosTransaction {
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        trace!("CosmosTransaction::delete_nodes called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", 
+        trace!("GremlinTransaction::delete_nodes called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", 
         query, params, partition_key_opt);
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
 
-            CosmosTransaction::extract_count(results)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::extract_count(results)
     }
 
     fn rel_delete_query(
@@ -894,7 +1104,7 @@ impl Transaction for CosmosTransaction {
         clause: ClauseType,
         _sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("CosmosTransaction::rel_delete_query called -- query: {}, src_delete_query_opt: {:#?}, dst_delete_query_opt: {:#?}, params: {:#?}, rel_var: {:#?}, clause: {:#?}",
+        trace!("GremlinTransaction::rel_delete_query called -- query: {}, src_delete_query_opt: {:#?}, dst_delete_query_opt: {:#?}, params: {:#?}, rel_var: {:#?}, clause: {:#?}",
         query, src_delete_query_opt, dst_delete_query_opt, params, rel_var, clause);
         let mut q = if let ClauseType::Query = clause {
             "g".to_string() + &query
@@ -928,24 +1138,29 @@ impl Transaction for CosmosTransaction {
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        trace!("CosmosTransaction::delete_rels called -- query: {}, params: {:#?}, partition_key_opt: {:#?}",
+        trace!("GremlinTransaction::delete_rels called -- query: {}, params: {:#?}, partition_key_opt: {:#?}",
         query, params, partition_key_opt);
-        if let Some(pk) = partition_key_opt {
-            let mut param_list: Vec<(&str, &dyn ToGValue)> = Vec::new();
-            params
-                .iter()
-                .for_each(|(k, v)| param_list.push((k.as_str(), v)));
-            param_list.push(("partitionKey", pk));
 
-            let raw_results = self.client.execute(query, param_list.as_slice())?;
-            let results = raw_results
-                .map(|r| Ok(r?))
-                .collect::<Result<Vec<GValue>, Error>>()?;
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
 
-            CosmosTransaction::extract_count(results)
-        } else {
-            Err(Error::PartitionKeyNotFound)
+        if self.partition {
+            if let Some(pk) = partition_key_opt {
+                param_list.push(("partitionKey", pk));
+            } else {
+                return Err(Error::PartitionKeyNotFound);
+            }
         }
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+
+        GremlinTransaction::extract_count(results)
     }
 
     fn commit(&mut self) -> Result<(), Error> {
@@ -977,6 +1192,7 @@ impl ToGValue for Value {
             // Note, the conversion of a UInt64 to an Int64 may be lossy, but GValue has
             // neither unsigned integer types, nor a try/error interface for value conversion
             Value::UInt64(i) => GValue::Int64(*i as i64),
+            Value::Uuid(uuid) => GValue::Uuid(*uuid),
         }
     }
 }
@@ -986,6 +1202,7 @@ impl TryFrom<GValue> for Value {
 
     fn try_from(gvalue: GValue) -> Result<Value, Error> {
         match gvalue {
+            GValue::Null => Ok(Value::Null),
             GValue::Vertex(_v) => Err(Error::TypeConversionFailed {
                 src: "GValue::Vertex".to_string(),
                 dst: "Value".to_string(),
@@ -1102,28 +1319,41 @@ impl TryFrom<VertexProperty> for Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{CosmosEndpoint, CosmosTransaction};
+    use super::{CosmosEndpoint, GremlinEndpoint, GremlinTransaction};
+
     #[test]
-    fn test_endpoint_send() {
+    fn test_cosmos_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<CosmosEndpoint>();
     }
 
     #[test]
-    fn test_endpoint_sync() {
+    fn test_cosmos_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
         assert_sync::<CosmosEndpoint>();
     }
 
     #[test]
-    fn test_transaction_send() {
+    fn test_gremlin_endpoint_send() {
         fn assert_send<T: Send>() {}
-        assert_send::<CosmosTransaction>();
+        assert_send::<GremlinEndpoint>();
     }
 
     #[test]
-    fn test_transaction_sync() {
+    fn test_gremlin_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
-        assert_sync::<CosmosTransaction>();
+        assert_sync::<GremlinEndpoint>();
+    }
+
+    #[test]
+    fn test_gremlin_transaction_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<GremlinTransaction>();
+    }
+
+    #[test]
+    fn test_gremlin_transaction_sync() {
+        fn assert_sync<T: Sync>() {}
+        assert_sync::<GremlinTransaction>();
     }
 }
