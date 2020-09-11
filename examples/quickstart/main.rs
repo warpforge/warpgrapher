@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -15,16 +16,18 @@ model:
         type: String
 ";
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect("Expected tokio runtime.")
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect("Failed to parse neo4j endpoint from environment")
+                .pool(),
+        )
         .expect("Failed to create neo4j database pool");
 
     // create warpgrapher engine
@@ -34,8 +37,10 @@ async fn main() {
 
     // execute graphql mutation to create new user
     let request = GraphQLRequest::new(
-        "mutation UserCreate($input: UserCreateMutationInput) {
-            UserCreate(input: $input) {
+        "mutation {
+            UserCreate(input: {
+                email: \"a@b.com\"
+            }) {
                 id
                 email
             }

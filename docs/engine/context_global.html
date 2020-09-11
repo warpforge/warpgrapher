@@ -161,30 +161,31 @@
 <h3><a class="header" href="#usage" id="usage">Usage</a></h3>
 <h4><a class="header" href="#1-define-globalcontext-struct" id="1-define-globalcontext-struct">1. Define GlobalContext struct</a></h4>
 <p>Define a struct containing all the owned variables of the global state. The struct must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code> and warpgrapher <code>GlobalContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">#[derive(Clone, Debug)]
+<pre><code class="language-rust no_run noplayground">
+#[derive(Clone, Debug)]
 struct AppGlobalContext {
     tenant_id: String,
 }
 
-impl GlobalContext for AppGlobalContext {}
 </code></pre>
 <h4><a class="header" href="#2-create-globalcontext-instance" id="2-create-globalcontext-instance">2. Create GlobalContext instance</a></h4>
 <p>Create an instance of the global context struct with initial values. </p>
-<pre><code class="language-rust no_run noplayground">    let global_ctx = AppGlobalContext {
-        tenant_id: &quot;123456&quot;.to_string(),
-    };
+<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to create neo4j database pool&quot;);
+    // define global context
+    let global_ctx = AppGlobalContext {
 </code></pre>
 <h4><a class="header" href="#3-create-an-engine-with-global-context" id="3-create-an-engine-with-global-context">3. Create an <code>Engine</code> with global context</a></h4>
 <p>The global context is passed to the engine via the builder pattern as an argument to the <code>.with_global_ctx()</code> method. The type of the global context must also be specified as the first type parameter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
+<pre><code class="language-rust no_run noplayground">
+    // create warpgrapher engine
+    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
         .with_global_ctx(global_ctx)
         .with_resolvers(resolvers)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
 </code></pre>
 <h4><a class="header" href="#4-use-globalcontext-in-a-resolver" id="4-use-globalcontext-in-a-resolver">4. Use GlobalContext in a resolver</a></h4>
 <p>The global context is now accessible in function resolvers.</p>
-<pre><code class="language-rust no_run noplayground">fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
+<pre><code class="language-rust no_run noplayground">
+fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
     let global_context = match facade.global_context() {
         Some(v) =&gt; v,
         None =&gt; {
@@ -193,7 +194,6 @@ impl GlobalContext for AppGlobalContext {}
     };
     let tenant_id = global_context.tenant_id.clone();
     facade.resolve_scalar(tenant_id)
-}
 </code></pre>
 <h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
 <p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.3.0/examples/global_context/main.rs">Github</a>.</p>

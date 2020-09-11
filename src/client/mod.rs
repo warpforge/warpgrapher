@@ -346,7 +346,12 @@ where
 
         let query = Client::<(), ()>::fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "create": create_input});
-        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Create";
+        let result_field = type_name.to_string()
+            + &((&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>())
+            + "Create";
+
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
@@ -512,7 +517,11 @@ where
             value = json!(m);
             Some(&value)
         };
-        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Delete";
+        let result_field = type_name.to_string()
+            + &((&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>())
+            + "Delete";
         self.graphql(&query, partition_key, input, Some(&result_field))
             .await
     }
@@ -644,7 +653,10 @@ where
         );
 
         let query = Client::<(), ()>::fmt_read_rel_query(type_name, rel_name, shape);
-        let result_field = type_name.to_string() + &rel_name.to_title_case();
+        let result_field = type_name.to_string()
+            + &((&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>());
         self.graphql(&query, partition_key, input, Some(&result_field))
             .await
     }
@@ -792,7 +804,11 @@ where
 
         let query = Client::<(), ()>::fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"match": match_input, "update": update_input});
-        let result_field = type_name.to_string() + &rel_name.to_title_case() + "Update";
+        let result_field = type_name.to_string()
+            + &((&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>())
+            + "Update";
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
     }
@@ -813,7 +829,9 @@ where
                 {type_name}{rel_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
-            rel_name = rel_name.to_title_case(),
+            rel_name = (&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>(),
             shape = shape
         )
     }
@@ -833,7 +851,9 @@ where
                 {type_name}{rel_name}Delete(partitionKey: $partitionKey, input: $input)
             }}",
             type_name = type_name,
-            rel_name = rel_name.to_title_case(),
+            rel_name = (&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>(),
         )
     }
 
@@ -853,7 +873,9 @@ where
                 {type_name}{rel_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
-            rel_name = rel_name.to_title_case(),
+            rel_name = (&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>(),
             shape = shape
         )
     }
@@ -874,7 +896,9 @@ where
                 {type_name}{rel_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
             }}",
             type_name = type_name,
-            rel_name = rel_name.to_title_case(),
+            rel_name = (&rel_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>(),
             shape = shape
         )
     }

@@ -159,7 +159,8 @@
 <p>Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. </p>
 <h2><a class="header" href="#usage" id="usage">Usage</a></h2>
 <h4><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field" id="1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">model:
+<pre><code class="language-rust no_run noplayground">version: 1
+model:
   - name: User
     props:
       - name: email
@@ -174,10 +175,10 @@ endpoints:
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {
-    request_id: String,
 </code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">
+<pre><code class="language-rust no_run noplayground">}
+
 impl RequestContext for AppRequestContext {
     fn new() -&gt; AppRequestContext {
         // generate random request id
@@ -192,8 +193,7 @@ fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&g
     facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 </code></pre>

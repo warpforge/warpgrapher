@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
+use uuid::Uuid;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -28,6 +30,10 @@ model:
 fn resolve_project_top_contributor(facade: ResolverFacade<(), ()>) -> ExecutionResult {
     // create dynamic dst node
     let mut top_contributor_props = HashMap::<String, Value>::new();
+    top_contributor_props.insert(
+        "id".to_string(),
+        Value::from(Uuid::new_v4().to_hyphenated().to_string()),
+    );
     top_contributor_props.insert("name".to_string(), Value::from("user0".to_string()));
     let top_contributor = facade.create_node("User", top_contributor_props);
 
@@ -39,22 +45,24 @@ fn resolve_project_top_contributor(facade: ResolverFacade<(), ()>) -> ExecutionR
     facade.resolve_rel(&top_contributor_rel)
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect("Expected tokio runtime.")
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect("Failed to parse neo4j endpoint from environment")
+                .pool(),
+        )
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
     let mut resolvers = Resolvers::<(), ()>::new();
     resolvers.insert(
-        "resolve_project_points".to_string(),
+        "resolve_project_top_contributor".to_string(),
         Box::new(resolve_project_top_contributor),
     );
 
@@ -71,7 +79,7 @@ async fn main() {
                 name: \"Project1\"
             }) {
                 id
-                topcontributor {
+                top_contributor {
                     dst {
                         ... on User {
                             id

@@ -181,6 +181,7 @@ warpgrapher = { version = &quot;0.3.0&quot;, features = [&quot;neo4j&quot;] }
 <p><code>src/main.rs</code></p>
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -196,16 +197,18 @@ model:
         type: String
 &quot;;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect(&quot;Expected tokio runtime.&quot;)
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+                .pool(),
+        )
         .expect(&quot;Failed to create neo4j database pool&quot;);
 
     // create warpgrapher engine
@@ -215,8 +218,10 @@ async fn main() {
 
     // execute graphql mutation to create new user
     let request = GraphQLRequest::new(
-        &quot;mutation UserCreate($input: UserCreateMutationInput) {
-            UserCreate(input: $input) {
+        &quot;mutation {
+            UserCreate(input: {
+                email: \&quot;a@b.com\&quot;
+            }) {
                 id
                 email
             }
@@ -903,7 +908,8 @@ let engine = Engine&lt;(), ()&gt;::new(config, db)
 <p>When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties &quot;dynamic properties&quot;, and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. </p>
 <h2><a class="header" href="#usage-1" id="usage-1">Usage</a></h2>
 <h4><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field" id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
+<pre><code class="language-rust no_run noplayground">
+static CONFIG: &amp;str = &quot;
 version: 1
 model:
   - name: User
@@ -912,10 +918,10 @@ model:
         type: String
 endpoints:
   - name: EchoRequest
-    class: Query
 </code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">    output: 
+<pre><code class="language-rust no_run noplayground">    input: null
+    output: 
       type: String
 &quot;;
 
@@ -923,24 +929,24 @@ endpoints:
 struct AppRequestContext {
     request_id: String,
 }
-
 </code></pre>
 <h4><a class="header" href="#3-add-prop-resolver-when-building-engine" id="3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
-<pre><code class="language-rust no_run noplayground">
-#[tokio::main]
-async fn main() {
+<pre><code class="language-rust no_run noplayground">}
+
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = Runtime::new()
+        .expect(&quot;Expected tokio runtime.&quot;)
 </code></pre>
 <h1><a class="header" href="#dynamic-relationships" id="dynamic-relationships">Dynamic Relationships</a></h1>
 <p>Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. </p>
 <h2><a class="header" href="#usage-2" id="usage-2">Usage</a></h2>
 <h4><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field" id="1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">model:
+<pre><code class="language-rust no_run noplayground">version: 1
+model:
   - name: User
     props:
       - name: email
@@ -955,10 +961,10 @@ endpoints:
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {
-    request_id: String,
 </code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value-1" id="2-define-custom-logic-that-resolve-the-prop-value-1">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">
+<pre><code class="language-rust no_run noplayground">}
+
 impl RequestContext for AppRequestContext {
     fn new() -&gt; AppRequestContext {
         // generate random request id
@@ -973,8 +979,7 @@ fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&g
     facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 </code></pre>
@@ -984,30 +989,31 @@ async fn main() {
 <h3><a class="header" href="#usage-3" id="usage-3">Usage</a></h3>
 <h4><a class="header" href="#1-define-globalcontext-struct" id="1-define-globalcontext-struct">1. Define GlobalContext struct</a></h4>
 <p>Define a struct containing all the owned variables of the global state. The struct must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code> and warpgrapher <code>GlobalContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">#[derive(Clone, Debug)]
+<pre><code class="language-rust no_run noplayground">
+#[derive(Clone, Debug)]
 struct AppGlobalContext {
     tenant_id: String,
 }
 
-impl GlobalContext for AppGlobalContext {}
 </code></pre>
 <h4><a class="header" href="#2-create-globalcontext-instance" id="2-create-globalcontext-instance">2. Create GlobalContext instance</a></h4>
 <p>Create an instance of the global context struct with initial values. </p>
-<pre><code class="language-rust no_run noplayground">    let global_ctx = AppGlobalContext {
-        tenant_id: &quot;123456&quot;.to_string(),
-    };
+<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to create neo4j database pool&quot;);
+    // define global context
+    let global_ctx = AppGlobalContext {
 </code></pre>
 <h4><a class="header" href="#3-create-an-engine-with-global-context" id="3-create-an-engine-with-global-context">3. Create an <code>Engine</code> with global context</a></h4>
 <p>The global context is passed to the engine via the builder pattern as an argument to the <code>.with_global_ctx()</code> method. The type of the global context must also be specified as the first type parameter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
+<pre><code class="language-rust no_run noplayground">
+    // create warpgrapher engine
+    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
         .with_global_ctx(global_ctx)
         .with_resolvers(resolvers)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
 </code></pre>
 <h4><a class="header" href="#4-use-globalcontext-in-a-resolver" id="4-use-globalcontext-in-a-resolver">4. Use GlobalContext in a resolver</a></h4>
 <p>The global context is now accessible in function resolvers.</p>
-<pre><code class="language-rust no_run noplayground">fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
+<pre><code class="language-rust no_run noplayground">
+fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
     let global_context = match facade.global_context() {
         Some(v) =&gt; v,
         None =&gt; {
@@ -1016,7 +1022,6 @@ impl GlobalContext for AppGlobalContext {}
     };
     let tenant_id = global_context.tenant_id.clone();
     facade.resolve_scalar(tenant_id)
-}
 </code></pre>
 <h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
 <p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.3.0/examples/global_context/main.rs">Github</a>.</p>
@@ -1025,7 +1030,8 @@ impl GlobalContext for AppGlobalContext {}
 <h3><a class="header" href="#usage-4" id="usage-4">Usage</a></h3>
 <h4><a class="header" href="#1-define-requestcontext-struct" id="1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
 <p>Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code>, and Warpgrapher <code>RequestContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">    request_id: String,
+<pre><code class="language-rust no_run noplayground">struct AppRequestContext {
+    request_id: String,
 }
 
 impl RequestContext for AppRequestContext {
@@ -1038,20 +1044,19 @@ impl RequestContext for AppRequestContext {
 
 fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&gt; ExecutionResult {
     let request_context = facade.request_context().unwrap();
-    let request_id = request_context.request_id.clone();
 </code></pre>
 <h4><a class="header" href="#2-create-engine-with-requestcontext-type-parameter" id="2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>
 <p>The RequestContext is specified in the second type paramter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">
-    // execute query on `GetEnvironment` endpoint
-    let request = GraphQLRequest::new(
-        &quot;query {
+<pre><code class="language-rust no_run noplayground">        .with_resolvers(resolvers)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
 <h4><a class="header" href="#3-access-context-inside-resolver" id="3-access-context-inside-resolver">3. Access Context inside resolver</a></h4>
-<pre><code class="language-rust no_run noplayground">}
+<pre><code class="language-rust no_run noplayground">    facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
+}
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
 </code></pre>
 <h3><a class="header" href="#full-example-1" id="full-example-1">Full Example</a></h3>

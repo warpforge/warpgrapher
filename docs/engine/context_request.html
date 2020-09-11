@@ -160,7 +160,8 @@
 <h3><a class="header" href="#usage" id="usage">Usage</a></h3>
 <h4><a class="header" href="#1-define-requestcontext-struct" id="1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
 <p>Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code>, and Warpgrapher <code>RequestContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">    request_id: String,
+<pre><code class="language-rust no_run noplayground">struct AppRequestContext {
+    request_id: String,
 }
 
 impl RequestContext for AppRequestContext {
@@ -173,20 +174,19 @@ impl RequestContext for AppRequestContext {
 
 fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&gt; ExecutionResult {
     let request_context = facade.request_context().unwrap();
-    let request_id = request_context.request_id.clone();
 </code></pre>
 <h4><a class="header" href="#2-create-engine-with-requestcontext-type-parameter" id="2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>
 <p>The RequestContext is specified in the second type paramter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">
-    // execute query on `GetEnvironment` endpoint
-    let request = GraphQLRequest::new(
-        &quot;query {
+<pre><code class="language-rust no_run noplayground">        .with_resolvers(resolvers)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
 <h4><a class="header" href="#3-access-context-inside-resolver" id="3-access-context-inside-resolver">3. Access Context inside resolver</a></h4>
-<pre><code class="language-rust no_run noplayground">}
+<pre><code class="language-rust no_run noplayground">    facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
+}
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
 </code></pre>
 <h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>

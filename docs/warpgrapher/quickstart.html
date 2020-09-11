@@ -165,6 +165,7 @@ warpgrapher = { version = &quot;0.3.0&quot;, features = [&quot;neo4j&quot;] }
 <p><code>src/main.rs</code></p>
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -180,16 +181,18 @@ model:
         type: String
 &quot;;
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect(&quot;Expected tokio runtime.&quot;)
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+                .pool(),
+        )
         .expect(&quot;Failed to create neo4j database pool&quot;);
 
     // create warpgrapher engine
@@ -199,8 +202,10 @@ async fn main() {
 
     // execute graphql mutation to create new user
     let request = GraphQLRequest::new(
-        &quot;mutation UserCreate($input: UserCreateMutationInput) {
-            UserCreate(input: $input) {
+        &quot;mutation {
+            UserCreate(input: {
+                email: \&quot;a@b.com\&quot;
+            }) {
                 id
                 email
             }
