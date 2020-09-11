@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn engine_new() {
         let _engine = Engine::<(), ()>::new(
-            File::open("tests/fixtures/config_minimal.yml")
+            File::open("tests/fixtures/minimal.yml")
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
@@ -554,7 +554,7 @@ mod tests {
         //No validator defined
         //is_ok
         assert!(Engine::<(), ()>::new(
-            File::open("tests/fixtures/test_config_ok.yml")
+            File::open("tests/fixtures/config-validation/test_config_ok.yml")
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
@@ -572,7 +572,7 @@ mod tests {
         let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
         assert!(Engine::<(), ()>::new(
-            File::open("tests/fixtures/config_minimal.yml")
+            File::open("tests/fixtures/minimal.yml")
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
@@ -588,7 +588,7 @@ mod tests {
         let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
         assert!(Engine::<(), ()>::new(
-            File::open("tests/fixtures/test_config_with_custom_validator.yml")
+            File::open("tests/fixtures/config-validation/test_config_with_custom_validator.yml")
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
@@ -604,8 +604,10 @@ mod tests {
         let validators = Validators::new();
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_with_custom_validator.yml")
-                    .expect("Couldn't read config")
+                File::open(
+                    "tests/fixtures/config-validation/test_config_with_custom_validator.yml"
+                )
+                .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
             DatabasePool::NoDatabase
@@ -622,7 +624,8 @@ mod tests {
         //is_ok
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_ok.yml").expect("Couldn't read config")
+                File::open("tests/fixtures/config-validation/test_config_ok.yml")
+                    .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
             DatabasePool::NoDatabase
@@ -635,7 +638,7 @@ mod tests {
         //is_err
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_with_custom_resolver.yml")
+                File::open("tests/fixtures/config-validation/test_config_with_custom_resolver.yml")
                     .expect("Couldn't read config")
             )
             .expect("Couldn't convert config"),
@@ -651,7 +654,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_with_custom_resolver.yml")
+                File::open("tests/fixtures/config-validation/test_config_with_custom_resolver.yml")
                     .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
@@ -671,8 +674,10 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_with_custom_prop_resolver.yml")
-                    .expect("Couldn't read config")
+                File::open(
+                    "tests/fixtures/config-validation/test_config_with_custom_prop_resolver.yml"
+                )
+                .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
             DatabasePool::NoDatabase
@@ -688,7 +693,7 @@ mod tests {
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/config_minimal.yml").expect("Couldn't read config")
+                File::open("tests/fixtures/minimal.yml").expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
             DatabasePool::NoDatabase
@@ -702,8 +707,10 @@ mod tests {
         //is_err
         assert!(Engine::<(), ()>::new(
             TryInto::<Configuration>::try_into(
-                File::open("tests/fixtures/test_config_with_custom_prop_resolver.yml")
-                    .expect("Couldn't read config")
+                File::open(
+                    "tests/fixtures/config-validation/test_config_with_custom_prop_resolver.yml"
+                )
+                .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
             DatabasePool::NoDatabase

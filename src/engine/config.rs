@@ -1786,13 +1786,14 @@ mod tests {
     #[test]
     fn test_validate() {
         //Test valid config
-        let valid_config: Configuration = match File::open("tests/fixtures/test_config_ok.yml")
-            .expect("Couldn't open file")
-            .try_into()
-        {
-            Err(e) => panic!(e),
-            Ok(wgc) => wgc,
-        };
+        let valid_config: Configuration =
+            match File::open("tests/fixtures/config-validation/test_config_ok.yml")
+                .expect("Couldn't open file")
+                .try_into()
+            {
+                Err(e) => panic!(e),
+                Ok(wgc) => wgc,
+            };
 
         assert!(valid_config.validate().is_ok());
 
@@ -1800,7 +1801,7 @@ mod tests {
         let mut config_vec: Vec<Configuration> = Vec::new();
 
         let valid_config_0: Configuration =
-            match File::open("tests/fixtures/test_config_compose_0.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_0.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1809,7 +1810,7 @@ mod tests {
             };
 
         let valid_config_1: Configuration =
-            match File::open("tests/fixtures/test_config_compose_1.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_1.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1818,7 +1819,7 @@ mod tests {
             };
 
         let valid_config_2: Configuration =
-            match File::open("tests/fixtures/test_config_compose_2.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_2.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1839,7 +1840,7 @@ mod tests {
 
         //Test duplicate Type
         let duplicate_type_config: Configuration =
-            match File::open("tests/fixtures/test_config_duplicate_type.yml")
+            match File::open("tests/fixtures/config-validation/test_config_duplicate_type.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1854,7 +1855,7 @@ mod tests {
 
         //Test duplicate Endpoint type
         let duplicate_endpoint_config: Configuration =
-            match File::open("tests/fixtures/test_config_duplicate_endpoint.yml")
+            match File::open("tests/fixtures/config-validation/test_config_duplicate_endpoint.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1872,7 +1873,7 @@ mod tests {
     #[test]
     fn config_prop_name_id_test() {
         let node_prop_name_id_config: Configuration =
-            match File::open("tests/fixtures/test_config_node_prop_name_id.yml")
+            match File::open("tests/fixtures/config-validation/test_config_node_prop_name_id.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1886,7 +1887,7 @@ mod tests {
         }
 
         let rel_prop_name_id_config: Configuration =
-            match File::open("tests/fixtures/test_config_rel_prop_name_id.yml")
+            match File::open("tests/fixtures/config-validation/test_config_rel_prop_name_id.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -1904,14 +1905,15 @@ mod tests {
     #[test]
     fn config_scalar_name_int_test() {
         //Test Scalar Type Name: Int
-        let scalar_type_name_int_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_type_name_int.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_type_name_int_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_type_name_int.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_type_name_int_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -1919,14 +1921,15 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: Int
-        let scalar_endpoint_input_type_name_int_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_endpoint_input_type_name_int.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_int_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_input_type_name_int.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_int_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -1934,14 +1937,15 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: Int
-        let scalar_endpoint_output_type_name_int_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_endpoint_output_type_name_int.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_int_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_output_type_name_int.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_int_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -1953,14 +1957,15 @@ mod tests {
     #[test]
     fn config_scalar_name_float_test() {
         //Test Scalar Type Name: Float
-        let scalar_type_name_float_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_type_name_float.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_type_name_float_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_type_name_float.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_type_name_float_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -1969,7 +1974,7 @@ mod tests {
 
         //Test Scalar Endpoint Input Name: Float
         let scalar_endpoint_input_type_name_float_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_input_type_name_float.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_input_type_name_float.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -1985,7 +1990,7 @@ mod tests {
 
         //Test Scalar Endpoint Output Name: Float
         let scalar_endpoint_output_type_name_float_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_output_type_name_float.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_output_type_name_float.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -2004,14 +2009,15 @@ mod tests {
     #[test]
     fn config_scalar_name_string_test() {
         //Test Scalar Type Name: String
-        let scalar_type_name_string_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_type_name_string.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_type_name_string_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_type_name_string.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_type_name_string_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -2020,7 +2026,7 @@ mod tests {
 
         //Test Scalar Endpoint Input Name: String
         let scalar_endpoint_input_type_name_string_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_input_type_name_string.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_input_type_name_string.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -2036,7 +2042,7 @@ mod tests {
 
         //Test Scalar Endpoint Output Name: String
         let scalar_endpoint_output_type_name_string_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_output_type_name_string.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_output_type_name_string.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -2055,14 +2061,15 @@ mod tests {
     #[test]
     fn config_scalar_name_id_test() {
         //Test Scalar Type Name: ID
-        let scalar_type_name_id_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_type_name_id.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_type_name_id_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_type_name_id.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_type_name_id_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -2070,14 +2077,15 @@ mod tests {
         }
 
         //Test Scalar Endpoint Input Name: id
-        let scalar_endpoint_input_type_name_id_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_endpoint_input_type_name_id.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_input_type_name_id_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_input_type_name_id.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_input_type_name_id_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -2085,14 +2093,15 @@ mod tests {
         }
 
         //Test Scalar Endpoint Output Name: ID
-        let scalar_endpoint_output_type_name_id_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_endpoint_output_type_name_id.yml")
-                .expect("Couldn't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_endpoint_output_type_name_id_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_output_type_name_id.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_endpoint_output_type_name_id_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -2104,14 +2113,15 @@ mod tests {
     #[test]
     fn config_scalar_name_boolean_test() {
         //Test Scalar Type Name: Boolean
-        let scalar_type_name_boolean_config: Configuration =
-            match File::open("tests/fixtures/test_config_scalar_type_name_boolean.yml")
-                .expect("Coudln't open file")
-                .try_into()
-            {
-                Err(e) => panic!(e),
-                Ok(wgc) => wgc,
-            };
+        let scalar_type_name_boolean_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_scalar_type_name_boolean.yml",
+        )
+        .expect("Coudln't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
 
         match scalar_type_name_boolean_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
@@ -2120,7 +2130,7 @@ mod tests {
 
         //Test Scalar Endpoint Input Name: Boolean
         let scalar_endpoint_input_type_name_boolean_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_input_type_name_boolean.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_input_type_name_boolean.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -2136,7 +2146,7 @@ mod tests {
 
         //Test Scalar Endpoint Output Name: Boolean
         let scalar_endpoint_output_type_name_boolean_config: Configuration = match File::open(
-            "tests/fixtures/test_config_scalar_endpoint_output_type_name_boolean.yml",
+            "tests/fixtures/config-validation/test_config_scalar_endpoint_output_type_name_boolean.yml",
         )
         .expect("Couldn't open file")
         .try_into()
@@ -2155,12 +2165,14 @@ mod tests {
     #[test]
     fn test_compose() {
         assert!(TryInto::<Configuration>::try_into(
-            File::open("tests/fixtures/test_config_err.yml").expect("Couldn't open file")
+            File::open("tests/fixtures/config-validation/test_config_err.yml")
+                .expect("Couldn't open file")
         )
         .is_err());
 
         assert!(TryInto::<Configuration>::try_into(
-            File::open("tests/fixtures/test_config_ok.yml").expect("Couldn't open file")
+            File::open("tests/fixtures/config-validation/test_config_ok.yml")
+                .expect("Couldn't open file")
         )
         .is_ok());
 
@@ -2169,7 +2181,7 @@ mod tests {
         assert!(compose(config_vec.clone()).is_ok());
 
         let valid_config_0: Configuration =
-            match File::open("tests/fixtures/test_config_compose_0.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_0.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -2178,7 +2190,7 @@ mod tests {
             };
 
         let valid_config_1: Configuration =
-            match File::open("tests/fixtures/test_config_compose_1.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_1.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -2187,7 +2199,7 @@ mod tests {
             };
 
         let valid_config_2: Configuration =
-            match File::open("tests/fixtures/test_config_compose_2.yml")
+            match File::open("tests/fixtures/config-validation/test_config_compose_2.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
@@ -2196,7 +2208,7 @@ mod tests {
             };
 
         let mismatch_version_config: Configuration =
-            match File::open("tests/fixtures/test_config_with_version_100.yml")
+            match File::open("tests/fixtures/config-validation/test_config_with_version_100.yml")
                 .expect("Couldn't open file")
                 .try_into()
             {
