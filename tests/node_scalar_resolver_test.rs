@@ -18,7 +18,7 @@ async fn scalar_lists_test_cosmos() {
     init();
     clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = cosmos_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -28,7 +28,7 @@ async fn scalar_lists_test_gremlin() {
     init();
     clear_db().await;
 
-    let client = gremlin_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = gremlin_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -38,7 +38,7 @@ async fn scalar_lists_test_neo4j() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -99,7 +99,7 @@ async fn scalar_lists_no_array_cosmos() {
     init();
     clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = cosmos_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -109,7 +109,7 @@ async fn scalar_lists_no_array_gremlin() {
     init();
     clear_db().await;
 
-    let client = gremlin_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = gremlin_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -119,7 +119,7 @@ async fn scalar_lists_no_array_neo4j() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_list.yml").await;
+    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -168,7 +168,7 @@ async fn scalar_no_lists_cosmos() {
     init();
     clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = cosmos_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -178,7 +178,7 @@ async fn scalar_no_lists_gremlin() {
     init();
     clear_db().await;
 
-    let client = gremlin_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = gremlin_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -188,7 +188,7 @@ async fn scalar_no_lists_neo4j() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -250,7 +250,7 @@ async fn scalar_no_lists_no_array_cosmos() {
     init();
     clear_db().await;
 
-    let client = cosmos_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = cosmos_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 
@@ -260,7 +260,7 @@ async fn scalar_no_lists_no_array_gremlin() {
     init();
     clear_db().await;
 
-    let client = gremlin_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = gremlin_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 
@@ -270,7 +270,7 @@ async fn scalar_no_lists_no_array_neo4j() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalar_no_list.yml").await;
+    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 

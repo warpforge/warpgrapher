@@ -8,7 +8,7 @@
   - [Node Read](./api/node_read.md)
   - [Node Create](./api/node_create.md)
   - [Node Update](./api/node_update.md)
-  - [Node Update](./api/node_delete.md)
+  - [Node Delete](./api/node_delete.md)
   - [Relationship Read](./api/rel_read.md)
   - [Relationship Create](./api/rel_create.md)
   - [Relationship Update](./api/rel_update.md)
