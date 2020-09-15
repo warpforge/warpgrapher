@@ -1,5 +1,6 @@
 //! Models and custom GraphQL endpoints.
 
+use crate::engine::schema::{rel_name_variants, type_name_variants};
 use crate::Error;
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -153,6 +154,17 @@ impl Configuration {
                     });
                 }
 
+                let name_variants = type_name_variants(t);
+                self.model.iter().try_for_each(|t2| {
+                    if name_variants.contains(t2.name()) {
+                        Err(Error::ConfigItemDuplicated {
+                            type_name: t2.name().to_string(),
+                        })
+                    } else {
+                        Ok(())
+                    }
+                })?;
+
                 if scalar_names.iter().any(|s| s == &t.name) {
                     return Err(Error::ConfigItemReserved {
                         type_name: t.name.clone(),
@@ -173,6 +185,20 @@ impl Configuration {
                         type_name: "ID".to_string(),
                     });
                 }
+
+                t.rels.iter().try_for_each(|r| {
+                    let rel_name_variants = rel_name_variants(t, r);
+
+                    self.model.iter().try_for_each(|t2| {
+                        if rel_name_variants.contains(t2.name()) {
+                            Err(Error::ConfigItemDuplicated {
+                                type_name: t2.name().to_string(),
+                            })
+                        } else {
+                            Ok(())
+                        }
+                    })
+                })?;
 
                 Ok(())
             })
@@ -1864,6 +1890,21 @@ mod tests {
             };
 
         match duplicate_endpoint_config.validate() {
+            Err(Error::ConfigItemDuplicated { type_name: _ }) => (),
+            _ => panic!(),
+        }
+
+        let duplicate_derived_name_config: Configuration = match File::open(
+            "tests/fixtures/config-validation/test_config_duplicate_derived_name.yml",
+        )
+        .expect("Couldn't open file")
+        .try_into()
+        {
+            Err(e) => panic!(e),
+            Ok(wgc) => wgc,
+        };
+
+        match duplicate_derived_name_config.validate() {
             Err(Error::ConfigItemDuplicated { type_name: _ }) => (),
             _ => panic!(),
         }

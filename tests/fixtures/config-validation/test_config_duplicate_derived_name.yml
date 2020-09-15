@@ -1,0 +1,12 @@
+# Valid config
+---
+version: 2
+model:
+  - name: User
+    props:
+      - name: name
+        type: String
+  - name: UserQueryInput
+    props:
+      - name: name
+        type: String

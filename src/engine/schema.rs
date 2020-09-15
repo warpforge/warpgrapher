@@ -12,7 +12,7 @@ use inflector::Inflector;
 use juniper::RootNode;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Values;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::panic::catch_unwind;
 use std::slice::Iter;
@@ -2069,6 +2069,53 @@ where
                 name: format!("{:#?}", e),
             })
     })
+}
+
+pub(crate) fn type_name_variants(t: &Type) -> HashSet<String> {
+    let mut hs = HashSet::new();
+
+    hs.insert(fmt_node_query_input_name(t));
+    hs.insert(fmt_node_create_mutation_input_name(t));
+    hs.insert(fmt_node_update_mutation_input_name(t));
+    hs.insert(fmt_node_input_name(t));
+    hs.insert(fmt_node_update_input_name(t));
+    hs.insert(fmt_node_delete_input_name(t));
+    hs.insert(fmt_node_delete_mutation_input_name(t));
+    hs.insert(fmt_node_create_endpoint_name(t));
+    hs.insert(fmt_node_update_endpoint_name(t));
+    hs.insert(fmt_node_delete_endpoint_name(t));
+
+    hs
+}
+
+pub(crate) fn rel_name_variants(t: &Type, r: &Relationship) -> HashSet<String> {
+    let mut hs = HashSet::new();
+
+    hs.insert(fmt_rel_object_name(t, r));
+    hs.insert(fmt_rel_name(r));
+    hs.insert(fmt_rel_props_object_name(t, r));
+    hs.insert(fmt_rel_nodes_union_name(t, r));
+    hs.insert(fmt_rel_query_input_name(t, r));
+    hs.insert(fmt_rel_create_mutation_input_name(t, r));
+    hs.insert(fmt_rel_change_input_name(t, r));
+    hs.insert(fmt_rel_update_mutation_input_name(t, r));
+    hs.insert(fmt_rel_src_update_mutation_input_name(t, r));
+    hs.insert(fmt_rel_dst_update_mutation_input_name(t, r));
+    hs.insert(fmt_rel_props_input_name(t, r));
+    hs.insert(fmt_rel_src_query_input_name(t, r));
+    hs.insert(fmt_rel_dst_query_input_name(t, r));
+    hs.insert(fmt_rel_nodes_mutation_input_union_name(t, r));
+    hs.insert(fmt_rel_create_input_name(t, r));
+    hs.insert(fmt_rel_update_input_name(t, r));
+    hs.insert(fmt_rel_delete_input_name(t, r));
+    hs.insert(fmt_rel_src_delete_mutation_input_name(t, r));
+    hs.insert(fmt_rel_dst_delete_mutation_input_name(t, r));
+    hs.insert(fmt_rel_read_endpoint_name(t, r));
+    hs.insert(fmt_rel_create_endpoint_name(t, r));
+    hs.insert(fmt_rel_update_endpoint_name(t, r));
+    hs.insert(fmt_rel_delete_endpoint_name(t, r));
+
+    hs
 }
 
 #[cfg(test)]
