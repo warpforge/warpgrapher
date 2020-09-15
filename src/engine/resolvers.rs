@@ -539,8 +539,11 @@ where
     /// }
     /// ```
     pub fn resolve_rel(&self, rel: &Rel<GlobalCtx, RequestCtx>) -> ExecutionResult {
-        let rel_name =
-            self.info.name().to_string() + &self.field_name.to_string().to_title_case() + "Rel";
+        let rel_name = self.info.name().to_string()
+            + &((&self.field_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>())
+            + "Rel";
 
         self.executor
             .resolve(&Info::new(rel_name, self.info.type_defs()), rel)
@@ -580,8 +583,11 @@ where
     /// }
     /// ```
     pub fn resolve_rel_list(&self, rels: Vec<&Rel<GlobalCtx, RequestCtx>>) -> ExecutionResult {
-        let object_name =
-            self.info.name().to_string() + &self.field_name.to_string().to_title_case() + "Rel";
+        let object_name = self.info.name().to_string()
+            + &((&self.field_name.to_string().to_title_case())
+                .split_whitespace()
+                .collect::<String>())
+            + "Rel";
 
         self.executor
             .resolve(&Info::new(object_name, self.info.type_defs()), &rels)

@@ -1,6 +1,7 @@
 use maplit::hashmap;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
@@ -19,7 +20,11 @@ model:
     - name: points
       type: Int 
 endpoints:
-
+  - name: TopIssue
+    class: Query
+    input: null
+    output:
+      type: Issue
 ";
 
 // endpoint returning a list of `Issue` nodes
@@ -28,31 +33,30 @@ fn resolve_top_issue(facade: ResolverFacade<(), ()>) -> ExecutionResult {
         "Issue",
         hashmap! {
             "name".to_string() => Value::from("Learn more rust".to_string()),
-            "point".to_string() => Value::from(5 as i64)
+            "points".to_string() => Value::from(5 as i64)
         },
     );
 
     facade.resolve_node(&top_issue)
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect("Expected tokio runtime.")
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect("Failed to parse neo4j endpoint from environment")
+                .pool(),
+        )
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
     let mut resolvers = Resolvers::<(), ()>::new();
-    resolvers.insert(
-        "resolve_project_points".to_string(),
-        Box::new(resolve_top_issue),
-    );
+    resolvers.insert("TopIssue".to_string(), Box::new(resolve_top_issue));
 
     // create warpgrapher engine
     let engine: Engine<(), ()> = Engine::new(config, db)
@@ -62,11 +66,9 @@ async fn main() {
 
     // create new project
     let request = GraphQLRequest::new(
-        "mutation {
-            ProjectCreate(input: {
-                name: \"Project1\"
-            }) {
-                id
+        "query {
+            TopIssue {
+                name
                 points
             }
         }

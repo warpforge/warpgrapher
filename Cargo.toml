@@ -28,7 +28,7 @@ serde = { version = "1.0.89", features = ["derive"] }
 serde_json = "1.0.39"
 serde_yaml = "0.8.8"
 tokio = "0.2.21"
-uuid = "0.8.1"
+uuid = { version = "0.8.1", features = ["v4"] }
 
 # Optional dependencies
 bb8 = { version = "0.4.2", optional = true }

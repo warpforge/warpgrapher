@@ -159,7 +159,8 @@
 <p>When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties &quot;dynamic properties&quot;, and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. </p>
 <h2><a class="header" href="#usage" id="usage">Usage</a></h2>
 <h4><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field" id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
+<pre><code class="language-rust no_run noplayground">
+static CONFIG: &amp;str = &quot;
 version: 1
 model:
   - name: User
@@ -168,10 +169,10 @@ model:
         type: String
 endpoints:
   - name: EchoRequest
-    class: Query
 </code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">    output: 
+<pre><code class="language-rust no_run noplayground">    input: null
+    output: 
       type: String
 &quot;;
 
@@ -179,18 +180,17 @@ endpoints:
 struct AppRequestContext {
     request_id: String,
 }
-
 </code></pre>
 <h4><a class="header" href="#3-add-prop-resolver-when-building-engine" id="3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
-<pre><code class="language-rust no_run noplayground">
-#[tokio::main]
-async fn main() {
+<pre><code class="language-rust no_run noplayground">}
+
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = Runtime::new()
+        .expect(&quot;Expected tokio runtime.&quot;)
 </code></pre>
 
                     </main>

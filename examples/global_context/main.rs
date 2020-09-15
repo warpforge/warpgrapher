@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use tokio::runtime::Runtime;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::GlobalContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
@@ -41,18 +42,19 @@ fn resolve_get_tenant(facade: ResolverFacade<AppGlobalContext, ()>) -> Execution
     facade.resolve_scalar(tenant_id)
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
-        .pool()
-        .await
+    let db = Runtime::new()
+        .expect("Expected tokio runtime.")
+        .block_on(
+            Neo4jEndpoint::from_env()
+                .expect("Failed to parse neo4j endpoint from environment")
+                .pool(),
+        )
         .expect("Failed to create neo4j database pool");
-
     // define global context
     let global_ctx = AppGlobalContext {
         tenant_id: "123456".to_string(),
@@ -72,7 +74,7 @@ async fn main() {
     // execute query on `GetEnvironment` endpoint
     let request = GraphQLRequest::new(
         "query {
-            GetEnvironment
+            GetTenant
         }
         "
         .to_string(),
@@ -89,7 +91,7 @@ async fn main() {
         result
             .get("data")
             .unwrap()
-            .get("GetEnvironment")
+            .get("GetTenant")
             .unwrap()
             .as_str()
             .unwrap(),
