@@ -133,9 +133,10 @@ impl DatabaseEndpoint for CosmosEndpoint {
 pub struct GremlinEndpoint {
     host: String,
     port: u16,
-    user: String,
-    pass: String,
-    accept_invalid_certs: bool,
+    user: Option<String>,
+    pass: Option<String>,
+    validate_cert: bool,
+    use_tls: bool,
     uuid: bool,
 }
 
@@ -148,13 +149,15 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
     /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
     /// * WG_GREMLIN_PASS - the password used to authenticate the user.
-    /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
-    /// necessary in a test environment, but it should be set to false in production environments.
+    /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
+    /// * WG_GREMLIN_VALIDATE_CERT - true if Warpgrapher should validate the endpoint TLS cert. This
+    /// may be necessary to set to false in a test environment, but it should always be set to true in 
+    /// production environments.
     /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
     /// false if the UUIDs for node and vertex ids are represented as string types
     ///
-    /// The accept_invalid_certs option may be set to true in a test environment, where a test
-    /// Gremlin server is running with an invalid cert. It should be set to false in production
+    /// The validate_cert option may be set to false in a test environment, where a test
+    /// Gremlin server is running with an invalid cert. It should be set to true in production
     /// environments.
     ///
     /// [`GremlinEndpoint`]: ./struct.GremlinEndpoint.html
@@ -183,9 +186,16 @@ impl GremlinEndpoint {
         Ok(GremlinEndpoint {
             host: env_string("WG_GREMLIN_HOST")?,
             port: env_u16("WG_GREMLIN_PORT")?,
-            user: env_string("WG_GREMLIN_USER")?,
-            pass: env_string("WG_GREMLIN_PASS")?,
-            accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
+            user: match env_string("WG_GREMLIN_USER") {
+                Ok(v) => Some(v),
+                Err(_) => None
+            },
+            pass: match env_string("WG_GREMLIN_PASS") {
+                Ok(v) => Some(v),
+                Err(_) => None
+            },
+            use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(false),
+            validate_cert: env_bool("WG_GREMLIN_VALIDATE_CERT").unwrap_or(false),
             uuid: env_bool("WG_GREMLIN_UUID")?,
         })
     }
@@ -195,23 +205,24 @@ impl GremlinEndpoint {
 #[async_trait]
 impl DatabaseEndpoint for GremlinEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error> {
-        Ok(DatabasePool::Gremlin((
-            GremlinClient::connect(
-                ConnectionOptions::builder()
-                    .host(&self.host)
-                    .port(self.port)
-                    .pool_size(num_cpus::get().try_into().unwrap_or(8))
-                    .ssl(true)
-                    .tls_options(TlsOptions {
-                        accept_invalid_certs: self.accept_invalid_certs,
-                    })
-                    .serializer(GraphSON::V3)
-                    .deserializer(GraphSON::V3)
-                    .credentials(&self.user, &self.pass)
-                    .build(),
-            )?,
-            self.uuid,
-        )))
+        let mut options_builder = ConnectionOptions::builder()
+            .host(&self.host)
+            .port(self.port)
+            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .serializer(GraphSON::V3)
+            .deserializer(GraphSON::V3);
+        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
+            options_builder = options_builder.credentials(user, pass);
+        }
+        if self.use_tls {
+            options_builder = options_builder
+                .ssl(true)
+                .tls_options(TlsOptions {
+                    accept_invalid_certs: !self.validate_cert
+                });
+        }
+        let options = options_builder.build();
+        Ok(DatabasePool::Gremlin((GremlinClient::connect(options)?, self.uuid)))
     }
 }
 
