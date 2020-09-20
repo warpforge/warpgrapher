@@ -152,7 +152,6 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
-    /// production environments.
     /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
     /// false if the UUIDs for node and vertex ids are represented as string types
     ///
