@@ -21,6 +21,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::env::var_os;
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -133,10 +134,11 @@ impl DatabaseEndpoint for CosmosEndpoint {
 pub struct GremlinEndpoint {
     host: String,
     port: u16,
-    user: String,
-    pass: String,
+    user: Option<String>,
+    pass: Option<String>,
     accept_invalid_certs: bool,
     uuid: bool,
+    use_tls: bool,
 }
 
 #[cfg(feature = "gremlin")]
@@ -148,6 +150,7 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
     /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
     /// * WG_GREMLIN_PASS - the password used to authenticate the user.
+    /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
     /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
@@ -183,10 +186,11 @@ impl GremlinEndpoint {
         Ok(GremlinEndpoint {
             host: env_string("WG_GREMLIN_HOST")?,
             port: env_u16("WG_GREMLIN_PORT")?,
-            user: env_string("WG_GREMLIN_USER")?,
-            pass: env_string("WG_GREMLIN_PASS")?,
+            user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
+            pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             uuid: env_bool("WG_GREMLIN_UUID")?,
+            use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
         })
     }
 }
@@ -195,23 +199,24 @@ impl GremlinEndpoint {
 #[async_trait]
 impl DatabaseEndpoint for GremlinEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error> {
-        Ok(DatabasePool::Gremlin((
-            GremlinClient::connect(
-                ConnectionOptions::builder()
-                    .host(&self.host)
-                    .port(self.port)
-                    .pool_size(num_cpus::get().try_into().unwrap_or(8))
-                    .ssl(true)
-                    .tls_options(TlsOptions {
-                        accept_invalid_certs: self.accept_invalid_certs,
-                    })
-                    .serializer(GraphSON::V3)
-                    .deserializer(GraphSON::V3)
-                    .credentials(&self.user, &self.pass)
-                    .build(),
-            )?,
-            self.uuid,
-        )))
+        let mut options_builder = ConnectionOptions::builder()
+            .host(&self.host)
+            .port(self.port)
+            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .serializer(GraphSON::V3)
+            .deserializer(GraphSON::V3);
+        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
+            options_builder = options_builder.credentials(user, pass);
+        }
+        if self.use_tls {
+            options_builder = options_builder
+                .ssl(true)
+                .tls_options(TlsOptions {
+                    accept_invalid_certs: self.accept_invalid_certs
+                });
+        }
+        let options = options_builder.build();
+        Ok(DatabasePool::Gremlin((GremlinClient::connect(options)?, self.uuid)))
     }
 }
 
