@@ -21,6 +21,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::env::var_os;
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -185,14 +186,8 @@ impl GremlinEndpoint {
         Ok(GremlinEndpoint {
             host: env_string("WG_GREMLIN_HOST")?,
             port: env_u16("WG_GREMLIN_PORT")?,
-            user: match env_string("WG_GREMLIN_USER") {
-                Ok(v) => Some(v),
-                Err(_) => None
-            },
-            pass: match env_string("WG_GREMLIN_PASS") {
-                Ok(v) => Some(v),
-                Err(_) => None
-            },
+            user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
+            pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             uuid: env_bool("WG_GREMLIN_UUID")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
