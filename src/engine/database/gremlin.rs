@@ -158,6 +158,7 @@ impl GremlinEndpoint {
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
+    /// environments.
     ///
     /// [`GremlinEndpoint`]: ./struct.GremlinEndpoint.html
     ///
