@@ -156,9 +156,8 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
     /// false if the UUIDs for node and vertex ids are represented as string types
     ///
-    /// The validate_cert option may be set to false in a test environment, where a test
-    /// Gremlin server is running with an invalid cert. It should be set to true in production
-    /// environments.
+    /// The accept_invalid_certs option may be set to true in a test environment, where a test
+    /// Gremlin server is running with an invalid cert. It should be set to false in production
     ///
     /// [`GremlinEndpoint`]: ./struct.GremlinEndpoint.html
     ///
