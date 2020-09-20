@@ -135,9 +135,9 @@ pub struct GremlinEndpoint {
     port: u16,
     user: Option<String>,
     pass: Option<String>,
-    validate_cert: bool,
-    use_tls: bool,
+    accept_invalid_certs: bool,
     uuid: bool,
+    use_tls: bool,
 }
 
 #[cfg(feature = "gremlin")]
@@ -150,8 +150,8 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
     /// * WG_GREMLIN_PASS - the password used to authenticate the user.
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
-    /// * WG_GREMLIN_VALIDATE_CERT - true if Warpgrapher should validate the endpoint TLS cert. This
-    /// may be necessary to set to false in a test environment, but it should always be set to true in 
+    /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
+    /// necessary in a test environment, but it should be set to false in production environments.
     /// production environments.
     /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
     /// false if the UUIDs for node and vertex ids are represented as string types
@@ -194,9 +194,9 @@ impl GremlinEndpoint {
                 Ok(v) => Some(v),
                 Err(_) => None
             },
-            use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(false),
-            validate_cert: env_bool("WG_GREMLIN_VALIDATE_CERT").unwrap_or(false),
+            accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             uuid: env_bool("WG_GREMLIN_UUID")?,
+            use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
         })
     }
 }
@@ -218,7 +218,7 @@ impl DatabaseEndpoint for GremlinEndpoint {
             options_builder = options_builder
                 .ssl(true)
                 .tls_options(TlsOptions {
-                    accept_invalid_certs: !self.validate_cert
+                    accept_invalid_certs: self.accept_invalid_certs
                 });
         }
         let options = options_builder.build();
