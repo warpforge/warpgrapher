@@ -5,7 +5,7 @@ use crate::{Engine, Error};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use inflector::Inflector;
 use juniper::http::GraphQLRequest;
-use log::{debug, trace, error};
+use log::{debug, trace};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
@@ -25,7 +25,7 @@ use std::str::FromStr;
 /// ```rust
 /// # use warpgrapher::Client;
 ///
-/// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+/// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
 pub enum Client<GlobalCtx = (), RequestCtx = ()>
@@ -60,40 +60,27 @@ where
     /// ```rust
     /// # use warpgrapher::Client;
     ///
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     /// ```
-    pub fn new_with_http(endpoint: &str, headers_opt: Option<HashMap<&str,&str>>) -> Client<(), ()> {
+    pub fn new_with_http(
+        endpoint: &str, 
+        headers_opt: Option<HashMap<&str,&str>>
+    ) -> Result <Client<(), ()>, Error> {
         trace!("Client::new_with_http called -- endpoint: {}", endpoint);
 
-        Client::Http {
-            endpoint: endpoint.to_string(),
-            headers: {
-                let mut header_map = HeaderMap::new();
-                if let Some(headers) = headers_opt {
-                    // The solution below is not elegant, but may be the best option. A header
-                    // requires a HeaderName and HeaderValue. No matter what type you convert from
-                    // you get a Result type. For example, from_str will produce an error if the
-                    // input contains "\n" because new lines are not allowed. The code below logs
-                    // any errors that are encountered, but skips any erroneous headers in creating
-                    // the header map. I imagine we don't want the Client::Http constructor to 
-                    // return a Result type to propagate errors up. 
-                    for (key,value) in headers {
-                        if let Ok(header_name) = HeaderName::from_str(key) {
-                            if let Ok(header_value) = HeaderValue::from_str(value) { 
-                                header_map.insert(header_name, header_value);
-                            }
-                            else {
-                                error!("Unable to parse header value.");
-                            }
-                        }
-                        else {
-                            error!("Unable to parse header name.")
-                        }
-                    }
-                }
-                header_map
+        let mut header_map = HeaderMap::new();
+        if let Some(headers) = headers_opt {
+            for (key,value) in headers {
+                let header_name = HeaderName::from_str(key).map_err(|e| Error::InvalidHeaderName { source: e } )?;
+                let header_value = HeaderValue::from_str(value).map_err(|e| Error::InvalidHeaderValue { source: e } )?;
+                header_map.insert(header_name, header_value);
             }
         }
+
+        Ok( Client::Http {
+            endpoint: endpoint.to_string(),
+            headers: header_map,
+        })
     }
 
     /// Takes a Warpgrapher engine and returns a new ['Client'] initialized to query that engine.
@@ -160,7 +147,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let query = "query { Project { id name } }";
     /// let results = client.graphql("query { Project { id name } }", Some("1234"), None,
@@ -274,7 +261,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.create_node("Project", "id name description", Some("1234"),
     ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
@@ -343,7 +330,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.create_rel("Project",
     ///     "issues",
@@ -426,7 +413,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.delete_node("Project", Some("1234"),
     ///     Some(&json!({"name": "MJOLNIR"})), None).await;
@@ -500,7 +487,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.delete_rel("Project", "issues",
     ///    Some("1234"),
@@ -593,7 +580,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.read_node("Project", "id name description", Some("1234"),
     ///     None).await;
@@ -659,7 +646,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.read_rel("Project", "issues", "id props { since }",
     ///     Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
@@ -731,7 +718,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None);
+    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     ///     let projects = client.update_node("Project", "id name status", Some("1234"),
     ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
@@ -803,7 +790,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None);
+    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.update_rel("Project", "issues",
     ///     "id props {since} src {id name} dst {id name}",
@@ -952,7 +939,7 @@ mod tests {
     fn new() {
         let ep = "http://localhost:5000/graphql";
         let client = Client::<(), ()>::new_with_http(ep, None);
-        if let Client::Http { endpoint, .. } = client {
+        if let Ok(Client::Http { endpoint, .. }) = client {
             assert_eq!(ep, endpoint);
         } else {
             unreachable!()
