@@ -2,6 +2,7 @@
 
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinError;
+use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use std::fmt::{Display, Formatter};
 use std::num::ParseIntError;
 use std::str::ParseBoolError;
@@ -87,6 +88,11 @@ pub enum Error {
     /// mutation call were missing its input argument. Also returned if an input argument is
     /// missing an expected field.
     InputItemNotFound { name: String },
+
+    /// Returned if an invalid header is passed to the constructor for creating an http client.
+    /// There are two possible invalid header types based on whether the name or value was invalid.
+    InvalidHeaderName { source: InvalidHeaderName },
+    InvalidHeaderValue { source: InvalidHeaderValue },
 
     /// Returned if an internal CRUD handler tries to retrieve the label for a node or relationship
     /// from an internal temporary bookkeeping structure and is unable to do so. This almost
@@ -246,6 +252,12 @@ impl Display for Error {
             Error::InputItemNotFound { name } => {
                 write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
             }
+            Error::InvalidHeaderName { source } => {
+                write!(f, "Invalid HTTP header given to Client: {}", source)
+            }
+            Error::InvalidHeaderValue { source } => {
+                write!(f, "Invalid HTTP header given to Client: {}", source)
+            }
             Error::LabelNotFound => {
                 write!(f, "Could not find a label for a destination node.")
             }
@@ -332,6 +344,8 @@ impl std::error::Error for Error {
             #[cfg(any(feature = "cosmos", feature = "gremlin"))]
             Error::GremlinActionFailed { source } => Some(source),
             Error::InputItemNotFound { name: _ } => None,
+            Error::InvalidHeaderName { source } => Some(source),
+            Error::InvalidHeaderValue { source } => Some(source),
             Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),
