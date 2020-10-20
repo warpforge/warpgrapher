@@ -33,6 +33,7 @@ async fn custom_input_validator_create() {
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
+    #[allow(clippy::all)]
     let error = match result {
         serde_json::Value::Null => true,
         _ => false,
@@ -86,6 +87,7 @@ async fn custom_input_validator_update() {
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
+    #[allow(clippy::all)]
     let error = match result {
         serde_json::Value::Null => true,
         _ => false,
