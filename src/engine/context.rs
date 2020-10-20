@@ -6,6 +6,7 @@ use crate::engine::resolvers::{ResolverFunc, Resolvers};
 use crate::engine::validators::Validators;
 use crate::Error;
 use juniper::Context;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::slice::Iter;
@@ -61,6 +62,7 @@ where
     global_ctx: Option<GlobalCtx>,
     request_ctx: Option<RequestCtx>,
     version: Option<String>,
+    metadata: HashMap<String, String>
 }
 
 impl<GlobalCtx, RequestCtx> GraphQLContext<GlobalCtx, RequestCtx>
@@ -136,6 +138,7 @@ where
         global_ctx: Option<GlobalCtx>,
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
+        metadata: HashMap<String, String>
     ) -> GraphQLContext<GlobalCtx, RequestCtx> {
         GraphQLContext {
             pool,
@@ -145,6 +148,7 @@ where
             global_ctx,
             request_ctx,
             version,
+            metadata
         }
     }
 
@@ -520,6 +524,10 @@ where
     pub fn request_context(&self) -> Option<&RequestCtx> {
         self.request_ctx.as_ref()
     }
+
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
+    }
 }
 
 impl<GlobalCtx, RequestCtx> Context for GraphQLContext<GlobalCtx, RequestCtx>
@@ -599,6 +607,7 @@ impl RequestContext for () {
 #[cfg(test)]
 mod tests {
 
+    use std::collections::HashMap;
     use super::GraphQLContext;
     use crate::engine::database::neo4j::Neo4jEndpoint;
     use crate::engine::database::DatabaseEndpoint;
@@ -624,6 +633,7 @@ mod tests {
             Some(()),
             Some(()),
             None,
+            HashMap::<String, String>::new()
         );
     }
 }

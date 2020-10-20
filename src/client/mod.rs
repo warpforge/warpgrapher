@@ -28,7 +28,8 @@ use std::str::FromStr;
 /// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
-pub enum Client<GlobalCtx = (), RequestCtx = ()>
+//pub enum Client<GlobalCtx = (), RequestCtx = ()>
+pub enum Client<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -106,7 +107,6 @@ where
     /// ```
     pub fn new_with_engine(engine: Engine<GlobalCtx, RequestCtx>, metadata: Option<HashMap<String, String>>) -> Client<GlobalCtx, RequestCtx> {
         trace!("Client::new_with_engine called");
-
         Client::Local {
             engine: Box::new(engine),
             metadata
@@ -197,7 +197,6 @@ where
                 let engine = engine.clone();
                 let (tx, rx) = mpsc::channel();
                 thread::spawn(move || {
-                    //let metadata: HashMap<String, String> = HashMap::new();
                     let result = from_value::<GraphQLRequest>(req_body)
                         .map_err(|e| e.into())
                         .and_then(|req| engine.execute(&req, &metadata));
@@ -924,7 +923,11 @@ where
     }
 }
 
-impl Display for Client {
+impl<G, R> Display for Client<G, R>
+where 
+    G: GlobalContext,
+    R: RequestContext,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         match self {
             Self::Http { endpoint, .. } => write!(f, "{}", endpoint),

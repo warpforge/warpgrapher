@@ -461,7 +461,7 @@ where
             .extensions
             .iter()
             .try_fold(RequestCtx::new(), |req_ctx, e| {
-                e.pre_request_hook(self.global_ctx.as_ref(), req_ctx, &metadata)
+                e.pre_request_hook(req.operation_name().map(|v| v.to_string()), self.global_ctx.as_ref(), req_ctx, &metadata, self.db_pool.clone())
             })?;
 
         // execute graphql query
@@ -475,6 +475,7 @@ where
                 self.global_ctx.clone(),
                 Some(req_ctx.clone()),
                 self.version.clone(),
+                metadata.clone()
             ),
         );
 

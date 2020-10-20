@@ -60,6 +60,9 @@ pub enum Error {
     ///
     /// [`Config`]: ../engine/config/struct.Config.html
     DeserializationFailed { source: serde_yaml::Error },
+    
+    /// Returned if a `serde_json::Value` struct fails to deserialize into a struct
+    JsonDeserializationFailed { source: serde_json::Error },
 
     /// Returned if an environment variable cannot be found. The `name` field contains the name of
     /// the environment variable that could not be found.
@@ -261,6 +264,9 @@ impl Display for Error {
             Error::LabelNotFound => {
                 write!(f, "Could not find a label for a destination node.")
             }
+            Error::JsonDeserializationFailed { source } => {
+                write!(f, "Failed to deserialize JSON into struct: {}", source)
+            },
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
                 write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
@@ -346,6 +352,7 @@ impl std::error::Error for Error {
             Error::InputItemNotFound { name: _ } => None,
             Error::InvalidHeaderName { source } => Some(source),
             Error::InvalidHeaderValue { source } => Some(source),
+            Error::JsonDeserializationFailed { source } => Some(source),
             Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => Some(source),

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use warpgrapher::engine::context::{GlobalContext, RequestContext};
+use warpgrapher::engine::database::DatabasePool;
 use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
@@ -51,9 +52,11 @@ where
     /// This hook will add metadata into the request context.
     fn pre_request_hook(
         &self,
+        _op_name: Option<String>,
         _global_ctx: Option<&GlobalCtx>,
         mut req_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
+        _db_pool: DatabasePool
     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
         req_ctx.set_metadata(Metadata {
             src_ip: "1.2.3.4".to_string(),

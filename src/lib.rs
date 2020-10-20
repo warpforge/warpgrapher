@@ -17,6 +17,8 @@ pub use bolt_client;
 #[cfg(feature = "neo4j")]
 pub use bolt_proto;
 pub use juniper;
+#[cfg(feature = "gremlin")]
+pub use gremlin_client;
 
 pub use client::Client;
 pub use engine::config::Configuration;
