@@ -56,7 +56,7 @@ where
         _global_ctx: Option<&GlobalCtx>,
         mut req_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
-        _db_pool: DatabasePool
+        _db_pool: DatabasePool,
     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
         req_ctx.set_metadata(Metadata {
             src_ip: "1.2.3.4".to_string(),

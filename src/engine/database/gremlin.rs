@@ -209,14 +209,15 @@ impl DatabaseEndpoint for GremlinEndpoint {
             options_builder = options_builder.credentials(user, pass);
         }
         if self.use_tls {
-            options_builder = options_builder
-                .ssl(true)
-                .tls_options(TlsOptions {
-                    accept_invalid_certs: self.accept_invalid_certs
-                });
+            options_builder = options_builder.ssl(true).tls_options(TlsOptions {
+                accept_invalid_certs: self.accept_invalid_certs,
+            });
         }
         let options = options_builder.build();
-        Ok(DatabasePool::Gremlin((GremlinClient::connect(options)?, self.uuid)))
+        Ok(DatabasePool::Gremlin((
+            GremlinClient::connect(options)?,
+            self.uuid,
+        )))
     }
 }
 

@@ -1,7 +1,6 @@
 //! Contains the type aliases, enumerations, and structures to allow for the creation of custom
 //! resolvers.
 
-use std::convert::TryFrom;
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::engine::objects::{Node, NodeRef, Rel};
@@ -10,6 +9,7 @@ use crate::engine::value::Value;
 use crate::Error;
 use inflector::Inflector;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputValue};
 
@@ -81,19 +81,47 @@ where
         }
     }
 
-    /// Returns the resolver input deserialized into a structure of type T
+    /// Returns the resolver input deserialized into a structure of type T that
+    /// implements the serde `Deserialize` trait.
     ///
     /// # Errors
     ///
-    /// Returns an [`Error]` variant [`InputNotFound`] if no input field was passed 
+    /// Returns an [`Error]` variant [`InputNotFound`] if no input field was passed
     /// to the query, [`TypeConversionFailed`] if unable to convert a warpgrapher Value
     /// to a serde_json Value, and [`JsonDeserializationFaild`] if unable to parse the
-    /// input data into a struct of type T. 
+    /// input data into a struct of type T.
     ///
     /// [`Error`]: ../../error/enum.Error.html
     /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
     /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
+    pub fn parse_input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        let value: Value = match self.args().get("input") {
+            None => {
+                return Err(Error::InputItemNotFound {
+                    name: "input".to_string(),
+                })
+            }
+            Some(v) => v,
+        };
+        let value2 = match serde_json::Value::try_from(value) {
+            Err(_) => {
+                return Err(Error::TypeConversionFailed {
+                    src: "warpgrapher::Value".to_string(),
+                    dst: "serde_json::Value".to_string(),
+                })
+            }
+            Ok(v) => v,
+        };
+        let parsed_input: T = match serde_json::from_value(value2) {
+            Err(e) => return Err(Error::JsonDeserializationFailed { source: e }),
+            Ok(v) => v,
+        };
+        Ok(parsed_input)
+    }
+
+    /// Returns the execution metadata that was passed to the engine. If no metadata was
+    /// passed to the engine's `execute` method, an empty HashMap is returned.
     ///
     /// # Examples
     ///
@@ -101,33 +129,13 @@ where
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// #[derive(serde_derive::Deserialize)]
-    /// struct User {
-    ///     name: String
-    /// }
-    /// 
     /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
-    ///     let user : User = facade.parse_input()?;
+    ///     let execution_metadata = facade.metadata();
+    ///     // use metadata
     ///     
     ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn parse_input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
-        let value : Value = match self.args().get("input") {
-            None => { return Err(Error::InputItemNotFound { name: "input".to_string() })}
-            Some(v) => {v}
-        };
-        let value2 = match serde_json::Value::try_from(value) {
-            Err(_) => { return Err(Error::TypeConversionFailed{ src: "warpgrapher::Value".to_string(), dst: "serde_json::Value".to_string() })},
-            Ok(v) => { v }
-        };
-        let parsed_input : T = match serde_json::from_value(value2) {
-            Err(e) => { return Err(Error::JsonDeserializationFailed { source: e}) },
-            Ok(v) => { v }
-        };
-        Ok(parsed_input)
-    }
-
     pub fn metadata(&self) -> &HashMap<String, String> {
         self.executor.context().metadata()
     }

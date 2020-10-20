@@ -419,7 +419,6 @@ impl Endpoint {
     }
 }
 
-
 impl TryFrom<&str> for Endpoint {
     type Error = Error;
 
@@ -444,7 +443,7 @@ impl TryFrom<&str> for Endpoint {
     /// class: Mutation
     /// input:
     ///   type: UserInput
-    /// output: 
+    /// output:
     ///   type: User
     /// ").unwrap();
     /// ```
