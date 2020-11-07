@@ -28,4 +28,4 @@ The RequestContext is specified in the second type paramter of `Engine`.
 
 ### Full Example
 
-View on [Github](https://github.com/warpforge/warpgrapher/blob/v0.4.0/examples/request_context/main.rs).
+View on [Github](https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/request_context/main.rs).

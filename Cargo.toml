@@ -8,7 +8,7 @@ repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
 categories = ["web-programming"]
-version = "0.4.0"
+version = "0.5.0"
 edition = "2018"
 
 [features]
