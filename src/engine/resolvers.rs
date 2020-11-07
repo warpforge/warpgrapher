@@ -97,27 +97,15 @@ where
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
     /// [`Value`]: ./value/enum.Value.html
     pub fn input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
-        let value: Value = match self.args().get("input") {
-            None => {
-                return Err(Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })
-            }
-            Some(v) => v,
-        };
-        let value2 = match serde_json::Value::try_from(value) {
-            Err(_) => {
-                return Err(Error::TypeConversionFailed {
-                    src: "warpgrapher::Value".to_string(),
-                    dst: "serde_json::Value".to_string(),
-                })
-            }
-            Ok(v) => v,
-        };
-        let parsed_input: T = match serde_json::from_value(value2) {
-            Err(e) => return Err(Error::JsonDeserializationFailed { source: e }),
-            Ok(v) => v,
-        };
+        let json_value : serde_json::Value = self.args().get::<Value>("input")
+            .ok_or_else(|| { Error::InputItemNotFound { name: "input".to_string() } })
+            .and_then(|value: Value| { serde_json::Value::try_from(value) })
+            .map_err(|_| { Error::TypeConversionFailed {
+                src: "warpgrapher::Value".to_string(),
+                dst: "serde_json::Value".to_string(),
+            }})?;
+        let parsed_input : T = serde_json::from_value(json_value)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
         Ok(parsed_input)
     }
 
