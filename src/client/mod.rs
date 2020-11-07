@@ -934,8 +934,8 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Self::Http { endpoint, .. } => write!(f, "{}", endpoint),
-            Self::Local { engine, .. } => write!(f, "{}", engine),
+            Self::Http { endpoint, headers } => write!(f, "{}, metadata = {:#?}", endpoint, headers),
+            Self::Local { engine, metadata } => write!(f, "{}, metadata = {:#?}", engine, metadata),
         }
     }
 }

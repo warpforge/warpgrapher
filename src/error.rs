@@ -68,14 +68,6 @@ pub enum Error {
     /// never be done in production
     DatabaseNotFound,
 
-    /// Returned if a `Config` fails to deserialize because the provided data does not match the
-    /// expected data structure
-    ///
-    /// [`Config`]: ../engine/config/struct.Config.html
-    DeserializationFailed {
-        source: serde_yaml::Error,
-    },
-
     /// Returned if a `serde_json::Value` struct fails to deserialize into a struct
     JsonDeserializationFailed {
         source: serde_json::Error,
@@ -261,6 +253,11 @@ pub enum Error {
     ValidatorNotFound {
         name: String,
     },
+    
+    /// Returned if a `serde_yaml::Value` struct fails to deserialize into a given struct
+    YamlDeserializationFailed {
+        source: serde_yaml::Error,
+    },
 }
 
 impl Display for Error {
@@ -285,11 +282,8 @@ impl Display for Error {
             Error::ConfigVersionMismatched { expected, found } => {
                 write!(f, "Configs must be the same version: expected {} but found {}", expected, found)
             }
-           Error::DatabaseNotFound => {
+            Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
-            }
-            Error::DeserializationFailed { source } => {
-                write!(f, "Failed to deserialize configuration. Source error: {}", source)
             }
             Error::EnvironmentVariableNotFound { name } => {
                 write!(f, "Could not find environment variable: {}", name)
@@ -370,7 +364,7 @@ impl Display for Error {
             Error::TypeNotExpected => {
                 write!(f, "Warpgrapher encountered a type that was not expected, such as a non-string ID")
             },
-        Error::UuidNotParsed { source } => {
+            Error::UuidNotParsed { source } => {
                 write!(f, "Failed to parse id attribute value. Source error: {}", source)
             }
             Error::ValidationFailed { message } => {
@@ -378,6 +372,9 @@ impl Display for Error {
             }
             Error::ValidatorNotFound { name } => {
                 write!(f, "A validator function named {} could not be found", name)
+            }
+            Error::YamlDeserializationFailed { source } => {
+                write!(f, "Failed to deserialize yaml struct. Source error: {}", source)
             }
         }
     }
@@ -397,7 +394,6 @@ impl std::error::Error for Error {
                 found: _,
             } => None,
             Error::DatabaseNotFound => None,
-            Error::DeserializationFailed { source } => Some(source),
             Error::EnvironmentVariableNotFound { name: _ } => None,
             Error::EnvironmentVariableBoolNotParsed { source } => Some(source),
             Error::EnvironmentVariableIntNotParsed { source } => Some(source),
@@ -433,6 +429,7 @@ impl std::error::Error for Error {
             Error::UuidNotParsed { source } => Some(source),
             Error::ValidationFailed { message: _ } => None,
             Error::ValidatorNotFound { name: _ } => None,
+            Error::YamlDeserializationFailed { source } => Some(source),
         }
     }
 }
@@ -490,7 +487,7 @@ impl From<serde_json::Error> for Error {
 
 impl From<serde_yaml::Error> for Error {
     fn from(e: serde_yaml::Error) -> Self {
-        Error::DeserializationFailed { source: e }
+        Error::YamlDeserializationFailed { source: e }
     }
 }
 

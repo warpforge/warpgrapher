@@ -87,7 +87,7 @@ where
     /// # Errors
     ///
     /// Returns an [`Error]` variant [`InputNotFound`] if no input field was passed
-    /// to the query, [`TypeConversionFailed`] if unable to convert a warpgrapher Value
+    /// to the query, [`TypeConversionFailed`] if unable to convert a [`Value`]
     /// to a serde_json Value, and [`JsonDeserializationFaild`] if unable to parse the
     /// input data into a struct of type T.
     ///
@@ -95,7 +95,8 @@ where
     /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
     /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
-    pub fn parse_input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+    /// [`Value`]: ./value/enum.Value.html
+    pub fn input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let value: Value = match self.args().get("input") {
             None => {
                 return Err(Error::InputItemNotFound {

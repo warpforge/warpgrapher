@@ -448,7 +448,7 @@ impl TryFrom<&str> for Endpoint {
     /// ").unwrap();
     /// ```
     fn try_from(yaml: &str) -> Result<Endpoint, Error> {
-        serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
+        serde_yaml::from_str(yaml).map_err(|e| Error::YamlDeserializationFailed { source: e })
     }
 }
 
@@ -1331,7 +1331,7 @@ impl TryFrom<&str> for Type {
     /// ").unwrap();
     /// ```
     fn try_from(yaml: &str) -> Result<Type, Error> {
-        serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
+        serde_yaml::from_str(yaml).map_err(|e| Error::YamlDeserializationFailed { source: e })
     }
 }
 
