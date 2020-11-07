@@ -40,4 +40,4 @@ The global context is now accessible in function resolvers.
 
 ### Full Example
 
-View on [Github](https://github.com/warpforge/warpgrapher/blob/v0.4.0/examples/global_context/main.rs).
+View on [Github](https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/global_context/main.rs).
