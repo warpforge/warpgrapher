@@ -22,34 +22,47 @@ pub enum Error {
     /// Returned to wrap an error from the Neo4J bolt client. Most likely indicates something like
     /// a network connection failure
     #[cfg(feature = "neo4j")]
-    BoltClientFailed { source: bolt_client::error::Error },
+    BoltClientFailed {
+        source: bolt_client::error::Error,
+    },
 
     /// Returned if a [`Client`] is unable to submit a request to the server, such as due to a
     /// network or server error, or the response cannot be parsed as valid JSON. Inspect the
     /// [`reqwest::Error`] included as a source error for additional detail.
     ///
     /// [`Client`]: ./client/enum.Client.html
-    ClientRequestFailed { source: reqwest::Error },
+    ClientRequestFailed {
+        source: reqwest::Error,
+    },
 
     /// Returned if two Warpgrapher endpoints or two Warpgrapher types are defined with the same
     /// name. The `type_name` field contains the name of the duplicated type.
-    ConfigItemDuplicated { type_name: String },
+    ConfigItemDuplicated {
+        type_name: String,
+    },
 
     /// Returned if a Warpgrapher endpoint or type is defined with a name that is a reserved
     /// word, such as "ID" or a GraphQL scalar. The field `type_name` is the name that triggered the
     /// error.
-    ConfigItemReserved { type_name: String },
+    ConfigItemReserved {
+        type_name: String,
+    },
 
     /// Returned if a `Config` file cannot be opened, typically because the configuration file
     /// cannot be found on disk
-    ConfigOpenFailed { source: std::io::Error },
+    ConfigOpenFailed {
+        source: std::io::Error,
+    },
 
     /// Returned if attempting to compose configs with different versions. The field `expected`
     /// contains the version of the base `Config`, and `found` contains the version of the `Config`
     /// being merged in.
     ///
     /// [`Config`]: ../engine/config/struct.Config.html
-    ConfigVersionMismatched { expected: i32, found: i32 },
+    ConfigVersionMismatched {
+        expected: i32,
+        found: i32,
+    },
 
     /// Returned if the engine is configured to operate without a database. Typically this would
     /// never be done in production
@@ -59,19 +72,27 @@ pub enum Error {
     /// expected data structure
     ///
     /// [`Config`]: ../engine/config/struct.Config.html
-    DeserializationFailed { source: serde_yaml::Error },
+    DeserializationFailed {
+        source: serde_yaml::Error,
+    },
 
     /// Returned if an environment variable cannot be found. The `name` field contains the name of
     /// the environment variable that could not be found.
-    EnvironmentVariableNotFound { name: String },
+    EnvironmentVariableNotFound {
+        name: String,
+    },
 
     /// Returned if an environemtn variable for a boolean flag cannot be parsed from the
     /// environment variable string into a bool
-    EnvironmentVariableBoolNotParsed { source: ParseBoolError },
+    EnvironmentVariableBoolNotParsed {
+        source: ParseBoolError,
+    },
 
     /// Returned if an environment variable for a port number cannot be parsed from the
     /// environment variable string into a number
-    EnvironmentVariableIntNotParsed { source: ParseIntError },
+    EnvironmentVariableIntNotParsed {
+        source: ParseIntError,
+    },
 
     /// Returned if a registered extension function returns an error
     ExtensionFailed {
@@ -87,12 +108,18 @@ pub enum Error {
     /// Returned if a GraphQL query is missing an expected argument. For example, if a create
     /// mutation call were missing its input argument. Also returned if an input argument is
     /// missing an expected field.
-    InputItemNotFound { name: String },
+    InputItemNotFound {
+        name: String,
+    },
 
     /// Returned if an invalid header is passed to the constructor for creating an http client.
     /// There are two possible invalid header types based on whether the name or value was invalid.
-    InvalidHeaderName { source: InvalidHeaderName },
-    InvalidHeaderValue { source: InvalidHeaderValue },
+    InvalidHeaderName {
+        source: InvalidHeaderName,
+    },
+    InvalidHeaderValue {
+        source: InvalidHeaderValue,
+    },
 
     /// Returned if an internal CRUD handler tries to retrieve the label for a node or relationship
     /// from an internal temporary bookkeeping structure and is unable to do so. This almost
@@ -114,7 +141,9 @@ pub enum Error {
 
     /// Returned if a bb8 connection pool cannot be built correctly
     #[cfg(feature = "neo4j")]
-    Neo4jPoolNotBuilt { source: bb8_bolt::Error },
+    Neo4jPoolNotBuilt {
+        source: bb8_bolt::Error,
+    },
 
     /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
     /// Cosmos DB
@@ -126,19 +155,26 @@ pub enum Error {
     /// The [`serde_json::Value`] tuple value contains the deserialized JSON response.
     ///
     /// [`Client`]: ./client/enum.Client.html
-    PayloadNotFound { response: serde_json::Value },
+    PayloadNotFound {
+        response: serde_json::Value,
+    },
 
     /// Return if a query tries to read and return a relationship defined in the GraphQL schema as
     /// being a single relationship (one-to-one), for which the back-end database has multiple
     /// outgoing relationship edges (one-to-many or many-to-many).  The `rel_name` field holds the
     /// name of the relationship, and the `ids` field holds a list of ids of the relationships
     /// found.
-    RelDuplicated { rel_name: String, ids: String },
+    RelDuplicated {
+        rel_name: String,
+        ids: String,
+    },
 
     /// Returned if a custom endpoint is defined or a resolver is defined for a field, but the
     /// corresponding resolver is not provided. The `name` field contains the name of the resolver
     /// that could not be found.
-    ResolverNotFound { name: String },
+    ResolverNotFound {
+        name: String,
+    },
 
     /// Returned if a database query is missing a set of results altogether, where one is expected.
     /// This likely indicates an internal bug. Thus, if you happen to see it, please open an issue
@@ -149,23 +185,31 @@ pub enum Error {
     /// Cosmos DB query were to be missing the value for a property, or if the query fails to
     /// to return an expected node or relationship. This could occur if a custom resolver creates a
     /// node or rel witout adding mandatory properties, such as an ID.
-    ResponseItemNotFound { name: String },
+    ResponseItemNotFound {
+        name: String,
+    },
 
     /// Returned if a GraphQL response or a database query parameter cannot be converted to a
     /// serde_json::Value, or if a query
-    SerializationFailed { source: serde_json::Error },
+    SerializationFailed {
+        source: serde_json::Error,
+    },
 
     /// Returned if Warpgrapher fails to find an element within a schema, such as a type or
     /// property. This is very unlikely to be returned as a result of problems with inputs to the
     /// engine and most likely indicates an internal bug. Thus, if you happen to see it, please
     /// open an issue at the Warpgrapher project.  The field is the name of the schema element that
     /// could not be fiound.
-    SchemaItemNotFound { name: String },
+    SchemaItemNotFound {
+        name: String,
+    },
 
     /// When the Warpgrapher client sends queries to a local instance of a Warpgrapher engine,
     /// it runs the engine in a separate thread, where it can have its own tokio execution context.
     /// This error indicates an error in receiving the query answer from the engine thread.
-    ThreadCommunicationFailed { source: std::sync::mpsc::RecvError },
+    ThreadCommunicationFailed {
+        source: std::sync::mpsc::RecvError,
+    },
 
     /// Returned if a transaction is used after it is committed or rolled back.
     TransactionFinished,
@@ -174,7 +218,10 @@ pub enum Error {
     /// relaying data between GraphQL and database back-ends. If data fails to convert successfully,
     /// this error is thrown. The `src` field contains the source type name or value that could not
     /// be converted.
-    TypeConversionFailed { src: String, dst: String },
+    TypeConversionFailed {
+        src: String,
+        dst: String,
+    },
 
     /// Returned in multiple circumstances if the type information associated with a [`Value`] is
     /// inconsistent with the type required. Examples include:
@@ -194,15 +241,21 @@ pub enum Error {
     TypeNotExpected,
 
     /// Returned if the String argument for an id cannot be parsed into a UUID
-    UuidNotParsed { source: uuid::Error },
+    UuidNotParsed {
+        source: uuid::Error,
+    },
 
     /// This error is returned by a custom input validator when the validation fails. The message
     /// String describes the reason the field failed validation.
-    ValidationFailed { message: String },
+    ValidationFailed {
+        message: String,
+    },
 
     /// Returned if a custom input validator is defined, but the corresponding validator is not
     /// provided. The `name` field contains the name of the validator that wasn't found.
-    ValidatorNotFound { name: String },
+    ValidatorNotFound {
+        name: String,
+    },
 }
 
 impl Display for Error {

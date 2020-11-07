@@ -21,6 +21,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+#[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fmt::Debug;
 use uuid::Uuid;
@@ -209,14 +210,15 @@ impl DatabaseEndpoint for GremlinEndpoint {
             options_builder = options_builder.credentials(user, pass);
         }
         if self.use_tls {
-            options_builder = options_builder
-                .ssl(true)
-                .tls_options(TlsOptions {
-                    accept_invalid_certs: self.accept_invalid_certs
-                });
+            options_builder = options_builder.ssl(true).tls_options(TlsOptions {
+                accept_invalid_certs: self.accept_invalid_certs,
+            });
         }
         let options = options_builder.build();
-        Ok(DatabasePool::Gremlin((GremlinClient::connect(options)?, self.uuid)))
+        Ok(DatabasePool::Gremlin((
+            GremlinClient::connect(options)?,
+            self.uuid,
+        )))
     }
 }
 
@@ -1324,26 +1326,34 @@ impl TryFrom<VertexProperty> for Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{CosmosEndpoint, GremlinEndpoint, GremlinTransaction};
+    #[cfg(feature = "cosmos")]
+    use super::CosmosEndpoint;
+    #[cfg(feature = "gremlin")]
+    use super::GremlinEndpoint;
+    use super::GremlinTransaction;
 
+    #[cfg(feature = "cosmos")]
     #[test]
     fn test_cosmos_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<CosmosEndpoint>();
     }
 
+    #[cfg(feature = "cosmos")]
     #[test]
     fn test_cosmos_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
         assert_sync::<CosmosEndpoint>();
     }
 
+    #[cfg(feature = "gremlin")]
     #[test]
     fn test_gremlin_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<GremlinEndpoint>();
     }
 
+    #[cfg(feature = "gremlin")]
     #[test]
     fn test_gremlin_endpoint_sync() {
         fn assert_sync<T: Sync>() {}

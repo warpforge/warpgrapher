@@ -133,7 +133,7 @@ cargo test --features cosmos -- --test-threads=1
 For Gremlin-based DBs:
 
 ```bash
-cargo test --features gremlin -- --test-threads=1
+cargo test --features gremlin --tests -- --test-threads=1
 ```
 
 For Neo4J:
@@ -145,7 +145,7 @@ cargo test --features neo4j -- --test-threads=1
 For all databases:
 
 ```bash
-cargo test --all-features -- --test-threads=1
+cargo test --all-features --tests -- --test-threads=1
 ```
 
 Enable full logging and stack traces when running tests:

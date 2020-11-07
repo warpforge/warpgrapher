@@ -2,16 +2,16 @@
 
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::{Engine, Error};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use inflector::Inflector;
 use juniper::http::GraphQLRequest;
 use log::{debug, trace};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-use std::str::FromStr;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -63,21 +63,23 @@ where
     /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     /// ```
     pub fn new_with_http(
-        endpoint: &str, 
-        headers_opt: Option<HashMap<&str,&str>>
-    ) -> Result <Client<(), ()>, Error> {
+        endpoint: &str,
+        headers_opt: Option<HashMap<&str, &str>>,
+    ) -> Result<Client<(), ()>, Error> {
         trace!("Client::new_with_http called -- endpoint: {}", endpoint);
 
         let mut header_map = HeaderMap::new();
         if let Some(headers) = headers_opt {
-            for (key,value) in headers {
-                let header_name = HeaderName::from_str(key).map_err(|e| Error::InvalidHeaderName { source: e } )?;
-                let header_value = HeaderValue::from_str(value).map_err(|e| Error::InvalidHeaderValue { source: e } )?;
+            for (key, value) in headers {
+                let header_name = HeaderName::from_str(key)
+                    .map_err(|e| Error::InvalidHeaderName { source: e })?;
+                let header_value = HeaderValue::from_str(value)
+                    .map_err(|e| Error::InvalidHeaderValue { source: e })?;
                 header_map.insert(header_name, header_value);
             }
         }
 
-        Ok( Client::Http {
+        Ok(Client::Http {
             endpoint: endpoint.to_string(),
             headers: header_map,
         })
@@ -435,7 +437,12 @@ where
         );
 
         let query = Client::<(), ()>::fmt_delete_node_query(type_name);
-        let input = json!({"match": match_input, "delete": delete_input});
+        let input = if let Some(di) = delete_input {
+            json!({"match": match_input, "delete": di})
+        } else {
+            json!({ "match": match_input })
+        };
+        // let input = json!({"match": match_input, "delete": delete_input});
         let result_field = type_name.to_string() + "Delete";
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
