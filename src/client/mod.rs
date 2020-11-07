@@ -2,16 +2,16 @@
 
 use crate::engine::context::{GlobalContext, RequestContext};
 use crate::{Engine, Error};
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use inflector::Inflector;
 use juniper::http::GraphQLRequest;
 use log::{debug, trace};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::str::FromStr;
 use std::sync::mpsc;
 use std::thread;
-use std::str::FromStr;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -28,7 +28,7 @@ use std::str::FromStr;
 /// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
-pub enum Client<GlobalCtx = (), RequestCtx = ()>
+pub enum Client<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -39,6 +39,7 @@ where
     },
     Local {
         engine: Box<Engine<GlobalCtx, RequestCtx>>,
+        metadata: Option<HashMap<String, String>>,
     },
 }
 
@@ -63,21 +64,23 @@ where
     /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     /// ```
     pub fn new_with_http(
-        endpoint: &str, 
-        headers_opt: Option<HashMap<&str,&str>>
-    ) -> Result <Client<(), ()>, Error> {
+        endpoint: &str,
+        headers_opt: Option<HashMap<&str, &str>>,
+    ) -> Result<Client<(), ()>, Error> {
         trace!("Client::new_with_http called -- endpoint: {}", endpoint);
 
         let mut header_map = HeaderMap::new();
         if let Some(headers) = headers_opt {
-            for (key,value) in headers {
-                let header_name = HeaderName::from_str(key).map_err(|e| Error::InvalidHeaderName { source: e } )?;
-                let header_value = HeaderValue::from_str(value).map_err(|e| Error::InvalidHeaderValue { source: e } )?;
+            for (key, value) in headers {
+                let header_name = HeaderName::from_str(key)
+                    .map_err(|e| Error::InvalidHeaderName { source: e })?;
+                let header_value = HeaderValue::from_str(value)
+                    .map_err(|e| Error::InvalidHeaderValue { source: e })?;
                 header_map.insert(header_name, header_value);
             }
         }
 
-        Ok( Client::Http {
+        Ok(Client::Http {
             endpoint: endpoint.to_string(),
             headers: header_map,
         })
@@ -99,15 +102,18 @@ where
     /// let c = Configuration::new(1, Vec::new(), Vec::new());
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
-    /// let mut client = Client::<(), ()>::new_with_engine(engine);
+    /// let mut client = Client::<(), ()>::new_with_engine(engine, None);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new_with_engine(engine: Engine<GlobalCtx, RequestCtx>) -> Client<GlobalCtx, RequestCtx> {
+    pub fn new_with_engine(
+        engine: Engine<GlobalCtx, RequestCtx>,
+        metadata: Option<HashMap<String, String>>,
+    ) -> Client<GlobalCtx, RequestCtx> {
         trace!("Client::new_with_engine called");
-
         Client::Local {
             engine: Box::new(engine),
+            metadata,
         }
     }
 
@@ -190,11 +196,11 @@ where
                     .await?;
                 response.json::<serde_json::Value>().await?
             }
-            Client::Local { engine } => {
+            Client::Local { engine, metadata } => {
+                let metadata: HashMap<String, String> = metadata.clone().unwrap_or_default();
                 let engine = engine.clone();
                 let (tx, rx) = mpsc::channel();
                 thread::spawn(move || {
-                    let metadata: HashMap<String, String> = HashMap::new();
                     let result = from_value::<GraphQLRequest>(req_body)
                         .map_err(|e| e.into())
                         .and_then(|req| engine.execute(&req, &metadata));
@@ -921,11 +927,15 @@ where
     }
 }
 
-impl Display for Client {
+impl<G, R> Display for Client<G, R>
+where
+    G: GlobalContext,
+    R: RequestContext,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Self::Http { endpoint, .. } => write!(f, "{}", endpoint),
-            Self::Local { engine } => write!(f, "{}", engine),
+            Self::Http { endpoint, headers } => write!(f, "{}, metadata = {:#?}", endpoint, headers),
+            Self::Local { engine, metadata } => write!(f, "{}, metadata = {:#?}", engine, metadata),
         }
     }
 }

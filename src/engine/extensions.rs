@@ -1,6 +1,8 @@
 //! Contains types and functions for application specific extensions to the Warpgrapher framework.
 
 use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::database::DatabasePool;
+
 use std::collections::hash_map::HashMap;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -15,6 +17,7 @@ use std::sync::Arc;
 /// # use std::collections::HashMap;
 /// # use std::marker::PhantomData;
 /// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::database::DatabasePool;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
@@ -36,9 +39,11 @@ use std::sync::Arc;
 ///
 ///    fn pre_request_hook(
 ///         &self,
+///         _op_name: Option<String>,
 ///         _global_ctx: Option<&GlobalCtx>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
+///         _db_pool: DatabasePool
 ///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
 ///        Ok(request_ctx)
@@ -52,9 +57,11 @@ where
 {
     fn pre_request_hook(
         &self,
+        _op_name: Option<String>,
         _global_ctx: Option<&GlobalCtx>,
         request_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
+        _db_pool: DatabasePool,
     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
         Ok(request_ctx)
     }
@@ -78,6 +85,7 @@ where
 /// # use std::marker::PhantomData;
 /// # use std::sync::Arc;
 /// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::database::DatabasePool;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
@@ -99,9 +107,11 @@ where
 ///
 ///    fn pre_request_hook(
 ///         &self,
+///         _op_name: Option<String>,
 ///         _global_ctx: Option<&GlobalCtx>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
+///         _db_pool: DatabasePool
 ///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
 ///        Ok(request_ctx)

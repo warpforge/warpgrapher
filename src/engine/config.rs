@@ -419,6 +419,39 @@ impl Endpoint {
     }
 }
 
+impl TryFrom<&str> for Endpoint {
+    type Error = Error;
+
+    /// Creates a new Endpoint struct from a yaml-formatted string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
+    /// string is improperly formatted.
+    ///
+    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
+    /// [`Error`]: ../../error/enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use warpgrapher::engine::config::{Endpoint};
+    ///
+    /// use std::convert::TryFrom;
+    /// let t = Endpoint::try_from("
+    /// name: RegisterUser
+    /// class: Mutation
+    /// input:
+    ///   type: UserInput
+    /// output:
+    ///   type: User
+    /// ").unwrap();
+    /// ```
+    fn try_from(yaml: &str) -> Result<Endpoint, Error> {
+        serde_yaml::from_str(yaml).map_err(|e| Error::YamlDeserializationFailed { source: e })
+    }
+}
+
 /// Determines whether a custom GraphQL endpoint is a query or mutation endpoint
 ///
 /// # Examples
@@ -1298,7 +1331,7 @@ impl TryFrom<&str> for Type {
     /// ").unwrap();
     /// ```
     fn try_from(yaml: &str) -> Result<Type, Error> {
-        serde_yaml::from_str(yaml).map_err(|e| Error::DeserializationFailed { source: e })
+        serde_yaml::from_str(yaml).map_err(|e| Error::YamlDeserializationFailed { source: e })
     }
 }
 
