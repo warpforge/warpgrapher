@@ -65,7 +65,7 @@ pub enum DatabasePool {
 
 impl DatabasePool {
     #[cfg(feature = "neo4j")]
-    pub(crate) fn neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
+    pub fn neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
         match self {
             DatabasePool::Neo4j(pool) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),
@@ -73,7 +73,7 @@ impl DatabasePool {
     }
 
     #[cfg(feature = "cosmos")]
-    pub(crate) fn cosmos(&self) -> Result<&GremlinClient, Error> {
+    pub fn cosmos(&self) -> Result<&GremlinClient, Error> {
         match self {
             DatabasePool::Cosmos(pool) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),
@@ -81,7 +81,7 @@ impl DatabasePool {
     }
 
     #[cfg(feature = "gremlin")]
-    pub(crate) fn gremlin(&self) -> Result<&GremlinClient, Error> {
+    pub fn gremlin(&self) -> Result<&GremlinClient, Error> {
         match self {
             DatabasePool::Gremlin((pool, _)) => Ok(pool),
             _ => Err(Error::DatabaseNotFound {}),

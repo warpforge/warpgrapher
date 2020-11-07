@@ -8,7 +8,7 @@ This guide will walk you through creating a brand new project using the Warpgrap
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.4.0", features = ["neo4j"] }
+warpgrapher = { version = "0.5.0", features = ["neo4j"] }
 ```
 
 `src/main.rs`

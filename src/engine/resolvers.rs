@@ -9,6 +9,7 @@ use crate::engine::value::Value;
 use crate::Error;
 use inflector::Inflector;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputValue};
 
@@ -78,6 +79,54 @@ where
             partition_key_opt,
             executor,
         }
+    }
+
+    /// Returns the resolver input deserialized into a structure of type T that
+    /// implements the serde `Deserialize` trait.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error]` variant [`InputNotFound`] if no input field was passed
+    /// to the query, [`TypeConversionFailed`] if unable to convert a [`Value`]
+    /// to a serde_json Value, and [`JsonDeserializationFaild`] if unable to parse the
+    /// input data into a struct of type T.
+    ///
+    /// [`Error`]: ../../error/enum.Error.html
+    /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
+    /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
+    /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
+    /// [`Value`]: ./value/enum.Value.html
+    pub fn input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        let json_value : serde_json::Value = self.args().get::<Value>("input")
+            .ok_or_else(|| { Error::InputItemNotFound { name: "input".to_string() } })
+            .and_then(|value: Value| { serde_json::Value::try_from(value) })
+            .map_err(|_| { Error::TypeConversionFailed {
+                src: "warpgrapher::Value".to_string(),
+                dst: "serde_json::Value".to_string(),
+            }})?;
+        let parsed_input : T = serde_json::from_value(json_value)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
+        Ok(parsed_input)
+    }
+
+    /// Returns the execution metadata that was passed to the engine. If no metadata was
+    /// passed to the engine's `execute` method, an empty HashMap is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use tokio::runtime::Runtime;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    ///     let execution_metadata = facade.metadata();
+    ///     // use metadata
+    ///     
+    ///     facade.resolve_null()
+    /// }
+    /// ```
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        self.executor.context().metadata()
     }
 
     /// Returns a neo4j database driver from the pool.

@@ -6,6 +6,7 @@ use crate::engine::resolvers::{ResolverFunc, Resolvers};
 use crate::engine::validators::Validators;
 use crate::Error;
 use juniper::Context;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::slice::Iter;
@@ -19,6 +20,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ```rust,no_run
+/// # use std::collections::HashMap;
 /// # #[cfg(feature = "neo4j")]
 /// # use tokio::runtime::Runtime;
 /// # #[cfg(feature = "neo4j")]
@@ -45,6 +47,7 @@ use std::sync::Arc;
 ///     Some(()),
 ///     Some(()),
 ///     None,
+///     HashMap::new()
 /// );
 /// # Ok(())
 /// # }
@@ -61,6 +64,7 @@ where
     global_ctx: Option<GlobalCtx>,
     request_ctx: Option<RequestCtx>,
     version: Option<String>,
+    metadata: HashMap<String, String>,
 }
 
 impl<GlobalCtx, RequestCtx> GraphQLContext<GlobalCtx, RequestCtx>
@@ -98,6 +102,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -124,10 +129,12 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     None,
+    ///     HashMap::new()
     /// );
     /// # Ok(())
     /// # }
     /// ```
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: DatabasePool,
         resolvers: Resolvers<GlobalCtx, RequestCtx>,
@@ -136,6 +143,7 @@ where
         global_ctx: Option<GlobalCtx>,
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
+        metadata: HashMap<String, String>,
     ) -> GraphQLContext<GlobalCtx, RequestCtx> {
         GraphQLContext {
             pool,
@@ -145,6 +153,7 @@ where
             global_ctx,
             request_ctx,
             version,
+            metadata,
         }
     }
 
@@ -153,6 +162,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -179,6 +189,7 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     None,
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -202,6 +213,7 @@ where
     /// ```rust,no_run
     /// # #[cfg(feature = "neo4j")]
     /// use bolt_proto::Message;
+    /// use std::collections::HashMap;
     /// use std::iter::FromIterator;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
@@ -256,6 +268,7 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     None,
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -277,6 +290,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -303,6 +317,7 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     None,
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -319,6 +334,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -345,6 +361,7 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -362,6 +379,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// # use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -388,6 +406,7 @@ where
     ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -434,6 +453,7 @@ where
     /// }
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
@@ -449,6 +469,7 @@ where
     ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -465,6 +486,7 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use std::collections::HashMap;
     /// # #[cfg(feature = "neo4j")]
     /// use tokio::runtime::Runtime;
     /// # #[cfg(feature = "neo4j")]
@@ -510,6 +532,7 @@ where
     ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
+    ///     HashMap::new()
     /// );
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -519,6 +542,10 @@ where
     /// ```
     pub fn request_context(&self) -> Option<&RequestCtx> {
         self.request_ctx.as_ref()
+    }
+
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
     }
 }
 
@@ -604,6 +631,7 @@ mod tests {
     use crate::engine::database::DatabaseEndpoint;
     use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
+    use std::collections::HashMap;
     use tokio::runtime::Runtime;
 
     /// Passes if the pool can be created without panicking
@@ -624,6 +652,7 @@ mod tests {
             Some(()),
             Some(()),
             None,
+            HashMap::<String, String>::new(),
         );
     }
 }

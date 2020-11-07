@@ -10,12 +10,14 @@
 //! * [Cargo Crate](https://crates.io/crates/warpgrapher)
 //! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.4.0")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.5.0")]
 
 #[cfg(feature = "neo4j")]
 pub use bolt_client;
 #[cfg(feature = "neo4j")]
 pub use bolt_proto;
+#[cfg(feature = "gremlin")]
+pub use gremlin_client;
 pub use juniper;
 
 pub use client::Client;

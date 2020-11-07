@@ -28,7 +28,7 @@ use std::thread;
 /// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
-pub enum Client<GlobalCtx = (), RequestCtx = ()>
+pub enum Client<GlobalCtx, RequestCtx>
 where
     GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
@@ -39,6 +39,7 @@ where
     },
     Local {
         engine: Box<Engine<GlobalCtx, RequestCtx>>,
+        metadata: Option<HashMap<String, String>>,
     },
 }
 
@@ -101,15 +102,18 @@ where
     /// let c = Configuration::new(1, Vec::new(), Vec::new());
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
-    /// let mut client = Client::<(), ()>::new_with_engine(engine);
+    /// let mut client = Client::<(), ()>::new_with_engine(engine, None);
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new_with_engine(engine: Engine<GlobalCtx, RequestCtx>) -> Client<GlobalCtx, RequestCtx> {
+    pub fn new_with_engine(
+        engine: Engine<GlobalCtx, RequestCtx>,
+        metadata: Option<HashMap<String, String>>,
+    ) -> Client<GlobalCtx, RequestCtx> {
         trace!("Client::new_with_engine called");
-
         Client::Local {
             engine: Box::new(engine),
+            metadata,
         }
     }
 
@@ -192,11 +196,11 @@ where
                     .await?;
                 response.json::<serde_json::Value>().await?
             }
-            Client::Local { engine } => {
+            Client::Local { engine, metadata } => {
+                let metadata: HashMap<String, String> = metadata.clone().unwrap_or_default();
                 let engine = engine.clone();
                 let (tx, rx) = mpsc::channel();
                 thread::spawn(move || {
-                    let metadata: HashMap<String, String> = HashMap::new();
                     let result = from_value::<GraphQLRequest>(req_body)
                         .map_err(|e| e.into())
                         .and_then(|req| engine.execute(&req, &metadata));
@@ -928,11 +932,15 @@ where
     }
 }
 
-impl Display for Client {
+impl<G, R> Display for Client<G, R>
+where
+    G: GlobalContext,
+    R: RequestContext,
+{
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
         match self {
-            Self::Http { endpoint, .. } => write!(f, "{}", endpoint),
-            Self::Local { engine } => write!(f, "{}", engine),
+            Self::Http { endpoint, headers } => write!(f, "{}, metadata = {:#?}", endpoint, headers),
+            Self::Local { engine, metadata } => write!(f, "{}, metadata = {:#?}", engine, metadata),
         }
     }
 }

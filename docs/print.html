@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Warpgrapher Book (0.4.0)</title>
+        <title>Warpgrapher Book (0.5.0)</title>
         
         <meta name="robots" content="noindex" />
         
@@ -129,7 +129,7 @@
                         
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.4.0)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.5.0)</h1>
 
                     <div class="right-buttons">
                         
@@ -184,7 +184,7 @@ GraphQL configuration and invoke your custom resolvers when appropriate.</p>
 <h2><a class="header" href="#source" id="source">Source</a></h2>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.4.0&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.5.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p><code>src/main.rs</code></p>
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
@@ -273,7 +273,7 @@ with the database.</p>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.4.0&quot;, features = [&quot;cosmos&quot;] }
+warpgrapher = { version = &quot;0.5.0&quot;, features = [&quot;cosmos&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -294,7 +294,7 @@ could leave partially applied results behind.</p>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.4.0&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.5.0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -326,7 +326,7 @@ docker run -i --net=host --rm gremlin-console:latest
 <h2><a class="header" href="#neo4j" id="neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.4.0&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.5.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
@@ -1032,7 +1032,7 @@ fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; 
     facade.resolve_scalar(tenant_id)
 </code></pre>
 <h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
-<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.4.0/examples/global_context/main.rs">Github</a>.</p>
+<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/global_context/main.rs">Github</a>.</p>
 <h1><a class="header" href="#request-context" id="request-context">Request Context</a></h1>
 <p>The Request Context feature enables the creation of <strong>mutable state through the lifecycle of a request</strong>.</p>
 <h3><a class="header" href="#usage-4" id="usage-4">Usage</a></h3>
@@ -1068,7 +1068,7 @@ fn main() {
     // parse warpgrapher config
 </code></pre>
 <h3><a class="header" href="#full-example-1" id="full-example-1">Full Example</a></h3>
-<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.4.0/examples/request_context/main.rs">Github</a>.</p>
+<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/request_context/main.rs">Github</a>.</p>
 
                     </main>
 
