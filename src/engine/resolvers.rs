@@ -103,7 +103,7 @@ where
             .ok_or_else(|| Error::InputItemNotFound {
                 name: "input".to_string(),
             })
-            .and_then(|value: Value| serde_json::Value::try_from(value))
+            .and_then(serde_json::Value::try_from)
             .map_err(|_| Error::TypeConversionFailed {
                 src: "warpgrapher::Value".to_string(),
                 dst: "serde_json::Value".to_string(),
