@@ -1335,3 +1335,155 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
 }
+
+#[cfg(feature = "cosmos")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_src_and_dst_prop_cosmos() {
+    init();
+    clear_db().await;
+
+    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_src_and_dst_prop(client).await;
+}
+
+#[cfg(feature = "gremlin")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_src_and_dst_prop_gremlin() {
+    init();
+    clear_db().await;
+
+    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_src_and_dst_prop(client).await;
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn delete_mnmt_rel_by_src_and_dst_prop_neo4j() {
+    init();
+    clear_db().await;
+
+    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    delete_mnmt_rel_by_src_and_dst_prop(client).await;
+}
+
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+    let _p0 = client
+        .create_node(
+            "Project",
+            "__typename name",
+            Some("1234"),
+            &json!({
+                "name": "Project Zero",
+                "issues": [
+                    {
+                        "props": {"since": "yesterday"},
+                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                    },
+                    {
+                        "props": {"since": "today"},
+                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                    }
+                ]
+            }),
+        )
+        .await
+        .unwrap();
+
+    let _p1 = client
+        .create_node(
+            "Project",
+            "__typename name",
+            Some("1234"),
+            &json!({
+                "name": "Project One",
+                "issues": [
+                    {
+                        "props": {"since": "last week"},
+                        "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                    },
+                    {
+                        "props": {"since": "last month"},
+                        "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                    }
+                ]
+            }),
+        )
+        .await
+        .unwrap();
+
+    let _i0 = client
+        .delete_rel(
+            "Project",
+            "issues",
+            Some("1234"),
+            Some(&json!({"src": {"Project": {"name": "Project Zero"}}, 
+                "dst": {"Bug": {"name": "Bug Zero"}}})),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let projects0 = client
+        .read_node(
+            "Project",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            Some(&json!({"name": "Project Zero"})),
+        )
+        .await
+        .unwrap();
+
+    let projects1 = client
+        .read_node(
+            "Project",
+            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            Some(&json!({"name": "Project One"})),
+        )
+        .await
+        .unwrap();
+
+    let projects_a = projects0.as_array().unwrap();
+    let project = &projects_a[0];
+    let issues = project.get("issues").unwrap().as_array().unwrap();
+    assert_eq!(issues.len(), 1);
+    assert!(
+        issues
+            .get(0)
+            .unwrap()
+            .get("dst")
+            .unwrap()
+            .get("__typename")
+            .unwrap()
+            == "Feature"
+    );
+
+    let projects_a = projects1.as_array().unwrap();
+    let project = &projects_a[0];
+
+    let issues = project.get("issues").unwrap().as_array().unwrap();
+    assert_eq!(issues.len(), 2);
+
+    assert!(issues.iter().all(|i| i.is_object()));
+    assert!(issues
+        .iter()
+        .all(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug One"));
+    assert!(issues
+        .iter()
+        .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature One"));
+}
