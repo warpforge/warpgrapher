@@ -33,11 +33,7 @@ async fn custom_input_validator_create() {
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
-    #[allow(clippy::all)]
-    let error = match result {
-        serde_json::Value::Null => true,
-        _ => false,
-    };
+    let error = matches!(result, serde_json::Value::Null);
 
     assert_eq!(error, true);
 
@@ -87,11 +83,7 @@ async fn custom_input_validator_update() {
         .unwrap();
 
     trace!("RESULT: {:#?}", result);
-    #[allow(clippy::all)]
-    let error = match result {
-        serde_json::Value::Null => true,
-        _ => false,
-    };
+    let error = matches!(result, serde_json::Value::Null);
 
     assert_eq!(error, true);
 
