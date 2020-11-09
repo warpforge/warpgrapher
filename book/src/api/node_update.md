@@ -10,7 +10,7 @@ To update the `status` of the `Project` node with `name == "Project 2"`:
 
 ```
 mutation {
-    ProjectCreate(
+    ProjectUpdate(
         input: {
             $MATCH: {
                 name: "Project 2"
@@ -30,7 +30,7 @@ To update the status of any `Project` nodes containing an `owner` relationship t
 
 ```
 mutation {
-    ProjectCreate(
+    ProjectUpdate(
         input: {
             $MATCH: {
                 owner: {

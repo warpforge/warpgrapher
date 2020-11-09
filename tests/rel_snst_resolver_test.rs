@@ -61,7 +61,7 @@ async fn create_snst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"$NEW": {"name": "User Zero"}}}}),
         )
         .await
         .unwrap();
@@ -136,7 +136,7 @@ async fn snst_without_src_no_new_dst(mut client: Client<AppGlobalCtx, AppRequest
             "owner",
             "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"$NEW": {"name": "User Zero"}}}}),
         )
         .await
         .unwrap();
@@ -219,7 +219,7 @@ async fn create_snst_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
             &json!({"name": "Project Zero"}),
             &json!({
                 "props": {"since": "yesterday"},
-                "dst": {"User": {"EXISTING": {"name": "User Zero"}}}
+                "dst": {"User": {"$EXISTING": {"name": "User Zero"}}}
             }),
         )
         .await
@@ -295,7 +295,7 @@ async fn read_snst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -372,7 +372,7 @@ async fn read_snst_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -449,7 +449,7 @@ async fn read_snst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -526,7 +526,7 @@ async fn update_snst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                   "props": {"since": "yesterday"},
-                  "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                  "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -629,7 +629,7 @@ async fn update_snst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -732,7 +732,7 @@ async fn update_snst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                   }
             }),
         )
@@ -835,7 +835,7 @@ async fn delete_snst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                       "props": {"since": "yesterday"},
-                      "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                      "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                     }
             }),
         )
@@ -916,7 +916,7 @@ async fn delete_snst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -997,7 +997,7 @@ async fn delete_snst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project Zero",
                 "owner": {
                     "props": {"since": "yesterday"},
-                    "dst": {"User": {"NEW": {"name": "User Zero"}}}
+                    "dst": {"User": {"$NEW": {"name": "User Zero"}}}
                 }
             }),
         )
@@ -1013,7 +1013,7 @@ async fn delete_snst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "name": "Project One",
                 "owner": {
                     "props": {"since": "today"},
-                    "dst": {"User": {"NEW": {"name": "User One"}}}
+                    "dst": {"User": {"$NEW": {"name": "User One"}}}
                 }
             }),
         )

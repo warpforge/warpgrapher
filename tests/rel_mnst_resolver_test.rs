@@ -61,8 +61,8 @@ async fn create_mnst_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
-                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
+            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"$NEW": {"hash": "00000"}}}},
+                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"$NEW": {"hash": "11111"}}}}])
         )
         .await
         .unwrap();
@@ -201,8 +201,8 @@ async fn create_mnst_rel_existing_node(mut client: Client<AppGlobalCtx, AppReque
             "activity",
             "__typename props{repo} dst{...on Commit{__typename hash}}",Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": "00000"}}}},
-                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": "11111"}}}}])
+            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"$EXISTING": {"hash": "00000"}}}},
+                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"$EXISTING": {"hash": "11111"}}}}])
         )
         .await
         .unwrap();
@@ -304,11 +304,11 @@ async fn read_mnst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -387,11 +387,11 @@ async fn read_mnst_rel_by_src_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -476,11 +476,11 @@ async fn read_mnst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestC
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -559,11 +559,11 @@ async fn update_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -685,11 +685,11 @@ async fn update_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -778,11 +778,11 @@ async fn update_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -904,11 +904,11 @@ async fn delete_mnst_rel_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                       "props": {"repo": "Repo Zero"},
-                      "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                      "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                       "props": {"repo": "Repo One"},
-                      "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                      "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -1007,11 +1007,11 @@ async fn delete_mnst_rel_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                       "props": {"repo": "Repo Zero"},
-                      "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                      "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                       "props": {"repo": "Repo One"},
-                      "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                      "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -1110,11 +1110,11 @@ async fn delete_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                         "props": {"repo": "Repo Zero"},
-                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "00000"}}}
                     },
                     {
                         "props": {"repo": "Repo One"},
-                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "11111"}}}
                     }
                 ]
             }),
@@ -1132,11 +1132,11 @@ async fn delete_mnst_rel_by_src_prop(mut client: Client<AppGlobalCtx, AppRequest
                 "activity": [
                     {
                         "props": {"repo": "Repo Two"},
-                        "dst": {"Commit": {"NEW": {"hash": "22222"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "22222"}}}
                     },
                     {
                         "props": {"repo": "Repo Three"},
-                        "dst": {"Commit": {"NEW": {"hash": "33333"}}}
+                        "dst": {"Commit": {"$NEW": {"hash": "33333"}}}
                     }
                 ]
             }),

@@ -109,7 +109,7 @@ async fn client_rel_crud() {
         .unwrap();
 
     let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234"),
-    &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}}])).await.unwrap();
+    &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"$EXISTING": {"name": "Bug Zero"}}}}])).await.unwrap();
 
     assert!(results.is_array());
     let r0 = &results[0];
