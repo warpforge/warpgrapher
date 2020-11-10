@@ -21,6 +21,7 @@ use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+#[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fmt::Debug;
 use uuid::Uuid;
@@ -1325,26 +1326,34 @@ impl TryFrom<VertexProperty> for Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{CosmosEndpoint, GremlinEndpoint, GremlinTransaction};
+    #[cfg(feature = "cosmos")]
+    use super::CosmosEndpoint;
+    #[cfg(feature = "gremlin")]
+    use super::GremlinEndpoint;
+    use super::GremlinTransaction;
 
+    #[cfg(feature = "cosmos")]
     #[test]
     fn test_cosmos_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<CosmosEndpoint>();
     }
 
+    #[cfg(feature = "cosmos")]
     #[test]
     fn test_cosmos_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
         assert_sync::<CosmosEndpoint>();
     }
 
+    #[cfg(feature = "gremlin")]
     #[test]
     fn test_gremlin_endpoint_send() {
         fn assert_send<T: Send>() {}
         assert_send::<GremlinEndpoint>();
     }
 
+    #[cfg(feature = "gremlin")]
     #[test]
     fn test_gremlin_endpoint_sync() {
         fn assert_sync<T: Sync>() {}
