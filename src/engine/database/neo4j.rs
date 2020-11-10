@@ -632,6 +632,10 @@ impl Transaction for Neo4jTransaction<'_> {
         if let Some(src_query) = src_query_opt {
             match_fragment.push_str(&src_query.0);
             where_fragment.push_str(&src_query.1);
+
+            if dst_query_opt.is_some() {
+                where_fragment.push_str(" AND ");
+            }
         }
 
         if let Some(dst_query) = dst_query_opt {

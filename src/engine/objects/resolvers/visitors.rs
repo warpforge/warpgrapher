@@ -188,12 +188,7 @@ where
             match_query,
             params,
             &node_var,
-            Some(m.remove("delete").ok_or_else(|| {
-                // remove used to take ownership
-                Error::InputItemNotFound {
-                    name: "input::delete".to_string(),
-                }
-            })?),
+            m.remove("delete"), // remove used to take ownership
             ClauseType::Query,
             &Info::new(
                 itd.property("delete")?.type_name().to_owned(),

@@ -5,9 +5,11 @@ use bolt_proto::Message;
 #[cfg(feature = "neo4j")]
 use extension::MetadataExtension;
 use extension::{Metadata, MetadataExtensionCtx};
+#[cfg(feature = "gremlin")]
+use gremlin_client::TlsOptions;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient, TlsOptions};
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
+#[cfg(any(feature = "neo4j"))]
 use log::trace;
 #[cfg(feature = "neo4j")]
 use std::collections::HashMap;
