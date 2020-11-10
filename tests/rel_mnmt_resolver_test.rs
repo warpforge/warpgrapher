@@ -1378,11 +1378,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppGlobalCtx, Ap
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     }
                 ]
             }),
@@ -1400,11 +1400,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppGlobalCtx, Ap
                 "issues": [
                     {
                         "props": {"since": "last week"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                         "props": {"since": "last month"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
