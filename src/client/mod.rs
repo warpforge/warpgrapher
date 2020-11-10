@@ -442,9 +442,9 @@ where
 
         let query = Client::<(), ()>::fmt_delete_node_query(type_name);
         let input = if let Some(di) = delete_input {
-            json!({"match": match_input, "delete": di})
+            json!({"$MATCH": match_input, "$DELETE": di})
         } else {
-            json!({ "match": match_input })
+            json!({ "$MATCH": match_input })
         };
         let result_field = type_name.to_string() + "Delete";
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
