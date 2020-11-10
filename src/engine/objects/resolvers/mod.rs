@@ -1,5 +1,5 @@
 use super::{Input, Node, Rel};
-use crate::engine::context::{GlobalContext, GraphQLContext, RequestContext};
+use crate::engine::context::{GraphQLContext, RequestContext};
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use crate::engine::database::gremlin::GremlinTransaction;
 #[cfg(feature = "neo4j")]
@@ -43,13 +43,13 @@ impl<'r> Resolver<'r> {
         Resolver { partition_key_opt }
     }
 
-    pub(super) fn resolve_custom_endpoint<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_custom_endpoint<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
-        parent: Object<GlobalCtx, RequestCtx>,
+        parent: Object<RequestCtx>,
         args: &Arguments,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_endpoint called -- info.name: {}, field_name: {}",
@@ -71,14 +71,14 @@ impl<'r> Resolver<'r> {
         ))
     }
 
-    pub(super) fn resolve_custom_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_custom_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         resolver: Option<&String>,
-        parent: Object<GlobalCtx, RequestCtx>,
+        parent: Object<RequestCtx>,
         args: &Arguments,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_field called -- info.name: {:#?}, field_name: {:#?}",
@@ -102,14 +102,14 @@ impl<'r> Resolver<'r> {
         ))
     }
 
-    pub(super) fn resolve_custom_rel<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_custom_rel<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         rel_name: &str,
         resolver: Option<&String>,
-        parent: Object<GlobalCtx, RequestCtx>,
+        parent: Object<RequestCtx>,
         args: &Arguments,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_rel called -- info.name: {}, rel_name: {}",
@@ -133,15 +133,12 @@ impl<'r> Resolver<'r> {
         ))
     }
 
-    pub(super) fn resolve_node_create_mutation<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_node_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
@@ -154,7 +151,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let result: Node<GlobalCtx, RequestCtx> = match &executor.context().pool() {
+        let result: Node<RequestCtx> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_node_create_mutation_with_transaction(
                 field_name,
@@ -196,16 +193,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_node_create_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, Error>
+        executor: &Executor<GraphQLContext<RequestCtx>>,
+    ) -> Result<Node<RequestCtx>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -219,7 +215,7 @@ impl<'r> Resolver<'r> {
             "node".to_string(),
             sg.suffix(),
         );
-        let (query, params) = visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_node_create_mutation_input::<T, RequestCtx>(
             HashMap::new(),
             &node_var,
             input.value,
@@ -242,16 +238,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[allow(unused_variables)]
-    pub(super) fn resolve_node_delete_mutation<GlobalCtx, RequestCtx>(
+    pub(super) fn resolve_node_delete_mutation<RequestCtx>(
         &mut self,
         field_name: &str,
         label: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
     {
         trace!(
@@ -303,16 +298,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_node_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         label: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
     ) -> Result<i32, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -324,7 +318,7 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
-        let (query, params) = visit_node_delete_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_node_delete_input::<T, RequestCtx>(
             HashMap::new(),
             &node_var,
             input.value,
@@ -344,12 +338,12 @@ impl<'r> Resolver<'r> {
         results
     }
 
-    pub(super) fn resolve_node_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_node_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input_opt: Option<Input<RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
@@ -361,7 +355,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+        let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_node_read_query_with_transaction(
                 field_name,
@@ -408,15 +402,14 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_node_read_query_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -469,15 +462,12 @@ impl<'r> Resolver<'r> {
         results
     }
 
-    pub(super) fn resolve_node_update_mutation<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
@@ -489,7 +479,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Node<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+        let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_node_update_mutation_with_transaction(
                 field_name,
@@ -532,16 +522,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_node_update_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+        executor: &Executor<GraphQLContext<RequestCtx>>,
+    ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -550,7 +539,7 @@ impl<'r> Resolver<'r> {
         let itd = p.input_type_definition(info)?;
 
         transaction.begin()?;
-        let (query, params) = visit_node_update_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_node_update_input::<T, RequestCtx>(
             HashMap::new(),
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
@@ -575,17 +564,14 @@ impl<'r> Resolver<'r> {
         result
     }
 
-    pub(super) fn resolve_rel_create_mutation<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -598,7 +584,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match &executor.context().pool() {
+        let results: Vec<Rel<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_create_mutation_with_transaction(
                 field_name,
@@ -643,18 +629,17 @@ impl<'r> Resolver<'r> {
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_create_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_rel_create_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+        executor: &Executor<GraphQLContext<RequestCtx>>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -669,7 +654,7 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
         transaction.begin()?;
-        let (query, params) = visit_rel_create_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_rel_create_input::<T, RequestCtx>(
             HashMap::new(),
             &src_var,
             rel_name,
@@ -700,17 +685,14 @@ impl<'r> Resolver<'r> {
         result
     }
 
-    pub(super) fn resolve_rel_delete_mutation<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -759,17 +741,16 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_rel_delete_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
     ) -> Result<i32, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -786,7 +767,7 @@ impl<'r> Resolver<'r> {
         );
 
         transaction.begin()?;
-        let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
             HashMap::new(),
             &rel_var,
             input.value,
@@ -807,12 +788,12 @@ impl<'r> Resolver<'r> {
         results
     }
 
-    pub(super) fn resolve_rel_props<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_rel_props<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
-        props: &Node<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        props: &Node<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
@@ -829,13 +810,13 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    pub(super) fn resolve_rel_read_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_rel_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         rel_name: &str,
         info: &Info,
-        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input_opt: Option<Input<RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
@@ -850,7 +831,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+        let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
                 field_name,
@@ -914,16 +895,15 @@ impl<'r> Resolver<'r> {
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_read_query_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_rel_read_query_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         rel_name: &str,
         info: &Info,
-        input_opt: Option<Input<GlobalCtx, RequestCtx>>,
+        input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -983,17 +963,14 @@ impl<'r> Resolver<'r> {
         results
     }
 
-    pub(super) fn resolve_rel_update_mutation<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        input: Input<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -1007,7 +984,7 @@ impl<'r> Resolver<'r> {
         let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Rel<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+        let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_rel_update_mutation_with_transaction(
                 field_name,
@@ -1052,18 +1029,17 @@ impl<'r> Resolver<'r> {
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_update_mutation_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_rel_update_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<GlobalCtx, RequestCtx>,
+        input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>
+        executor: &Executor<GraphQLContext<RequestCtx>>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {
@@ -1082,7 +1058,7 @@ impl<'r> Resolver<'r> {
         );
 
         transaction.begin()?;
-        let (query, params) = visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
+        let (query, params) = visit_rel_update_input::<T, RequestCtx>(
             HashMap::new(),
             &rel_var,
             props_prop.map(|_| p.type_name()).ok(),
@@ -1110,12 +1086,12 @@ impl<'r> Resolver<'r> {
         results
     }
 
-    pub(super) fn resolve_scalar_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_scalar_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         fields: &HashMap<String, Value>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_scalar_field called -- info.name: {}, field_name: {}",
@@ -1175,12 +1151,9 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    pub(super) fn resolve_static_version_query<
-        GlobalCtx: GlobalContext,
-        RequestCtx: RequestContext,
-    >(
+    pub(super) fn resolve_static_version_query<RequestCtx: RequestContext>(
         &mut self,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         match &executor.context().version() {
             Some(v) => Ok(juniper::Value::scalar(v.to_string())),
@@ -1188,13 +1161,13 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    pub(super) fn resolve_union_field<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_union_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         dst_label: &str,
         field_name: &str,
         dst_id: &Value,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
@@ -1205,7 +1178,7 @@ impl<'r> Resolver<'r> {
 
         #[cfg(feature = "neo4j")]
         let mut runtime = Runtime::new()?;
-        let results: Vec<Node<GlobalCtx, RequestCtx>> = match executor.context().pool() {
+        let results: Vec<Node<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
             DatabasePool::Cosmos(c) => self.resolve_union_field_with_transaction(
                 info,
@@ -1242,12 +1215,12 @@ impl<'r> Resolver<'r> {
         )
     }
 
-    pub(super) fn resolve_union_field_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    pub(super) fn resolve_union_field_node<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
-        dst: &Node<GlobalCtx, RequestCtx>,
-        executor: &Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        dst: &Node<RequestCtx>,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!("Resolver::resolve_union_field_node called -- info.name: {}, field_name: {}, dst: {:#?}", info.name(), field_name, dst);
 
@@ -1258,16 +1231,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_union_field_with_transaction<GlobalCtx, RequestCtx, T>(
+    pub(super) fn resolve_union_field_with_transaction<RequestCtx, T>(
         &mut self,
         info: &Info,
         dst_label: &str,
         field_name: &str,
         dst_id: &Value,
         transaction: &mut T,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>
+    ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
-        GlobalCtx: GlobalContext,
         RequestCtx: RequestContext,
         T: Transaction,
     {

@@ -20,7 +20,7 @@ model:
       resolver: resolve_project_points
 ";
 
-fn resolve_project_points(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+fn resolve_project_points(facade: ResolverFacade<()>) -> ExecutionResult {
     // compute value
     let points = 5;
 
@@ -42,14 +42,14 @@ fn main() {
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
-    let mut resolvers = Resolvers::<(), ()>::new();
+    let mut resolvers = Resolvers::<()>::new();
     resolvers.insert(
         "resolve_project_points".to_string(),
         Box::new(resolve_project_points),
     );
 
     // create warpgrapher engine
-    let engine: Engine<(), ()> = Engine::new(config, db)
+    let engine: Engine<()> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

@@ -1,6 +1,6 @@
 //! Provides database interface types and functions for Neo4J databases.
 
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::database::{
     env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar,
     SuffixGenerator, Transaction,
@@ -203,10 +203,10 @@ impl<'t> Neo4jTransaction<'t> {
             .collect::<Result<HashMap<String, Value>, Error>>()
     }
 
-    fn nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn nodes<RequestCtx: RequestContext>(
         records: Vec<Record>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::nodes called -- records: {:#?}", records);
 
         records
@@ -229,11 +229,11 @@ impl<'t> Neo4jTransaction<'t> {
             .collect()
     }
 
-    fn rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rels<RequestCtx: RequestContext>(
         records: Vec<Record>,
         partition_key_opt: Option<&Value>,
         props_type_name: Option<&str>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::rels called -- records: {:#?}", records);
 
         records
@@ -281,7 +281,7 @@ impl<'t> Neo4jTransaction<'t> {
                     },
                 ))
             })
-            .collect::<Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>>()
+            .collect::<Result<Vec<Rel<RequestCtx>>, Error>>()
     }
 }
 
@@ -297,7 +297,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
-    fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_create_query<RequestCtx: RequestContext>(
         &mut self,
         rel_create_fragments: Vec<String>,
         mut params: HashMap<String, Value>,
@@ -345,13 +345,13 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok((query, params))
     }
 
-    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_node<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
+    ) -> Result<Node<RequestCtx>, Error> {
         trace!(
             "Neo4jTransaction::create_node called -- query: {}, params: {:#?}",
             query,
@@ -374,7 +374,7 @@ impl Transaction for Neo4jTransaction<'_> {
             .ok_or_else(|| Error::ResponseSetNotFound)
     }
 
-    fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_fragment<RequestCtx: RequestContext>(
         &mut self,
         dst_query: &str,
         mut params: HashMap<String, Value>,
@@ -427,7 +427,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok((query, params))
     }
 
-    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_query<RequestCtx: RequestContext>(
         &mut self,
         src_query_opt: Option<String>,
         rel_create_fragments: Vec<String>,
@@ -469,13 +469,13 @@ impl Transaction for Neo4jTransaction<'_> {
         ))
     }
 
-    fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::create_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
 
@@ -585,13 +585,13 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok((query, params))
     }
 
-    fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params_opt: Option<HashMap<String, Value>>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!(
             "Neo4jTransaction::read_nodes called -- query: {}, params_opt: {:#?}, info.name: {}",
             query,
@@ -703,13 +703,13 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
-    fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params_opt: Option<HashMap<String, Value>>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::read_rels called -- query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}, params_opt: {:#?}",
         query, props_type_name, partition_key_opt, params_opt);
 
@@ -729,7 +729,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         change_queries: Vec<String>,
@@ -762,13 +762,13 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok((query, params))
     }
 
-    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!(
             "Neo4jTransaction::update_nodes called: query: {}, params: {:#?}",
             query,
@@ -788,7 +788,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         mut params: HashMap<String, Value>,
@@ -816,13 +816,13 @@ impl Transaction for Neo4jTransaction<'_> {
         ))
     }
 
-    fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::update_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
         let p = Params::from(params);
@@ -1020,9 +1020,8 @@ impl From<Value> for bolt_proto::value::Value {
     }
 }
 
-impl<GlobalCtx, RequestCtx> TryFrom<bolt_proto::value::Value> for Node<GlobalCtx, RequestCtx>
+impl<RequestCtx> TryFrom<bolt_proto::value::Value> for Node<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     type Error = crate::Error;

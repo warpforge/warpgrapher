@@ -6,7 +6,7 @@ use super::config::{
     Configuration, Endpoint, EndpointClass, GraphqlType, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
@@ -56,8 +56,7 @@ impl Info {
     }
 }
 
-pub(super) type RootRef<GlobalCtx, RequestCtx> =
-    Arc<RootNode<'static, Node<GlobalCtx, RequestCtx>, Node<GlobalCtx, RequestCtx>>>;
+pub(super) type RootRef<RequestCtx> = Arc<RootNode<'static, Node<RequestCtx>, Node<RequestCtx>>>;
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) enum ArgumentKind {
@@ -2122,11 +2121,8 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
 /// [`Error`]: ../error/struct.Error.html
 /// [`CouldNotResolveType`]: ../error/enum.ErrorKind.html#variant.CouldNotResolveType
 ///
-pub(super) fn create_root_node<GlobalCtx, RequestCtx>(
-    c: &Configuration,
-) -> Result<RootRef<GlobalCtx, RequestCtx>, Error>
+pub(super) fn create_root_node<RequestCtx>(c: &Configuration) -> Result<RootRef<RequestCtx>, Error>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     // Runtime performance could be optimized by generating the entirety of the
