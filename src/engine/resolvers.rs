@@ -91,7 +91,7 @@ where
     /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
     /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
-    /// [`Value`]: ./value/enum.Value.html
+    /// [`Value`]: ../value/enum.Value.html
     pub fn input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let json_value: serde_json::Value = self
             .args()

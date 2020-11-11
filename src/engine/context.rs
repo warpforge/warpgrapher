@@ -523,7 +523,7 @@ mod tests {
     /// Passes if the pool can be created without panicking
     #[test]
     fn engine_new() {
-        let mut runtime = Runtime::new().expect("Expected new runtime.");
+        let runtime = Runtime::new().expect("Expected new runtime.");
 
         let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
         let resolvers: Resolvers<()> = Resolvers::new();
