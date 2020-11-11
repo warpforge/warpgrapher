@@ -3,7 +3,7 @@
 
 use super::error::Error;
 use config::Configuration;
-use context::{GlobalContext, GraphQLContext, RequestContext};
+use context::{GraphQLContext, RequestContext};
 use database::DatabasePool;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
@@ -35,65 +35,28 @@ pub mod value;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// let config = Configuration::default();
-/// let engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
 ///
 /// # Ok(())
 /// # }
 /// ```
 #[derive(Clone, Default)]
-pub struct EngineBuilder<GlobalCtx = (), RequestCtx = ()>
+pub struct EngineBuilder<RequestCtx = ()>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     config: Configuration,
     db_pool: DatabasePool,
-    extensions: Extensions<GlobalCtx, RequestCtx>,
-    global_ctx: Option<GlobalCtx>,
-    resolvers: Resolvers<GlobalCtx, RequestCtx>,
+    extensions: Extensions<RequestCtx>,
+    resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     version: Option<String>,
 }
 
-impl<GlobalCtx, RequestCtx> EngineBuilder<GlobalCtx, RequestCtx>
+impl<RequestCtx> EngineBuilder<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    /// Adds a global context to the engine
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
-    /// # use warpgrapher::engine::context::GlobalContext;
-    ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct AppGlobalCtx {
-    ///     global_var: String    
-    /// }
-    ///
-    /// impl GlobalContext for AppGlobalCtx {}
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let global_ctx = AppGlobalCtx { global_var: "Hello World".to_string() };
-    ///
-    /// let config = Configuration::default();
-    ///
-    /// let mut engine = Engine::<AppGlobalCtx, ()>::new(config, DatabasePool::NoDatabase)
-    ///     .with_global_ctx(global_ctx)
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn with_global_ctx(
-        mut self,
-        global_ctx: GlobalCtx,
-    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
-        self.global_ctx = Some(global_ctx);
-        self
-    }
-
     /// Adds resolvers to the engine
     ///
     /// # Examples
@@ -103,20 +66,17 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let resolvers = Resolvers::<(), ()>::new();
+    /// let resolvers = Resolvers::<()>::new();
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_resolvers(resolvers)
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_resolvers(
-        mut self,
-        resolvers: Resolvers<GlobalCtx, RequestCtx>,
-    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
+    pub fn with_resolvers(mut self, resolvers: Resolvers<RequestCtx>) -> EngineBuilder<RequestCtx> {
         self.resolvers = resolvers;
         self
     }
@@ -134,16 +94,13 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_validators(validators)
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_validators(
-        mut self,
-        validators: Validators,
-    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
+    pub fn with_validators(mut self, validators: Validators) -> EngineBuilder<RequestCtx> {
         self.validators = validators;
         self
     }
@@ -157,11 +114,11 @@ where
     /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let extensions = Extensions::<(), ()>::new();
+    /// let extensions = Extensions::<()>::new();
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_extensions(extensions)
     ///     .build()?;
     /// # Ok(())
@@ -169,8 +126,8 @@ where
     /// ```
     pub fn with_extensions(
         mut self,
-        extensions: Extensions<GlobalCtx, RequestCtx>,
-    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
+        extensions: Extensions<RequestCtx>,
+    ) -> EngineBuilder<RequestCtx> {
         self.extensions = extensions;
         self
     }
@@ -185,13 +142,13 @@ where
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_version("1.0.0".to_string())
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_version(mut self, version: String) -> EngineBuilder<GlobalCtx, RequestCtx> {
+    pub fn with_version(mut self, version: String) -> EngineBuilder<RequestCtx> {
         self.version = Some(version);
         self
     }
@@ -250,15 +207,14 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build(self) -> Result<Engine<GlobalCtx, RequestCtx>, Error> {
+    pub fn build(self) -> Result<Engine<RequestCtx>, Error> {
         self.validate()?;
 
         let root_node = create_root_node(&self.config)?;
 
-        let engine = Engine::<GlobalCtx, RequestCtx> {
+        let engine = Engine::<RequestCtx> {
             config: self.config,
             db_pool: self.db_pool,
-            global_ctx: self.global_ctx,
             resolvers: self.resolvers,
             validators: self.validators,
             extensions: self.extensions,
@@ -353,29 +309,26 @@ impl Debug for EngineBuilder {
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Configuration::default();
 ///
-/// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
 /// # Ok(())
 /// # }
 /// ```
 #[derive(Clone)]
-pub struct Engine<GlobalCtx = (), RequestCtx = ()>
+pub struct Engine<RequestCtx = ()>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     config: Configuration,
     db_pool: DatabasePool,
-    global_ctx: Option<GlobalCtx>,
-    resolvers: Resolvers<GlobalCtx, RequestCtx>,
+    resolvers: Resolvers<RequestCtx>,
     validators: Validators,
-    extensions: Extensions<GlobalCtx, RequestCtx>,
+    extensions: Extensions<RequestCtx>,
     version: Option<String>,
-    root_node: RootRef<GlobalCtx, RequestCtx>,
+    root_node: RootRef<RequestCtx>,
 }
 
-impl<GlobalCtx, RequestCtx> Engine<GlobalCtx, RequestCtx>
+impl<RequestCtx> Engine<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     /// Creates a new [`EngineBuilder`]. Requiered arguments are a [`Configuration`], the
@@ -395,19 +348,15 @@ where
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        config: Configuration,
-        database_pool: DatabasePool,
-    ) -> EngineBuilder<GlobalCtx, RequestCtx> {
-        EngineBuilder::<GlobalCtx, RequestCtx> {
+    pub fn new(config: Configuration, database_pool: DatabasePool) -> EngineBuilder<RequestCtx> {
+        EngineBuilder::<RequestCtx> {
             config,
             db_pool: database_pool,
-            global_ctx: None,
             resolvers: HashMap::new(),
             validators: HashMap::new(),
             extensions: vec![],
@@ -440,7 +389,7 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
     ///
     /// let metadata: HashMap<String, String> = HashMap::new();
     /// let req_body = json!({"query": "query { name }"});
@@ -463,7 +412,6 @@ where
             .try_fold(RequestCtx::new(), |req_ctx, e| {
                 e.pre_request_hook(
                     req.operation_name().map(|v| v.to_string()),
-                    self.global_ctx.as_ref(),
                     req_ctx,
                     &metadata,
                     self.db_pool.clone(),
@@ -473,12 +421,11 @@ where
         // execute graphql query
         let res = req.execute(
             &self.root_node,
-            &GraphQLContext::<GlobalCtx, RequestCtx>::new(
+            &GraphQLContext::<RequestCtx>::new(
                 self.db_pool.clone(),
                 self.resolvers.clone(),
                 self.validators.clone(),
                 self.extensions.clone(),
-                self.global_ctx.clone(),
                 Some(req_ctx.clone()),
                 self.version.clone(),
                 metadata.clone(),
@@ -490,7 +437,7 @@ where
 
         // run post request plugin hooks
         let ret_value = self.extensions.iter().try_fold(res_value, |res_value, e| {
-            e.post_request_hook(self.global_ctx.as_ref(), &req_ctx, res_value)
+            e.post_request_hook(&req_ctx, res_value)
         })?;
 
         debug!("Engine::execute -- ret_value: {:#?}", ret_value);
@@ -498,9 +445,8 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> Display for Engine<GlobalCtx, RequestCtx>
+impl<RequestCtx> Display for Engine<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::result::Result<(), std::fmt::Error> {
@@ -508,16 +454,14 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> Debug for Engine<GlobalCtx, RequestCtx>
+impl<RequestCtx> Debug for Engine<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         f.debug_struct("Engine")
             .field("config", &self.config)
             .field("db_pool", &self.db_pool)
-            .field("global_ctx", &self.global_ctx)
             .field("version", &self.version)
             .finish()
     }
@@ -541,7 +485,7 @@ mod tests {
     /// Passes if the engine can be created.
     #[test]
     fn engine_new() {
-        let _engine = Engine::<(), ()>::new(
+        let _engine = Engine::<()>::new(
             File::open("tests/fixtures/minimal.yml")
                 .expect("Couldn't read config")
                 .try_into()
@@ -560,7 +504,7 @@ mod tests {
         //No resolver defined
         //No validator defined
         //is_ok
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             File::open("tests/fixtures/config-validation/test_config_ok.yml")
                 .expect("Couldn't read config")
                 .try_into()
@@ -578,7 +522,7 @@ mod tests {
         //is_ok
         let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             File::open("tests/fixtures/minimal.yml")
                 .expect("Couldn't read config")
                 .try_into()
@@ -594,7 +538,7 @@ mod tests {
         //is_ok
         let mut validators = Validators::new();
         validators.insert("MyValidator".to_string(), Box::new(my_validator));
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             File::open("tests/fixtures/config-validation/test_config_with_custom_validator.yml")
                 .expect("Couldn't read config")
                 .try_into()
@@ -609,7 +553,7 @@ mod tests {
         //validator in config
         //is_err
         let validators = Validators::new();
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open(
                     "tests/fixtures/config-validation/test_config_with_custom_validator.yml"
@@ -629,7 +573,7 @@ mod tests {
         //No endpoint resolvers in config
         //No resolver defined
         //is_ok
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open("tests/fixtures/config-validation/test_config_ok.yml")
                     .expect("Couldn't read config")
@@ -643,7 +587,7 @@ mod tests {
         //Endpoint resolver in config
         //No resolver defined
         //is_err
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open("tests/fixtures/config-validation/test_config_with_custom_resolver.yml")
                     .expect("Couldn't read config")
@@ -657,9 +601,9 @@ mod tests {
         //Endpoint resolver in config
         //Resolver defined
         //is_ok
-        let mut resolvers = Resolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open("tests/fixtures/config-validation/test_config_with_custom_resolver.yml")
                     .expect("Couldn't read config")
@@ -677,9 +621,9 @@ mod tests {
         //Prop resolver in config
         //Resolver defined
         //is_ok
-        let mut resolvers = Resolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open(
                     "tests/fixtures/config-validation/test_config_with_custom_prop_resolver.yml"
@@ -696,9 +640,9 @@ mod tests {
         //No prop resolver in config
         //Resolver defined
         //is_ok
-        let mut resolvers = Resolvers::<(), ()>::new();
+        let mut resolvers = Resolvers::<()>::new();
         resolvers.insert("MyResolver".to_string(), Box::new(my_resolver));
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open("tests/fixtures/minimal.yml").expect("Couldn't read config")
             )
@@ -712,7 +656,7 @@ mod tests {
         //Prop resolver in config
         //No resolver defined
         //is_err
-        assert!(Engine::<(), ()>::new(
+        assert!(Engine::<()>::new(
             TryInto::<Configuration>::try_into(
                 File::open(
                     "tests/fixtures/config-validation/test_config_with_custom_prop_resolver.yml"
@@ -726,7 +670,7 @@ mod tests {
         .is_err());
     }
 
-    pub fn my_resolver(executor: ResolverFacade<(), ()>) -> ExecutionResult {
+    pub fn my_resolver(executor: ResolverFacade<()>) -> ExecutionResult {
         executor.resolve_scalar(1 as i32)
     }
 

@@ -2,7 +2,7 @@
 //! resolvers.
 
 use crate::engine::context::GraphQLContext;
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -16,60 +16,56 @@ pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputVal
 /// Wraps a Node or Rel, and provides a type-safe distinction between the two, when passing the
 /// object on which a field is being resolved to the custom resolver.
 #[derive(Debug)]
-pub enum Object<'a, GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+pub enum Object<'a, RequestCtx: RequestContext> {
     /// Wraps a [`Node`] being passed to a custom resolver
     ///
     /// [`Node`] ../objects/struct.Node.html
-    Node(&'a Node<GlobalCtx, RequestCtx>),
+    Node(&'a Node<RequestCtx>),
 
     /// Wraps a [`Rel`] being passed to a custom resolver
     ///
     /// [`Rel`] ../objects/struct.Rel.html
-    Rel(&'a Rel<GlobalCtx, RequestCtx>),
+    Rel(&'a Rel<RequestCtx>),
 }
 
 /// Type alias for custom resolver functions. Takes a [`ResolverFacade`] and returns an
 /// ExecutionResult.
 ///
 /// [`ResolverFacade`]: ./struct.ResolverFacade.html
-pub type ResolverFunc<GlobalCtx, RequestCtx> =
-    fn(ResolverFacade<GlobalCtx, RequestCtx>) -> ExecutionResult;
+pub type ResolverFunc<RequestCtx> = fn(ResolverFacade<RequestCtx>) -> ExecutionResult;
 
 /// Type alias for a mapping from a custom resolver name to a the Rust function that implements the
 /// custom resolver.
-pub type Resolvers<GlobalCtx, RequestCtx> =
-    HashMap<String, Box<ResolverFunc<GlobalCtx, RequestCtx>>>;
+pub type Resolvers<RequestCtx> = HashMap<String, Box<ResolverFunc<RequestCtx>>>;
 
 /// Provides a simplified interface to primitive operations such as Node creation, Rel creation,
 /// resolution of both scalar and complex types. The [`ResolverFacade`] is the primary mechanism
 /// trough which a custom resolver interacts with the rest of the framework.
 ///
 /// [`ResolverFacade`]: ./struct.ResolverFacade.html
-pub struct ResolverFacade<'a, GlobalCtx, RequestCtx>
+pub struct ResolverFacade<'a, RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     field_name: String,
     info: &'a Info,
     args: &'a Arguments<'a>,
-    parent: Object<'a, GlobalCtx, RequestCtx>,
+    parent: Object<'a, RequestCtx>,
     partition_key_opt: Option<&'a Value>,
-    executor: &'a Executor<'a, GraphQLContext<GlobalCtx, RequestCtx>>,
+    executor: &'a Executor<'a, GraphQLContext<RequestCtx>>,
 }
 
-impl<'a, GlobalCtx, RequestCtx> ResolverFacade<'a, GlobalCtx, RequestCtx>
+impl<'a, RequestCtx> ResolverFacade<'a, RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     pub(crate) fn new(
         field_name: String,
         info: &'a Info,
         args: &'a Arguments,
-        parent: Object<'a, GlobalCtx, RequestCtx>,
+        parent: Object<'a, RequestCtx>,
         partition_key_opt: Option<&'a Value>,
-        executor: &'a Executor<GraphQLContext<GlobalCtx, RequestCtx>>,
+        executor: &'a Executor<GraphQLContext<RequestCtx>>,
     ) -> Self {
         ResolverFacade {
             field_name,
@@ -95,7 +91,7 @@ where
     /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
     /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
-    /// [`Value`]: ./value/enum.Value.html
+    /// [`Value`]: ../value/enum.Value.html
     pub fn input<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let json_value: serde_json::Value = self
             .args()
@@ -122,7 +118,7 @@ where
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let execution_metadata = facade.metadata();
     ///     // use metadata
     ///     
@@ -149,7 +145,7 @@ where
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let mut rt = Runtime::new().unwrap();
     ///     rt.block_on(async {
     ///
@@ -186,7 +182,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///
     ///     let cosmos_client = facade.db_into_cosmos()?;
     ///     
@@ -216,7 +212,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///
     ///     let gremlin_client = facade.db_into_gremlin()?;
     ///     
@@ -238,7 +234,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let args = facade.args();
     ///
     ///     // use arguments
@@ -261,7 +257,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let typename = "User";
     ///
     ///     let mut props = HashMap::new();
@@ -272,11 +268,7 @@ where
     ///     facade.resolve_node(&n)
     /// }
     /// ```
-    pub fn create_node(
-        &self,
-        typename: &str,
-        props: HashMap<String, Value>,
-    ) -> Node<GlobalCtx, RequestCtx> {
+    pub fn create_node(&self, typename: &str, props: HashMap<String, Value>) -> Node<RequestCtx> {
         Node::new(typename.to_string(), props)
     }
 
@@ -297,7 +289,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
     ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
@@ -314,7 +306,7 @@ where
         props: Option<HashMap<String, Value>>,
         dst_id: Value,
         dst_label: &str,
-    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+    ) -> Result<Rel<RequestCtx>, Error> {
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
                 id,
@@ -351,7 +343,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///     let typename = "User";
     ///     let mut props = HashMap::new();
@@ -370,8 +362,8 @@ where
         &self,
         id: Value,
         props: Option<HashMap<String, Value>>,
-        dst: Node<GlobalCtx, RequestCtx>,
-    ) -> Result<Rel<GlobalCtx, RequestCtx>, Error> {
+        dst: Node<RequestCtx>,
+    ) -> Result<Rel<RequestCtx>, Error> {
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
                 id,
@@ -397,7 +389,7 @@ where
     /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let info = facade.info();
     ///
     ///     // use info
@@ -418,7 +410,7 @@ where
     /// # use warpgrapher::engine::resolvers::{Executor, ExecutionResult};
     /// # use warpgrapher::engine::resolvers::ResolverFacade;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let exeuctor = facade.executor();
     ///
     ///     // use executor
@@ -426,27 +418,8 @@ where
     ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn executor(&self) -> &Executor<GraphQLContext<GlobalCtx, RequestCtx>> {
+    pub fn executor(&self) -> &Executor<GraphQLContext<RequestCtx>> {
         self.executor
-    }
-
-    /// Returns the global context
-    ///
-    /// # Examples
-    ///
-    /// ```rust, no_run
-    /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
-    ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
-    ///     if let Some(global_context) = facade.global_context() {
-    ///         // use global_context
-    ///     }
-    ///
-    ///     facade.resolve_null()
-    /// }
-    /// ```
-    pub fn global_context(&self) -> Option<&GlobalCtx> {
-        self.executor.context().global_context()
     }
 
     /// Returns the parent GraphQL object of the field being resolved as a [`Node`]
@@ -464,7 +437,7 @@ where
     /// # use warpgrapher::engine::objects::GraphQLType;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let parent_node = facade.parent_node()?;
     ///     println!("Parent type: {:#?}",
     ///         parent_node.concrete_type_name(facade.executor().context(), facade.info()));
@@ -472,7 +445,7 @@ where
     ///     facade.resolve_null()
     /// }
     /// ```
-    pub fn parent_node(&self) -> Result<&Node<GlobalCtx, RequestCtx>, Error> {
+    pub fn parent_node(&self) -> Result<&Node<RequestCtx>, Error> {
         if let Object::Node(n) = self.parent {
             Ok(n)
         } else {
@@ -487,7 +460,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return null
@@ -505,7 +478,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
@@ -525,7 +498,7 @@ where
     /// ```rust, no_run
     /// use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
@@ -550,7 +523,7 @@ where
     /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///     let mut hm = HashMap::new();
     ///     hm.insert("name".to_string(), Value::String("John Doe".to_string()));
@@ -560,7 +533,7 @@ where
     ///     facade.resolve_node(&facade.create_node("User", hm))
     /// }
     /// ```
-    pub fn resolve_node(&self, node: &Node<GlobalCtx, RequestCtx>) -> ExecutionResult {
+    pub fn resolve_node(&self, node: &Node<RequestCtx>) -> ExecutionResult {
         self.executor.resolve(
             &Info::new(node.typename().to_string(), self.info.type_defs()),
             node,
@@ -578,7 +551,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
@@ -591,7 +564,7 @@ where
     ///         Some(hm1), node_id, "DstNodeLabel")?)
     /// }
     /// ```
-    pub fn resolve_rel(&self, rel: &Rel<GlobalCtx, RequestCtx>) -> ExecutionResult {
+    pub fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
         let rel_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -612,7 +585,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
@@ -635,7 +608,7 @@ where
     ///     ])
     /// }
     /// ```
-    pub fn resolve_rel_list(&self, rels: Vec<&Rel<GlobalCtx, RequestCtx>>) -> ExecutionResult {
+    pub fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
         let object_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -653,7 +626,7 @@ where
     ///
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(context: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(context: ResolverFacade<()>) -> ExecutionResult {
     ///     if let Some(request_context) = context.request_context() {
     ///         // use request_context
     ///     }

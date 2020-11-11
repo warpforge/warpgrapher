@@ -1,6 +1,6 @@
 //! Contains types and functions for application specific extensions to the Warpgrapher framework.
 
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::database::DatabasePool;
 
 use std::collections::hash_map::HashMap;
@@ -16,31 +16,26 @@ use std::sync::Arc;
 ///
 /// # use std::collections::HashMap;
 /// # use std::marker::PhantomData;
-/// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::context::RequestContext;
 /// # use warpgrapher::engine::database::DatabasePool;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
-/// pub struct MetadataExtension<GlobalCtx, RequestCtx>
+/// pub struct MetadataExtension<RequestCtx>
 /// where
-///     GlobalCtx: GlobalContext,
 ///     RequestCtx: RequestContext
 /// {
-///     _gctx: PhantomData<GlobalCtx>,
 ///     _rctx: PhantomData<RequestCtx>,
 /// }
 ///
-/// impl<GlobalCtx, RequestCtx> Extension<GlobalCtx, RequestCtx>
-///     for MetadataExtension<GlobalCtx, RequestCtx>
+/// impl<RequestCtx> Extension<RequestCtx> for MetadataExtension<RequestCtx>
 /// where
-///     GlobalCtx: GlobalContext,
 ///     RequestCtx: RequestContext,
 /// {
 ///
 ///    fn pre_request_hook(
 ///         &self,
 ///         _op_name: Option<String>,
-///         _global_ctx: Option<&GlobalCtx>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
 ///         _db_pool: DatabasePool
@@ -50,15 +45,13 @@ use std::sync::Arc;
 ///     }
 /// }
 /// ```
-pub trait Extension<GlobalCtx, RequestCtx>: Debug + Send + Sync
+pub trait Extension<RequestCtx>: Debug + Send + Sync
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     fn pre_request_hook(
         &self,
         _op_name: Option<String>,
-        _global_ctx: Option<&GlobalCtx>,
         request_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
         _db_pool: DatabasePool,
@@ -68,7 +61,6 @@ where
 
     fn post_request_hook(
         &self,
-        _global_ctx: Option<&GlobalCtx>,
         _request_ctx: &RequestCtx,
         response: serde_json::Value,
     ) -> Result<serde_json::Value, Box<dyn std::error::Error + Sync + Send>> {
@@ -84,31 +76,27 @@ where
 /// # use std::collections::HashMap;
 /// # use std::marker::PhantomData;
 /// # use std::sync::Arc;
-/// # use warpgrapher::engine::context::{GlobalContext, RequestContext};
+/// # use warpgrapher::engine::context::RequestContext;
 /// # use warpgrapher::engine::database::DatabasePool;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
-/// pub struct MetadataExtension<GlobalCtx, RequestCtx>
+/// pub struct MetadataExtension<RequestCtx>
 /// where
-///     GlobalCtx: GlobalContext,
 ///     RequestCtx: RequestContext
 /// {
-///     _gctx: PhantomData<GlobalCtx>,
 ///     _rctx: PhantomData<RequestCtx>,
 /// }
 ///
-/// impl<GlobalCtx, RequestCtx> Extension<GlobalCtx, RequestCtx>
-///     for MetadataExtension<GlobalCtx, RequestCtx>
+/// impl<RequestCtx> Extension<RequestCtx>
+///     for MetadataExtension<RequestCtx>
 /// where
-///     GlobalCtx: GlobalContext,
 ///     RequestCtx: RequestContext,
 /// {
 ///
 ///    fn pre_request_hook(
 ///         &self,
 ///         _op_name: Option<String>,
-///         _global_ctx: Option<&GlobalCtx>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
 ///         _db_pool: DatabasePool
@@ -118,7 +106,7 @@ where
 ///     }
 /// }
 ///
-/// let metadata_extension = MetadataExtension { _gctx: PhantomData, _rctx: PhantomData };
-/// let extensions: Extensions<(), ()> = vec![Arc::new(metadata_extension)];
+/// let metadata_extension = MetadataExtension { _rctx: PhantomData };
+/// let extensions: Extensions<()> = vec![Arc::new(metadata_extension)];
 /// ```
-pub type Extensions<GlobalCtx, RequestCtx> = Vec<Arc<dyn Extension<GlobalCtx, RequestCtx>>>;
+pub type Extensions<RequestCtx> = Vec<Arc<dyn Extension<RequestCtx>>>;

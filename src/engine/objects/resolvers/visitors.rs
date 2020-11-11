@@ -1,4 +1,4 @@
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::database::{ClauseType, NodeQueryVar, RelQueryVar, Transaction};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::schema::{Info, PropertyKind};
@@ -9,7 +9,7 @@ use log::trace;
 use std::collections::HashMap;
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
@@ -22,7 +22,6 @@ pub(super) fn visit_node_create_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -79,7 +78,6 @@ where
                                 |(mut rel_create_fragments, params), val| {
                                     let (fragment, params) = visit_rel_create_mutation_input::<
                                         T,
-                                        GlobalCtx,
                                         RequestCtx,
                                     >(
                                         params,
@@ -104,7 +102,7 @@ where
                             )
                         } else {
                             let (fragment, params) =
-                                visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                                visit_rel_create_mutation_input::<T, RequestCtx>(
                                     params,
                                     &RelQueryVar::new(
                                         p.name().to_string(),
@@ -132,7 +130,7 @@ where
             },
         )?;
 
-        transaction.node_create_query::<GlobalCtx, RequestCtx>(
+        transaction.node_create_query::<RequestCtx>(
             rel_create_fragments,
             params,
             node_var,
@@ -145,7 +143,7 @@ where
     }
 }
 
-pub(super) fn visit_node_delete_input<T, GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+pub(super) fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
@@ -186,7 +184,7 @@ where
             ClauseType::Parameter,
         )?;
 
-        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_delete_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             &node_var,
@@ -206,7 +204,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_node_delete_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
@@ -218,7 +216,6 @@ fn visit_node_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     transaction: &mut T,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
     T: Transaction,
 {
@@ -235,8 +232,13 @@ where
                             input_array.into_iter().try_fold(
                                 (queries, params),
                                 |(mut queries, params), val| {
-                                    let rel_var = RelQueryVar::new(k.to_string(), sg.suffix(), node_var.clone(), NodeQueryVar::new(None, "dst".to_string(), sg.suffix()));
-                                    let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+                                    let rel_var = RelQueryVar::new(
+                                        k.to_string(),
+                                        sg.suffix(),
+                                        node_var.clone(),
+                                        NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                    );
+                                    let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
                                         params,
                                         &rel_var,
                                         val,
@@ -251,8 +253,13 @@ where
                                 },
                             )
                         } else {
-                                    let rel_var = RelQueryVar::new(k.to_string(), sg.suffix(), node_var.clone(), NodeQueryVar::new(None, "dst".to_string(), sg.suffix()));
-                            let (query, params) = visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+                            let rel_var = RelQueryVar::new(
+                                k.to_string(),
+                                sg.suffix(),
+                                node_var.clone(),
+                                NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                            );
+                            let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
                                 params,
                                 &rel_var,
                                 v,
@@ -285,7 +292,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_input<T, GlobalCtx, RequestCtx>(
+fn visit_node_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
@@ -298,7 +305,6 @@ fn visit_node_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -319,7 +325,7 @@ where
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "$NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+            "$NEW" => visit_node_create_mutation_input::<T, RequestCtx>(
                 params,
                 node_var,
                 v,
@@ -422,7 +428,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_node_update_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
@@ -434,7 +440,6 @@ pub(super) fn visit_node_update_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -467,7 +472,7 @@ where
             ClauseType::Parameter,
         )?;
 
-        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_update_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             node_var,
@@ -493,7 +498,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_node_update_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
@@ -507,7 +512,6 @@ fn visit_node_update_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -547,17 +551,16 @@ where
             },
         )?;
 
-        let (change_queries, params) =
-            inputs.into_iter().try_fold(
-                (Vec::new(), params),
-                |(mut queries, params), (k, v)| {
-                    let p = itd.property(&k)?;
+        let (change_queries, params) = inputs.into_iter().try_fold(
+            (Vec::new(), params),
+            |(mut queries, params), (k, v)| {
+                let p = itd.property(&k)?;
 
-                    match p.kind() {
-                        PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((queries, params)), // Properties handled above
-                        PropertyKind::Input => {
-                            if let Value::Array(input_array) = v {
-                                let (mut qs, params) =
+                match p.kind() {
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((queries, params)), // Properties handled above
+                    PropertyKind::Input => {
+                        if let Value::Array(input_array) = v {
+                            let (mut qs, params) =
                                     input_array.into_iter().try_fold(
                                         (Vec::new(), params),
                                         |(mut queries, params),
@@ -567,7 +570,7 @@ where
                                             Error,
                                         > {
                                             let (query, params) =
-                                                visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
+                                                visit_rel_change_input::<T, RequestCtx>(
                                                     params,
                                                     &RelQueryVar::new(
                                                         k.clone(),
@@ -594,37 +597,36 @@ where
                                             Ok((queries, params))
                                         },
                                     )?;
-                                queries.append(&mut qs);
+                            queries.append(&mut qs);
 
-                                Ok((queries, params))
-                            } else {
-                                let (query, params) =
-                                    visit_rel_change_input::<T, GlobalCtx, RequestCtx>(
-                                        params,
-                                        &RelQueryVar::new(
-                                            k,
-                                            sg.suffix(),
-                                            node_var.clone(),
-                                            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                                        ),
-                                        v,
-                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
-                                        sg,
-                                        transaction,
-                                        validators,
-                                    )?;
+                            Ok((queries, params))
+                        } else {
+                            let (query, params) = visit_rel_change_input::<T, RequestCtx>(
+                                params,
+                                &RelQueryVar::new(
+                                    k,
+                                    sg.suffix(),
+                                    node_var.clone(),
+                                    NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                ),
+                                v,
+                                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                partition_key_opt,
+                                sg,
+                                transaction,
+                                validators,
+                            )?;
 
-                                queries.push(query);
-                                Ok((queries, params))
-                            }
+                            queries.push(query);
+                            Ok((queries, params))
                         }
-                        _ => Err(Error::TypeNotExpected),
                     }
-                },
-            )?;
+                    _ => Err(Error::TypeNotExpected),
+                }
+            },
+        )?;
 
-        transaction.node_update_query::<GlobalCtx, RequestCtx>(
+        transaction.node_update_query::<RequestCtx>(
             match_query,
             change_queries,
             params,
@@ -639,7 +641,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_change_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     rel_var: &RelQueryVar,
     input: Value,
@@ -651,7 +653,6 @@ fn visit_rel_change_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -664,7 +665,7 @@ where
     if let Value::Map(mut m) = input {
         if let Some(v) = m.remove("$ADD") {
             // Using remove to take ownership
-            visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_create_mutation_input::<T, RequestCtx>(
                 params,
                 rel_var,
                 None,
@@ -681,7 +682,7 @@ where
             )
         } else if let Some(v) = m.remove("$DELETE") {
             // Using remove to take ownership
-            visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_delete_input::<T, RequestCtx>(
                 params,
                 rel_var,
                 v,
@@ -696,7 +697,7 @@ where
             )
         } else if let Some(v) = m.remove("$UPDATE") {
             // Using remove to take ownership
-            visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_update_input::<T, RequestCtx>(
                 params,
                 rel_var,
                 None,
@@ -723,7 +724,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
-pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_rel_create_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     src_var: &NodeQueryVar,
     rel_name: &str,
@@ -737,7 +738,6 @@ pub(super) fn visit_rel_create_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -785,7 +785,7 @@ where
                     src_var.clone(),
                     NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                 );
-                let (cf, params) = visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+                let (cf, params) = visit_rel_create_mutation_input::<T, RequestCtx>(
                     params,
                     &rel_var,
                     props_type_name,
@@ -801,7 +801,7 @@ where
                     validators,
                 )?;
 
-                transaction.rel_create_query::<GlobalCtx, RequestCtx>(
+                transaction.rel_create_query::<RequestCtx>(
                     Some(src_query),
                     vec![cf],
                     params,
@@ -825,22 +825,21 @@ where
                                 src_var.clone(),
                                 NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                             );
-                            let (query, params) =
-                                visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
-                                    params,
-                                    &rel_var,
-                                    props_type_name,
-                                    create_input_value,
-                                    ClauseType::SubQuery,
-                                    &Info::new(
-                                        itd.property("$CREATE")?.type_name().to_owned(),
-                                        info.type_defs(),
-                                    ),
-                                    partition_key_opt,
-                                    sg,
-                                    transaction,
-                                    validators,
-                                )?;
+                            let (query, params) = visit_rel_create_mutation_input::<T, RequestCtx>(
+                                params,
+                                &rel_var,
+                                props_type_name,
+                                create_input_value,
+                                ClauseType::SubQuery,
+                                &Info::new(
+                                    itd.property("$CREATE")?.type_name().to_owned(),
+                                    info.type_defs(),
+                                ),
+                                partition_key_opt,
+                                sg,
+                                transaction,
+                                validators,
+                            )?;
 
                             rcfs.push(query);
                             rel_vars.push(rel_var);
@@ -848,7 +847,7 @@ where
                         },
                     )?;
 
-                transaction.rel_create_query::<GlobalCtx, RequestCtx>(
+                transaction.rel_create_query::<RequestCtx>(
                     Some(src_query),
                     rcfs,
                     params,
@@ -864,7 +863,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_create_mutation_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -878,7 +877,6 @@ fn visit_rel_create_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_create_mutation_input called -- params: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
@@ -892,7 +890,7 @@ where
             .ok_or_else(|| Error::InputItemNotFound {
                 name: "dst".to_string(),
             })?;
-        let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, GlobalCtx, RequestCtx>(
+        let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, RequestCtx>(
             params,
             rel_var.dst(),
             dst,
@@ -910,16 +908,15 @@ where
             Some(_) => return Err(Error::TypeNotExpected),
         };
 
-        transaction.rel_create_fragment::<GlobalCtx, RequestCtx>(
-            &dst_query, params, &rel_var, props, clause, sg,
-        )
+        transaction
+            .rel_create_fragment::<RequestCtx>(&dst_query, params, &rel_var, props, clause, sg)
     } else {
         Err(Error::TypeNotExpected)
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_rel_delete_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     rel_var: &RelQueryVar,
     input: Value,
@@ -930,7 +927,6 @@ pub(super) fn visit_rel_delete_input<T, GlobalCtx, RequestCtx>(
     transaction: &mut T,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
     T: Transaction,
 {
@@ -968,7 +964,7 @@ where
 
         let (src_delete_query_opt, params) = if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
-            let (query, params) = visit_rel_src_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+            let (query, params) = visit_rel_src_delete_mutation_input::<T, RequestCtx>(
                 match_query.clone(),
                 params,
                 rel_var.src(),
@@ -988,7 +984,7 @@ where
 
         let (dst_delete_query_opt, params) = if let Some(dst) = m.remove("dst") {
             // Uses remove to take ownership
-            let (query, params) = visit_rel_dst_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+            let (query, params) = visit_rel_dst_delete_mutation_input::<T, RequestCtx>(
                 match_query.clone(),
                 params,
                 rel_var.dst(),
@@ -1021,7 +1017,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_dst_delete_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
@@ -1032,7 +1028,6 @@ fn visit_rel_dst_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     transaction: &mut T,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
     T: Transaction,
 {
@@ -1051,7 +1046,7 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
-        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_delete_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             node_var,
@@ -1108,7 +1103,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     input: Value,
@@ -1120,7 +1115,6 @@ fn visit_rel_dst_update_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_dst_update_mutation_input called -- match_query: {}, params: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
@@ -1136,7 +1130,7 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
-        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_update_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             &NodeQueryVar::new(Some(k), "dst".to_string(), sg.suffix()),
@@ -1154,7 +1148,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
+fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1167,7 +1161,6 @@ fn visit_rel_nodes_mutation_input_union<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_nodes_mutation_input_union called -- params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
@@ -1183,7 +1176,7 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
-        visit_node_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_input::<T, RequestCtx>(
             params,
             &NodeQueryVar::new(
                 Some(k.clone()),
@@ -1273,7 +1266,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_src_delete_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
@@ -1284,7 +1277,6 @@ fn visit_rel_src_delete_mutation_input<T, GlobalCtx, RequestCtx>(
     transaction: &mut T,
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
     T: Transaction,
 {
@@ -1302,7 +1294,7 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
-        visit_node_delete_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_delete_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             node_var,
@@ -1319,7 +1311,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
@@ -1332,7 +1324,6 @@ fn visit_rel_src_update_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1349,7 +1340,7 @@ where
 
         let p = info.type_def()?.property(&k)?;
 
-        visit_node_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+        visit_node_update_mutation_input::<T, RequestCtx>(
             match_query,
             params,
             node_var,
@@ -1409,7 +1400,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
+pub(super) fn visit_rel_update_input<T, RequestCtx>(
     params: HashMap<String, Value>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -1423,7 +1414,6 @@ pub(super) fn visit_rel_update_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1467,7 +1457,7 @@ where
 
         if let Some(update) = m.remove("$SET") {
             // remove used to take ownership
-            visit_rel_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_update_mutation_input::<T, RequestCtx>(
                 match_query,
                 params,
                 &rel_var,
@@ -1494,7 +1484,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
+fn visit_rel_update_mutation_input<T, RequestCtx>(
     match_query: String,
     params: HashMap<String, Value>,
     rel_var: &RelQueryVar,
@@ -1509,7 +1499,6 @@ fn visit_rel_update_mutation_input<T, GlobalCtx, RequestCtx>(
 ) -> Result<(String, HashMap<String, Value>), Error>
 where
     T: Transaction,
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1525,7 +1514,7 @@ where
             HashMap::new()
         };
 
-        let results = transaction.rel_update_query::<GlobalCtx, RequestCtx>(
+        let results = transaction.rel_update_query::<RequestCtx>(
             match_query.clone(),
             params.clone(),
             rel_var,
@@ -1536,7 +1525,7 @@ where
 
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership
-            visit_rel_src_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_src_update_mutation_input::<T, RequestCtx>(
                 match_query.clone(),
                 params.clone(),
                 rel_var.src(),
@@ -1554,7 +1543,7 @@ where
 
         if let Some(dst) = m.remove("dst") {
             // calling remove to take ownership
-            visit_rel_dst_update_mutation_input::<T, GlobalCtx, RequestCtx>(
+            visit_rel_dst_update_mutation_input::<T, RequestCtx>(
                 match_query,
                 params,
                 dst,

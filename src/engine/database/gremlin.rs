@@ -1,6 +1,6 @@
 //! Provides database interface types and functions for Cosmos DB and other Gremlin-based DBs
 
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
@@ -343,10 +343,10 @@ impl GremlinTransaction {
         }
     }
 
-    fn nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn nodes<RequestCtx: RequestContext>(
         results: Vec<GValue>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!(
             "GremlinTransaction::nodes called -- info.name: {}, results: {:#?}",
             info.name(),
@@ -377,11 +377,11 @@ impl GremlinTransaction {
             .collect()
     }
 
-    fn rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rels<RequestCtx: RequestContext>(
         results: Vec<GValue>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("GremlinTransaction::rels called -- results: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         results, props_type_name, partition_key_opt);
         results
@@ -442,7 +442,7 @@ impl Transaction for GremlinTransaction {
         Ok(())
     }
 
-    fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_create_query<RequestCtx: RequestContext>(
         &mut self,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
@@ -486,13 +486,13 @@ impl Transaction for GremlinTransaction {
         Ok((query, params))
     }
 
-    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_node<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, Error> {
+    ) -> Result<Node<RequestCtx>, Error> {
         trace!("GremlinTransaction::create_node called -- query: {}, params: {:#?}, partition_key_opt: {:#?}", query, params, partition_key_opt);
 
         let mut param_list: Vec<(&str, &dyn ToGValue)> =
@@ -526,7 +526,7 @@ impl Transaction for GremlinTransaction {
             .ok_or_else(|| Error::ResponseSetNotFound)
     }
 
-    fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_fragment<RequestCtx: RequestContext>(
         &mut self,
         dst_query: &str,
         params: HashMap<String, Value>,
@@ -558,7 +558,7 @@ impl Transaction for GremlinTransaction {
         Ok((q, p))
     }
 
-    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_query<RequestCtx: RequestContext>(
         &mut self,
         src_query_opt: Option<String>,
         rel_create_fragments: Vec<String>,
@@ -603,13 +603,13 @@ impl Transaction for GremlinTransaction {
         Ok((query, params))
     }
 
-    fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("GremlinTransaction::create_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
 
@@ -737,13 +737,13 @@ impl Transaction for GremlinTransaction {
         Ok((query, params))
     }
 
-    fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params_opt: Option<HashMap<String, Value>>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!("GremlinTransaction::read_nodes called -- query: {}, partition_key_opt: {:#?}, params_opt: {:#?}, info.name: {}", 
         query, partition_key_opt, params_opt, info.name());
 
@@ -876,13 +876,13 @@ impl Transaction for GremlinTransaction {
         Ok((query, params))
     }
 
-    fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params_opt: Option<HashMap<String, Value>>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("GremlinTransaction::read_rels called -- query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}, params_opt: {:#?}", 
         query, props_type_name, partition_key_opt, params_opt);
 
@@ -913,7 +913,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         change_queries: Vec<String>,
@@ -943,13 +943,13 @@ impl Transaction for GremlinTransaction {
         Ok((query, params))
     }
 
-    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!("GremlinTransaction::update_nodes called: query: {}, params: {:#?}, partition_key_opt: {:#?}",
         query, params, partition_key_opt);
 
@@ -979,7 +979,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         params: HashMap<String, Value>,
@@ -1006,13 +1006,13 @@ impl Transaction for GremlinTransaction {
         }
     }
 
-    fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error> {
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("GremlinTransaction::update_rels called -- query: {}, params: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query, params, props_type_name, partition_key_opt);
 

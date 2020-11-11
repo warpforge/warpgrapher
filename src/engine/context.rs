@@ -36,15 +36,14 @@ use std::sync::Arc;
 /// let mut runtime = Runtime::new()?;
 /// # #[cfg(feature = "neo4j")]
 /// let ne = Neo4jEndpoint::from_env()?;
-/// let resolvers: Resolvers<(), ()> = Resolvers::new();
+/// let resolvers: Resolvers<()> = Resolvers::new();
 /// let validators: Validators = Validators::new();
 /// # #[cfg(feature = "neo4j")]
-/// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+/// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
 ///     runtime.block_on(ne.pool())?,
 ///     resolvers,
 ///     validators,
 ///     vec![],
-///     Some(()),
 ///     Some(()),
 ///     None,
 ///     HashMap::new()
@@ -52,24 +51,21 @@ use std::sync::Arc;
 /// # Ok(())
 /// # }
 /// ```
-pub struct GraphQLContext<GlobalCtx, RequestCtx>
+pub struct GraphQLContext<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     pool: DatabasePool,
-    resolvers: Resolvers<GlobalCtx, RequestCtx>,
+    resolvers: Resolvers<RequestCtx>,
     validators: Validators,
-    extensions: Extensions<GlobalCtx, RequestCtx>,
-    global_ctx: Option<GlobalCtx>,
+    extensions: Extensions<RequestCtx>,
     request_ctx: Option<RequestCtx>,
     version: Option<String>,
     metadata: HashMap<String, String>,
 }
 
-impl<GlobalCtx, RequestCtx> GraphQLContext<GlobalCtx, RequestCtx>
+impl<RequestCtx> GraphQLContext<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     /// Creates a new context, used for providing additional information for use in Warpgrapher
@@ -83,9 +79,6 @@ where
     /// * validators - the [`Validators`] structure containing any custom input validators
     /// provided as part of the Warpgrapher configuration
     /// * extensions - the [`Extensions`] structure containing any pre- or post-request hooks
-    /// * global_ctx - an optional global context, implementing the [`GlobalContext`] trait,
-    /// provided by the application using the Warpgrapher framework to pass application-specific
-    /// global context to custom resolvers
     /// * request_ctx - an optional per-request context, implementing the [`RequestContext`] trait,
     /// provided by the application using the Warpgrapher framework to pass application-specific,
     /// request-specific context to custom resolvers
@@ -94,7 +87,6 @@ where
     ///
     /// [`DatabasePool`]: ../database/enum.DatabasePool.html
     /// [`Extensions`]: ../extensions/type.Extensions.html
-    /// [`GlobalContext`]: ./trait.GlobalContext.html
     /// [`RequestContext`]: ./trait.RequestContext.html
     /// [`Resolvers`]: ../resolvers/type.Resolvers.html
     /// [`Validators`]: ../validators/type.Validators.html
@@ -118,15 +110,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -137,20 +128,18 @@ where
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: DatabasePool,
-        resolvers: Resolvers<GlobalCtx, RequestCtx>,
+        resolvers: Resolvers<RequestCtx>,
         validators: Validators,
-        extensions: Extensions<GlobalCtx, RequestCtx>,
-        global_ctx: Option<GlobalCtx>,
+        extensions: Extensions<RequestCtx>,
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
         metadata: HashMap<String, String>,
-    ) -> GraphQLContext<GlobalCtx, RequestCtx> {
+    ) -> GraphQLContext<RequestCtx> {
         GraphQLContext {
             pool,
             resolvers,
             validators,
             extensions,
-            global_ctx,
             request_ctx,
             version,
             metadata,
@@ -178,15 +167,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -228,7 +216,7 @@ where
     /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// pub fn project_count(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// pub fn project_count(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
     ///         let mut runtime = Runtime::new()?;
     ///         let mut db = runtime.block_on(p.get())?;
@@ -250,7 +238,7 @@ where
     /// }
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let mut resolvers: Resolvers<()> = Resolvers::new();
     /// # #[cfg(feature = "neo4j")]
     /// resolvers.insert("ProjectCount".to_string(), Box::new(project_count));
     ///
@@ -260,12 +248,11 @@ where
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -276,7 +263,7 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<GlobalCtx, RequestCtx>, Error> {
+    pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<RequestCtx>, Error> {
         self.resolvers
             .get(name)
             .map(|b| b.as_ref())
@@ -306,15 +293,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -350,15 +336,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -395,15 +380,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -414,71 +398,8 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn extensions(&self) -> Iter<Arc<dyn Extension<GlobalCtx, RequestCtx>>> {
+    pub fn extensions(&self) -> Iter<Arc<dyn Extension<RequestCtx>>> {
         self.extensions.iter()
-    }
-
-    /// Returns the global request context
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # #[cfg(feature = "neo4j")]
-    /// # use tokio::runtime::Runtime;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::{GlobalContext, GraphQLContext, RequestContext};
-    ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct AppGlobalCtx {
-    ///     version: String,
-    /// }
-    ///
-    /// impl GlobalContext for AppGlobalCtx {}
-    /// #[derive(Clone, Debug)]
-    /// pub struct AppRequestCtx {
-    ///     request_id: String,
-    /// }
-    ///
-    /// impl RequestContext for AppRequestCtx {
-    ///    fn new() -> AppRequestCtx {
-    ///        AppRequestCtx {
-    ///            request_id: "".to_string()
-    ///        }
-    ///    }
-    /// }
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// use std::collections::HashMap;
-    /// # #[cfg(feature = "neo4j")]
-    /// let mut runtime = Runtime::new()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
-    ///     runtime.block_on(ne.pool())?,
-    ///     resolvers,
-    ///     validators,
-    ///     vec![],
-    ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
-    ///     Some(AppRequestCtx::new()),
-    ///     Some("0.0.0".to_string()),
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let global_context = gqlctx.global_context();
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn global_context(&self) -> Option<&GlobalCtx> {
-        self.global_ctx.as_ref()
     }
 
     /// Returns the request-specific context
@@ -495,14 +416,8 @@ where
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::{GlobalContext, GraphQLContext, RequestContext};
+    /// # use warpgrapher::engine::context::{GraphQLContext, RequestContext};
     ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct AppGlobalCtx {
-    ///     version: String,
-    /// }
-    ///
-    /// impl GlobalContext for AppGlobalCtx {}
     /// #[derive(Clone, Debug)]
     /// pub struct AppRequestCtx {
     ///     request_id: String,
@@ -521,15 +436,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
+    /// let resolvers: Resolvers<AppRequestCtx> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppGlobalCtx, AppRequestCtx> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<AppRequestCtx> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(AppGlobalCtx { version: "0.0.0".to_string() }),
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -549,49 +463,21 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> Context for GraphQLContext<GlobalCtx, RequestCtx>
-where
-    GlobalCtx: GlobalContext,
-    RequestCtx: RequestContext,
-{
-}
+impl<RequestCtx> Context for GraphQLContext<RequestCtx> where RequestCtx: RequestContext {}
 
-impl<GlobalCtx, RequestCtx> Debug for GraphQLContext<GlobalCtx, RequestCtx>
+impl<RequestCtx> Debug for GraphQLContext<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("GraphQLContext")
             .field("pool", &self.pool)
             .field("extensions", &self.extensions)
-            .field("global_ctx", &self.global_ctx)
             .field("request_ctx", &self.request_ctx)
             .field("version", &self.version)
             .finish()
     }
 }
-
-/// Trait that, when implemented, marks a struct as a global context, used to pass data to custom
-/// extensions and resolvers
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use warpgrapher::engine::context::GlobalContext;
-///
-/// #[derive(Clone, Debug)]
-/// struct AppContext {
-///     app_specific_config: String
-/// }
-///
-/// impl GlobalContext for AppContext {}
-///
-/// let ac = AppContext { app_specific_config: "".to_string() };
-/// ```
-pub trait GlobalContext: 'static + Clone + Debug + Send + Sync {}
-
-impl GlobalContext for () {}
 
 /// Trait that, when implemented, marks a struct as a request context, used to pass data to custom
 /// extensions and resolvers on a per-request basis
@@ -640,16 +526,15 @@ mod tests {
         let mut runtime = Runtime::new().expect("Expected new runtime.");
 
         let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
-        let resolvers: Resolvers<(), ()> = Resolvers::new();
+        let resolvers: Resolvers<()> = Resolvers::new();
         let validators: Validators = Validators::new();
-        let _gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+        let _gqlctx: GraphQLContext<()> = GraphQLContext::new(
             runtime
                 .block_on(ne.pool())
                 .expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,
             vec![],
-            Some(()),
             Some(()),
             None,
             HashMap::<String, String>::new(),

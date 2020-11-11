@@ -27,7 +27,7 @@ model:
        resolver: resolve_project_top_contributor
 ";
 
-fn resolve_project_top_contributor(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+fn resolve_project_top_contributor(facade: ResolverFacade<()>) -> ExecutionResult {
     // create dynamic dst node
     let mut top_contributor_props = HashMap::<String, Value>::new();
     top_contributor_props.insert(
@@ -60,14 +60,14 @@ fn main() {
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
-    let mut resolvers = Resolvers::<(), ()>::new();
+    let mut resolvers = Resolvers::<()>::new();
     resolvers.insert(
         "resolve_project_top_contributor".to_string(),
         Box::new(resolve_project_top_contributor),
     );
 
     // create warpgrapher engine
-    let engine: Engine<(), ()> = Engine::new(config, db)
+    let engine: Engine<()> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

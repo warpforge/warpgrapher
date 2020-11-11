@@ -4,7 +4,7 @@
 
 use super::context::GraphQLContext;
 use super::schema::{ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind};
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -24,33 +24,28 @@ use std::marker::PhantomData;
 mod resolvers;
 
 #[derive(Clone, Debug)]
-struct Input<GlobalCtx, RequestCtx>
+struct Input<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     value: Value,
-    _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx, RequestCtx> Input<GlobalCtx, RequestCtx>
+impl<RequestCtx> Input<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    fn new(value: Value) -> Input<GlobalCtx, RequestCtx> {
+    fn new(value: Value) -> Input<RequestCtx> {
         Input {
             value,
-            _gctx: PhantomData,
             _rctx: PhantomData,
         }
     }
 }
 
-impl<GlobalCtx, RequestCtx> FromInputValue for Input<GlobalCtx, RequestCtx>
+impl<RequestCtx> FromInputValue for Input<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     fn from_input_value(v: &InputValue) -> Option<Self> {
@@ -61,12 +56,11 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> GraphQLType for Input<GlobalCtx, RequestCtx>
+impl<RequestCtx> GraphQLType for Input<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
+    type Context = GraphQLContext<RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -114,19 +108,19 @@ where
                 ("String", false, true) => registry.arg::<Option<Vec<String>>>(p.name(), &()),
                 ("String", true, false) => registry.arg::<String>(p.name(), &()),
                 ("String", true, true) => registry.arg::<Vec<String>>(p.name(), &()),
-                (_, false, false) => registry.arg::<Option<Input<GlobalCtx, RequestCtx>>>(
+                (_, false, false) => registry.arg::<Option<Input<RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, false, true) => registry.arg::<Option<Vec<Input<GlobalCtx, RequestCtx>>>>(
+                (_, false, true) => registry.arg::<Option<Vec<Input<RequestCtx>>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, false) => registry.arg::<Input<GlobalCtx, RequestCtx>>(
+                (_, true, false) => registry.arg::<Input<RequestCtx>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, true) => registry.arg::<Vec<Input<GlobalCtx, RequestCtx>>>(
+                (_, true, true) => registry.arg::<Vec<Input<RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
@@ -134,7 +128,7 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_input_object_type::<Input<GlobalCtx, RequestCtx>>(info, &args)
+            .build_input_object_type::<Input<RequestCtx>>(info, &args)
             .into_meta()
     }
 }
@@ -149,7 +143,7 @@ where
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
 ///
-/// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
 ///     let typename = "User";
 ///
 ///     let mut props = HashMap::new();
@@ -161,30 +155,26 @@ where
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Node<GlobalCtx, RequestCtx>
+pub struct Node<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: Debug + RequestContext,
 {
     concrete_typename: String,
     fields: HashMap<String, Value>,
-    _gctx: PhantomData<GlobalCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx, RequestCtx> Node<GlobalCtx, RequestCtx>
+impl<RequestCtx> Node<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     pub(crate) fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
-    ) -> Node<GlobalCtx, RequestCtx> {
+    ) -> Node<RequestCtx> {
         Node {
             concrete_typename,
             fields,
-            _gctx: PhantomData,
             _rctx: PhantomData,
         }
     }
@@ -195,7 +185,7 @@ where
     /// ```rust
     /// use warpgrapher::engine::objects::Node;
     ///
-    /// fn handle_node(n: Node<(),()>) {
+    /// fn handle_node(n: Node<()>) {
     ///     let properties = n.fields();
     /// }
     /// ```
@@ -229,15 +219,13 @@ where
             Some(union_types) => union_types
                 .clone()
                 .map(|ut| {
-                    registry.get_type::<Node<GlobalCtx, RequestCtx>>(&Info::new(
-                        ut.to_string(),
-                        info.type_defs(),
-                    ))
+                    registry
+                        .get_type::<Node<RequestCtx>>(&Info::new(ut.to_string(), info.type_defs()))
                 })
                 .collect::<Vec<_>>(),
         };
         registry
-            .build_union_type::<Node<GlobalCtx, RequestCtx>>(info, &types)
+            .build_union_type::<Node<RequestCtx>>(info, &types)
             .into_meta()
     }
 
@@ -278,42 +266,40 @@ where
                     ("String", true, false, _) => registry.field::<String>(p.name(), &()),
                     ("String", true, true, _) => registry.field::<Vec<String>>(p.name(), &()),
                     (_, false, false, PropertyKind::Rel { rel_name: _ }) => registry
-                        .field::<Option<Rel<GlobalCtx, RequestCtx>>>(
+                        .field::<Option<Rel<RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         ),
-                    (_, false, false, _) => registry.field::<Option<Node<GlobalCtx, RequestCtx>>>(
+                    (_, false, false, _) => registry.field::<Option<Node<RequestCtx>>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
                     (_, false, true, PropertyKind::Rel { rel_name: _ }) => {
-                        registry.field::<Option<Vec<&Rel<GlobalCtx, RequestCtx>>>>(
+                        registry.field::<Option<Vec<&Rel<RequestCtx>>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         )
                     }
-                    (_, false, true, _) => registry
-                        .field::<Option<Vec<&Node<GlobalCtx, RequestCtx>>>>(
+                    (_, false, true, _) => registry.field::<Option<Vec<&Node<RequestCtx>>>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                    (_, true, false, PropertyKind::Rel { rel_name: _ }) => registry
+                        .field::<Rel<RequestCtx>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         ),
-                    (_, true, false, PropertyKind::Rel { rel_name: _ }) => {
-                        registry.field::<Rel<GlobalCtx, RequestCtx>>(
-                            p.name(),
-                            &Info::new(p.type_name().to_string(), info.type_defs()),
-                        )
-                    }
-                    (_, true, false, _) => registry.field::<Node<GlobalCtx, RequestCtx>>(
+                    (_, true, false, _) => registry.field::<Node<RequestCtx>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
                     (_, true, true, PropertyKind::Rel { rel_name: _ }) => {
-                        registry.field::<Vec<&Rel<GlobalCtx, RequestCtx>>>(
+                        registry.field::<Vec<&Rel<RequestCtx>>>(
                             p.name(),
                             &Info::new(p.type_name().to_string(), info.type_defs()),
                         )
                     }
-                    (_, true, true, _) => registry.field::<Vec<&Node<GlobalCtx, RequestCtx>>>(
+                    (_, true, true, _) => registry.field::<Vec<&Node<RequestCtx>>>(
                         p.name(),
                         &Info::new(p.type_name().to_string(), info.type_defs()),
                     ),
@@ -355,13 +341,13 @@ where
                             f.argument(registry.arg::<String>(name, &()))
                         }
                         ("input", type_name, ArgumentKind::Optional) => {
-                            f.argument(registry.arg::<Option<Input<GlobalCtx, RequestCtx>>>(
+                            f.argument(registry.arg::<Option<Input<RequestCtx>>>(
                                 "input",
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
                         ("input", type_name, ArgumentKind::Required) => {
-                            f.argument(registry.arg::<Input<GlobalCtx, RequestCtx>>(
+                            f.argument(registry.arg::<Input<RequestCtx>>(
                                 "input",
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
@@ -373,7 +359,7 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_object_type::<Node<GlobalCtx, RequestCtx>>(info, &fields)
+            .build_object_type::<Node<RequestCtx>>(info, &fields)
             .into_meta()
     }
 
@@ -382,12 +368,11 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> GraphQLType for Node<GlobalCtx, RequestCtx>
+impl<RequestCtx> GraphQLType for Node<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
+    type Context = GraphQLContext<RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -426,8 +411,8 @@ where
         });
 
         match nt.type_kind() {
-            TypeKind::Union => Node::<GlobalCtx, RequestCtx>::union_meta(nt, info, registry),
-            _ => Node::<GlobalCtx, RequestCtx>::object_meta(nt, info, registry),
+            TypeKind::Union => Node::<RequestCtx>::union_meta(nt, info, registry),
+            _ => Node::<RequestCtx>::object_meta(nt, info, registry),
         }
     }
 
@@ -448,7 +433,7 @@ where
         );
 
         let p = info.type_def()?.property(field_name)?;
-        let input_opt: Option<Input<GlobalCtx, RequestCtx>> = args.get("input");
+        let input_opt: Option<Input<RequestCtx>> = args.get("input");
 
         // The partition key is only in the arguments for the outermost query or mutation.
         // For lower-level field resolution, the partition key is read from the field of the parent.
@@ -612,9 +597,9 @@ where
 /// Represents a reference to a [`Node`] object as either an [`Identifier`]
 /// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
-pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
+pub(crate) enum NodeRef<RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
-    Node(Node<GlobalCtx, RequestCtx>),
+    Node(Node<RequestCtx>),
 }
 
 /// Represents a relationship in the graph data structure for auto-generated CRUD operations and
@@ -627,7 +612,7 @@ pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
 ///
-/// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
 ///     // do work
 ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
 ///
@@ -641,39 +626,35 @@ pub(crate) enum NodeRef<GlobalCtx: GlobalContext, RequestCtx: RequestContext> {
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Rel<GlobalCtx, RequestCtx>
+pub struct Rel<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     id: Value,
     partition_key: Option<Value>,
-    props: Option<Node<GlobalCtx, RequestCtx>>,
-    src_ref: NodeRef<GlobalCtx, RequestCtx>,
-    dst_ref: NodeRef<GlobalCtx, RequestCtx>,
-    _gctx: PhantomData<GlobalCtx>,
+    props: Option<Node<RequestCtx>>,
+    src_ref: NodeRef<RequestCtx>,
+    dst_ref: NodeRef<RequestCtx>,
     _rctx: PhantomData<RequestCtx>,
 }
 
-impl<GlobalCtx, RequestCtx> Rel<GlobalCtx, RequestCtx>
+impl<RequestCtx> Rel<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
     pub(crate) fn new(
         id: Value,
         partition_key: Option<Value>,
-        props: Option<Node<GlobalCtx, RequestCtx>>,
-        src_ref: NodeRef<GlobalCtx, RequestCtx>,
-        dst_ref: NodeRef<GlobalCtx, RequestCtx>,
-    ) -> Rel<GlobalCtx, RequestCtx> {
+        props: Option<Node<RequestCtx>>,
+        src_ref: NodeRef<RequestCtx>,
+        dst_ref: NodeRef<RequestCtx>,
+    ) -> Rel<RequestCtx> {
         Rel {
             id,
             partition_key,
             props,
             src_ref,
             dst_ref,
-            _gctx: PhantomData,
             _rctx: PhantomData,
         }
     }
@@ -683,12 +664,11 @@ where
     }
 }
 
-impl<GlobalCtx, RequestCtx> GraphQLType for Rel<GlobalCtx, RequestCtx>
+impl<RequestCtx> GraphQLType for Rel<RequestCtx>
 where
-    GlobalCtx: GlobalContext,
     RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<GlobalCtx, RequestCtx>;
+    type Context = GraphQLContext<RequestCtx>;
     type TypeInfo = Info;
 
     fn name(info: &Self::TypeInfo) -> Option<&str> {
@@ -735,19 +715,19 @@ where
                 ("ID", false, true) => registry.field::<Option<Vec<ID>>>(p.name(), &()),
                 ("ID", true, false) => registry.field::<ID>(p.name(), &()),
                 ("ID", true, true) => registry.field::<Vec<ID>>(p.name(), &()),
-                (_, false, false) => registry.field::<Option<Node<GlobalCtx, RequestCtx>>>(
+                (_, false, false) => registry.field::<Option<Node<RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, false, true) => registry.field::<Option<Vec<&Node<GlobalCtx, RequestCtx>>>>(
+                (_, false, true) => registry.field::<Option<Vec<&Node<RequestCtx>>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, false) => registry.field::<Node<GlobalCtx, RequestCtx>>(
+                (_, true, false) => registry.field::<Node<RequestCtx>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
-                (_, true, true) => registry.field::<Vec<&Node<GlobalCtx, RequestCtx>>>(
+                (_, true, true) => registry.field::<Vec<&Node<RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
                 ),
@@ -755,7 +735,7 @@ where
             .collect::<Vec<_>>();
 
         registry
-            .build_object_type::<Rel<GlobalCtx, RequestCtx>>(info, &fields)
+            .build_object_type::<Rel<RequestCtx>>(info, &fields)
             .into_meta()
     }
 

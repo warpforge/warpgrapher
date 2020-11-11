@@ -26,7 +26,7 @@ use std::iter::FromIterator;
 use std::sync::Arc;
 #[cfg(feature = "neo4j")]
 use tokio::runtime::Runtime;
-use warpgrapher::engine::context::{GlobalContext, RequestContext};
+use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 #[cfg(feature = "gremlin")]
@@ -209,7 +209,7 @@ fn load_config(config: &str) -> Configuration {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppRequestCtx> {
     // load config
     let config: Configuration = File::open(config_path)
         .expect("Failed to load config file")
@@ -218,13 +218,8 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx,
 
     let database_pool = Neo4jEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    // create app contex
-    let global_ctx = AppGlobalCtx {
-        version: "0.0.0".to_owned(),
-    };
-
     // load resolvers
-    let mut resolvers: Resolvers<AppGlobalCtx, AppRequestCtx> = Resolvers::new();
+    let mut resolvers: Resolvers<AppRequestCtx> = Resolvers::new();
     resolvers.insert("GlobalTopDev".to_owned(), Box::new(global_top_dev));
     resolvers.insert("GlobalTopTags".to_owned(), Box::new(global_top_tags));
     resolvers.insert("ProjectCount".to_owned(), Box::new(project_count));
@@ -238,13 +233,11 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx,
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    let metadata_extension: MetadataExtension<AppGlobalCtx, AppRequestCtx> =
-        MetadataExtension::new();
-    let extensions: Extensions<AppGlobalCtx, AppRequestCtx> = vec![Arc::new(metadata_extension)];
+    let metadata_extension: MetadataExtension<AppRequestCtx> = MetadataExtension::new();
+    let extensions: Extensions<AppRequestCtx> = vec![Arc::new(metadata_extension)];
 
-    let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config, database_pool)
+    let engine = Engine::<AppRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
-        .with_global_ctx(global_ctx)
         .with_resolvers(resolvers.clone())
         .with_validators(validators.clone())
         .with_extensions(extensions.clone())
@@ -256,7 +249,7 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppGlobalCtx,
 
 #[allow(dead_code)]
 #[cfg(feature = "cosmos")]
-pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<AppRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config: Configuration = File::open(config_path)
@@ -266,14 +259,8 @@ pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<AppGlobalCtx
 
     let database_pool = CosmosEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    // create app context
-    let global_ctx = AppGlobalCtx {
-        version: "0.0.0".to_owned(),
-    };
-
-    let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config, database_pool)
+    let engine = Engine::<AppRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
-        .with_global_ctx(global_ctx)
         .build()
         .expect("Could not create warpgrapher engine");
 
@@ -301,7 +288,7 @@ fn clear_cosmos_db() {
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppGlobalCtx, AppRequestCtx> {
+pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config: Configuration = File::open(config_path)
@@ -311,14 +298,8 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppGlobalCt
 
     let database_pool = GremlinEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    // create app context
-    let global_ctx = AppGlobalCtx {
-        version: "0.0.0".to_owned(),
-    };
-
-    let engine = Engine::<AppGlobalCtx, AppRequestCtx>::new(config, database_pool)
+    let engine = Engine::<AppRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
-        .with_global_ctx(global_ctx)
         .build()
         .expect("Could not create warpgrapher engine");
 
@@ -374,13 +355,6 @@ pub(crate) async fn clear_db() {
     #[cfg(feature = "neo4j")]
     clear_neo4j_db().await;
 }
-
-#[derive(Clone, Debug)]
-pub struct AppGlobalCtx {
-    version: String,
-}
-
-impl GlobalContext for AppGlobalCtx {}
 
 #[derive(Clone, Debug)]
 pub struct AppRequestCtx {
@@ -451,9 +425,7 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 }
 
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_count(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn project_count(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
         let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
@@ -477,52 +449,34 @@ pub(crate) fn project_count(
 
 /// custom endpoint returning scalar_list:
 #[cfg(feature = "neo4j")]
-pub(crate) fn global_top_tags(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn global_top_tags(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     facade.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
 }
 
 /// custom endpoint returning node
 #[cfg(feature = "neo4j")]
-pub(crate) fn global_top_dev(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn global_top_dev(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     trace!("global_top_dev called");
     let mut hm = HashMap::new();
     hm.insert("name".to_string(), Value::String("Joe".to_string()));
     facade.resolve_node(&facade.create_node("User", hm))
 }
 
-/*
-/// custom endpoint returning node_list
-pub fn global_top_issues(facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>) {
-    // TODO: add real database query
-    facade.resolve_node_list()
-}
-*/
-
 /// custom field returning scalar
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_points(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn project_points(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     facade.resolve_scalar(138)
 }
 
 /// custom field returning scalar_list
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_tags(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn project_top_tags(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     facade.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
 }
 
 /// custom rel returning rel
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_dev(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
         let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
@@ -566,9 +520,7 @@ pub(crate) fn project_top_dev(
 
 /// custom rel returning rel_list
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_issues(
-    facade: ResolverFacade<AppGlobalCtx, AppRequestCtx>,
-) -> ExecutionResult {
+pub(crate) fn project_top_issues(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
         let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;

@@ -10,9 +10,9 @@ use setup::cosmos_test_client;
 use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
-use setup::{AppGlobalCtx, AppRequestCtx};
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 use warpgrapher::client::Client;
@@ -52,7 +52,7 @@ async fn create_single_node_gremlin() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn create_single_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_single_node(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -130,7 +130,7 @@ async fn read_query_gremlin() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn read_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -207,7 +207,7 @@ async fn handle_missing_properties_gremlin() {
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
 #[allow(dead_code)]
-async fn handle_missing_properties(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn handle_missing_properties(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -274,7 +274,7 @@ async fn update_mutation_gremlin() {
 
 /// Passes if the update mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn update_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_mutation(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -380,7 +380,7 @@ async fn update_mutation_null_query_gremlin() {
 
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_mutation_null_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -479,7 +479,7 @@ async fn delete_mutation_gremlin() {
 
 /// Passes if the delete mutation succeeds with a target node selected by attribute
 #[allow(dead_code)]
-async fn delete_mutation(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_mutation(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -573,7 +573,7 @@ async fn delete_mutation_null_query_gremlin() {
 
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mutation_null_query(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_mutation_null_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -659,7 +659,7 @@ async fn error_on_node_missing_id_neo4j() {
 /// to that node.  There is no GraphSON variant of this test, because GraphSON
 /// data stores automatically assign a UUID id.
 #[allow(dead_code)]
-async fn error_on_node_missing_id(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn error_on_node_missing_id(mut client: Client<AppRequestCtx>) {
     let projects = client
         .read_node(
             "Project",

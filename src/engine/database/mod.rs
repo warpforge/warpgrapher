@@ -5,7 +5,7 @@ pub mod gremlin;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
 
-use crate::engine::context::{GlobalContext, RequestContext};
+use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -137,7 +137,7 @@ pub trait DatabaseEndpoint {
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
-    fn node_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_create_query<RequestCtx: RequestContext>(
         &mut self,
         rel_create_fragments: Vec<String>,
         params: HashMap<String, Value>,
@@ -147,15 +147,15 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn create_node<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_node<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Node<GlobalCtx, RequestCtx>, Error>;
+    ) -> Result<Node<RequestCtx>, Error>;
 
-    fn rel_create_fragment<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_fragment<RequestCtx: RequestContext>(
         &mut self,
         dst_query: &str,
         params: HashMap<String, Value>,
@@ -165,7 +165,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn rel_create_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_create_query<RequestCtx: RequestContext>(
         &mut self,
         src_query_opt: Option<String>,
         rel_create_fragments: Vec<String>,
@@ -174,13 +174,13 @@ pub(crate) trait Transaction {
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn create_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     fn node_read_fragment(
         &mut self,
@@ -201,13 +201,13 @@ pub(crate) trait Transaction {
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn read_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: Option<HashMap<String, Value>>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
+    ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
     fn rel_read_fragment(
         &mut self,
@@ -228,16 +228,16 @@ pub(crate) trait Transaction {
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn read_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: Option<HashMap<String, Value>>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn node_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn node_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         change_queries: Vec<String>,
@@ -248,15 +248,15 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn update_nodes<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
-    ) -> Result<Vec<Node<GlobalCtx, RequestCtx>>, Error>;
+    ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn rel_update_query<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn rel_update_query<RequestCtx: RequestContext>(
         &mut self,
         match_query: String,
         params: HashMap<String, Value>,
@@ -266,13 +266,13 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
-    fn update_rels<GlobalCtx: GlobalContext, RequestCtx: RequestContext>(
+    fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
         params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<GlobalCtx, RequestCtx>>, Error>;
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     fn node_delete_query(
         &mut self,

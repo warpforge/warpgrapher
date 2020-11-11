@@ -18,5 +18,4 @@
   - [Defined Endpoints](./engine/endpoints_defined.md)
   - [Dynamic Props](./engine/dynamic_props.md)
   - [Dynamic Relationships](./engine/dynamic_rels.md)
-  - [Global Context](./engine/context_global.md)
   - [Request Context](./engine/context_request.md)

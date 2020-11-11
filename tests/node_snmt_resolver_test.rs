@@ -8,9 +8,9 @@ use setup::cosmos_test_client;
 use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
-use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "neo4j")]
@@ -45,7 +45,7 @@ async fn create_node_with_rel_to_new_gremlin() {
 
 /// Passes if a node is created with an SNMT rel to a new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_new(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
     // create new Project with rel to new KanbanBoard
     let results0 = client
         .create_node(
@@ -180,7 +180,7 @@ async fn create_node_with_rel_to_existing_gremlin() {
 
 /// Passes if a node is created with an SNMT rel to existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_existing(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
     // create new ScrumBoard
     let results0 = client
         .create_node(
@@ -303,7 +303,7 @@ async fn read_multiple_nodes_with_multiple_rels_gremlin() {
 /// Passes if multiple nodes with multiple rels are read and
 /// the relationships associate correctly
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx>) {
     // create multiple nodes with multiple rels
     let results0 = client
         .create_node(
@@ -468,7 +468,7 @@ async fn read_node_with_matching_props_on_rel_gremlin() {
 
 /// Passes if nodes matching props on a relationship are returned
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_node_with_matching_props_on_rel(mut client: Client<AppRequestCtx>) {
     // create nodes with rel with props
     let results0 = client
         .create_node(
@@ -636,9 +636,7 @@ async fn read_node_with_matching_props_on_rel_dst_node_gremlin() {
 /// Passes if it returns nodes with relationship dst nodes
 /// with matching props
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel_dst_node(
-    mut client: Client<AppGlobalCtx, AppRequestCtx>,
-) {
+async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppRequestCtx>) {
     // create nodes with rel with props
     let _results0 = client
         .create_node(
@@ -763,9 +761,7 @@ async fn update_existing_node_with_rel_to_new_node_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_new_node(
-    mut client: Client<AppGlobalCtx, AppRequestCtx>,
-) {
+async fn update_existing_node_with_rel_to_new_node(mut client: Client<AppRequestCtx>) {
     // create project node
     let _results0 = client
         .create_node(
@@ -889,9 +885,7 @@ async fn update_existing_node_with_rel_to_existing_node_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_existing_node(
-    mut client: Client<AppGlobalCtx, AppRequestCtx>,
-) {
+async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRequestCtx>) {
     // create project node
     let _results0 = client
         .create_node(
@@ -1014,9 +1008,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_with_matching_props_on_rel_dst_node(
-    mut client: Client<AppGlobalCtx, AppRequestCtx>,
-) {
+async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client<AppRequestCtx>) {
     // create project nodes
     let _results0 = client
         .create_node(
@@ -1101,7 +1093,7 @@ async fn delete_node_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_node(mut client: Client<AppRequestCtx>) {
     // create project nodes
     let _results0 = client
         .create_node(
