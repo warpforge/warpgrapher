@@ -167,10 +167,10 @@ where
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             node_var,
-            m.remove("match"), // Remove used to take ownership
+            m.remove("$MATCH"), // Remove used to take ownership
             ClauseType::SubQuery,
             &Info::new(
-                itd.property("match")?.type_name().to_owned(),
+                itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -190,10 +190,10 @@ where
             match_query,
             params,
             &node_var,
-            m.remove("delete"), // remove used to take ownership
+            m.remove("$DELETE"),
             ClauseType::Query,
             &Info::new(
-                itd.property("delete")?.type_name().to_owned(),
+                itd.property("$DELETE")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -313,13 +313,13 @@ where
             .into_iter()
             .next()
             .ok_or_else(|| Error::InputItemNotFound {
-                name: info.name().to_string() + "::NEW or ::EXISTING",
+                name: info.name().to_string() + "::$NEW or ::$EXISTING",
             })?;
 
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
+            "$NEW" => visit_node_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 params,
                 node_var,
                 v,
@@ -330,7 +330,7 @@ where
                 transaction,
                 validators,
             ),
-            "EXISTING" => {
+            "$EXISTING" => {
                 let (match_fragment, where_fragment, params) = visit_node_query_input(
                     params,
                     node_var,
@@ -448,10 +448,10 @@ where
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             node_var,
-            m.remove("match"), // Remove used to take ownership
+            m.remove("$MATCH"), // Remove used to take ownership
             ClauseType::SubQuery,
             &Info::new(
-                itd.property("match")?.type_name().to_owned(),
+                itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -471,15 +471,15 @@ where
             match_query,
             params,
             node_var,
-            m.remove("modify").ok_or_else(|| {
-                // remove() used here to take ownership of the "modify" value, not borrow it
+            m.remove("$SET").ok_or_else(|| {
+                // remove() used here to take ownership of the "set" value, not borrow it
                 Error::InputItemNotFound {
-                    name: "input::modify".to_string(),
+                    name: "input::$SET".to_string(),
                 }
             })?,
             ClauseType::Query,
             &Info::new(
-                itd.property("modify")?.type_name().to_owned(),
+                itd.property("$SET")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -662,7 +662,7 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(mut m) = input {
-        if let Some(v) = m.remove("ADD") {
+        if let Some(v) = m.remove("$ADD") {
             // Using remove to take ownership
             visit_rel_create_mutation_input::<T, GlobalCtx, RequestCtx>(
                 params,
@@ -671,7 +671,7 @@ where
                 v,
                 ClauseType::SubQuery,
                 &Info::new(
-                    itd.property("ADD")?.type_name().to_owned(),
+                    itd.property("$ADD")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
@@ -679,7 +679,7 @@ where
                 transaction,
                 validators,
             )
-        } else if let Some(v) = m.remove("DELETE") {
+        } else if let Some(v) = m.remove("$DELETE") {
             // Using remove to take ownership
             visit_rel_delete_input::<T, GlobalCtx, RequestCtx>(
                 params,
@@ -687,14 +687,14 @@ where
                 v,
                 ClauseType::SubQuery,
                 &Info::new(
-                    itd.property("DELETE")?.type_name().to_owned(),
+                    itd.property("$DELETE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
                 sg,
                 transaction,
             )
-        } else if let Some(v) = m.remove("UPDATE") {
+        } else if let Some(v) = m.remove("$UPDATE") {
             // Using remove to take ownership
             visit_rel_update_input::<T, GlobalCtx, RequestCtx>(
                 params,
@@ -703,7 +703,7 @@ where
                 v,
                 ClauseType::SubQuery,
                 &Info::new(
-                    itd.property("UPDATE")?.type_name().to_owned(),
+                    itd.property("$UPDATE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
@@ -713,7 +713,7 @@ where
             )
         } else {
             Err(Error::InputItemNotFound {
-                name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
+                name: itd.type_name().to_string() + "::$ADD|$DELETE|$UPDATE",
             })
         }
     } else {
@@ -751,10 +751,10 @@ where
         let (match_fragment, where_fragment, params) = visit_node_query_input(
             params,
             src_var,
-            m.remove("match"), // Remove used to take ownership
+            m.remove("$MATCH"), // Remove used to take ownership
             ClauseType::SubQuery,
             &Info::new(
-                itd.property("match")?.type_name().to_owned(),
+                itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -770,10 +770,10 @@ where
             ClauseType::Parameter,
         )?;
 
-        let create_input = m.remove("create").ok_or_else(|| {
+        let create_input = m.remove("$CREATE").ok_or_else(|| {
             // Using remove to take ownership
             Error::InputItemNotFound {
-                name: "input::create".to_string(),
+                name: "input::$CREATE".to_string(),
             }
         })?;
 
@@ -792,7 +792,7 @@ where
                     create_input,
                     ClauseType::SubQuery,
                     &Info::new(
-                        itd.property("create")?.type_name().to_owned(),
+                        itd.property("$CREATE")?.type_name().to_owned(),
                         info.type_defs(),
                     ),
                     partition_key_opt,
@@ -833,7 +833,7 @@ where
                                     create_input_value,
                                     ClauseType::SubQuery,
                                     &Info::new(
-                                        itd.property("create")?.type_name().to_owned(),
+                                        itd.property("$CREATE")?.type_name().to_owned(),
                                         info.type_defs(),
                                     ),
                                     partition_key_opt,
@@ -943,10 +943,10 @@ where
         let (match_fragment, where_fragment, params) = visit_rel_query_input(
             params,
             rel_var,
-            m.remove("match"), // remove rather than get to take ownership
+            m.remove("$MATCH"), // remove rather than get to take ownership
             ClauseType::SubQuery,
             &Info::new(
-                itd.property("match")?.type_name().to_owned(),
+                itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -1436,10 +1436,10 @@ where
         let (match_fragment, where_fragment, params) = visit_rel_query_input(
             params,
             &rel_var,
-            m.remove("match"), // uses remove to take ownership
+            m.remove("$MATCH"), // uses remove to take ownership
             ClauseType::Parameter,
             &Info::new(
-                itd.property("match")?.type_name().to_owned(),
+                itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -1465,7 +1465,7 @@ where
             params
         );
 
-        if let Some(update) = m.remove("update") {
+        if let Some(update) = m.remove("$SET") {
             // remove used to take ownership
             visit_rel_update_mutation_input::<T, GlobalCtx, RequestCtx>(
                 match_query,
@@ -1475,7 +1475,7 @@ where
                 update,
                 clause,
                 &Info::new(
-                    itd.property("update")?.type_name().to_owned(),
+                    itd.property("$SET")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
@@ -1485,7 +1485,7 @@ where
             )
         } else {
             Err(Error::InputItemNotFound {
-                name: "update".to_string(),
+                name: "input::$SET".to_string(),
             })
         }
     } else {

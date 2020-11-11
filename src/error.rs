@@ -253,6 +253,7 @@ pub enum Error {
     ValidatorNotFound {
         name: String,
     },
+
     /// Returned if a `serde_yaml::Value` struct fails to deserialize into a given struct
     YamlDeserializationFailed {
         source: serde_yaml::Error,
