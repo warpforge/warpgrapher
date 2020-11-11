@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="engine/context_global.html"><strong aria-hidden="true">3.5.</strong> Global Context</a></li><li class="chapter-item expanded "><a href="engine/context_request.html"><strong aria-hidden="true">3.6.</strong> Request Context</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="engine/context_request.html"><strong aria-hidden="true">3.5.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -991,51 +991,9 @@ fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 </code></pre>
-<h1><a class="header" href="#global-context" id="global-context">Global Context</a></h1>
-<p>The GlobalContext feature enable the creation of <strong>global state that is accessible across different event hook points</strong>, including inside function resolvers.</p>
-<p>The example below will demonstrate how to set a <code>tenant_id</code> variable in the global context that can be accessed within a function resolver and returned to the caller. </p>
-<h3><a class="header" href="#usage-3" id="usage-3">Usage</a></h3>
-<h4><a class="header" href="#1-define-globalcontext-struct" id="1-define-globalcontext-struct">1. Define GlobalContext struct</a></h4>
-<p>Define a struct containing all the owned variables of the global state. The struct must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code> and warpgrapher <code>GlobalContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">
-#[derive(Clone, Debug)]
-struct AppGlobalContext {
-    tenant_id: String,
-}
-
-</code></pre>
-<h4><a class="header" href="#2-create-globalcontext-instance" id="2-create-globalcontext-instance">2. Create GlobalContext instance</a></h4>
-<p>Create an instance of the global context struct with initial values. </p>
-<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to create neo4j database pool&quot;);
-    // define global context
-    let global_ctx = AppGlobalContext {
-</code></pre>
-<h4><a class="header" href="#3-create-an-engine-with-global-context" id="3-create-an-engine-with-global-context">3. Create an <code>Engine</code> with global context</a></h4>
-<p>The global context is passed to the engine via the builder pattern as an argument to the <code>.with_global_ctx()</code> method. The type of the global context must also be specified as the first type parameter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">
-    // create warpgrapher engine
-    let engine: Engine&lt;AppGlobalContext, ()&gt; = Engine::new(config, db)
-        .with_global_ctx(global_ctx)
-        .with_resolvers(resolvers)
-</code></pre>
-<h4><a class="header" href="#4-use-globalcontext-in-a-resolver" id="4-use-globalcontext-in-a-resolver">4. Use GlobalContext in a resolver</a></h4>
-<p>The global context is now accessible in function resolvers.</p>
-<pre><code class="language-rust no_run noplayground">
-fn resolve_get_tenant(facade: ResolverFacade&lt;AppGlobalContext, ()&gt;) -&gt; ExecutionResult {
-    let global_context = match facade.global_context() {
-        Some(v) =&gt; v,
-        None =&gt; {
-            return facade.resolve_null();
-        }
-    };
-    let tenant_id = global_context.tenant_id.clone();
-    facade.resolve_scalar(tenant_id)
-</code></pre>
-<h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
-<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/global_context/main.rs">Github</a>.</p>
 <h1><a class="header" href="#request-context" id="request-context">Request Context</a></h1>
 <p>The Request Context feature enables the creation of <strong>mutable state through the lifecycle of a request</strong>.</p>
-<h3><a class="header" href="#usage-4" id="usage-4">Usage</a></h3>
+<h3><a class="header" href="#usage-3" id="usage-3">Usage</a></h3>
 <h4><a class="header" href="#1-define-requestcontext-struct" id="1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
 <p>Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code>, and Warpgrapher <code>RequestContext</code>. </p>
 <pre><code class="language-rust no_run noplayground">struct AppRequestContext {
@@ -1067,7 +1025,7 @@ fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&g
 fn main() {
     // parse warpgrapher config
 </code></pre>
-<h3><a class="header" href="#full-example-1" id="full-example-1">Full Example</a></h3>
+<h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
 <p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.5.0/examples/request_context/main.rs">Github</a>.</p>
 
                     </main>

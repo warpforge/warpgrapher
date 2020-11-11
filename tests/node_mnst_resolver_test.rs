@@ -7,9 +7,9 @@ use setup::cosmos_test_client;
 use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
-use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "cosmos")]
@@ -44,7 +44,7 @@ async fn create_mnst_new_nodes_neo4j() {
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnst_new_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_mnst_new_nodes(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -194,7 +194,7 @@ async fn create_mnst_existing_nodes_neo4j() {
 
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnst_existing_nodes(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_mnst_existing_nodes(mut client: Client<AppRequestCtx>) {
     let c0 = client
         .create_node(
             "Commit",
@@ -318,7 +318,7 @@ async fn read_mnst_by_rel_props_neo4j() {
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_mnst_by_rel_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -400,7 +400,7 @@ async fn read_mnst_by_dst_props_neo4j() {
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_mnst_by_dst_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -482,7 +482,7 @@ async fn update_mnst_new_node_neo4j() {
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_new_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_mnst_new_node(mut client: Client<AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -563,7 +563,7 @@ async fn update_mnst_existing_node_neo4j() {
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_existing_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_mnst_existing_node(mut client: Client<AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -654,7 +654,7 @@ async fn update_mnst_relationship_neo4j() {
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnst_relationship(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_mnst_relationship(mut client: Client<AppRequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -738,7 +738,7 @@ async fn delete_mnst_relationship_by_rel_props_neo4j() {
 
 /// Passes if warpgrapher can delete a relationship by its properties
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnst_relationship_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_mnst_relationship_by_rel_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -830,7 +830,7 @@ async fn delete_mnst_relationship_by_dst_props_neo4j() {
 
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnst_relationship_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_mnst_relationship_by_dst_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -922,7 +922,7 @@ async fn delete_node_by_mnst_rel_property_neo4j() {
 
 /// Passes if warpgrapher can delete a node by the properties of a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_by_mnst_rel_property(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_node_by_mnst_rel_property(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -995,7 +995,7 @@ async fn delete_node_by_mnst_dst_property_neo4j() {
 
 /// Passes if warpgrapher can delete a node by the properties of the dst object at a relationship
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_by_mnst_dst_property(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_node_by_mnst_dst_property(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",

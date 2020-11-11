@@ -143,7 +143,7 @@ where
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
 ///
-/// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
 ///     let typename = "User";
 ///
 ///     let mut props = HashMap::new();
@@ -185,7 +185,7 @@ where
     /// ```rust
     /// use warpgrapher::engine::objects::Node;
     ///
-    /// fn handle_node(n: Node<(),()>) {
+    /// fn handle_node(n: Node<()>) {
     ///     let properties = n.fields();
     /// }
     /// ```
@@ -612,7 +612,7 @@ pub(crate) enum NodeRef<RequestCtx: RequestContext> {
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
 ///
-/// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
 ///     // do work
 ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
 ///

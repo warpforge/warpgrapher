@@ -4252,7 +4252,7 @@ mod tests {
     #[test]
     fn test_create_root_node() {
         let config = mock_config();
-        let root_node = create_root_node::<(), ()>(&config);
+        let root_node = create_root_node::<()>(&config);
         assert!(root_node.is_ok());
     }
 
@@ -4260,7 +4260,7 @@ mod tests {
     #[test]
     fn type_lookup_error() {
         let config = mock_project_config();
-        let root_node = create_root_node::<(), ()>(&config);
+        let root_node = create_root_node::<()>(&config);
         assert!(root_node.is_err());
     }
 

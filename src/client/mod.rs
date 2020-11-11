@@ -25,7 +25,7 @@ use std::thread;
 /// ```rust
 /// # use warpgrapher::Client;
 ///
-/// let client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+/// let client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
 pub enum Client<RequestCtx>
@@ -59,7 +59,7 @@ where
     /// ```rust
     /// # use warpgrapher::Client;
     ///
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     /// ```
     pub fn new_with_http(
         endpoint: &str,
@@ -99,7 +99,7 @@ where
     /// let c = Configuration::new(1, Vec::new(), Vec::new());
     /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
     ///
-    /// let mut client = Client::<(), ()>::new_with_engine(engine, None);
+    /// let mut client = Client::<()>::new_with_engine(engine, None);
     /// # Ok(())
     /// # }
     /// ```
@@ -150,7 +150,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let query = "query { Project { id name } }";
     /// let results = client.graphql("query { Project { id name } }", Some("1234"), None,
@@ -264,7 +264,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.create_node("Project", "id name description", Some("1234"),
     ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
@@ -333,7 +333,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.create_rel("Project",
     ///     "issues",
@@ -416,7 +416,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.delete_node("Project", Some("1234"),
     ///     Some(&json!({"name": "MJOLNIR"})), None).await;
@@ -494,7 +494,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.delete_rel("Project", "issues",
     ///    Some("1234"),
@@ -587,7 +587,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.read_node("Project", "id name description", Some("1234"),
     ///     None).await;
@@ -653,7 +653,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.read_rel("Project", "issues", "id props { since }",
     ///     Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
@@ -725,7 +725,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    ///     let mut client = Client::<(), ()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
+    ///     let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     ///     let projects = client.update_node("Project", "id name status", Some("1234"),
     ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
@@ -797,7 +797,7 @@ where
     ///
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let mut client = Client::<(), ()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
+    /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.update_rel("Project", "issues",
     ///     "id props {since} src {id name} dst {id name}",

@@ -7,9 +7,9 @@ use setup::cosmos_test_client;
 use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
-use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "neo4j")]
@@ -44,7 +44,7 @@ async fn create_snst_new_node_gremlin() {
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_snst_new_node(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_snst_new_node(mut client: Client<AppRequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -162,7 +162,7 @@ async fn create_node_with_rel_to_existing_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_existing(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -284,7 +284,7 @@ async fn read_multiple_snst_node_with_rel_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_multiple_snst_node_with_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -469,7 +469,7 @@ async fn read_snst_node_by_rel_props_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_snst_node_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -581,7 +581,7 @@ async fn read_snst_node_by_dst_props_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_snst_node_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -695,7 +695,7 @@ async fn update_snst_node_with_new_rel_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_snst_node_with_new_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -834,7 +834,7 @@ async fn update_snst_node_with_existing_rel_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_snst_node_with_existing_rel(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -981,7 +981,7 @@ async fn delete_snst_rel_by_dst_props_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_rel_by_dst_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1119,7 +1119,7 @@ async fn delete_snst_rel_by_rel_props_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_rel_by_rel_props(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1255,7 +1255,7 @@ async fn delete_snst_node_by_dst_prop_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_node_by_dst_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1392,7 +1392,7 @@ async fn delete_snst_node_by_rel_prop_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_node_by_rel_prop(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1527,7 +1527,7 @@ async fn detach_snst_rel_by_dst_delete_gremlin() {
 }
 
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn detach_snst_rel_by_dst_delete(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
     let _u0 = client
         .create_node(
             "User",

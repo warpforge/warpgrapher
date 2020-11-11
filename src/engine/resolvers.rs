@@ -118,7 +118,7 @@ where
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let execution_metadata = facade.metadata();
     ///     // use metadata
     ///     
@@ -145,7 +145,7 @@ where
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let mut rt = Runtime::new().unwrap();
     ///     rt.block_on(async {
     ///
@@ -182,7 +182,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///
     ///     let cosmos_client = facade.db_into_cosmos()?;
     ///     
@@ -212,7 +212,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///
     ///     let gremlin_client = facade.db_into_gremlin()?;
     ///     
@@ -234,7 +234,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let args = facade.args();
     ///
     ///     // use arguments
@@ -257,7 +257,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let typename = "User";
     ///
     ///     let mut props = HashMap::new();
@@ -289,7 +289,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
     ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
@@ -343,7 +343,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///     let typename = "User";
     ///     let mut props = HashMap::new();
@@ -389,7 +389,7 @@ where
     /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let info = facade.info();
     ///
     ///     // use info
@@ -410,7 +410,7 @@ where
     /// # use warpgrapher::engine::resolvers::{Executor, ExecutionResult};
     /// # use warpgrapher::engine::resolvers::ResolverFacade;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let exeuctor = facade.executor();
     ///
     ///     // use executor
@@ -437,7 +437,7 @@ where
     /// # use warpgrapher::engine::objects::GraphQLType;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     let parent_node = facade.parent_node()?;
     ///     println!("Parent type: {:#?}",
     ///         parent_node.concrete_type_name(facade.executor().context(), facade.info()));
@@ -460,7 +460,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return null
@@ -478,7 +478,7 @@ where
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
@@ -498,7 +498,7 @@ where
     /// ```rust, no_run
     /// use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     // return string
@@ -523,7 +523,7 @@ where
     /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///     let mut hm = HashMap::new();
     ///     hm.insert("name".to_string(), Value::String("John Doe".to_string()));
@@ -551,7 +551,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
@@ -585,7 +585,7 @@ where
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     // do work
     ///
     ///     let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
@@ -626,7 +626,7 @@ where
     ///
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     ///
-    /// fn custom_resolve(context: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// fn custom_resolve(context: ResolverFacade<()>) -> ExecutionResult {
     ///     if let Some(request_context) = context.request_context() {
     ///         // use request_context
     ///     }

@@ -106,7 +106,7 @@ where
 ///     }
 /// }
 ///
-/// let metadata_extension = MetadataExtension { _gctx: PhantomData, _rctx: PhantomData };
-/// let extensions: Extensions<(), ()> = vec![Arc::new(metadata_extension)];
+/// let metadata_extension = MetadataExtension { _rctx: PhantomData };
+/// let extensions: Extensions<()> = vec![Arc::new(metadata_extension)];
 /// ```
 pub type Extensions<RequestCtx> = Vec<Arc<dyn Extension<RequestCtx>>>;

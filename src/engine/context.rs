@@ -36,15 +36,14 @@ use std::sync::Arc;
 /// let mut runtime = Runtime::new()?;
 /// # #[cfg(feature = "neo4j")]
 /// let ne = Neo4jEndpoint::from_env()?;
-/// let resolvers: Resolvers<(), ()> = Resolvers::new();
+/// let resolvers: Resolvers<()> = Resolvers::new();
 /// let validators: Validators = Validators::new();
 /// # #[cfg(feature = "neo4j")]
-/// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+/// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
 ///     runtime.block_on(ne.pool())?,
 ///     resolvers,
 ///     validators,
 ///     vec![],
-///     Some(()),
 ///     Some(()),
 ///     None,
 ///     HashMap::new()
@@ -111,15 +110,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -169,15 +167,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -219,7 +216,7 @@ where
     /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// pub fn project_count(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+    /// pub fn project_count(facade: ResolverFacade<()>) -> ExecutionResult {
     ///     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
     ///         let mut runtime = Runtime::new()?;
     ///         let mut db = runtime.block_on(p.get())?;
@@ -241,7 +238,7 @@ where
     /// }
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mut resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let mut resolvers: Resolvers<()> = Resolvers::new();
     /// # #[cfg(feature = "neo4j")]
     /// resolvers.insert("ProjectCount".to_string(), Box::new(project_count));
     ///
@@ -251,12 +248,11 @@ where
     /// let ne = Neo4jEndpoint::from_env()?;
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -297,15 +293,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     None,
     ///     HashMap::new()
@@ -341,15 +336,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -386,15 +380,14 @@ where
     /// let mut runtime = Runtime::new()?;
     /// # #[cfg(feature = "neo4j")]
     /// let ne = Neo4jEndpoint::from_env()?;
-    /// let resolvers: Resolvers<(), ()> = Resolvers::new();
+    /// let resolvers: Resolvers<()> = Resolvers::new();
     /// let validators: Validators = Validators::new();
     /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<(), ()> = GraphQLContext::new(
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
     ///     vec![],
-    ///     Some(()),
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()

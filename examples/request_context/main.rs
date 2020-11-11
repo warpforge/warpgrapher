@@ -37,7 +37,7 @@ impl RequestContext for AppRequestContext {
     }
 }
 
-fn resolve_echo_request(facade: ResolverFacade<(), AppRequestContext>) -> ExecutionResult {
+fn resolve_echo_request(facade: ResolverFacade<AppRequestContext>) -> ExecutionResult {
     let request_context = facade.request_context().unwrap();
     let request_id = request_context.request_id.clone();
     facade.resolve_scalar(format!("echo! (request_id: {})", request_id))
@@ -58,11 +58,11 @@ fn main() {
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
-    let mut resolvers = Resolvers::<(), AppRequestContext>::new();
+    let mut resolvers = Resolvers::<AppRequestContext>::new();
     resolvers.insert("EchoRequest".to_string(), Box::new(resolve_echo_request));
 
     // create warpgrapher engine
-    let engine: Engine<(), AppRequestContext> = Engine::new(config, db)
+    let engine: Engine<AppRequestContext> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

@@ -28,7 +28,7 @@ endpoints:
 ";
 
 // endpoint returning a list of `Issue` nodes
-fn resolve_top_issue(facade: ResolverFacade<(), ()>) -> ExecutionResult {
+fn resolve_top_issue(facade: ResolverFacade<()>) -> ExecutionResult {
     let top_issue = facade.create_node(
         "Issue",
         hashmap! {
@@ -55,11 +55,11 @@ fn main() {
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
-    let mut resolvers = Resolvers::<(), ()>::new();
+    let mut resolvers = Resolvers::<()>::new();
     resolvers.insert("TopIssue".to_string(), Box::new(resolve_top_issue));
 
     // create warpgrapher engine
-    let engine: Engine<(), ()> = Engine::new(config, db)
+    let engine: Engine<()> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

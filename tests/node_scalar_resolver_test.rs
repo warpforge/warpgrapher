@@ -7,9 +7,9 @@ use setup::cosmos_test_client;
 use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
+use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use setup::{clear_db, init};
-use setup::{AppGlobalCtx, AppRequestCtx};
 use warpgrapher::client::Client;
 
 #[cfg(feature = "cosmos")]
@@ -44,7 +44,7 @@ async fn scalar_lists_test_neo4j() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn scalar_lists_test(mut client: Client<AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",
@@ -125,7 +125,7 @@ async fn scalar_lists_no_array_neo4j() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_lists_no_array_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn scalar_lists_no_array_test(mut client: Client<AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",
@@ -194,7 +194,7 @@ async fn scalar_no_lists_neo4j() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(dead_code)]
-async fn scalar_no_lists_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn scalar_no_lists_test(mut client: Client<AppRequestCtx>) {
     assert!(client
         .create_node(
             "TestType",
@@ -276,7 +276,7 @@ async fn scalar_no_lists_no_array_neo4j() {
 
 /// Passes if the create mutation and the read query both succeed.
 #[allow(clippy::float_cmp, dead_code)]
-async fn scalar_no_lists_no_array_test(mut client: Client<AppGlobalCtx, AppRequestCtx>) {
+async fn scalar_no_lists_no_array_test(mut client: Client<AppRequestCtx>) {
     let result = client
         .create_node(
             "TestType",

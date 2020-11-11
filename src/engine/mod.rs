@@ -35,7 +35,7 @@ pub mod value;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// let config = Configuration::default();
-/// let engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
 ///
 /// # Ok(())
 /// # }
@@ -66,11 +66,11 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let resolvers = Resolvers::<(), ()>::new();
+    /// let resolvers = Resolvers::<()>::new();
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_resolvers(resolvers)
     ///     .build()?;
     /// # Ok(())
@@ -94,7 +94,7 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_validators(validators)
     ///     .build()?;
     /// # Ok(())
@@ -114,11 +114,11 @@ where
     /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let extensions = Extensions::<(), ()>::new();
+    /// let extensions = Extensions::<()>::new();
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_extensions(extensions)
     ///     .build()?;
     /// # Ok(())
@@ -142,7 +142,7 @@ where
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
     ///     .with_version("1.0.0".to_string())
     ///     .build()?;
     /// # Ok(())
@@ -309,7 +309,7 @@ impl Debug for EngineBuilder {
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Configuration::default();
 ///
-/// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -348,7 +348,7 @@ where
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -389,7 +389,7 @@ where
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
-    /// let mut engine = Engine::<(), ()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
     ///
     /// let metadata: HashMap<String, String> = HashMap::new();
     /// let req_body = json!({"query": "query { name }"});
