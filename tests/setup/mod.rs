@@ -427,7 +427,7 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_count(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let runtime = Runtime::new()?;
+        let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
         let query = "MATCH (n:Project) RETURN (n);";
         runtime
@@ -478,7 +478,7 @@ pub(crate) fn project_top_tags(facade: ResolverFacade<AppRequestCtx>) -> Executi
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let runtime = Runtime::new()?;
+        let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
         let query = "MATCH (n:User) RETURN (n);";
         runtime
@@ -522,7 +522,7 @@ pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> Executio
 #[cfg(feature = "neo4j")]
 pub(crate) fn project_top_issues(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let runtime = Runtime::new()?;
+        let mut runtime = Runtime::new()?;
         let mut db = runtime.block_on(p.get())?;
         let query = "MATCH (n:Bug) RETURN (n);";
         runtime
