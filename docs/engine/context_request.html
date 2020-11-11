@@ -180,7 +180,7 @@ impl RequestContext for AppRequestContext {
     }
 }
 
-fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&gt; ExecutionResult {
+fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; ExecutionResult {
     let request_context = facade.request_context().unwrap();
 </code></pre>
 <h4><a class="header" href="#2-create-engine-with-requestcontext-type-parameter" id="2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>

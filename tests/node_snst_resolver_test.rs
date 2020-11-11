@@ -69,7 +69,7 @@ async fn create_snst_new_node(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "props": { "since": "yesterday" },
                     "dst": {
-                        "User": { "NEW": { "name": "User Zero" } }
+                        "User": { "$NEW": { "name": "User Zero" } }
                     }
                 }
             }),
@@ -198,7 +198,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -334,7 +334,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -366,7 +366,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User One"
                             }
                         }
@@ -495,7 +495,7 @@ async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -607,7 +607,7 @@ async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -721,7 +721,7 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -755,13 +755,13 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
             })),
             &json!({
                 "owner": {
-                    "ADD": {
+                    "$ADD": {
                         "props": {
                             "since": "today"
                         },
                         "dst": {
                             "User": {
-                                "NEW": {
+                                "$NEW": {
                                     "name": "User One"
                                 }
                             }
@@ -872,7 +872,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -906,13 +906,13 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
             })),
             &json!({
                 "owner": {
-                    "ADD": {
+                    "$ADD": {
                         "props": {
                             "since": "today"
                         },
                         "dst": {
                             "User": {
-                                "EXISTING": {
+                                "$EXISTING": {
                                     "name": "User One"
                                 }
                             }
@@ -1007,7 +1007,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -1041,8 +1041,8 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             })),
             &json!({
                 "owner": {
-                    "DELETE": {
-                        "match": {
+                    "$DELETE": {
+                        "$MATCH": {
                             "dst": {
                                 "User": {
                                     "name": "User Zero"
@@ -1145,7 +1145,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -1179,8 +1179,8 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
             })),
             &json!({
                 "owner": {
-                    "DELETE": {
-                        "match": {
+                    "$DELETE": {
+                        "$MATCH": {
                             "props": {
                                 "since": "yesterday"
                             }
@@ -1281,7 +1281,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -1307,7 +1307,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
             })),
             Some(&json!({
                 "owner": {
-                    "match": {}
+                    "$MATCH": {}
                 }
             })),
         )
@@ -1418,7 +1418,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }
@@ -1442,7 +1442,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
             })),
             Some(&json!({
                 "owner": {
-                    "match": {}
+                    "$MATCH": {}
                 }
             })),
         )
@@ -1553,7 +1553,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
                     },
                     "dst": {
                         "User": {
-                            "EXISTING": {
+                            "$EXISTING": {
                                 "name": "User Zero"
                             }
                         }

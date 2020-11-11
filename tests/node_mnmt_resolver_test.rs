@@ -50,7 +50,7 @@ async fn create_mnmt_new_nodes(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -82,7 +82,7 @@ async fn create_mnmt_new_nodes(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }",Some("1234"),
-            &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+            &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug One" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature One" }}}} ] }))
         .await
         .unwrap();
 
@@ -257,7 +257,7 @@ async fn create_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "EXISTING": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"EXISTING": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "$EXISTING": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$EXISTING": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
     assert!(p0.is_object());
@@ -366,7 +366,7 @@ async fn read_mnmt_by_rel_props(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -457,7 +457,7 @@ async fn read_mnmt_by_dst_props(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -469,7 +469,7 @@ async fn read_mnmt_by_dst_props(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+            &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "$NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"$NEW": { "name": "Feature One" }}}} ] }))
         .await
         .unwrap();
 
@@ -571,7 +571,7 @@ async fn update_mnmt_new_node(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
-            &json!({"issues": {"ADD": {"dst": { "Bug": { "NEW": {"name": "Bug Zero"}}}}}}),
+            &json!({"issues": {"$ADD": {"dst": { "Bug": { "$NEW": {"name": "Bug Zero"}}}}}}),
         )
         .await
         .unwrap();
@@ -680,7 +680,7 @@ async fn update_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status issues { __typename dst { ...on Bug { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
-            &json!({"issues": {"ADD": {"dst": { "Bug": { "EXISTING": {"name": "Bug Zero"}}}}}}),
+            &json!({"issues": {"$ADD": {"dst": { "Bug": { "$EXISTING": {"name": "Bug Zero"}}}}}}),
         )
         .await
         .unwrap();
@@ -766,7 +766,7 @@ async fn update_mnmt_relationship(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -799,7 +799,7 @@ async fn update_mnmt_relationship(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
-            &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
+            &json!({"issues": {"$UPDATE": {"$MATCH": {"dst": { "Feature": { "name": "Feature Zero"}}}, "$SET": {"props": {"since": "Forever"}}}}}),
         )
         .await
         .unwrap();
@@ -907,7 +907,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client<AppRequestCtx>
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"), 
-            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -915,7 +915,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client<AppRequestCtx>
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }",Some("1234"), 
-            &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project One", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -924,7 +924,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client<AppRequestCtx>
             "Project",
             "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project One"})),
-            &json!({"issues": {"UPDATE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}, "update": {"props": {"since": "Forever"}}}}}),
+            &json!({"issues": {"$UPDATE": {"$MATCH": {"dst": { "Feature": { "name": "Feature Zero"}}}, "$SET": {"props": {"since": "Forever"}}}}}),
         )
         .await
         .unwrap();
@@ -1019,7 +1019,7 @@ async fn delete_mnmt_relationship(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } }, { "dst": { "Feature": {"$NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -1052,7 +1052,7 @@ async fn delete_mnmt_relationship(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status issues { __typename dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": "Project Zero"})),
-            &json!({"issues": {"DELETE": {"match": {"dst": { "Feature": { "name": "Feature Zero"}}}}}}),
+            &json!({"issues": {"$DELETE": {"$MATCH": {"dst": { "Feature": { "name": "Feature Zero"}}}}}}),
         )
         .await
         .unwrap();
@@ -1142,7 +1142,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
 
@@ -1169,7 +1169,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client<AppRequestCtx>) {
             "Project",
             Some("1234"),
             Some(&json!({"issues": {"props": {"since": "never"}}})),
-            Some(&json!({"issues": [{"match": {}}]})),
+            Some(&json!({"issues": [{"$MATCH": {}}]})),
         )
         .await
         .unwrap();
@@ -1225,7 +1225,7 @@ async fn delete_node(mut client: Client<AppRequestCtx>) {
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "$NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
 

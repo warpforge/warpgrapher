@@ -61,8 +61,8 @@ async fn create_mnmt_new_rel(mut client: Client<AppRequestCtx>) {
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
             &json!({"name": "Project Zero"}),
-            &json!([{"props": {"since": "today"}, "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
-                    {"props": {"since": "yesterday"}, "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
+            &json!([{"props": {"since": "today"}, "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}},
+                    {"props": {"since": "yesterday"}, "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}}]),
         )
         .await
         .unwrap();
@@ -207,8 +207,8 @@ async fn create_mnmt_rel_existing_node(mut client: Client<AppRequestCtx>) {
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234"),
             &json!({"name": "Project Zero"}),
             &json!([
-                {"props": {"since": "today"}, "dst": {"Feature": {"EXISTING": {"name": "Feature Zero"}}}},
-                {"props": {"since": "yesterday"}, "dst": {"Bug": {"EXISTING": {"name": "Bug Zero"}}}},
+                {"props": {"since": "today"}, "dst": {"Feature": {"$EXISTING": {"name": "Feature Zero"}}}},
+                {"props": {"since": "yesterday"}, "dst": {"Bug": {"$EXISTING": {"name": "Bug Zero"}}}},
             ]))
         .await
         .unwrap();
@@ -318,11 +318,11 @@ async fn read_mnmt_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     }
                 ]
             }),
@@ -400,11 +400,11 @@ async fn read_mnmt_rel_by_src_props(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     }
                 ]
             }),
@@ -481,19 +481,19 @@ async fn read_mnmt_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                         "props": {"since": "last week"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     },
                     {
                         "props": {"since": "last month"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     }
                 ]
             }),
@@ -598,19 +598,19 @@ async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                       "props": {"since": "yesterday"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                       "props": {"since": "today"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                       "props": {"since": "last week"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                       "props": {"since": "last month"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
@@ -745,11 +745,11 @@ async fn update_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     }
                 ]
             }),
@@ -840,19 +840,19 @@ async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                       "props": {"since": "yesterday"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                       "props": {"since": "today"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                       "props": {"since": "last week"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                       "props": {"since": "last month"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
@@ -987,19 +987,19 @@ async fn delete_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                       "props": {"since": "yesterday"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                       "props": {"since": "today"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                       "props": {"since": "last week"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                       "props": {"since": "last month"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
@@ -1112,19 +1112,19 @@ async fn delete_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                       "props": {"since": "yesterday"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                       "props": {"since": "today"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     },
                     {
                       "props": {"since": "last week"},
-                      "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                      "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                       "props": {"since": "last month"},
-                      "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                      "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
@@ -1237,11 +1237,11 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     }
                 ]
             }),
@@ -1259,11 +1259,11 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
                 "issues": [
                     {
                         "props": {"since": "last week"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                         "props": {"since": "last month"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),
@@ -1378,11 +1378,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
                 "issues": [
                     {
                         "props": {"since": "yesterday"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}
                     },
                     {
                         "props": {"since": "today"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}
                     }
                 ]
             }),
@@ -1400,11 +1400,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
                 "issues": [
                     {
                         "props": {"since": "last week"},
-                        "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
+                        "dst": {"Feature": {"$NEW": {"name": "Feature One"}}}
                     },
                     {
                         "props": {"since": "last month"},
-                        "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
+                        "dst": {"Bug": {"$NEW": {"name": "Bug One"}}}
                     }
                 ]
             }),

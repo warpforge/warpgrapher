@@ -195,7 +195,7 @@ impl RequestContext for AppRequestContext {
     }
 }
 
-fn resolve_echo_request(facade: ResolverFacade&lt;(), AppRequestContext&gt;) -&gt; ExecutionResult {
+fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; ExecutionResult {
     let request_context = facade.request_context().unwrap();
     let request_id = request_context.request_id.clone();
     facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))

@@ -204,7 +204,7 @@ fn main() {
         .expect(&quot;Failed to create neo4j database pool&quot;);
 
     // create warpgrapher engine
-    let engine: Engine&lt;(), ()&gt; = Engine::new(config, db)
+    let engine: Engine&lt;()&gt; = Engine::new(config, db)
         .build()
         .expect(&quot;Failed to build engine&quot;);
 
