@@ -137,47 +137,22 @@ pub trait DatabaseEndpoint {
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
-    fn node_create_query<RequestCtx: RequestContext>(
-        &mut self,
-        rel_create_fragments: Vec<String>,
-        params: HashMap<String, Value>,
-        node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
     fn create_node<RequestCtx: RequestContext>(
         &mut self,
-        query: String,
-        params: HashMap<String, Value>,
+        label: &str,
+        props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    fn rel_create_fragment<RequestCtx: RequestContext>(
+    #[allow(clippy::too_many_arguments)]
+    fn create_rels<RequestCtx: RequestContext>(
         &mut self,
+        src_query: &str,
         dst_query: &str,
         params: HashMap<String, Value>,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn rel_create_query<RequestCtx: RequestContext>(
-        &mut self,
-        src_query_opt: Option<String>,
-        rel_create_fragments: Vec<String>,
-        params: HashMap<String, Value>,
-        rel_vars: Vec<RelQueryVar>,
-        clause: ClauseType,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn create_rels<RequestCtx: RequestContext>(
-        &mut self,
-        query: String,
-        params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
@@ -200,6 +175,13 @@ pub(crate) trait Transaction {
         node_var: &NodeQueryVar,
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
+
+    fn node_read_by_ids_query<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        nodes: Vec<Node<RequestCtx>>,
+        clause: ClauseType,
+    ) -> Result<(String, String, HashMap<String, Value>), Error>;
 
     fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
@@ -228,6 +210,12 @@ pub(crate) trait Transaction {
         clause: ClauseType,
     ) -> Result<(String, HashMap<String, Value>), Error>;
 
+    fn rel_read_by_ids_query<RequestCtx: RequestContext>(
+        &mut self,
+        rel_var: &RelQueryVar,
+        rels: Vec<Rel<RequestCtx>>,
+    ) -> Result<(String, String, HashMap<String, Value>), Error>;
+
     fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query: String,
@@ -237,76 +225,40 @@ pub(crate) trait Transaction {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     #[allow(clippy::too_many_arguments)]
-    fn node_update_query<RequestCtx: RequestContext>(
+    fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
-        match_query: String,
-        change_queries: Vec<String>,
+        match_query: &str,
         params: HashMap<String, Value>,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn update_nodes<RequestCtx: RequestContext>(
-        &mut self,
-        query: String,
-        params: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn rel_update_query<RequestCtx: RequestContext>(
+    #[allow(clippy::too_many_arguments)]
+    fn update_rels<RequestCtx: RequestContext>(
         &mut self,
-        match_query: String,
+        match_query: &str,
         params: HashMap<String, Value>,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn update_rels<RequestCtx: RequestContext>(
-        &mut self,
-        query: String,
-        params: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn node_delete_query(
-        &mut self,
-        match_query: String,
-        rel_delete_fragments: Vec<String>,
-        params: HashMap<String, Value>,
-        node_var: &NodeQueryVar,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
     fn delete_nodes(
         &mut self,
-        query: String,
+        match_query: &str,
         params: HashMap<String, Value>,
+        node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    #[allow(clippy::too_many_arguments)]
-    fn rel_delete_query(
-        &mut self,
-        match_query: String,
-        src_delete_query_opt: Option<String>,
-        dst_delete_query_opt: Option<String>,
-        params: HashMap<String, Value>,
-        rel_var: &RelQueryVar,
-        clause: ClauseType,
-        sg: &mut SuffixGenerator,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
     fn delete_rels(
         &mut self,
-        query: String,
+        match_query: &str,
         params: HashMap<String, Value>,
+        rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
@@ -341,7 +293,7 @@ impl NodeQueryVar {
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn label(&self) -> Result<&str, Error> {
-        self.label.as_deref().ok_or_else(|| Error::LabelNotFound)
+        self.label.as_deref().ok_or(Error::LabelNotFound)
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]

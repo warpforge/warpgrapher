@@ -85,7 +85,7 @@ the name of the partition key for the database.
 For Gremlin-based databases:
 
 Start your database in accordance with it's instructions.  For example, for the Apache Tinkerpop 
-reference implementation, run: 
+reference implementation, run:
 
 ```bash
 docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
@@ -127,7 +127,7 @@ Run all tests (unit and integration).
 For Cosmos DB:
 
 ```bash
-cargo test --features cosmos -- --test-threads=1
+cargo test --features cosmos --tests -- --test-threads=1
 ```
 
 For Gremlin-based DBs:
@@ -145,7 +145,7 @@ cargo test --features neo4j -- --test-threads=1
 For all databases:
 
 ```bash
-cargo test --all-features --tests -- --test-threads=1
+cargo test --all-features -- --test-threads=1
 ```
 
 Enable full logging and stack traces when running tests:

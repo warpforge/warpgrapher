@@ -215,8 +215,7 @@ impl<'r> Resolver<'r> {
             "node".to_string(),
             sg.suffix(),
         );
-        let (query, params) = visit_node_create_mutation_input::<T, RequestCtx>(
-            HashMap::new(),
+        let results = visit_node_create_mutation_input::<T, RequestCtx>(
             &node_var,
             input.value,
             ClauseType::Query,
@@ -225,8 +224,7 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             &executor.context().validators(),
-        )?;
-        let results = transaction.create_node(query, params, self.partition_key_opt, info);
+        );
 
         if results.is_ok() {
             transaction.commit()?;
@@ -318,7 +316,7 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
-        let (query, params) = visit_node_delete_input::<T, RequestCtx>(
+        let results = visit_node_delete_input::<T, RequestCtx>(
             HashMap::new(),
             &node_var,
             input.value,
@@ -326,8 +324,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-        )?;
-        let results = transaction.delete_nodes(query, params, self.partition_key_opt);
+        );
 
         if results.is_ok() {
             transaction.commit()?;
@@ -539,7 +536,7 @@ impl<'r> Resolver<'r> {
         let itd = p.input_type_definition(info)?;
 
         transaction.begin()?;
-        let (query, params) = visit_node_update_input::<T, RequestCtx>(
+        let result = visit_node_update_input::<T, RequestCtx>(
             HashMap::new(),
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
@@ -552,15 +549,13 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             &executor.context().validators(),
-        )?;
-        let result = transaction.update_nodes(query, params, self.partition_key_opt, info);
+        );
 
         if result.is_ok() {
             transaction.commit()?;
         } else {
             transaction.rollback()?;
         }
-
         result
     }
 
@@ -654,7 +649,7 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
         transaction.begin()?;
-        let (query, params) = visit_rel_create_input::<T, RequestCtx>(
+        let result = visit_rel_create_input::<T, RequestCtx>(
             HashMap::new(),
             &src_var,
             rel_name,
@@ -668,14 +663,7 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             validators,
-        )?;
-        let result = transaction.create_rels(
-            query,
-            params,
-            rtd.property("props").map(|pp| pp.type_name()).ok(),
-            self.partition_key_opt,
         );
-
         if result.is_ok() {
             transaction.commit()?;
         } else {
@@ -767,7 +755,8 @@ impl<'r> Resolver<'r> {
         );
 
         transaction.begin()?;
-        let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
+        let results = visit_rel_delete_input::<T, RequestCtx>(
+            None,
             HashMap::new(),
             &rel_var,
             input.value,
@@ -776,9 +765,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-        )?;
-        let results = transaction.delete_rels(query, params, self.partition_key_opt);
-
+        );
         if results.is_ok() {
             transaction.commit()?;
         } else {
@@ -929,6 +916,7 @@ impl<'r> Resolver<'r> {
             transaction.begin()?;
         }
         let (match_fragment, where_fragment, params) = visit_rel_query_input(
+            None,
             HashMap::new(),
             &rel_var,
             input_opt.map(|i| i.value),
@@ -1058,7 +1046,8 @@ impl<'r> Resolver<'r> {
         );
 
         transaction.begin()?;
-        let (query, params) = visit_rel_update_input::<T, RequestCtx>(
+        let results = visit_rel_update_input::<T, RequestCtx>(
+            None,
             HashMap::new(),
             &rel_var,
             props_prop.map(|_| p.type_name()).ok(),
@@ -1069,12 +1058,6 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             validators,
-        )?;
-        let results = transaction.update_rels(
-            query,
-            params,
-            rtd.property("props").map(|_| p.type_name()).ok(),
-            self.partition_key_opt,
         );
 
         if results.is_ok() {
@@ -1211,7 +1194,7 @@ impl<'r> Resolver<'r> {
 
         executor.resolve(
             &Info::new(dst_label.to_string(), info.type_defs()),
-            &results.first().ok_or_else(|| Error::ResponseSetNotFound)?,
+            &results.first().ok_or(Error::ResponseSetNotFound)?,
         )
     }
 
