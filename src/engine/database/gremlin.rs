@@ -4,7 +4,7 @@ use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, ClauseType, DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar,
+    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
     SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
@@ -277,14 +277,6 @@ impl GremlinTransaction {
         (ret_query, ret_params)
     }
 
-    fn add_rel_return(query: String) -> String {
-        query
-            + ".project('rID', 'rProps', 'srcID', 'srcLabel', 'dstID', 'dstLabel')"
-            + ".by(id()).by(valueMap())"
-            + ".by(outV().id()).by(outV().label())"
-            + ".by(inV().id()).by(inV().label())"
-    }
-
     fn extract_count(results: Vec<GValue>) -> Result<i32, Error> {
         if let Some(GValue::Int32(i)) = results.get(0) {
             Ok(*i)
@@ -445,30 +437,26 @@ impl Transaction for GremlinTransaction {
 
     fn create_node<RequestCtx: RequestContext>(
         &mut self,
-        label: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error> {
-        trace!("GremlinTransaction::create_node called -- label: {}, props: {:#?}, partition_key_opt: {:#?}", label, props, partition_key_opt);
+        trace!("GremlinTransaction::create_node called -- node_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}", node_var, props, partition_key_opt);
 
-        let mut first = "g.addV('".to_string() + label + "')";
+        let mut query = "g.addV('".to_string() + node_var.label()? + "')";
 
         if self.partition {
-            first.push_str(".property('partitionKey', partitionKey)");
+            query.push_str(".property('partitionKey', partitionKey)");
         }
 
-        let (mut query, params) = GremlinTransaction::add_properties(first, props, HashMap::new());
-        trace!(
-            "GremlinTransaction::create_node -- query: {}, param_list: {:#?}",
-            query,
-            params
-        );
+        let (mut q, p) = GremlinTransaction::add_properties(query, props, HashMap::new());
+        q += NODE_RETURN_FRAGMENT;
 
-        query += NODE_RETURN_FRAGMENT;
+        trace!("GremlinTransaction::create_node -- q: {}, p: {:#?}", q, p);
 
         let mut param_list: Vec<(&str, &dyn ToGValue)> =
-            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+            p.iter().fold(Vec::new(), |mut pl, (k, v)| {
                 pl.push((k.as_str(), v));
                 pl
             });
@@ -481,7 +469,7 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let raw_results = self.client.execute(q, param_list.as_slice())?;
         let results = raw_results
             .map(|r| Ok(r?))
             .collect::<Result<Vec<GValue>, Error>>()?;
@@ -495,21 +483,26 @@ impl Transaction for GremlinTransaction {
 
     fn create_rels<RequestCtx: RequestContext>(
         &mut self,
-        src_query: &str,
-        dst_query: &str,
-        params: HashMap<String, Value>,
+        src_fragment: QueryFragment,
+        dst_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("GremlinTransaction::create_rels called -- dst_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, src_query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}",
-        dst_query, params, rel_var, props, src_query, props_type_name, partition_key_opt);
+        trace!("GremlinTransaction::create_rels called -- src_fragment: {:#?}, dst_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt);
 
         let query = "g.V()".to_string()
-            + src_query
+            + src_fragment.where_fragment()
+            + ".as('"
+            + rel_var.src().name()
+            + "')"
             + ".V()"
-            + dst_query
+            + dst_fragment.where_fragment()
+            + ".as('"
+            + rel_var.dst().name()
+            + "')"
             + ".addE('"
             + rel_var.label()
             + "').from('"
@@ -517,6 +510,8 @@ impl Transaction for GremlinTransaction {
             + "').to('"
             + rel_var.dst().name()
             + "')";
+        let mut params = src_fragment.params();
+        params.extend(dst_fragment.params());
 
         let (mut q, p) = GremlinTransaction::add_properties(query, props, params);
 
@@ -546,31 +541,50 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
+    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        nodes: &[Node<RequestCtx>],
+    ) -> Result<QueryFragment, Error> {
+        trace!(
+            "GremlinTransaction::node_read_by_ids_query called -- node_var: {:#?}, nodes: {:#?}",
+            node_var,
+            nodes
+        );
+
+        let mut query = ".hasLabel('".to_string() + node_var.label()? + "')";
+
+        if self.partition {
+            query.push_str(".has('partitionKey', partitionKey)");
+        }
+        query.push_str(".hasId(within(id_list))");
+        let ids = nodes
+            .iter()
+            .map(|n| n.id())
+            .collect::<Result<Vec<&Value>, Error>>()?
+            .into_iter()
+            .cloned()
+            .collect();
+        let mut params = HashMap::new();
+        params.insert("id_list".to_string(), Value::Array(ids));
+
+        Ok(QueryFragment::new("".to_string(), query, params))
+    }
+
     fn node_read_fragment(
         &mut self,
-        rel_query_fragments: Vec<(String, String)>,
-        mut params: HashMap<String, Value>,
+        rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        clause: ClauseType,
         sg: &mut SuffixGenerator,
-    ) -> Result<(String, String, HashMap<String, Value>), Error> {
-        trace!("GremlinTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, params: {:#?}, node_var: {:#?}, props: {:#?}, clause: {:#?}",
-        rel_query_fragments, params, node_var, props, clause);
+    ) -> Result<QueryFragment, Error> {
+        trace!("GremlinTransaction::node_read_fragment called -- rel_query_fragments: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}", 
+        rel_query_fragments, node_var, props, sg);
 
         let param_suffix = sg.suffix();
 
         let mut query = String::new();
-
-        /*
-        match clause {
-            ClauseType::Parameter | ClauseType::SubQuery | ClauseType::FirstSubQuery => {
-                query.push_str(".V()")
-            }
-            ClauseType::Query => (),
-        };
-        query.push_str(".V()");
-        */
+        let mut params = HashMap::new();
 
         if node_var.label().is_ok() {
             query.push_str(&(".hasLabel('".to_string() + node_var.label()? + "')"));
@@ -607,121 +621,66 @@ impl Transaction for GremlinTransaction {
         if !rel_query_fragments.is_empty() {
             query.push_str(".where(");
 
-            if rel_query_fragments.len() > 1 {
+            let multi_fragment = rel_query_fragments.len() > 1;
+
+            if multi_fragment {
                 query.push_str("and(");
             }
 
-            rel_query_fragments.iter().enumerate().for_each(|(i, rqf)| {
-                if i == 0 {
-                    query.push_str(&("outE()".to_string() + &rqf.1));
-                } else {
-                    query.push_str(&(", outE()".to_string() + &rqf.1));
-                }
-            });
+            rel_query_fragments
+                .into_iter()
+                .enumerate()
+                .for_each(|(i, rqf)| {
+                    if i == 0 {
+                        query.push_str(&("outE()".to_string() + rqf.where_fragment()));
+                    } else {
+                        query.push_str(&(", outE()".to_string() + rqf.where_fragment()));
+                    }
 
-            if rel_query_fragments.len() > 1 {
+                    params.extend(rqf.params());
+                });
+
+            if multi_fragment {
                 query.push(')');
             }
 
             query.push(')');
         }
 
-        if let ClauseType::SubQuery = clause {
-            query.push_str(&(".as('".to_string() + node_var.name() + "')"));
-        }
+        let qf = QueryFragment::new("".to_string(), query, params);
 
-        trace!("GremlinTransaction::node_read_fragment returning -- match_query: {}, where_query: {}, params: {:#?}", "".to_string(), query, params);
-
-        Ok(("".to_string(), query, params))
-    }
-
-    fn node_read_query(
-        &mut self,
-        match_fragment: &str,
-        where_fragment: &str,
-        params: HashMap<String, Value>,
-        _node_var: &NodeQueryVar,
-        clause: ClauseType,
-    ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("GremlinTransaction::node_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, clause: {:#?}",
-        match_fragment, where_fragment, params, clause);
-
-        let mut query = if let ClauseType::Query = clause {
-            "g".to_string()
-        } else {
-            String::new()
-        };
-
-        query.push_str(&(".V()".to_string() + match_fragment + where_fragment));
-        // query.push_str(&(match_fragment.to_string() + where_fragment));
-
-        if let ClauseType::Query = clause {
-            query.push_str(NODE_RETURN_FRAGMENT);
-        }
-
-        Ok((query, params))
-    }
-
-    fn node_read_by_ids_query<RequestCtx: RequestContext>(
-        &mut self,
-        node_var: &NodeQueryVar,
-        nodes: Vec<Node<RequestCtx>>,
-        clause: ClauseType,
-    ) -> Result<(String, String, HashMap<String, Value>), Error> {
         trace!(
-            "GremlinTransaction::node_read_by_ids_query called -- node_var: {:#?}, nodes: {:#?}",
-            node_var,
-            nodes
+            "GremlinTransaction::node_read_fragment returning -- {:#?}",
+            qf
         );
 
-        let mut query = ".hasLabel('".to_string() + node_var.label()? + "')";
-
-        if self.partition {
-            query.push_str(".has('partitionKey', partitionKey)");
-        }
-        query.push_str(".hasId(within(id_list))");
-        match clause {
-            ClauseType::Parameter => (),
-            ClauseType::FirstSubQuery | ClauseType::SubQuery | ClauseType::Query => {
-                query.push_str(&(".as('".to_string() + node_var.name() + "')"))
-            }
-        }
-
-        let ids = nodes
-            .iter()
-            .map(|n| n.id())
-            .collect::<Result<Vec<&Value>, Error>>()?
-            .into_iter()
-            .cloned()
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
-
-        Ok(("".to_string(), query, params))
+        Ok(qf)
     }
 
     fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
-        query: String,
-        params_opt: Option<HashMap<String, Value>>,
+        _node_var: &NodeQueryVar,
+        query_fragment: QueryFragment,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
-        trace!("GremlinTransaction::read_nodes called -- query: {}, partition_key_opt: {:#?}, params_opt: {:#?}, info.name: {}", 
-        query, partition_key_opt, params_opt, info.name());
+        trace!("GremlinTransaction::read_nodes called -- query_fragment: {:#?}, partition_key_opt: {:#?}, info.name: {}", 
+        query_fragment, partition_key_opt, info.name());
 
-        let params = params_opt.unwrap_or_else(HashMap::new);
-        let mut param_list: Vec<(&str, &dyn ToGValue)> =
-            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
-                pl.push((k, v));
-                pl
-            });
+        let query = "g.V()".to_string() + query_fragment.where_fragment() + NODE_RETURN_FRAGMENT;
+        let params = query_fragment.params();
 
         trace!(
             "GremlinTransaction::read_nodes -- query: {}, params: {:#?}",
             query,
             params
         );
+        let mut param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k, v));
+                pl
+            });
+
         if self.partition {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
@@ -738,20 +697,51 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
+    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        rel_var: &RelQueryVar,
+        rels: &[Rel<RequestCtx>],
+    ) -> Result<QueryFragment, Error> {
+        trace!(
+            "GremlinTransaction:rel_read_by_ids_query called -- rel_var: {:#?}, rels: {:#?}",
+            rel_var,
+            rels
+        );
+
+        let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
+
+        if self.partition {
+            query.push_str(".has('partitionKey', partitionKey)");
+        }
+        query.push_str(&(".hasId(within(id_list))"));
+
+        let ids = rels
+            .iter()
+            .map(|r| r.id())
+            .collect::<Vec<&Value>>()
+            .into_iter()
+            .cloned()
+            .collect();
+        let mut params = HashMap::new();
+        params.insert("id_list".to_string(), Value::Array(ids));
+
+        Ok(QueryFragment::new("".to_string(), query, params))
+    }
+
     fn rel_read_fragment(
         &mut self,
-        src_query_opt: Option<(String, String)>,
-        dst_query_opt: Option<(String, String)>,
-        mut params: HashMap<String, Value>,
+        src_fragment_opt: Option<QueryFragment>,
+        dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
-    ) -> Result<(String, String, HashMap<String, Value>), Error> {
-        trace!("GremlinTransaction::rel_read_fragment called -- src_query_opt: {:#?}, dst_query_opt: {:#?}, params: {:#?}, rel_var: {:#?}, props: {:#?}",
-        src_query_opt, dst_query_opt, params, rel_var, props);
+    ) -> Result<QueryFragment, Error> {
+        trace!("GremlinTransaction::rel_read_fragment called -- src_fragment_opt: {:#?}, dst_fragment_opt: {:#?}, rel_var: {:#?}, props: {:#?}",
+        src_fragment_opt, dst_fragment_opt, rel_var, props);
 
         let param_suffix = sg.suffix();
         let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
+        let mut params = HashMap::new();
 
         if self.partition {
             query.push_str(".has('partitionKey', partitionKey)");
@@ -781,25 +771,29 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        if src_query_opt.is_some() || dst_query_opt.is_some() {
+        if src_fragment_opt.is_some() || dst_fragment_opt.is_some() {
             query.push_str(".where(");
 
-            let both = src_query_opt.is_some() && dst_query_opt.is_some();
+            let both = src_fragment_opt.is_some() && dst_fragment_opt.is_some();
 
             if both {
                 query.push_str("and(");
             }
 
-            if let Some(src_query) = src_query_opt {
-                query.push_str(&("outV()".to_string() + &src_query.1));
+            if let Some(src_fragment) = src_fragment_opt {
+                query.push_str(&("outV()".to_string() + src_fragment.where_fragment()));
+
+                params.extend(src_fragment.params());
             }
 
             if both {
                 query.push_str(", ");
             }
 
-            if let Some(dst_query) = dst_query_opt {
-                query.push_str(&("inV()".to_string() + &dst_query.1));
+            if let Some(dst_fragment) = dst_fragment_opt {
+                query.push_str(&("inV()".to_string() + dst_fragment.where_fragment()));
+
+                params.extend(dst_fragment.params());
             }
 
             if both {
@@ -808,82 +802,28 @@ impl Transaction for GremlinTransaction {
             query.push(')');
         }
 
-        Ok(("".to_string(), query, params))
-    }
-
-    fn rel_read_query(
-        &mut self,
-        match_fragment: &str,
-        where_fragment: &str,
-        params: HashMap<String, Value>,
-        rel_var: &RelQueryVar,
-        clause: ClauseType,
-    ) -> Result<(String, HashMap<String, Value>), Error> {
-        trace!("GremlinTransaction::rel_read_query called -- match_fragment: {}, where_fragment: {}, params: {:#?}, rel_var: {:#?}, clause: {:#?}",
-        match_fragment, where_fragment, params, rel_var, clause);
-
-        let mut q = match clause {
-            ClauseType::Parameter => "outE()".to_string(),
-            ClauseType::FirstSubQuery => ".E()".to_string(),
-            ClauseType::SubQuery => ".outE()".to_string(),
-            ClauseType::Query => "g.E()".to_string(),
-        };
-
-        q.push_str(match_fragment);
-        q.push_str(where_fragment);
-
-        let query = match clause {
-            ClauseType::Parameter => q,
-            ClauseType::FirstSubQuery => q + ".as('" + rel_var.name() + "')",
-            ClauseType::SubQuery => q + ".as('" + rel_var.name() + "')",
-            ClauseType::Query => GremlinTransaction::add_rel_return(q),
-        };
-
-        Ok((query, params))
-    }
-
-    fn rel_read_by_ids_query<RequestCtx: RequestContext>(
-        &mut self,
-        rel_var: &RelQueryVar,
-        rels: Vec<Rel<RequestCtx>>,
-    ) -> Result<(String, String, HashMap<String, Value>), Error> {
-        trace!(
-            "GremlinTransaction:rel_read_by_ids_query called -- rel_var: {:#?}, rels: {:#?}",
-            rel_var,
-            rels
-        );
-
-        let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
-
-        if self.partition {
-            query.push_str(".has('partitionKey', partitionKey)");
-        }
-        query.push_str(&(".hasId(within(id_list))"));
-
-        let ids = rels
-            .iter()
-            .map(|r| r.id())
-            .collect::<Vec<&Value>>()
-            .into_iter()
-            .cloned()
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
-
-        Ok(("".to_string(), query, params))
+        Ok(QueryFragment::new(String::new(), query, params))
     }
 
     fn read_rels<RequestCtx: RequestContext>(
         &mut self,
-        query: String,
-        params_opt: Option<HashMap<String, Value>>,
+        query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("GremlinTransaction::read_rels called -- query: {}, props_type_name: {:#?}, partition_key_opt: {:#?}, params_opt: {:#?}", 
-        query, props_type_name, partition_key_opt, params_opt);
+        trace!("GremlinTransaction::read_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        query_fragment, rel_var, props_type_name, partition_key_opt);
 
-        let params = params_opt.unwrap_or_else(HashMap::new);
+        let query = "g.E()".to_string() + query_fragment.where_fragment() + REL_RETURN_FRAGMENT;
+        let params = query_fragment.params();
+
+        trace!(
+            "GremlinTransaction::read_rels -- query: {}, params: {:#?}",
+            query,
+            params
+        );
+
         let mut param_list: Vec<(&str, &dyn ToGValue)> =
             params.iter().fold(Vec::new(), |mut pl, (k, v)| {
                 pl.push((k, v));
@@ -908,19 +848,18 @@ impl Transaction for GremlinTransaction {
 
     fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
-        trace!("GremlinTransaction::update_nodes called: match_query: {}, params: {:#?}, node_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}",
-        match_query, params, node_var, props, partition_key_opt);
+        trace!("GremlinTransaction::update_nodes called: query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}, info.name: {}",
+        query_fragment, node_var, props, partition_key_opt, info.name());
 
-        let query = "g".to_string() + match_query;
+        let query = "g.V()".to_string() + query_fragment.where_fragment();
 
-        let (mut q, p) = GremlinTransaction::add_properties(query, props, params);
+        let (mut q, p) = GremlinTransaction::add_properties(query, props, query_fragment.params());
         q.push_str(NODE_RETURN_FRAGMENT);
 
         trace!("GremlinTransaction::update_nodes -- q: {}, p: {:#?}", q, p);
@@ -948,19 +887,18 @@ impl Transaction for GremlinTransaction {
 
     fn update_rels<RequestCtx: RequestContext>(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("GremlinTransaction::update_rels called -- match_query: {}, params: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
-        match_query, params, rel_var, props, props_type_name, partition_key_opt);
+        trace!("GremlinTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
+        query_fragment, rel_var, props, props_type_name, partition_key_opt);
 
-        let first = "g".to_string() + match_query;
-        let (query, p) = GremlinTransaction::add_properties(first, props, params);
-        let q = GremlinTransaction::add_rel_return(query);
+        let first = "g.E()".to_string() + query_fragment.where_fragment();
+        let (mut q, p) = GremlinTransaction::add_properties(first, props, query_fragment.params());
+        q.push_str(REL_RETURN_FRAGMENT);
 
         trace!(
             "GremlinTransaction::update_rels -- query: {}, params: {:#?}",
@@ -992,16 +930,16 @@ impl Transaction for GremlinTransaction {
 
     fn delete_nodes(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        trace!("GremlinTransaction::delete_nodes called -- match_query: {}, params: {:#?}, node_var: {:#?}, partition_key_opt: {:#?}", 
-        match_query, params, node_var, partition_key_opt);
+        trace!("GremlinTransaction::delete_nodes called -- query_fragment: {:#?}, node_var: {:#?}, partition_key_opt: {:#?}", 
+        query_fragment, node_var, partition_key_opt);
 
-        let query = "g".to_string() + match_query + ".sideEffect(drop()).count()";
-        // let query = match_query.to_string() + ".sideEffect(drop()).count()";
+        let query =
+            "g.V()".to_string() + query_fragment.where_fragment() + ".sideEffect(drop()).count()";
+        let params = query_fragment.params();
 
         trace!(
             "GremlinTransaction::delete_nodes -- query: {}, params: {:#?}",
@@ -1033,16 +971,16 @@ impl Transaction for GremlinTransaction {
 
     fn delete_rels(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error> {
-        trace!("GremlinTransaction::delete_rels called -- match_query: {}, params: {:#?}, rel_var: {:#?}, partition_key_opt: {:#?}",
-        match_query, params, rel_var, partition_key_opt);
+        trace!("GremlinTransaction::delete_rels called -- query_fragment: {:#?}, rel_var: {:#?}, partition_key_opt: {:#?}",
+        query_fragment, rel_var, partition_key_opt);
 
-        let query = "g".to_string() + match_query + ".sideEffect(drop()).count()";
-        // let query = match_query.to_string() + ".sideEffect(drop()).count()";
+        let query =
+            "g.E()".to_string() + query_fragment.where_fragment() + ".sideEffect(drop()).count()";
+        let params = query_fragment.params();
 
         trace!(
             "GremlinTransaction::delete_rels -- query: {}, params: {:#?}",

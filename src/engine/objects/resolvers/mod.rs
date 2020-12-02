@@ -6,9 +6,7 @@ use crate::engine::database::gremlin::GremlinTransaction;
 use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{
-    ClauseType, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
-};
+use crate::engine::database::{NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -218,7 +216,6 @@ impl<'r> Resolver<'r> {
         let results = visit_node_create_mutation_input::<T, RequestCtx>(
             &node_var,
             input.value,
-            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
@@ -317,7 +314,6 @@ impl<'r> Resolver<'r> {
         transaction.begin()?;
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
         let results = visit_node_delete_input::<T, RequestCtx>(
-            HashMap::new(),
             &node_var,
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
@@ -429,24 +425,16 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
-        let (match_fragment, where_fragment, params) = visit_node_query_input(
-            HashMap::new(),
+        let query_fragment = visit_node_query_input(
             &node_var,
             input_opt.map(|i| i.value),
-            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
             transaction,
         )?;
-        let (query, params) = transaction.node_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &node_var,
-            ClauseType::Query,
-        )?;
-        let results = transaction.read_nodes(query, Some(params), self.partition_key_opt, info);
+        let results =
+            transaction.read_nodes(&node_var, query_fragment, self.partition_key_opt, info);
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -537,7 +525,6 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let result = visit_node_update_input::<T, RequestCtx>(
-            HashMap::new(),
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
                 "node".to_string(),
@@ -650,7 +637,6 @@ impl<'r> Resolver<'r> {
 
         transaction.begin()?;
         let result = visit_rel_create_input::<T, RequestCtx>(
-            HashMap::new(),
             &src_var,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
@@ -757,10 +743,8 @@ impl<'r> Resolver<'r> {
         transaction.begin()?;
         let results = visit_rel_delete_input::<T, RequestCtx>(
             None,
-            HashMap::new(),
             &rel_var,
             input.value,
-            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
@@ -915,17 +899,16 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
-        let (match_fragment, where_fragment, params) = visit_rel_query_input(
+        let query_fragment = visit_rel_query_input(
             None,
-            HashMap::new(),
             &rel_var,
             input_opt.map(|i| i.value),
-            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
             transaction,
         )?;
+        /*
         let (query, params) = transaction.rel_read_query(
             &match_fragment,
             &where_fragment,
@@ -933,9 +916,10 @@ impl<'r> Resolver<'r> {
             &rel_var,
             ClauseType::Query,
         )?;
+        */
         let results = transaction.read_rels(
-            query,
-            Some(params),
+            query_fragment,
+            &rel_var,
             Some(p.type_name()),
             self.partition_key_opt,
         );
@@ -1048,11 +1032,9 @@ impl<'r> Resolver<'r> {
         transaction.begin()?;
         let results = visit_rel_update_input::<T, RequestCtx>(
             None,
-            HashMap::new(),
             &rel_var,
             props_prop.map(|_| p.type_name()).ok(),
             input.value,
-            ClauseType::Query,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
@@ -1234,22 +1216,9 @@ impl<'r> Resolver<'r> {
                     NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
                 props.insert("id".to_string(), dst_id.clone());
-                let (match_fragment, where_fragment, params) = transaction.node_read_fragment(
-                    Vec::new(),
-                    HashMap::new(),
-                    &node_var,
-                    props,
-                    ClauseType::Query,
-                    &mut sg,
-                )?;
-                let (query, params) = transaction.node_read_query(
-                    &match_fragment,
-                    &where_fragment,
-                    params,
-                    &node_var,
-                    ClauseType::Query,
-                )?;
-                transaction.read_nodes(query, Some(params), self.partition_key_opt, info)
+                let query_fragment =
+                    transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
+                transaction.read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
             }
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,

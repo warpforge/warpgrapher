@@ -139,107 +139,79 @@ pub(crate) trait Transaction {
 
     fn create_node<RequestCtx: RequestContext>(
         &mut self,
-        label: &str,
+        node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn create_rels<RequestCtx: RequestContext>(
         &mut self,
-        src_query: &str,
-        dst_query: &str,
-        params: HashMap<String, Value>,
+        src_query_fragment: QueryFragment,
+        dst_query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
+
+    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        nodes: &[Node<RequestCtx>],
+    ) -> Result<QueryFragment, Error>;
 
     fn node_read_fragment(
         &mut self,
-        rel_query_fragments: Vec<(String, String)>,
-        params: HashMap<String, Value>,
+        rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        clause: ClauseType,
         sg: &mut SuffixGenerator,
-    ) -> Result<(String, String, HashMap<String, Value>), Error>;
-
-    fn node_read_query(
-        &mut self,
-        match_fragment: &str,
-        where_fragment: &str,
-        params: HashMap<String, Value>,
-        node_var: &NodeQueryVar,
-        clause: ClauseType,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn node_read_by_ids_query<RequestCtx: RequestContext>(
-        &mut self,
-        node_var: &NodeQueryVar,
-        nodes: Vec<Node<RequestCtx>>,
-        clause: ClauseType,
-    ) -> Result<(String, String, HashMap<String, Value>), Error>;
+    ) -> Result<QueryFragment, Error>;
 
     fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
-        query: String,
-        params: Option<HashMap<String, Value>>,
+        node_var: &NodeQueryVar,
+        query_fragment: QueryFragment,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
+    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        rel_var: &RelQueryVar,
+        rels: &[Rel<RequestCtx>],
+    ) -> Result<QueryFragment, Error>;
+
     fn rel_read_fragment(
         &mut self,
-        src_query_opt: Option<(String, String)>,
-        dst_query_opt: Option<(String, String)>,
-        params: HashMap<String, Value>,
+        src_fragment_opt: Option<QueryFragment>,
+        dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         sg: &mut SuffixGenerator,
-    ) -> Result<(String, String, HashMap<String, Value>), Error>;
-
-    fn rel_read_query(
-        &mut self,
-        match_fragment: &str,
-        where_fragment: &str,
-        params: HashMap<String, Value>,
-        rel_var: &RelQueryVar,
-        clause: ClauseType,
-    ) -> Result<(String, HashMap<String, Value>), Error>;
-
-    fn rel_read_by_ids_query<RequestCtx: RequestContext>(
-        &mut self,
-        rel_var: &RelQueryVar,
-        rels: Vec<Rel<RequestCtx>>,
-    ) -> Result<(String, String, HashMap<String, Value>), Error>;
+    ) -> Result<QueryFragment, Error>;
 
     fn read_rels<RequestCtx: RequestContext>(
         &mut self,
-        query: String,
-        params: Option<HashMap<String, Value>>,
+        query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    #[allow(clippy::too_many_arguments)]
     fn update_rels<RequestCtx: RequestContext>(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
@@ -248,16 +220,14 @@ pub(crate) trait Transaction {
 
     fn delete_nodes(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
     fn delete_rels(
         &mut self,
-        match_query: &str,
-        params: HashMap<String, Value>,
+        query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
@@ -265,6 +235,43 @@ pub(crate) trait Transaction {
     fn commit(&mut self) -> Result<(), Error>;
 
     fn rollback(&mut self) -> Result<(), Error>;
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct QueryFragment {
+    match_fragment: String,
+    where_fragment: String,
+    params: HashMap<String, Value>,
+}
+
+impl QueryFragment {
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    pub(crate) fn new(
+        match_fragment: String,
+        where_fragment: String,
+        params: HashMap<String, Value>,
+    ) -> QueryFragment {
+        QueryFragment {
+            match_fragment,
+            where_fragment,
+            params,
+        }
+    }
+
+    #[cfg(feature = "neo4j")]
+    pub(crate) fn match_fragment(&self) -> &str {
+        &self.match_fragment
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    pub(crate) fn where_fragment(&self) -> &str {
+        &self.where_fragment
+    }
+
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    pub(crate) fn params(self) -> HashMap<String, Value> {
+        self.params
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -338,7 +345,7 @@ impl RelQueryVar {
         &self.label
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
@@ -354,19 +361,7 @@ impl RelQueryVar {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) enum ClauseType {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    Parameter,
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    FirstSubQuery,
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    SubQuery,
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    Query,
-}
-
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub(crate) struct SuffixGenerator {
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     seed: i32,

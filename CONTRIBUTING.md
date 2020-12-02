@@ -156,7 +156,7 @@ RUST_BACKTRACE=full RUST_LOG=warpgrapher cargo test --features *DB_FEATURE* -- -
 
 ## Lint Code
 
-```bash
+```
 cargo clippy --all-targets --all-features -- -D warnings
 ```
 
