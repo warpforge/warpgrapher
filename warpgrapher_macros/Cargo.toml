@@ -1,0 +1,12 @@
+[package]
+name = "warpgrapher_macros"
+version = "0.1.0"
+authors = ["Javier Vazquez"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0.53", features = ["full"] }
+quote = "1.0"

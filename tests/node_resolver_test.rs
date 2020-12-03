@@ -4,10 +4,6 @@ use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "neo4j")]
 use setup::bolt_client;
-#[cfg(feature = "cosmos")]
-use setup::cosmos_test_client;
-#[cfg(feature = "gremlin")]
-use setup::gremlin_test_client;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
 use setup::AppRequestCtx;
@@ -16,41 +12,10 @@ use setup::{clear_db, init};
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 use warpgrapher::client::Client;
+use warpgrapher_macros::wg_test;
 
 /// Passes if the create mutation and the read query both succeed.
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_single_node_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    create_single_node(client).await;
-}
-
-/// Passes if the create mutation and the read query both succeed.
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_single_node_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    create_single_node(client).await;
-}
-
-/// Passes if the create mutation and the read query both succeed.
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_single_node_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    create_single_node(client).await;
-}
-
-/// Passes if the create mutation and the read query both succeed.
+#[wg_test]
 #[allow(dead_code)]
 async fn create_single_node(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -98,37 +63,8 @@ async fn create_single_node(mut client: Client<AppRequestCtx>) {
     assert_eq!(projects_a[0].get("active").unwrap(), true);
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn read_query_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_query(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn read_query_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_query(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn read_query_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_query(client).await;
-}
-
 /// Passes if the create mutation and the read query both succeed.
+#[wg_test]
 #[allow(dead_code)]
 async fn read_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -174,38 +110,9 @@ async fn read_query(mut client: Client<AppRequestCtx>) {
     assert_eq!(projects_a[0].get("name").unwrap(), "Project1");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn handle_missing_properties_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    handle_missing_properties(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn handle_missing_properties_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    handle_missing_properties(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn handle_missing_properties_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    handle_missing_properties(client).await;
-}
-
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the Neo4J model object.
+#[wg_test]
 #[allow(dead_code)]
 async fn handle_missing_properties(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -242,37 +149,8 @@ async fn handle_missing_properties(mut client: Client<AppRequestCtx>) {
     assert!(projects_a[0].get("description").unwrap().is_null());
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_mutation_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_mutation_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_mutation_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation(client).await;
-}
-
 /// Passes if the update mutation succeeds with a target node selected by attribute
+#[wg_test]
 #[allow(dead_code)]
 async fn update_mutation(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -348,37 +226,8 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
     assert_eq!(after_projects_a[0].get("status").unwrap(), "ACTIVE");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_mutation_null_query_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation_null_query(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_mutation_null_query_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation_null_query(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_mutation_null_query_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_mutation_null_query(client).await;
-}
-
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_mutation_null_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -447,37 +296,8 @@ async fn update_mutation_null_query(mut client: Client<AppRequestCtx>) {
     assert_eq!(after_projects_a[1].get("status").unwrap(), "ACTIVE");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_mutation_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_mutation_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_mutation_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation(client).await;
-}
-
 /// Passes if the delete mutation succeeds with a target node selected by attribute
+#[wg_test]
 #[allow(dead_code)]
 async fn delete_mutation(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -541,37 +361,8 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
     assert_eq!(after_projects_a.len(), 0);
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_mutation_null_query_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation_null_query(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_mutation_null_query_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation_null_query(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_mutation_null_query_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mutation_null_query(client).await;
-}
-
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_mutation_null_query(mut client: Client<AppRequestCtx>) {
     let p0 = client
