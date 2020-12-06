@@ -1,6 +1,7 @@
 use crate::engine::context::RequestContext;
-use crate::engine::database::{ClauseType, NodeQueryVar, RelQueryVar, Transaction};
+use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
 use crate::engine::objects::resolvers::SuffixGenerator;
+use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
@@ -8,25 +9,24 @@ use crate::error::Error;
 use log::trace;
 use std::collections::HashMap;
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Node<RequestCtx>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_create_mutation_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, clause, info.name(), partition_key_opt
+        "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
     );
 
     let itd = info.type_def()?;
@@ -60,50 +60,29 @@ where
             },
         )?;
 
-        let (rel_create_fragments, params) = inputs.into_iter().try_fold(
-            (Vec::new(), params),
-            |(mut rel_create_fragments, params),
-             (k, v)|
-             -> Result<(Vec<String>, HashMap<String, Value>), Error> {
+        let node =
+            transaction.create_node::<RequestCtx>(node_var, props, partition_key_opt, info)?;
+
+        if !inputs.is_empty() {
+            let mut id_props = HashMap::new();
+            id_props.insert("id".to_string(), node.id()?.clone());
+
+            let fragment = transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
+            trace!(
+                "visit_node_create_mutation_input -- fragment: {:#?}",
+                fragment
+            );
+
+            inputs.into_iter().try_for_each(|(k, v)| {
                 let p = itd.property(&k)?;
 
-                let (rel_create_fragments, params) = match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
-                        Ok((rel_create_fragments, params))
-                    } // Handled earlier
+                match p.kind() {
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok(()), // Handled earlier
                     PropertyKind::Input => {
                         if let Value::Array(input_array) = v {
-                            input_array.into_iter().try_fold(
-                                (rel_create_fragments, params),
-                                |(mut rel_create_fragments, params), val| {
-                                    let (fragment, params) = visit_rel_create_mutation_input::<
-                                        T,
-                                        RequestCtx,
-                                    >(
-                                        params,
-                                        &RelQueryVar::new(
-                                            p.name().to_string(),
-                                            sg.suffix(),
-                                            node_var.clone(),
-                                            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                                        ),
-                                        None,
-                                        val,
-                                        ClauseType::SubQuery,
-                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
-                                        sg,
-                                        transaction,
-                                        validators,
-                                    )?;
-                                    rel_create_fragments.push(fragment);
-                                    Ok((rel_create_fragments, params))
-                                },
-                            )
-                        } else {
-                            let (fragment, params) =
+                            input_array.into_iter().try_for_each(|val| {
                                 visit_rel_create_mutation_input::<T, RequestCtx>(
-                                    params,
+                                    fragment.clone(),
                                     &RelQueryVar::new(
                                         p.name().to_string(),
                                         sg.suffix(),
@@ -111,62 +90,71 @@ where
                                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                     ),
                                     None,
-                                    v,
-                                    ClauseType::SubQuery,
+                                    val,
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     sg,
                                     transaction,
                                     validators,
                                 )?;
-                            rel_create_fragments.push(fragment);
-                            Ok((rel_create_fragments, params))
+                                Ok(())
+                            })
+                        } else {
+                            visit_rel_create_mutation_input::<T, RequestCtx>(
+                                fragment.clone(),
+                                &RelQueryVar::new(
+                                    p.name().to_string(),
+                                    sg.suffix(),
+                                    node_var.clone(),
+                                    NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                ),
+                                None,
+                                v,
+                                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                partition_key_opt,
+                                sg,
+                                transaction,
+                                validators,
+                            )?;
+                            Ok(())
                         }
                     }
                     _ => Err(Error::TypeNotExpected),
-                }?;
+                }
+            })?;
+        }
 
-                Ok((rel_create_fragments, params))
-            },
-        )?;
+        trace!("visit_node_create_muation_input -- returning {:#?}", node);
 
-        transaction.node_create_query::<RequestCtx>(
-            rel_create_fragments,
-            params,
-            node_var,
-            props,
-            clause,
-            sg,
-        )
+        Ok(node)
     } else {
         Err(Error::TypeNotExpected)
     }
 }
 
 pub(super) fn visit_node_delete_input<T, RequestCtx: RequestContext>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<i32, Error>
 where
     T: Transaction,
 {
     trace!(
-        "visit_node_delete_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, info.name(), partition_key_opt
+        "visit_node_delete_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
     );
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
-        let (match_fragment, where_fragment, params) = visit_node_query_input(
-            params,
+        let fragment = visit_node_query_input(
             node_var,
             m.remove("$MATCH"), // Remove used to take ownership
-            ClauseType::SubQuery,
             &Info::new(
                 itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
@@ -176,20 +164,10 @@ where
             transaction,
         )?;
 
-        let (match_query, params) = transaction.node_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &node_var,
-            ClauseType::Parameter,
-        )?;
-
         visit_node_delete_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            fragment,
             &node_var,
             m.remove("$DELETE"),
-            ClauseType::Query,
             &Info::new(
                 itd.property("$DELETE")?.type_name().to_owned(),
                 info.type_defs(),
@@ -203,113 +181,105 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_node_delete_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Option<Value>,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
     T: Transaction,
 {
+    trace!(
+        "visit_node_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, node_var, input, info.name()
+    );
+
     let itd = info.type_def()?;
 
-    let (rel_delete_fragments, params) = if let Some(Value::Map(m)) = input {
-        m.into_iter()
-            .try_fold((Vec::new(), params), |(mut queries, params), (k, v)| {
-                let p = itd.property(&k)?;
+    let nodes =
+        transaction.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)?;
+    if nodes.is_empty() {
+        return Ok(0);
+    }
 
-                match p.kind() {
-                    PropertyKind::Input => {
-                        if let Value::Array(input_array) = v {
-                            input_array.into_iter().try_fold(
-                                (queries, params),
-                                |(mut queries, params), val| {
-                                    let rel_var = RelQueryVar::new(
-                                        k.to_string(),
-                                        sg.suffix(),
-                                        node_var.clone(),
-                                        NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                                    );
-                                    let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
-                                        params,
-                                        &rel_var,
-                                        val,
-                                        ClauseType::SubQuery,
-                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
-                                        sg,
-                                        transaction,
-                                    )?;
-                                    queries.push(query);
-                                    Ok((queries, params))
-                                },
-                            )
-                        } else {
+    let fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
+
+    if let Some(Value::Map(m)) = input {
+        m.into_iter().try_for_each(|(k, v)| {
+            let p = itd.property(&k)?;
+
+            match p.kind() {
+                PropertyKind::Input => {
+                    if let Value::Array(input_array) = v {
+                        input_array.into_iter().try_for_each(|val| {
                             let rel_var = RelQueryVar::new(
                                 k.to_string(),
                                 sg.suffix(),
                                 node_var.clone(),
                                 NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                             );
-                            let (query, params) = visit_rel_delete_input::<T, RequestCtx>(
-                                params,
+                            visit_rel_delete_input::<T, RequestCtx>(
+                                Some(fragment.clone()),
                                 &rel_var,
-                                v,
-                                ClauseType::SubQuery,
+                                val,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
                                 transaction,
                             )?;
+                            Ok(())
+                        })
+                    } else {
+                        let rel_var = RelQueryVar::new(
+                            k.to_string(),
+                            sg.suffix(),
+                            node_var.clone(),
+                            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                        );
+                        visit_rel_delete_input::<T, RequestCtx>(
+                            Some(fragment.clone()),
+                            &rel_var,
+                            v,
+                            &Info::new(p.type_name().to_owned(), info.type_defs()),
+                            partition_key_opt,
+                            sg,
+                            transaction,
+                        )?;
 
-                            queries.push(query);
-                            Ok((queries, params))
-                        }
+                        Ok(())
                     }
-                    _ => Err(Error::TypeNotExpected),
                 }
-            })?
-    } else {
-        (Vec::new(), params)
-    };
+                _ => Err(Error::TypeNotExpected),
+            }
+        })?
+    }
 
-    transaction.node_delete_query(
-        match_query,
-        rel_delete_fragments,
-        params,
-        node_var,
-        clause,
-        sg,
-    )
+    transaction.delete_nodes(fragment, node_var, partition_key_opt)
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_node_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<QueryFragment, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_input Called -- params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, into.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, clause, info.name(), partition_key_opt
+        "visit_node_input called -- node_var: {:#?}, input: {:#?}, into.name: {}",
+        node_var,
+        input,
+        info.name()
     );
 
     if let Value::Map(m) = input {
@@ -325,37 +295,30 @@ where
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "$NEW" => visit_node_create_mutation_input::<T, RequestCtx>(
-                params,
-                node_var,
-                v,
-                clause,
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
-                sg,
-                transaction,
-                validators,
-            ),
-            "$EXISTING" => {
-                let (match_fragment, where_fragment, params) = visit_node_query_input(
-                    params,
+            "$NEW" => {
+                let node = visit_node_create_mutation_input::<T, RequestCtx>(
                     node_var,
-                    Some(v),
-                    clause,
+                    v,
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                     partition_key_opt,
                     sg,
                     transaction,
+                    validators,
                 )?;
 
-                transaction.node_read_query(
-                    &match_fragment,
-                    &where_fragment,
-                    params,
-                    &node_var,
-                    ClauseType::SubQuery,
-                )
+                let mut id_props = HashMap::new();
+                id_props.insert("id".to_string(), node.id()?.clone());
+
+                Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
+            "$EXISTING" => Ok(visit_node_query_input(
+                node_var,
+                Some(v),
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                partition_key_opt,
+                sg,
+                transaction,
+            )?),
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + &k,
             }),
@@ -365,71 +328,67 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_query_input<T>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Option<Value>,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, String, HashMap<String, Value>), Error>
+) -> Result<QueryFragment, Error>
 where
     T: Transaction,
 {
-    trace!("visit_node_query_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-    params, node_var, input, clause, info.name(), partition_key_opt);
+    trace!(
+        "visit_node_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
+    );
 
     let itd = info.type_def()?;
     let dst_var = NodeQueryVar::new(None, "dst".to_string(), sg.suffix());
 
-    let mut props = HashMap::new();
     if let Some(Value::Map(m)) = input {
-        let (rqfs, params) =
-            m.into_iter()
-                .try_fold((Vec::new(), params), |(mut rqfs, params), (k, v)| {
-                    itd.property(&k)
-                        .map_err(|e| e)
-                        .and_then(|p| match p.kind() {
-                            PropertyKind::Scalar => {
-                                props.insert(k, v);
-                                Ok((rqfs, params))
-                            }
-                            PropertyKind::Input => {
-                                let (match_fragment, where_fragment, params) =
-                                    visit_rel_query_input(
-                                        params,
-                                        &RelQueryVar::new(
-                                            k.to_string(),
-                                            sg.suffix(),
-                                            node_var.clone(),
-                                            dst_var.clone(),
-                                        ),
-                                        Some(v),
-                                        ClauseType::Parameter,
-                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
-                                        sg,
-                                        transaction,
-                                    )?;
-                                rqfs.push((match_fragment, where_fragment));
-                                Ok((rqfs, params))
-                            }
-                            _ => Err(Error::TypeNotExpected),
-                        })
-                })?;
+        let (props, rqfs) = m.into_iter().try_fold(
+            (HashMap::new(), Vec::new()),
+            |(mut props, mut rqfs), (k, v)| {
+                itd.property(&k)
+                    .map_err(|e| e)
+                    .and_then(|p| match p.kind() {
+                        PropertyKind::Scalar => {
+                            props.insert(k, v);
+                            Ok((props, rqfs))
+                        }
+                        PropertyKind::Input => {
+                            rqfs.push(visit_rel_query_input(
+                                None,
+                                &RelQueryVar::new(
+                                    k.to_string(),
+                                    sg.suffix(),
+                                    node_var.clone(),
+                                    dst_var.clone(),
+                                ),
+                                Some(v),
+                                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                partition_key_opt,
+                                sg,
+                                transaction,
+                            )?);
+                            Ok((props, rqfs))
+                        }
+                        _ => Err(Error::TypeNotExpected),
+                    })
+            },
+        )?;
 
-        transaction.node_read_fragment(rqfs, params, &node_var, props, clause, sg)
+        transaction.node_read_fragment(rqfs, &node_var, props, sg)
     } else {
-        transaction.node_read_fragment(Vec::new(), params, &node_var, props, clause, sg)
+        transaction.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn visit_node_update_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -437,24 +396,24 @@ pub(super) fn visit_node_update_input<T, RequestCtx>(
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, info.name(), partition_key_opt
+        "visit_node_update_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
     );
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
-        let (match_fragment, where_fragment, params) = visit_node_query_input(
-            params,
+        let query_fragment = visit_node_query_input(
             node_var,
             m.remove("$MATCH"), // Remove used to take ownership
-            ClauseType::SubQuery,
             &Info::new(
                 itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
@@ -464,17 +423,8 @@ where
             transaction,
         )?;
 
-        let (match_query, params) = transaction.node_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &node_var,
-            ClauseType::Parameter,
-        )?;
-
         visit_node_update_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            query_fragment,
             node_var,
             m.remove("$SET").ok_or_else(|| {
                 // remove() used here to take ownership of the "set" value, not borrow it
@@ -482,7 +432,6 @@ where
                     name: "input::$SET".to_string(),
                 }
             })?,
-            ClauseType::Query,
             &Info::new(
                 itd.property("$SET")?.type_name().to_owned(),
                 info.type_defs(),
@@ -499,24 +448,22 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_node_update_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_node_update_mutation_input called -- match_query: {}, params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        match_query, params, node_var, input, clause, info.name(), partition_key_opt,
+        "visit_node_update_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, node_var, input, info.name(),
     );
 
     let itd = info.type_def()?;
@@ -551,90 +498,65 @@ where
             },
         )?;
 
-        let (change_queries, params) = inputs.into_iter().try_fold(
-            (Vec::new(), params),
-            |(mut queries, params), (k, v)| {
-                let p = itd.property(&k)?;
+        let nodes = transaction.update_nodes::<RequestCtx>(
+            query_fragment,
+            node_var,
+            props,
+            partition_key_opt,
+            info,
+        )?;
+        if nodes.is_empty() {
+            return Ok(nodes);
+        }
+        let node_fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
-                match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok((queries, params)), // Properties handled above
-                    PropertyKind::Input => {
-                        if let Value::Array(input_array) = v {
-                            let (mut qs, params) =
-                                    input_array.into_iter().try_fold(
-                                        (Vec::new(), params),
-                                        |(mut queries, params),
-                                         val|
-                                         -> Result<
-                                            (Vec<String>, HashMap<String, Value>),
-                                            Error,
-                                        > {
-                                            let (query, params) =
-                                                visit_rel_change_input::<T, RequestCtx>(
-                                                    params,
-                                                    &RelQueryVar::new(
-                                                        k.clone(),
-                                                        sg.suffix(),
-                                                        node_var.clone(),
-                                                        NodeQueryVar::new(
-                                                            None,
-                                                            "dst".to_string(),
-                                                            sg.suffix(),
-                                                        ),
-                                                    ),
-                                                    val,
-                                                    &Info::new(
-                                                        p.type_name().to_owned(),
-                                                        info.type_defs(),
-                                                    ),
-                                                    partition_key_opt,
-                                                    sg,
-                                                    transaction,
-                                                    validators,
-                                                )?;
+        inputs.into_iter().try_for_each(|(k, v)| {
+            let p = itd.property(&k)?;
 
-                                            queries.push(query);
-                                            Ok((queries, params))
-                                        },
-                                    )?;
-                            queries.append(&mut qs);
-
-                            Ok((queries, params))
-                        } else {
-                            let (query, params) = visit_rel_change_input::<T, RequestCtx>(
-                                params,
+            match p.kind() {
+                PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok(()), // Properties handled above
+                PropertyKind::Input => {
+                    if let Value::Array(input_array) = v {
+                        input_array.into_iter().try_for_each(|val| {
+                            visit_rel_change_input::<T, RequestCtx>(
+                                node_fragment.clone(),
                                 &RelQueryVar::new(
-                                    k,
+                                    k.clone(),
                                     sg.suffix(),
                                     node_var.clone(),
                                     NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                 ),
-                                v,
+                                val,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
                                 transaction,
                                 validators,
-                            )?;
-
-                            queries.push(query);
-                            Ok((queries, params))
-                        }
+                            )
+                        })
+                    } else {
+                        visit_rel_change_input::<T, RequestCtx>(
+                            node_fragment.clone(),
+                            &RelQueryVar::new(
+                                k,
+                                sg.suffix(),
+                                node_var.clone(),
+                                NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                            ),
+                            v,
+                            &Info::new(p.type_name().to_owned(), info.type_defs()),
+                            partition_key_opt,
+                            sg,
+                            transaction,
+                            validators,
+                        )
                     }
-                    _ => Err(Error::TypeNotExpected),
                 }
-            },
-        )?;
+                _ => Err(Error::TypeNotExpected),
+            }
+        })?;
 
-        transaction.node_update_query::<RequestCtx>(
-            match_query,
-            change_queries,
-            params,
-            node_var,
-            props,
-            clause,
-            sg,
-        )
+        Ok(nodes)
     } else {
         Err(Error::TypeNotExpected)
     }
@@ -642,7 +564,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_change_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
+    src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
     info: &Info,
@@ -650,14 +572,14 @@ fn visit_rel_change_input<T, RequestCtx>(
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<(), Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_change_input called -- params: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, rel_var, input, info.name(), partition_key_opt
+        "visit_rel_change_input called -- src_fragment: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
+        src_fragment, rel_var, input, info.name()
     );
 
     let itd = info.type_def()?;
@@ -666,11 +588,10 @@ where
         if let Some(v) = m.remove("$ADD") {
             // Using remove to take ownership
             visit_rel_create_mutation_input::<T, RequestCtx>(
-                params,
+                src_fragment,
                 rel_var,
                 None,
                 v,
-                ClauseType::SubQuery,
                 &Info::new(
                     itd.property("$ADD")?.type_name().to_owned(),
                     info.type_defs(),
@@ -679,14 +600,15 @@ where
                 sg,
                 transaction,
                 validators,
-            )
+            )?;
+
+            Ok(())
         } else if let Some(v) = m.remove("$DELETE") {
             // Using remove to take ownership
             visit_rel_delete_input::<T, RequestCtx>(
-                params,
+                Some(src_fragment),
                 rel_var,
                 v,
-                ClauseType::SubQuery,
                 &Info::new(
                     itd.property("$DELETE")?.type_name().to_owned(),
                     info.type_defs(),
@@ -694,15 +616,16 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-            )
+            )?;
+
+            Ok(())
         } else if let Some(v) = m.remove("$UPDATE") {
             // Using remove to take ownership
             visit_rel_update_input::<T, RequestCtx>(
-                params,
+                Some(src_fragment),
                 rel_var,
                 None,
                 v,
-                ClauseType::SubQuery,
                 &Info::new(
                     itd.property("$UPDATE")?.type_name().to_owned(),
                     info.type_defs(),
@@ -711,7 +634,8 @@ where
                 sg,
                 transaction,
                 validators,
-            )
+            )?;
+            Ok(())
         } else {
             Err(Error::InputItemNotFound {
                 name: itd.type_name().to_string() + "::$ADD|$DELETE|$UPDATE",
@@ -723,9 +647,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 pub(super) fn visit_rel_create_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
     src_var: &NodeQueryVar,
     rel_name: &str,
     props_type_name: Option<&str>,
@@ -735,24 +657,22 @@ pub(super) fn visit_rel_create_input<T, RequestCtx>(
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_create_input called -- params: {:#?}, src_var: {:#?}, rel_name: {}, input: {:#?}, info.name: {}, partition_key_opt {:#?}",
-        params, src_var, rel_name, input, info.name(), partition_key_opt
+        "visit_rel_create_input called -- src_var: {:#?}, rel_name: {}, input: {:#?}, info.name: {}",
+        src_var, rel_name, input, info.name()
     );
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
-        let (match_fragment, where_fragment, params) = visit_node_query_input(
-            params,
+        let src_fragment = visit_node_query_input(
             src_var,
             m.remove("$MATCH"), // Remove used to take ownership
-            ClauseType::SubQuery,
             &Info::new(
                 itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
@@ -762,13 +682,16 @@ where
             transaction,
         )?;
 
-        let (src_query, params) = transaction.node_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
+        let nodes = transaction.read_nodes::<RequestCtx>(
             src_var,
-            ClauseType::Parameter,
+            src_fragment.clone(),
+            partition_key_opt,
+            info,
         )?;
+
+        if nodes.is_empty() {
+            return Ok(Vec::new());
+        }
 
         let create_input = m.remove("$CREATE").ok_or_else(|| {
             // Using remove to take ownership
@@ -785,12 +708,11 @@ where
                     src_var.clone(),
                     NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                 );
-                let (cf, params) = visit_rel_create_mutation_input::<T, RequestCtx>(
-                    params,
+                visit_rel_create_mutation_input::<T, RequestCtx>(
+                    src_fragment,
                     &rel_var,
                     props_type_name,
                     create_input,
-                    ClauseType::SubQuery,
                     &Info::new(
                         itd.property("$CREATE")?.type_name().to_owned(),
                         info.type_defs(),
@@ -799,62 +721,35 @@ where
                     sg,
                     transaction,
                     validators,
-                )?;
-
-                transaction.rel_create_query::<RequestCtx>(
-                    Some(src_query),
-                    vec![cf],
-                    params,
-                    vec![rel_var],
-                    ClauseType::Query,
                 )
             }
-            Value::Array(create_input_array) => {
-                let (rcfs, params, rel_vars) =
-                    create_input_array.into_iter().try_fold(
-                        (Vec::new(), params, Vec::new()),
-                        |(mut rcfs, params, mut rel_vars),
-                         create_input_value|
-                         -> Result<
-                            (Vec<String>, HashMap<String, Value>, Vec<RelQueryVar>),
-                            Error,
-                        > {
-                            let rel_var = RelQueryVar::new(
-                                rel_name.to_string(),
-                                sg.suffix(),
-                                src_var.clone(),
-                                NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                            );
-                            let (query, params) = visit_rel_create_mutation_input::<T, RequestCtx>(
-                                params,
-                                &rel_var,
-                                props_type_name,
-                                create_input_value,
-                                ClauseType::SubQuery,
-                                &Info::new(
-                                    itd.property("$CREATE")?.type_name().to_owned(),
-                                    info.type_defs(),
-                                ),
-                                partition_key_opt,
-                                sg,
-                                transaction,
-                                validators,
-                            )?;
+            Value::Array(create_input_array) => create_input_array.into_iter().try_fold(
+                Vec::new(),
+                |mut rels, create_input_value| -> Result<Vec<Rel<RequestCtx>>, Error> {
+                    let rel_var = RelQueryVar::new(
+                        rel_name.to_string(),
+                        sg.suffix(),
+                        src_var.clone(),
+                        NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                    );
+                    rels.append(&mut visit_rel_create_mutation_input::<T, RequestCtx>(
+                        src_fragment.clone(),
+                        &rel_var,
+                        props_type_name,
+                        create_input_value,
+                        &Info::new(
+                            itd.property("$CREATE")?.type_name().to_owned(),
+                            info.type_defs(),
+                        ),
+                        partition_key_opt,
+                        sg,
+                        transaction,
+                        validators,
+                    )?);
 
-                            rcfs.push(query);
-                            rel_vars.push(rel_var);
-                            Ok((rcfs, params, rel_vars))
-                        },
-                    )?;
-
-                transaction.rel_create_query::<RequestCtx>(
-                    Some(src_query),
-                    rcfs,
-                    params,
-                    rel_vars,
-                    ClauseType::Query,
-                )
-            }
+                    Ok(rels)
+                },
+            ),
             _ => Err(Error::TypeNotExpected),
         }
     } else {
@@ -864,24 +759,22 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_create_mutation_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
+    src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
-    trace!("visit_rel_create_mutation_input called -- params: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-            params, rel_var, props_type_name, input, clause, info.name(), partition_key_opt,
-        );
+    trace!("visit_rel_create_mutation_input called -- src_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
+            src_fragment, rel_var, props_type_name, input, info.name());
 
     if let Value::Map(mut m) = input {
         let dst_prop = info.type_def()?.property("dst")?;
@@ -890,11 +783,9 @@ where
             .ok_or_else(|| Error::InputItemNotFound {
                 name: "dst".to_string(),
             })?;
-        let (dst_query, params) = visit_rel_nodes_mutation_input_union::<T, RequestCtx>(
-            params,
+        let dst_fragment = visit_rel_nodes_mutation_input_union::<T, RequestCtx>(
             rel_var.dst(),
             dst,
-            ClauseType::SubQuery,
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -908,39 +799,42 @@ where
             Some(_) => return Err(Error::TypeNotExpected),
         };
 
-        transaction
-            .rel_create_fragment::<RequestCtx>(&dst_query, params, &rel_var, props, clause, sg)
+        transaction.create_rels(
+            src_fragment,
+            dst_fragment,
+            rel_var,
+            props,
+            props_type_name,
+            partition_key_opt,
+        )
     } else {
         Err(Error::TypeNotExpected)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_delete_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
+    src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
     T: Transaction,
 {
-    trace!("visit_rel_delete_input called -- params: {:#?}, rel_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-    params, rel_var, input, clause, info.name(), partition_key_opt);
+    trace!("visit_rel_delete_input called -- src_query_opt: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
+    src_query_opt, rel_var, input, info.name());
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
-        let (match_fragment, where_fragment, params) = visit_rel_query_input(
-            params,
+        let fragment = visit_rel_query_input(
+            src_query_opt,
             rel_var,
             m.remove("$MATCH"), // remove rather than get to take ownership
-            ClauseType::SubQuery,
             &Info::new(
                 itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
@@ -950,23 +844,18 @@ where
             transaction,
         )?;
 
-        let (match_query, params) = transaction.rel_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &rel_var,
-            if let ClauseType::Query = clause {
-                ClauseType::FirstSubQuery
-            } else {
-                ClauseType::SubQuery
-            },
-        )?;
+        let rels =
+            transaction.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)?;
+        if rels.is_empty() {
+            return Ok(0);
+        }
 
-        let (src_delete_query_opt, params) = if let Some(src) = m.remove("src") {
+        let id_fragment = transaction.rel_read_by_ids_fragment(rel_var, &rels)?;
+
+        if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
-            let (query, params) = visit_rel_src_delete_mutation_input::<T, RequestCtx>(
-                match_query.clone(),
-                params,
+            visit_rel_src_delete_mutation_input::<T, RequestCtx>(
+                id_fragment.clone(),
                 rel_var.src(),
                 src,
                 &Info::new(
@@ -977,16 +866,12 @@ where
                 sg,
                 transaction,
             )?;
-            (Some(query), params)
-        } else {
-            (None, params)
-        };
+        }
 
-        let (dst_delete_query_opt, params) = if let Some(dst) = m.remove("dst") {
+        if let Some(dst) = m.remove("dst") {
             // Uses remove to take ownership
-            let (query, params) = visit_rel_dst_delete_mutation_input::<T, RequestCtx>(
-                match_query.clone(),
-                params,
+            visit_rel_dst_delete_mutation_input::<T, RequestCtx>(
+                id_fragment.clone(),
                 rel_var.dst(),
                 dst,
                 &Info::new(
@@ -997,43 +882,30 @@ where
                 sg,
                 transaction,
             )?;
-            (Some(query), params)
-        } else {
-            (None, params)
-        };
+        }
 
-        transaction.rel_delete_query(
-            match_query,
-            src_delete_query_opt,
-            dst_delete_query_opt,
-            params,
-            &rel_var,
-            clause,
-            sg,
-        )
+        transaction.delete_rels(id_fragment, rel_var, partition_key_opt)
     } else {
         Err(Error::TypeNotExpected)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
     T: Transaction,
 {
     trace!(
-        "visit_rel_dst_delete_mutation_input called -- match_query: {}, params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt, {:#?}",
-        match_query, params, node_var, input, info.name(), partition_key_opt
+        "visit_rel_dst_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, node_var, input, info.name()
     );
 
     if let Value::Map(m) = input {
@@ -1047,11 +919,9 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_delete_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            query_fragment,
             node_var,
             Some(v),
-            ClauseType::SubQuery,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -1062,63 +932,59 @@ where
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn visit_rel_dst_query_input<T>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(Option<(String, String)>, HashMap<String, Value>), Error>
+) -> Result<Option<QueryFragment>, Error>
 where
     T: Transaction,
 {
-    trace!("visit_rel_dst_query_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, info.name(), partition_key_opt);
+    trace!(
+        "visit_rel_dst_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
+    );
 
     if let Some(Value::Map(m)) = input {
         if let Some((k, v)) = m.into_iter().next() {
             let p = info.type_def()?.property(&k)?;
 
-            let (match_fragment, where_fragment, params) = visit_node_query_input(
-                params,
+            Ok(Some(visit_node_query_input(
                 node_var,
                 Some(v),
-                ClauseType::Parameter,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 sg,
                 transaction,
-            )?;
-
-            Ok((Some((match_fragment, where_fragment)), params))
+            )?))
         } else {
-            Ok((None, params))
+            Ok(None)
         }
     } else {
-        Ok((None, params))
+        Ok(None)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
-    trace!("visit_rel_dst_update_mutation_input called -- match_query: {}, params: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        match_query, params, input, info.name(), partition_key_opt);
+    trace!("visit_rel_dst_update_mutation_input called -- query_fragment: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, input, info.name());
 
     if let Value::Map(m) = input {
         let (k, v) = m
@@ -1131,11 +997,9 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_update_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            query_fragment,
             &NodeQueryVar::new(Some(k), "dst".to_string(), sg.suffix()),
             v,
-            ClauseType::SubQuery,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -1147,24 +1011,21 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<QueryFragment, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
-    trace!("visit_rel_nodes_mutation_input_union called -- params: {:#?}, node_var: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, clause, info.name(), partition_key_opt);
+    trace!("visit_rel_nodes_mutation_input_union called -- node_var: {:#?}, input: {:#?}, info.name: {},", 
+        node_var, input, info.name());
 
     if let Value::Map(m) = input {
         let (k, v) = m
@@ -1177,14 +1038,12 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_input::<T, RequestCtx>(
-            params,
             &NodeQueryVar::new(
                 Some(k.clone()),
                 node_var.base().to_string(),
                 node_var.suffix().to_string(),
             ),
             v,
-            clause,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -1196,22 +1055,20 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_query_input<T>(
-    params: HashMap<String, Value>,
+    src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, String, HashMap<String, Value>), Error>
+) -> Result<QueryFragment, Error>
 where
     T: Transaction,
 {
-    trace!("visit_rel_query_input called -- params: {:#?}, rel_var: {:#?}, input_opt: {:#?}, clause: {:#?}, info.name(): {}, partition_key_opt: {:#?}",
-        params, rel_var, input_opt, clause, info.name(), partition_key_opt);
+    trace!("visit_rel_query_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, input_opt: {:#?}, info.name(): {}",
+        src_fragment_opt, rel_var, input_opt, info.name());
 
     let itd = info.type_def()?;
     let src_prop = itd.property("src")?;
@@ -1230,9 +1087,8 @@ where
         }
 
         // Remove used to take ownership
-        let (src_query_opt, params) = if let Some(src) = m.remove("src") {
+        let src_fragment_opt = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
-                params,
                 rel_var.src(),
                 Some(src),
                 &Info::new(src_prop.type_name().to_owned(), info.type_defs()),
@@ -1241,13 +1097,12 @@ where
                 transaction,
             )?
         } else {
-            (None, params)
+            src_fragment_opt
         };
 
         // Remove used to take ownership
-        let (dst_query_opt, params) = if let Some(dst) = m.remove("dst") {
+        let dst_query_opt = if let Some(dst) = m.remove("dst") {
             visit_rel_dst_query_input(
-                params,
                 rel_var.dst(),
                 Some(dst),
                 &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
@@ -1256,33 +1111,31 @@ where
                 transaction,
             )?
         } else {
-            (None, params)
+            None
         };
 
-        transaction.rel_read_fragment(src_query_opt, dst_query_opt, params, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
     } else {
-        transaction.rel_read_fragment(None, None, params, rel_var, HashMap::new(), sg)
+        transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
     T: Transaction,
 {
     trace!(
-        "visit_rel_src_delete_mutation_input called -- match_query: {}, params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        match_query, params, node_var, input, info.name(), partition_key_opt);
+        "visit_rel_src_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, node_var, input, info.name());
 
     if let Value::Map(m) = input {
         let (k, v) = m
@@ -1295,11 +1148,9 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_delete_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            query_fragment,
             node_var,
             Some(v),
-            ClauseType::SubQuery,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -1312,8 +1163,7 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_src_update_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -1321,14 +1171,14 @@ fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-        "visit_rel_src_update_mutation_input called -- match_query: {}, params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        match_query, params, node_var, input, info.name(), partition_key_opt);
+        "visit_rel_src_update_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
+        query_fragment, node_var, input, info.name());
 
     if let Value::Map(m) = input {
         let (k, v) = m
@@ -1341,11 +1191,9 @@ where
         let p = info.type_def()?.property(&k)?;
 
         visit_node_update_mutation_input::<T, RequestCtx>(
-            match_query,
-            params,
+            query_fragment,
             node_var,
             v,
-            ClauseType::SubQuery,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
@@ -1357,77 +1205,73 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-#[allow(clippy::type_complexity)]
 fn visit_rel_src_query_input<T>(
-    params: HashMap<String, Value>,
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-) -> Result<(Option<(String, String)>, HashMap<String, Value>), Error>
+) -> Result<Option<QueryFragment>, Error>
 where
     T: Transaction,
 {
     trace!(
-        "visit_rel_src_query_input called -- params: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-        params, node_var, input, info.name(), partition_key_opt);
+        "visit_rel_src_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name(),
+    );
 
     if let Some(Value::Map(m)) = input {
         if let Some((k, v)) = m.into_iter().next() {
             let p = info.type_def()?.property(&k)?;
 
-            let (match_fragment, where_fragment, params) = visit_node_query_input(
-                params,
+            let fragment = visit_node_query_input(
                 node_var,
                 Some(v),
-                ClauseType::Parameter,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 sg,
                 transaction,
             )?;
 
-            Ok((Some((match_fragment, where_fragment)), params))
+            Ok(Some(fragment))
         } else {
-            Ok((None, params))
+            Ok(None)
         }
     } else {
-        Ok((None, params))
+        Ok(None)
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn visit_rel_update_input<T, RequestCtx>(
-    params: HashMap<String, Value>,
+    src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_input called -- params: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-         params, rel_var, props_type_name, input, info.name(), partition_key_opt);
+         "visit_rel_update_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
+         src_fragment_opt, rel_var, props_type_name, input, info.name());
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
-        let (match_fragment, where_fragment, params) = visit_rel_query_input(
-            params,
+        let fragment = visit_rel_query_input(
+            src_fragment_opt,
             &rel_var,
             m.remove("$MATCH"), // uses remove to take ownership
-            ClauseType::Parameter,
             &Info::new(
                 itd.property("$MATCH")?.type_name().to_owned(),
                 info.type_defs(),
@@ -1437,33 +1281,15 @@ where
             transaction,
         )?;
 
-        let (match_query, params) = transaction.rel_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &rel_var,
-            if let ClauseType::Query = clause {
-                ClauseType::FirstSubQuery
-            } else {
-                ClauseType::SubQuery
-            },
-        )?;
-
-        trace!(
-            "visit_rel_update_input -- match_query: {}, params: {:#?}",
-            match_query,
-            params
-        );
+        trace!("visit_rel_update_input -- fragment: {:#?}", fragment);
 
         if let Some(update) = m.remove("$SET") {
             // remove used to take ownership
             visit_rel_update_mutation_input::<T, RequestCtx>(
-                match_query,
-                params,
+                fragment,
                 &rel_var,
                 props_type_name,
                 update,
-                clause,
                 &Info::new(
                     itd.property("$SET")?.type_name().to_owned(),
                     info.type_defs(),
@@ -1485,25 +1311,23 @@ where
 
 #[allow(clippy::too_many_arguments)]
 fn visit_rel_update_mutation_input<T, RequestCtx>(
-    match_query: String,
-    params: HashMap<String, Value>,
+    query_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
     input: Value,
-    clause: ClauseType,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
     validators: &Validators,
-) -> Result<(String, HashMap<String, Value>), Error>
+) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
     RequestCtx: RequestContext,
 {
     trace!(
-         "visit_rel_update_mutation_input called -- match_query: {}, params: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, clause: {:#?}, info.name: {}, partition_key_opt: {:#?}",
-         match_query, params, rel_var, props_type_name, input, clause, info.name(), partition_key_opt);
+         "visit_rel_update_mutation_input called -- query_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
+         query_fragment, rel_var, props_type_name, input, info.name());
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
@@ -1514,20 +1338,23 @@ where
             HashMap::new()
         };
 
-        let results = transaction.rel_update_query::<RequestCtx>(
-            match_query.clone(),
-            params.clone(),
+        let rels = transaction.update_rels::<RequestCtx>(
+            query_fragment,
             rel_var,
             props,
-            clause,
-            sg,
+            props_type_name,
+            partition_key_opt,
         )?;
+        if rels.is_empty() {
+            return Ok(rels);
+        }
+
+        let id_fragment = transaction.rel_read_by_ids_fragment(rel_var, &rels)?;
 
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership
             visit_rel_src_update_mutation_input::<T, RequestCtx>(
-                match_query.clone(),
-                params.clone(),
+                id_fragment.clone(),
                 rel_var.src(),
                 src,
                 &Info::new(
@@ -1544,8 +1371,7 @@ where
         if let Some(dst) = m.remove("dst") {
             // calling remove to take ownership
             visit_rel_dst_update_mutation_input::<T, RequestCtx>(
-                match_query,
-                params,
+                id_fragment,
                 dst,
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
@@ -1558,7 +1384,7 @@ where
             )?;
         }
 
-        Ok(results)
+        Ok(rels)
     } else {
         Err(Error::TypeNotExpected)
     }

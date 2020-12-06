@@ -274,13 +274,25 @@ impl Display for Error {
                 write!(f, "Config model contains duplicate item: {}", type_name)
             }
             Error::ConfigItemReserved { type_name } => {
-                write!(f, "Config item cannot use a reserved word as a name: {}", type_name)
+                write!(
+                    f,
+                    "Config item cannot use a reserved word as a name: {}",
+                    type_name
+                )
             }
             Error::ConfigOpenFailed { source } => {
-                write!(f, "Config file could not be opened. Source error: {}", source)
+                write!(
+                    f,
+                    "Config file could not be opened. Source error: {}",
+                    source
+                )
             }
             Error::ConfigVersionMismatched { expected, found } => {
-                write!(f, "Configs must be the same version: expected {} but found {}", expected, found)
+                write!(
+                    f,
+                    "Configs must be the same version: expected {} but found {}",
+                    expected, found
+                )
             }
             Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
@@ -289,20 +301,36 @@ impl Display for Error {
                 write!(f, "Could not find environment variable: {}", name)
             }
             Error::EnvironmentVariableBoolNotParsed { source } => {
-                write!(f, "Failed to parse environment variable to boolean flag. Source error: {}", source)
+                write!(
+                    f,
+                    "Failed to parse environment variable to boolean flag. Source error: {}",
+                    source
+                )
             }
             Error::EnvironmentVariableIntNotParsed { source } => {
-                write!(f, "Failed to parse environment variable to integer port number. Source error: {}", source)
+                write!(
+                    f,
+                    "Failed to parse environment variable to integer port number. Source error: {}",
+                    source
+                )
             }
             Error::ExtensionFailed { source } => {
                 write!(f, "Extension returned an error: {}", source)
             }
             #[cfg(any(feature = "cosmos", feature = "gremlin"))]
             Error::GremlinActionFailed { source } => {
-                write!(f, "Either building a database connection pool or query failed. Source error: {}", source)
+                write!(
+                    f,
+                    "Either building a database connection pool or query failed. Source error: {}",
+                    source
+                )
             }
             Error::InputItemNotFound { name } => {
-                write!(f, "Could not find an expected argument, {}, in the GraphQL query.", name)
+                write!(
+                    f,
+                    "Could not find an expected argument, {}, in the GraphQL query.",
+                    name
+                )
             }
             Error::InvalidHeaderName { source } => {
                 write!(f, "Invalid HTTP header given to Client: {}", source)
@@ -315,24 +343,40 @@ impl Display for Error {
             }
             Error::JsonDeserializationFailed { source } => {
                 write!(f, "Failed to deserialize JSON into struct: {}", source)
-            },
+            }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolNotBuilt { source } => {
-                write!(f, "Could not build database connection pool for Neo4J. Source error: {}.", source)
+                write!(
+                    f,
+                    "Could not build database connection pool for Neo4J. Source error: {}.",
+                    source
+                )
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jPoolError { source } => {
-                write!(f, "Failed to get connection from Neo4j Pool. Source error: {}", source)
+                write!(
+                    f,
+                    "Failed to get connection from Neo4j Pool. Source error: {}",
+                    source
+                )
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message } => {
-                write!(f, "Neo4j query execution failed. Error message: {:#?}.", message)
+                write!(
+                    f,
+                    "Neo4j query execution failed. Error message: {:#?}.",
+                    message
+                )
             }
             Error::PartitionKeyNotFound => {
                 write!(f, "Partition keys are required when using Cosmos DB.")
             }
             Error::PayloadNotFound { response } => {
-                write!(f, "Required data and/or error fields are missing from the response: {}", response)
+                write!(
+                    f,
+                    "Required data and/or error fields are missing from the response: {}",
+                    response
+                )
             }
             Error::RelDuplicated { rel_name, ids } => {
                 write!(f, "Tried to read the single-node (i.e. one-to-one) relationship named {}, but found multipled ids: {}", rel_name, ids)
@@ -341,31 +385,61 @@ impl Display for Error {
                 write!(f, "Could not find a custom resolver named {}", name)
             }
             Error::ResponseItemNotFound { name } => {
-                write!(f, "Could not find an expected response item, {}, in the database results.", name)
+                write!(
+                    f,
+                    "Could not find an expected response item, {}, in the database results.",
+                    name
+                )
             }
             Error::ResponseSetNotFound => {
                 write!(f, "Could not find an expected database set of results.")
             }
             Error::SerializationFailed { source } => {
-                write!(f, "Serialization of the GraphQL response failed. Source error: {}", source)
+                write!(
+                    f,
+                    "Serialization of the GraphQL response failed. Source error: {}",
+                    source
+                )
             }
             Error::SchemaItemNotFound { name } => {
-                write!(f, "The following item could not be found in the schema: {}", name)
+                write!(
+                    f,
+                    "The following item could not be found in the schema: {}",
+                    name
+                )
             }
             Error::ThreadCommunicationFailed { source } => {
-                write!(f, "Communication from the engine thread failed. Source error: {}", source)
+                write!(
+                    f,
+                    "Communication from the engine thread failed. Source error: {}",
+                    source
+                )
             }
             Error::TransactionFinished => {
-                write!(f, "Cannot use a database transaction already committed or rolled back.")
+                write!(
+                    f,
+                    "Cannot use a database transaction already committed or rolled back."
+                )
             }
             Error::TypeConversionFailed { src, dst } => {
-                write!(f, "The type or value {} could not be converted to type {}", src, dst)
+                write!(
+                    f,
+                    "The type or value {} could not be converted to type {}",
+                    src, dst
+                )
             }
             Error::TypeNotExpected => {
-                write!(f, "Warpgrapher encountered a type that was not expected, such as a non-string ID")
-            },
+                write!(
+                    f,
+                    "Warpgrapher encountered a type that was not expected, such as a non-string ID"
+                )
+            }
             Error::UuidNotParsed { source } => {
-                write!(f, "Failed to parse id attribute value. Source error: {}", source)
+                write!(
+                    f,
+                    "Failed to parse id attribute value. Source error: {}",
+                    source
+                )
             }
             Error::ValidationFailed { message } => {
                 write!(f, "{}", message)
@@ -374,7 +448,11 @@ impl Display for Error {
                 write!(f, "A validator function named {} could not be found", name)
             }
             Error::YamlDeserializationFailed { source } => {
-                write!(f, "Failed to deserialize yaml struct. Source error: {}", source)
+                write!(
+                    f,
+                    "Failed to deserialize yaml struct. Source error: {}",
+                    source
+                )
             }
         }
     }
