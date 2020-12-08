@@ -1,48 +1,12 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(feature = "cosmos")]
-use setup::cosmos_test_client;
-#[cfg(feature = "gremlin")]
-use setup::gremlin_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
 use setup::AppRequestCtx;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use setup::{clear_db, init};
 use warpgrapher::client::Client;
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_snst_new_rel_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_new_rel(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_snst_new_rel_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_new_rel(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_snst_new_rel_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_new_rel(client).await;
-}
+use warpgrapher_macros::wg_test;
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_snst_new_rel(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -97,37 +61,8 @@ async fn create_snst_new_rel(mut client: Client<AppRequestCtx>) {
     assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn snst_without_src_no_new_dst_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    snst_without_src_no_new_dst(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn snst_without_src_no_new_dst_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    snst_without_src_no_new_dst(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn snst_without_src_no_new_dst_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    snst_without_src_no_new_dst(client).await;
-}
-
 /// Passes if warpgrapher does not create the destination node if it can't find any source nodes
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn snst_without_src_no_new_dst(mut client: Client<AppRequestCtx>) {
     let o0 = client
@@ -158,36 +93,7 @@ async fn snst_without_src_no_new_dst(mut client: Client<AppRequestCtx>) {
     assert_eq!(users_a.len(), 0)
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_snst_rel_existing_node_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_rel_existing_node(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_snst_rel_existing_node_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_rel_existing_node(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_snst_rel_existing_node_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    create_snst_rel_existing_node(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_snst_rel_existing_node(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -254,36 +160,7 @@ async fn create_snst_rel_existing_node(mut client: Client<AppRequestCtx>) {
     assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_snst_rel_by_rel_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_rel_props(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_snst_rel_by_rel_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_rel_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_snst_rel_by_rel_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_rel_props(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -331,36 +208,7 @@ async fn read_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
         .all(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn read_snst_rel_by_src_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_src_props(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn read_snst_rel_by_src_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_src_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn read_snst_rel_by_src_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_src_props(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_snst_rel_by_src_props(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -408,36 +256,7 @@ async fn read_snst_rel_by_src_props(mut client: Client<AppRequestCtx>) {
         .all(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn read_snst_rel_by_dst_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_dst_props(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn read_snst_rel_by_dst_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_dst_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn read_snst_rel_by_dst_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_snst_rel_by_dst_props(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -485,36 +304,7 @@ async fn read_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
         .all(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_snst_rel_by_rel_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_rel_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_snst_rel_by_rel_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_rel_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_snst_rel_by_rel_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_rel_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -588,36 +378,7 @@ async fn update_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_snst_rel_by_src_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_src_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_snst_rel_by_src_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_src_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_snst_rel_by_src_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_src_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -691,36 +452,7 @@ async fn update_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_snst_rel_by_dst_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_dst_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_snst_rel_by_dst_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_dst_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_snst_rel_by_dst_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_snst_rel_by_dst_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -794,36 +526,7 @@ async fn update_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_snst_rel_by_rel_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_rel_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_snst_rel_by_del_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_rel_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_snst_rel_by_del_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_rel_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -875,36 +578,7 @@ async fn delete_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
     );
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_snst_rel_by_dst_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_dst_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_snst_rel_by_dst_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_dst_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_snst_rel_by_dst_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_dst_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -956,36 +630,7 @@ async fn delete_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
     );
 }
 
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_snst_rel_by_src_prop_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_src_prop(client).await;
-}
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_snst_rel_by_src_prop_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_src_prop(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_snst_rel_by_src_prop_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_snst_rel_by_src_prop(client).await;
-}
-
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
     let _p0 = client

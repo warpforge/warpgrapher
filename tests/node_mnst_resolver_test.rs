@@ -1,48 +1,12 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(feature = "cosmos")]
-use setup::cosmos_test_client;
-#[cfg(feature = "gremlin")]
-use setup::gremlin_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
 use setup::AppRequestCtx;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use setup::{clear_db, init};
 use warpgrapher::client::Client;
-
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_mnst_new_nodes_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_new_nodes(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_mnst_new_nodes_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_new_nodes(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_mnst_new_nodes_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_new_nodes(client).await;
-}
+use warpgrapher_macros::wg_test;
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_mnst_new_nodes(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -162,37 +126,8 @@ async fn create_mnst_new_nodes(mut client: Client<AppRequestCtx>) {
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn create_mnst_existing_nodes_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_existing_nodes(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn create_mnst_existing_nodes_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_existing_nodes(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn create_mnst_existing_nodes_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    create_mnst_existing_nodes(client).await;
-}
-
 /// Passes if warpgrapher can create a node with a relationship to an existing node
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_mnst_existing_nodes(mut client: Client<AppRequestCtx>) {
     let c0 = client
@@ -286,37 +221,8 @@ async fn create_mnst_existing_nodes(mut client: Client<AppRequestCtx>) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn read_mnst_by_rel_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_rel_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn read_mnst_by_rel_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_rel_props(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn read_mnst_by_rel_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_rel_props(client).await;
-}
-
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_mnst_by_rel_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -368,37 +274,8 @@ async fn read_mnst_by_rel_props(mut client: Client<AppRequestCtx>) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn read_mnst_by_dst_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_dst_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn read_mnst_by_dst_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_dst_props(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn read_mnst_by_dst_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    read_mnst_by_dst_props(client).await;
-}
-
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_mnst_by_dst_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -450,37 +327,8 @@ async fn read_mnst_by_dst_props(mut client: Client<AppRequestCtx>) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_mnst_new_node_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_new_node(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_mnst_new_node_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_new_node(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_mnst_new_node_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_new_node(client).await;
-}
-
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_mnst_new_node(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -531,37 +379,8 @@ async fn update_mnst_new_node(mut client: Client<AppRequestCtx>) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_mnst_existing_node_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_existing_node(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_mnst_existing_node_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_existing_node(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_mnst_existing_node_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_existing_node(client).await;
-}
-
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_mnst_existing_node(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -622,37 +441,8 @@ async fn update_mnst_existing_node(mut client: Client<AppRequestCtx>) {
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn update_mnst_relationship_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_relationship(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn update_mnst_relationship_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_relationship(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn update_mnst_relationship_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    update_mnst_relationship(client).await;
-}
-
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn update_mnst_relationship(mut client: Client<AppRequestCtx>) {
     let _p0 = client
@@ -706,37 +496,8 @@ async fn update_mnst_relationship(mut client: Client<AppRequestCtx>) {
         .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_rel_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_rel_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_rel_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_rel_props(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_rel_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_rel_props(client).await;
-}
-
 /// Passes if warpgrapher can delete a relationship by its properties
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_mnst_relationship_by_rel_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -798,37 +559,8 @@ async fn delete_mnst_relationship_by_rel_props(mut client: Client<AppRequestCtx>
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_dst_props_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_dst_props(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_dst_props_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_dst_props(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_mnst_relationship_by_dst_props_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_mnst_relationship_by_dst_props(client).await;
-}
-
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_mnst_relationship_by_dst_props(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -890,37 +622,8 @@ async fn delete_mnst_relationship_by_dst_props(mut client: Client<AppRequestCtx>
         .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_node_by_mnst_rel_property_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_rel_property(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_node_by_mnst_rel_property_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_rel_property(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_node_by_mnst_rel_property_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_rel_property(client).await;
-}
-
 /// Passes if warpgrapher can delete a node by the properties of a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_node_by_mnst_rel_property(mut client: Client<AppRequestCtx>) {
     let p0 = client
@@ -963,37 +666,8 @@ async fn delete_node_by_mnst_rel_property(mut client: Client<AppRequestCtx>) {
     assert_eq!(projects_a.len(), 0);
 }
 
-#[cfg(feature = "cosmos")]
-#[tokio::test]
-async fn delete_node_by_mnst_dst_property_cosmos() {
-    init();
-    clear_db().await;
-
-    let client = cosmos_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_dst_property(client).await;
-}
-
-#[cfg(feature = "gremlin")]
-#[tokio::test]
-async fn delete_node_by_mnst_dst_property_gremlin() {
-    init();
-    clear_db().await;
-
-    let client = gremlin_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_dst_property(client).await;
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn delete_node_by_mnst_dst_property_neo4j() {
-    init();
-    clear_db().await;
-
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
-    delete_node_by_mnst_dst_property(client).await;
-}
-
 /// Passes if warpgrapher can delete a node by the properties of the dst object at a relationship
+#[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn delete_node_by_mnst_dst_property(mut client: Client<AppRequestCtx>) {
     let p0 = client
