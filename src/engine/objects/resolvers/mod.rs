@@ -4,7 +4,7 @@ use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::gremlin::GremlinTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
-use crate::engine::database::DatabasePool;
+use crate::engine::database::{DatabasePool, Comparison};
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::database::{NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction};
 use crate::engine::resolvers::Object;
@@ -1215,7 +1215,8 @@ impl<'r> Resolver<'r> {
                 let node_var =
                     NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
-                props.insert("id".to_string(), dst_id.clone());
+                //props.insert("id".to_string(), dst_id.clone());
+                props.insert("id".to_string(), Comparison::EQ(dst_id.clone()) );
                 let query_fragment =
                     transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
                 transaction.read_nodes(&node_var, query_fragment, self.partition_key_opt, info)

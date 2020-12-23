@@ -79,6 +79,7 @@ pub(crate) enum PropertyKind {
     RelUpdateMutation { src_label: String, rel_name: String },
     RelDeleteMutation { src_label: String, rel_name: String },
     Scalar,
+    ScalarComp,
     Union,
     VersionQuery,
 }
@@ -401,7 +402,30 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerQueryInput
 /// }
 fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.props_as_slice(), true, false);
+    let mut props : HashMap<String, Property> = HashMap::new();
+   
+    t.props().for_each(|p| {
+        props.insert(
+            p.name().to_string(),
+            Property::new(
+                p.name().to_string(),
+                match p.type_name().as_ref() {
+                    "Boolean" => PropertyKind::Scalar,
+                    "String" => PropertyKind::ScalarComp,
+                    "Int" => PropertyKind::ScalarComp,
+                    "Float" => PropertyKind::ScalarComp,
+                    _ => panic!("badparse")
+                },
+                match p.type_name().as_ref() {
+                    "Bool" => "Boolean".to_string(),
+                    "String" => fmt_string_query_input_name(),
+                    "Int" => fmt_string_query_input_name(),
+                    "Float" => fmt_string_query_input_name(),
+                    _ => panic!("badparse")
+                }
+            )
+        );
+    });
 
     t.rels().for_each(|r| {
         props.insert(
@@ -1865,12 +1889,46 @@ fn generate_static_version_query() -> Property {
     )
 }
 
+fn fmt_string_query_input_name() -> String {
+    "StringQueryInput".to_string()
+}
+
+fn string_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "String".to_string(),
+    )
+}
+
+fn fmt_int_query_input_name() -> String {
+    "IntQueryInput".to_string()
+}
+
+fn fmt_float_query_input_name() -> String {
+    "FloatQueryInput".to_string()
+}
+
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
 fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
+
+    // StringQueryInput
+    //let string_query_comparison_ops = ["EQ", "NOTEQ", "CONTAINS", "NOTCONTAINS"];
+    nthm.insert(
+        fmt_string_query_input_name(),
+        NodeType::new(
+            fmt_string_query_input_name(), 
+            TypeKind::Input, 
+            hashmap! {
+                "EQ".to_string() => string_input("EQ"),
+                "NOTEQ".to_string() => string_input("NOTEQ")
+            }
+        )
+    );
 
     // generate graphql schema components for warpgrapher types
     c.types().for_each(|t| {

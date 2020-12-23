@@ -134,6 +134,37 @@ pub trait DatabaseEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
+#[derive(Clone, Debug)]
+pub enum Operation {
+    EQ,
+    CONTAINS,
+    IN,
+    GT,
+    GTE,
+    LT,
+    LTE
+}
+
+#[derive(Clone, Debug)]
+pub struct Comparison {
+    operation: Operation,
+    operand: Value
+}
+
+impl Comparison {
+
+    pub fn new(operation: Operation, operand: Value) -> Self {
+        Comparison {
+            operation,
+            operand
+        }
+    }
+
+    pub fn EQ(v: Value) -> Self {
+        Self::new(Operation::EQ, v)
+    }
+}
+
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
@@ -165,7 +196,8 @@ pub(crate) trait Transaction {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        //props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 

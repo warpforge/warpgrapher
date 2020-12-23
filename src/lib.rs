@@ -12,6 +12,8 @@
 
 #![doc(html_root_url = "https://docs.rs/warpgrapher/0.6.0")]
 
+#[macro_use] extern crate maplit;
+
 #[cfg(feature = "neo4j")]
 pub use bolt_client;
 #[cfg(feature = "neo4j")]

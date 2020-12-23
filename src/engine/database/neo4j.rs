@@ -3,7 +3,7 @@
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
     env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction,
+    SuffixGenerator, Transaction, Comparison
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -443,7 +443,8 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        //props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
         trace!("Neo4jTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}",
@@ -482,7 +483,11 @@ impl Transaction for Neo4jTransaction<'_> {
                 );
             });
         }
-        params.insert("param".to_string() + &param_suffix, props.into());
+        
+        let new_props = HashMap::<String, Value>::new();
+
+        params.insert("param".to_string() + &param_suffix, new_props.into());
+        //params.insert("param".to_string() + &param_suffix, props.into());
 
         rel_query_fragments.into_iter().for_each(|rqf| {
             match_fragment.push_str(rqf.match_fragment());
