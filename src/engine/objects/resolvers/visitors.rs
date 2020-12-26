@@ -358,53 +358,10 @@ where
                     .map_err(|e| e)
                     .and_then(|p| match p.kind() {
                         PropertyKind::ScalarComp => {
-                            /*
-                            let c = match &v {
-                                Value::String(_) => Comparison::EQ(v),
-                                Value::Map(m) => {
-                                    let operation_str = m.keys().nth(0).unwrap(); // TODO: handle error
-                                    let operand = m.values().nth(0).unwrap(); // TODO: handle error
-                                    Comparison::new(
-                                        match operation_str.as_ref() {
-                                            "EQ" => Operation::EQ,
-                                            "NOTEQ" => Operation::EQ,
-                                            "CONTAINS" => Operation::CONTAINS,
-                                            "NOTCONTAINS" => Operation::CONTAINS,
-                                            "IN" => Operation::IN,
-                                            "NOTIN" => Operation::IN,
-                                            "GT" => Operation::GT,
-                                            "NOTGT" => Operation::GT,
-                                            "GTE" => Operation::GTE,
-                                            "NOTGTE" => Operation::GTE,
-                                            "LT" => Operation::LT,
-                                            "NOTLT" => Operation::LT,
-                                            "LTE" => Operation::LTE,
-                                            "NOTLTE" => Operation::LTE,
-                                            _ => panic!("unknown operation") // TODO: return error
-                                        },
-                                        match operation_str.as_ref() {
-                                            "NOTEQ" |
-                                            "NOTCONTAINS" |
-                                            "NOTIN" |
-                                            "NOTGT" |
-                                            "NOTGTE" |
-                                            "NOTLT" | 
-                                            "NOTLTE" => true,
-                                            _ => false
-                                        },
-                                        operand.clone(), // TODO: use reference?
-                                    )
-                                },
-                                _ => panic!("should not get this type") // TODO: return error
-                            };
-                            */
-                            //let c = Comparison::try_from(v).unwrap(); // TODO: handle error
-                            //props.insert(k, c);
                             props.insert(k, Comparison::try_from(v)?);
                             Ok((props, rqfs))
                         }
                         PropertyKind::Scalar => {
-                            //props.insert(k, v);
                             props.insert(k, Comparison::default(v));
                             Ok((props, rqfs))
                         }
