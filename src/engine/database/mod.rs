@@ -18,6 +18,7 @@ use bb8_bolt::BoltConnectionManager;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinClient;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
@@ -148,20 +149,75 @@ pub enum Operation {
 #[derive(Clone, Debug)]
 pub struct Comparison {
     operation: Operation,
-    operand: Value
+    operand: Value,
+    negated: bool
 }
 
 impl Comparison {
 
-    pub fn new(operation: Operation, operand: Value) -> Self {
+    pub fn new(operation: Operation, negated: bool, operand: Value) -> Self {
         Comparison {
             operation,
-            operand
+            operand,
+            negated
         }
     }
 
-    pub fn EQ(v: Value) -> Self {
-        Self::new(Operation::EQ, v)
+    pub fn default(v: Value) -> Self {
+        Self::new(Operation::EQ, false, v)
+    }
+
+}
+
+impl TryFrom<Value> for Comparison {
+
+    type Error = Error;
+
+    fn try_from(v: Value) -> Result<Comparison, Error> {
+        Ok(match v {
+            Value::String(_) => Comparison::default(v),
+            Value::Int64(_) => Comparison::default(v),
+            Value::Float64(_) => Comparison::default(v),
+            Value::Bool(_) => Comparison::default(v),
+            Value::Map(m) => {
+                let operation_str = m.keys().nth(0).unwrap(); // TODO: handle error
+                let operand = m.values().nth(0).unwrap(); // TODO: handle error
+                Comparison::new(
+                    match operation_str.as_ref() {
+                        "EQ" => Operation::EQ,
+                        "NOTEQ" => Operation::EQ,
+                        "CONTAINS" => Operation::CONTAINS,
+                        "NOTCONTAINS" => Operation::CONTAINS,
+                        "IN" => Operation::IN,
+                        "NOTIN" => Operation::IN,
+                        "GT" => Operation::GT,
+                        "NOTGT" => Operation::GT,
+                        "GTE" => Operation::GTE,
+                        "NOTGTE" => Operation::GTE,
+                        "LT" => Operation::LT,
+                        "NOTLT" => Operation::LT,
+                        "LTE" => Operation::LTE,
+                        "NOTLTE" => Operation::LTE,
+                        _ => panic!("unknown operation") // TODO: return error
+                    },
+                    match operation_str.as_ref() {
+                        "NOTEQ" |
+                        "NOTCONTAINS" |
+                        "NOTIN" |
+                        "NOTGT" |
+                        "NOTGTE" |
+                        "NOTLT" | 
+                        "NOTLTE" => true,
+                        _ => false
+                    },
+                    operand.clone(), // TODO: use reference?
+                )
+            },
+            _ => {
+                //return Err(Error::ComparisonParsingFailed)
+                panic!("need custom error");
+            }
+        })
     }
 }
 

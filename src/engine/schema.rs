@@ -403,7 +403,16 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 /// }
 fn generate_node_query_input(t: &Type) -> NodeType {
     let mut props : HashMap<String, Property> = HashMap::new();
-   
+  
+    props.insert(
+        "id".to_string(),
+        Property::new(
+            "id".to_string(),
+            PropertyKind::ScalarComp,
+            fmt_string_query_input_name()
+        )
+    );
+
     t.props().for_each(|p| {
         props.insert(
             p.name().to_string(),
@@ -411,17 +420,19 @@ fn generate_node_query_input(t: &Type) -> NodeType {
                 p.name().to_string(),
                 match p.type_name().as_ref() {
                     "Boolean" => PropertyKind::Scalar,
+                    "ID" => PropertyKind::ScalarComp,
                     "String" => PropertyKind::ScalarComp,
                     "Int" => PropertyKind::ScalarComp,
                     "Float" => PropertyKind::ScalarComp,
-                    _ => panic!("badparse")
+                    _ => panic!(format!("unexpected prop type: {}", p.type_name())) // TODO: fix
                 },
                 match p.type_name().as_ref() {
-                    "Bool" => "Boolean".to_string(),
+                    "Boolean" => "Boolean".to_string(),
+                    "ID" => fmt_string_query_input_name(),
                     "String" => fmt_string_query_input_name(),
-                    "Int" => fmt_string_query_input_name(),
-                    "Float" => fmt_string_query_input_name(),
-                    _ => panic!("badparse")
+                    "Int" => fmt_int_query_input_name(),
+                    "Float" => fmt_float_query_input_name(),
+                    _ => panic!(format!("unexpected prop type: {}", p.type_name())) // TODO: fix
                 }
             )
         );
@@ -1893,6 +1904,29 @@ fn fmt_string_query_input_name() -> String {
     "StringQueryInput".to_string()
 }
 
+fn string_query_input() -> NodeType {
+    NodeType::new(
+        fmt_string_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => string_input("EQ"),
+            "NOTEQ".to_string() => string_input("NOTEQ"),
+            "CONTAINS".to_string() => string_input("CONTAINS"),
+            "NOTCONTAINS".to_string() => string_input("NOTCONTAINS"),
+            "IN".to_string() => string_array_input("IN"),
+            "NOTIN".to_string() => string_array_input("NOTIN"),
+            "GT".to_string() => string_input("GT"),
+            "NOTGT".to_string() => string_input("NOTGT"),
+            "GTE".to_string() => string_input("GTE"),
+            "NOTGTE".to_string() => string_input("NOTGTE"),
+            "LT".to_string() => string_input("LT"),
+            "NOTLT".to_string() => string_input("NOTLT"),
+            "LTE".to_string() => string_input("LTE"),
+            "NOTLTE".to_string() => string_input("NOTLTE")
+        }
+    )
+}
+
 fn string_input(name: &str) -> Property {
     Property::new(
         name.to_string(),
@@ -1901,13 +1935,86 @@ fn string_input(name: &str) -> Property {
     )
 }
 
+fn string_array_input(name: &str) -> Property {
+    Property {
+        name: name.to_string(),
+        kind: PropertyKind::Scalar,
+        type_name: "String".to_string(),
+        required: false,
+        list: true,
+        arguments: HashMap::new(),
+        resolver: None,
+        validator: None,
+    }
+}
+
 fn fmt_int_query_input_name() -> String {
     "IntQueryInput".to_string()
+}
+
+fn int_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => int_input("EQ"),
+            "NOTEQ".to_string() => int_input("NOTEQ"),
+            "IN".to_string() => int_input("IN"),
+            "NOTIN".to_string() => int_input("NOTIN"),
+            "GT".to_string() => int_input("GT"),
+            "NOTGT".to_string() => int_input("NOTGT"),
+            "GTE".to_string() => int_input("GTE"),
+            "NOTGTE".to_string() => int_input("NOTGTE"),
+            "LT".to_string() => int_input("LT"),
+            "NOTLT".to_string() => int_input("NOTLT"),
+            "LTE".to_string() => int_input("LTE"),
+            "NOTLTE".to_string() => int_input("NOTLTE")
+        }
+    )
+}
+
+fn int_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "Int".to_string(),
+    )
+
 }
 
 fn fmt_float_query_input_name() -> String {
     "FloatQueryInput".to_string()
 }
+
+fn float_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => float_input("EQ"),
+            "NOTEQ".to_string() => float_input("NOTEQ"),
+            "IN".to_string() => float_input("IN"),
+            "NOTIN".to_string() => float_input("NOTIN"),
+            "GT".to_string() => float_input("GT"),
+            "NOTGT".to_string() => float_input("NOTGT"),
+            "GTE".to_string() => float_input("GTE"),
+            "NOTGTE".to_string() => float_input("NOTGTE"),
+            "LT".to_string() => float_input("LT"),
+            "NOTLT".to_string() => float_input("NOTLT"),
+            "LTE".to_string() => float_input("LTE"),
+            "NOTLTE".to_string() => float_input("NOTLTE")
+        }
+    )
+}
+
+fn float_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "Float".to_string(),
+    )
+}
+
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
@@ -1917,17 +2024,21 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
     let mut query_props = HashMap::new();
 
     // StringQueryInput
-    //let string_query_comparison_ops = ["EQ", "NOTEQ", "CONTAINS", "NOTCONTAINS"];
     nthm.insert(
         fmt_string_query_input_name(),
-        NodeType::new(
-            fmt_string_query_input_name(), 
-            TypeKind::Input, 
-            hashmap! {
-                "EQ".to_string() => string_input("EQ"),
-                "NOTEQ".to_string() => string_input("NOTEQ")
-            }
-        )
+        string_query_input()
+    );
+
+    // NumberQueryInput
+    nthm.insert(
+        fmt_int_query_input_name(),
+        int_query_input()
+    );
+    
+    // FloatQueryInput
+    nthm.insert(
+        fmt_float_query_input_name(),
+        float_query_input()
     );
 
     // generate graphql schema components for warpgrapher types

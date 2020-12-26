@@ -3,7 +3,7 @@
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
     env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison
+    SuffixGenerator, Transaction, Comparison, Operation
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -17,7 +17,7 @@ use bb8_bolt::BoltConnectionManager;
 use bolt_client::{Metadata, Params};
 use bolt_proto::error::ConversionError;
 use bolt_proto::message::{Message, Record};
-use log::{debug, trace};
+use log::{debug, info, trace};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
@@ -447,7 +447,7 @@ impl Transaction for Neo4jTransaction<'_> {
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
-        trace!("Neo4jTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}",
+        info!("Neo4jTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}",
         rel_query_fragments, node_var, props, sg);
 
         let param_suffix = sg.suffix();
@@ -466,28 +466,37 @@ impl Transaction for Neo4jTransaction<'_> {
         }
 
         if !props.is_empty() {
+            let mut new_props : HashMap<String, Value> = HashMap::new();
+
             props.keys().enumerate().for_each(|(i, k)| {
+                let c : &Comparison = &props[k];
+
                 if i > 0 {
                     where_fragment.push_str(" AND ");
+                }
+
+                if c.negated {
+                    where_fragment.push_str(" NOT ")
                 }
 
                 where_fragment.push_str(
                     &(node_var.name().to_string()
                         + "."
                         + &k
-                        + "=$"
-                        + "param"
+                        + " "
+                        + &neo4j_comparison_operator(c.operation.clone()) // TODO: don't clone
+                        + " "
+                        + "$param"
                         + &param_suffix
                         + "."
                         + &k),
                 );
-            });
-        }
-        
-        let new_props = HashMap::<String, Value>::new();
 
-        params.insert("param".to_string() + &param_suffix, new_props.into());
-        //params.insert("param".to_string() + &param_suffix, props.into());
+                new_props.insert(k.to_string(), c.operand.clone()); // TODO: use ref?
+            });
+        
+            params.insert("param".to_string() + &param_suffix, new_props.into());
+        }
 
         rel_query_fragments.into_iter().for_each(|rqf| {
             match_fragment.push_str(rqf.match_fragment());
@@ -1008,5 +1017,17 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
             },
         )?;
         Ok(Value::Map(hmv))
+    }
+}
+
+fn neo4j_comparison_operator(op: Operation) -> String {
+    match op {
+        Operation::EQ => "=".to_string(),
+        Operation::CONTAINS => "CONTAINS".to_string(),
+        Operation::IN => "IN".to_string(),
+        Operation::GT => ">".to_string(),
+        Operation::GTE => ">=".to_string(),
+        Operation::LT => "<".to_string(),
+        Operation::LTE => "<=".to_string()
     }
 }

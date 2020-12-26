@@ -1,5 +1,5 @@
 use crate::engine::context::RequestContext;
-use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison, Operation};
+use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
@@ -8,6 +8,7 @@ use crate::engine::value::Value;
 use crate::error::Error;
 use log::{info, trace};
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
@@ -65,8 +66,7 @@ where
 
         if !inputs.is_empty() {
             let mut id_props = HashMap::new();
-            //id_props.insert("id".to_string(), node.id()?.clone());
-            id_props.insert("id".to_string(), Comparison::EQ(node.id()?.clone()) );
+            id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
 
             let fragment = transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
             trace!(
@@ -308,8 +308,7 @@ where
                 )?;
 
                 let mut id_props = HashMap::new();
-                //id_props.insert("id".to_string(), node.id()?.clone());
-                id_props.insert("id".to_string(), Comparison::EQ(node.id()?.clone()) );
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
 
                 Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
@@ -359,32 +358,54 @@ where
                     .map_err(|e| e)
                     .and_then(|p| match p.kind() {
                         PropertyKind::ScalarComp => {
-                            info!("need to parse >>> {:#?}", &v);
+                            /*
                             let c = match &v {
                                 Value::String(_) => Comparison::EQ(v),
                                 Value::Map(m) => {
+                                    let operation_str = m.keys().nth(0).unwrap(); // TODO: handle error
+                                    let operand = m.values().nth(0).unwrap(); // TODO: handle error
                                     Comparison::new(
-                                        match m.keys().nth(0).unwrap().as_ref() { // TODO: handle error
+                                        match operation_str.as_ref() {
                                             "EQ" => Operation::EQ,
+                                            "NOTEQ" => Operation::EQ,
                                             "CONTAINS" => Operation::CONTAINS,
+                                            "NOTCONTAINS" => Operation::CONTAINS,
                                             "IN" => Operation::IN,
+                                            "NOTIN" => Operation::IN,
                                             "GT" => Operation::GT,
+                                            "NOTGT" => Operation::GT,
                                             "GTE" => Operation::GTE,
+                                            "NOTGTE" => Operation::GTE,
                                             "LT" => Operation::LT,
+                                            "NOTLT" => Operation::LT,
                                             "LTE" => Operation::LTE,
+                                            "NOTLTE" => Operation::LTE,
                                             _ => panic!("unknown operation") // TODO: return error
                                         },
-                                        m.values().nth(0).unwrap().clone() // TODO: handle error, use reference
+                                        match operation_str.as_ref() {
+                                            "NOTEQ" |
+                                            "NOTCONTAINS" |
+                                            "NOTIN" |
+                                            "NOTGT" |
+                                            "NOTGTE" |
+                                            "NOTLT" | 
+                                            "NOTLTE" => true,
+                                            _ => false
+                                        },
+                                        operand.clone(), // TODO: use reference?
                                     )
                                 },
                                 _ => panic!("should not get this type") // TODO: return error
                             };
-                            props.insert(k, c);
+                            */
+                            //let c = Comparison::try_from(v).unwrap(); // TODO: handle error
+                            //props.insert(k, c);
+                            props.insert(k, Comparison::try_from(v)?);
                             Ok((props, rqfs))
                         }
                         PropertyKind::Scalar => {
                             //props.insert(k, v);
-                            props.insert(k, Comparison::EQ(v));
+                            props.insert(k, Comparison::default(v));
                             Ok((props, rqfs))
                         }
                         PropertyKind::Input => {
