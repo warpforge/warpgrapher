@@ -63,7 +63,7 @@ async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
             name",
             Some("1234"),
             Some(&json!({
-                "name": "SPARTAN-V Board"
+                "name": {"EQ": "SPARTAN-V Board"}
             })),
         )
         .await
@@ -94,7 +94,7 @@ async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "SPARTAN-V"
+                "name": {"EQ": "SPARTAN-V"}
             })),
         )
         .await
@@ -159,7 +159,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "ScrumBoard": {
                             "$EXISTING": {
-                                "name": "SPARTAN-VI Board"
+                                "name": {"EQ": "SPARTAN-VI Board"}
                             }
                         }
                     }
@@ -190,7 +190,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "SPARTAN-VI"
+                "name": {"EQ": "SPARTAN-VI"}
             })),
         )
         .await
@@ -562,7 +562,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppReq
                 "board": {
                     "dst": {
                         "ScrumBoard": {
-                            "name": "SPARTAN Board"
+                            "name": {"EQ": "SPARTAN Board"}
                         }
                     }
                 }
@@ -614,7 +614,7 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client<AppRequest
             ",
             Some("1234"),
             Some(&json!({
-                "name": "ORION"
+                "name": {"EQ": "ORION"}
             })),
             &json!({
                 "board": {
@@ -712,7 +712,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRe
             ",
             Some("1234"),
             Some(&json!({
-                "name": "ORION"
+                "name": {"EQ": "ORION"}
             })),
             &json!({
                 "board": {
@@ -720,7 +720,7 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRe
                         "dst": {
                             "ScrumBoard": {
                                 "$EXISTING": {
-                                    "name": "ORION Board"
+                                    "name": {"EQ": "ORION Board"}
                                 }
                             }
                         }
@@ -800,7 +800,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client<AppR
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"name": "ORION"})),
+            Some(&json!({"name": {"EQ": "ORION"}})),
             None,
         )
         .await
@@ -854,7 +854,7 @@ async fn delete_node(mut client: Client<AppRequestCtx>) {
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"name": "ORION"})),
+            Some(&json!({"name": {"EQ": "ORION"}})),
             Some(&json!({})),
         )
         .await

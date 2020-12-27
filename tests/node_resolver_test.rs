@@ -192,7 +192,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
             &json!({"status": "ACTIVE"}),
         )
         .await
@@ -208,7 +208,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -338,7 +338,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
             None,
         )
         .await
@@ -350,7 +350,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -467,7 +467,7 @@ async fn error_on_node_missing_id(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
             &json!({"status": "ACTIVE"}),
         )
         .await

@@ -134,7 +134,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -169,7 +169,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
         )
         .await
@@ -241,7 +241,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -273,7 +273,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User One"
+                                "name": {"EQ": "User One"}
                             }
                         }
                     }
@@ -298,7 +298,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
         )
         .await
@@ -328,7 +328,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project One"
+                "name": {"EQ": "Project One"}
             })),
         )
         .await
@@ -373,7 +373,7 @@ async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -404,7 +404,7 @@ async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
             Some(&json!({
                 "owner": {
                     "props": {
-                        "since": "yesterday"
+                        "since": {"EQ": "yesterday"}
                     }
                 }
             })),
@@ -456,7 +456,7 @@ async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -488,7 +488,7 @@ async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "dst": {
                         "User": {
-                            "name": "User Zero"
+                            "name": {"EQ": "User Zero"}
                         }
                     }
                 }
@@ -541,7 +541,7 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -570,7 +570,7 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
             &json!({
                 "owner": {
@@ -609,7 +609,7 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -663,7 +663,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -692,7 +692,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
             &json!({
                 "owner": {
@@ -703,7 +703,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
                         "dst": {
                             "User": {
                                 "$EXISTING": {
-                                    "name": "User One"
+                                    "name": {"EQ": "User One"}
                                 }
                             }
                         }
@@ -727,7 +727,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -769,7 +769,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -798,7 +798,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
             &json!({
                 "owner": {
@@ -806,7 +806,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
                         "$MATCH": {
                             "dst": {
                                 "User": {
-                                    "name": "User Zero"
+                                    "name": {"EQ": "User Zero"}
                                 }
                             }
                         }
@@ -836,7 +836,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -878,7 +878,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -907,14 +907,14 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
             }",
             Some("1234"),
             Some(&json!({
-                "name": "Project Zero"
+                "name": {"EQ": "Project Zero"}
             })),
             &json!({
                 "owner": {
                     "$DELETE": {
                         "$MATCH": {
                             "props": {
-                                "since": "yesterday"
+                                "since": {"EQ": "yesterday"}
                             }
                         }
                     }
@@ -943,7 +943,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -985,7 +985,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -1003,7 +1003,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
                 "owner": {
                     "dst": {
                         "User": {
-                            "name": "User Zero"
+                            "name": {"EQ": "User Zero"}
                         }
                     }
                 }
@@ -1051,7 +1051,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -1093,7 +1093,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -1110,7 +1110,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
             Some(&json!({
                 "owner": {
                     "props": {
-                        "since": "yesterday"
+                        "since": {"EQ": "yesterday"}
                     }
                 }
             })),
@@ -1157,7 +1157,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
@@ -1199,7 +1199,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
                     "dst": {
                         "User": {
                             "$EXISTING": {
-                                "name": "User Zero"
+                                "name": {"EQ": "User Zero"}
                             }
                         }
                     }
@@ -1214,7 +1214,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
             "User",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
             })),
             Some(&json!({})),
         )
@@ -1261,7 +1261,7 @@ async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
             ",
             Some("1234"),
             Some(&json!({
-                "name": "User Zero"
+                "name": {"EQ": "User Zero"}
                 }
             )),
         )
