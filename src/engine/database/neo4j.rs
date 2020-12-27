@@ -603,7 +603,8 @@ impl Transaction for Neo4jTransaction<'_> {
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        //props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
         trace!("Neo4jTransaction::rel_read_fragment called -- src_fragment_opt: {:#?}, dst_fragment_opt: {:#?}, rel_var: {:#?}, props: {:#?}",
@@ -645,17 +646,48 @@ impl Transaction for Neo4jTransaction<'_> {
 
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
+            let mut new_props : HashMap<String, Value> = HashMap::new();
+
             props.keys().enumerate().for_each(|(i, k)| {
+                /*
                 if i >= 1 {
                     where_fragment.push_str(" AND ");
                 }
 
                 where_fragment.push_str(
-                    &(rel_var.name().to_string() + "." + &k + " = $" + &param_var + "." + &k),
+                    //&(rel_var.name().to_string() + "." + &k + " = $" + &param_var + "." + &k),
                 );
+                */
+
+                let c : &Comparison = &props[k];
+
+                if i > 0 {
+                    where_fragment.push_str(" AND ");
+                }
+
+                if c.negated {
+                    where_fragment.push_str(" NOT ")
+                }
+                
+                where_fragment.push_str(
+                    &(rel_var.name().to_string() 
+                        + "." 
+                        + &k 
+                        + " " 
+                        + &neo4j_comparison_operator(c.operation.clone()) 
+                        + " " 
+                        + "$" 
+                        + &param_var 
+                        + "." 
+                        + &k),
+                );
+
+                new_props.insert(k.to_string(), c.operand.clone()); // TODO: use ref?
+                
             });
 
-            params.insert(param_var, props.into());
+            params.insert(param_var, new_props.into());
+            //params.insert(param_var, props.into());
         }
 
         let qf = QueryFragment::new(match_fragment, where_fragment, params);

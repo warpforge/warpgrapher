@@ -276,7 +276,8 @@ pub(crate) trait Transaction {
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        //props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 

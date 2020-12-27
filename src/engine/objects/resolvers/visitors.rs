@@ -290,13 +290,13 @@ where
             .into_iter()
             .next()
             .ok_or_else(|| Error::InputItemNotFound {
-                name: info.name().to_string() + "::$NEW or ::$EXISTING",
+                name: info.name().to_string() + "::NEW or ::$EXISTING",
             })?;
 
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "$NEW" => {
+            "NEW" => {
                 let node = visit_node_create_mutation_input::<T, RequestCtx>(
                     node_var,
                     v,
@@ -1091,6 +1091,11 @@ where
             props.insert("id".to_owned(), id);
         }
 
+        let mut new_props : HashMap<String, Comparison> = HashMap::new();
+        for (k, v) in props.iter_mut() {
+            new_props.insert(k.to_string(), Comparison::try_from(v.clone()).unwrap()); // TODO: handle error
+        }
+
         // Remove used to take ownership
         let src_fragment_opt = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
@@ -1119,7 +1124,8 @@ where
             None
         };
 
-        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, new_props, sg)
+        //transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
     } else {
         transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }
