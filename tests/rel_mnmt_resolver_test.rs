@@ -24,7 +24,7 @@ async fn create_mnmt_new_rel(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
-            &json!({"name": "Project Zero"}),
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{"props": {"since": "today"}, "dst": {"Feature": {"$NEW": {"name": "Feature Zero"}}}},
                     {"props": {"since": "yesterday"}, "dst": {"Bug": {"$NEW": {"name": "Bug Zero"}}}}]),
         )
@@ -140,10 +140,10 @@ async fn create_mnmt_rel_existing_node(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234"),
-            &json!({"name": "Project Zero"}),
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([
-                {"props": {"since": "today"}, "dst": {"Feature": {"$EXISTING": {"name": "Feature Zero"}}}},
-                {"props": {"since": "yesterday"}, "dst": {"Bug": {"$EXISTING": {"name": "Bug Zero"}}}},
+                {"props": {"since": "today"}, "dst": {"Feature": {"$EXISTING": {"name": {"EQ": "Feature Zero"}}}}},
+                {"props": {"since": "yesterday"}, "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}},
             ]))
         .await
         .unwrap();
@@ -241,7 +241,7 @@ async fn read_mnmt_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",Some("1234"),
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
         )
         .await
         .unwrap();
@@ -294,7 +294,7 @@ async fn read_mnmt_rel_by_src_props(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
         .await
         .unwrap();
@@ -364,7 +364,7 @@ async fn read_mnmt_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
-            Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
+            Some(&json!({"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
         )
         .await
         .unwrap();
@@ -391,7 +391,7 @@ async fn read_mnmt_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
-            Some(&json!({"dst": {"Feature": {"name": "Feature Zero"}}})),
+            Some(&json!({"dst": {"Feature": {"name": {"EQ": "Feature Zero"}}}})),
         )
         .await
         .unwrap();
@@ -452,7 +452,7 @@ async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
         .await
@@ -482,7 +482,7 @@ async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project Zero"})),
+            Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
         .unwrap();
@@ -562,7 +562,7 @@ async fn update_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
         .await
@@ -636,7 +636,7 @@ async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
-            Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
+            Some(&json!({"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
             &json!({"props": {"since": "tomorrow"}}),
         )
         .await
@@ -666,7 +666,7 @@ async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project Zero"})),
+            Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
         .unwrap();
@@ -754,7 +754,7 @@ async fn delete_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": "today"}})),
+            Some(&json!({"props": {"since": {"EQ": "today"}}})),
             None,
             None,
         )
@@ -850,7 +850,7 @@ async fn delete_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"dst": {"Bug": {"name": "Bug Zero"}}})),
+            Some(&json!({"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
             None,
             None,
         )
@@ -960,7 +960,7 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             None,
             None,
         )
@@ -971,7 +971,7 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project Zero"})),
+            Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
         .unwrap();
@@ -980,7 +980,7 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
         .unwrap();
@@ -1072,8 +1072,8 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}, 
-                "dst": {"Bug": {"name": "Bug Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}, 
+                "dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
             None,
             None,
         )
@@ -1084,7 +1084,7 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project Zero"})),
+            Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
         .unwrap();
@@ -1093,7 +1093,7 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
         .read_node(
             "Project",
             "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
         .unwrap();

@@ -5,7 +5,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::database::env_bool;
 use crate::engine::database::{
     env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction,
+    SuffixGenerator, Transaction, Comparison, Operation
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
@@ -17,7 +17,7 @@ use gremlin_client::TlsOptions;
 use gremlin_client::{
     ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
 };
-use log::trace;
+use log::{info, trace};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -575,7 +575,7 @@ impl Transaction for GremlinTransaction {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
         trace!("GremlinTransaction::node_read_fragment called -- rel_query_fragments: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}", 
@@ -594,27 +594,32 @@ impl Transaction for GremlinTransaction {
             query.push_str(".has('partitionKey', partitionKey)");
         }
 
-        for (k, v) in props.into_iter() {
-            if k == "id" {
-                // For id, we omit the single quotes, because it's a "system" property, not just a
-                // user defined property.
-                query.push_str(&(".has(".to_string() + &k + ", " + &k + &param_suffix + ")"));
-            } else {
-                // For all user-defined properties, we single-quote the property name
-                query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
-            }
+        for (k, c) in props.into_iter() {
+            query.push_str(&(
+                ".has".to_string()
+                + "("
+                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + &k 
+                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + ", " 
+                + &gremlin_comparison_operator(&c)
+                + "("
+                + &k 
+                + &param_suffix 
+                + "))"
+            ));
 
             if self.uuid && k == "id" {
-                if let Value::String(s) = v {
+                if let Value::String(s) = c.operand.clone() { // TODO: don't clone
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
                     return Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", v),
+                        src: format!("{:#?}", c.operand),
                         dst: "String".to_string(),
                     });
                 }
             } else {
-                params.insert(k + &param_suffix, v);
+                params.insert(k + &param_suffix, c.operand.clone()); // TODO: don't clone
             }
         }
 
@@ -649,7 +654,7 @@ impl Transaction for GremlinTransaction {
 
         let qf = QueryFragment::new("".to_string(), query, params);
 
-        trace!(
+        info!(
             "GremlinTransaction::node_read_fragment returning -- {:#?}",
             qf
         );
@@ -733,7 +738,7 @@ impl Transaction for GremlinTransaction {
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
         trace!("GremlinTransaction::rel_read_fragment called -- src_fragment_opt: {:#?}, dst_fragment_opt: {:#?}, rel_var: {:#?}, props: {:#?}",
@@ -747,27 +752,32 @@ impl Transaction for GremlinTransaction {
             query.push_str(".has('partitionKey', partitionKey)");
         }
 
-        for (k, v) in props.into_iter() {
-            if k == "id" {
-                // For id, we omit the single quotes, because it's a "system" property, not just a
-                // user defined property.
-                query.push_str(&(".has(".to_string() + &k + ", " + &k + &param_suffix + ")"));
-            } else {
-                // For all other user defined properties, we sinlge quote the property name.
-                query.push_str(&(".has('".to_string() + &k + "', " + &k + &param_suffix + ")"));
-            }
+        for (k, c) in props.into_iter() {
+            query.push_str(&(
+                ".has".to_string()
+                + "("
+                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + &k 
+                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + ", " 
+                + &gremlin_comparison_operator(&c)
+                + "("
+                + &k 
+                + &param_suffix 
+                + "))"
+            ));
 
             if self.uuid && k == "id" {
-                if let Value::String(s) = v {
+                if let Value::String(s) = c.operand {
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
                     return Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", v),
+                        src: format!("{:#?}", c.operand),
                         dst: "String".to_string(),
                     });
                 }
             } else {
-                params.insert(k + &param_suffix, v);
+                params.insert(k + &param_suffix, c.operand);
             }
         }
 
@@ -1163,6 +1173,27 @@ impl TryFrom<VertexProperty> for Value {
             .try_into()?)
     }
 }
+
+fn gremlin_comparison_operator(c: &Comparison) -> String {
+    match (&c.operation, &c.negated) {
+        (Operation::EQ, false) => "eq".to_string(),
+        (Operation::EQ, true) => "neq".to_string(),
+        (Operation::CONTAINS, false) => "containing".to_string(),
+        (Operation::CONTAINS, true) => "notContaining".to_string(),
+        (Operation::IN, false) => "within".to_string(),
+        (Operation::IN, true) => "without".to_string(),
+        (Operation::GT, _) => "gt".to_string(),
+        (Operation::GTE, _) => "gte".to_string(),
+        (Operation::LT, _) => "lt".to_string(),
+        (Operation::LTE, _) => "lte".to_string()
+    }
+}
+
+/*
+
+.has('KEY',containing('VALUE'))
+
+*/
 
 #[cfg(test)]
 mod tests {

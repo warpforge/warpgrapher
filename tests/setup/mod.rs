@@ -51,6 +51,8 @@ use warpgrapher::engine::value::Value;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
+#[cfg(feature = "gremlin")]
+use warpgrapher::engine::database::env_bool;
 
 #[allow(dead_code)]
 pub(crate) fn init() {
@@ -117,22 +119,28 @@ fn gremlin_port() -> u16 {
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-fn gremlin_user() -> String {
+fn gremlin_user() -> Option<String> {
     var_os("WG_GREMLIN_USER")
-        .expect("Expected WG_GREMLIN_USER to be set.")
-        .to_str()
-        .expect("Expected WG_GREMLIN_USER to be a string.")
-        .to_owned()
+    .map(|osstr| osstr.to_string_lossy().into_owned())
 }
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-fn gremlin_pass() -> String {
+fn gremlin_pass() -> Option<String> {
     var_os("WG_GREMLIN_PASS")
-        .expect("Expected WG_GREMLIN_PASS to be set.")
-        .to_str()
-        .expect("Expected WG_GREMLIN_PASS to be a string.")
-        .to_owned()
+    .map(|osstr| osstr.to_string_lossy().into_owned())
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_use_tls() -> bool {
+    env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true)
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_accept_invalid_tls() -> bool {
+    env_bool("WG_GREMLIN_CERT").unwrap_or(true)
 }
 
 #[cfg(feature = "neo4j")]
@@ -309,6 +317,23 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppRequestC
 #[cfg(feature = "gremlin")]
 #[allow(dead_code)]
 fn clear_gremlin_db() {
+    let mut options_builder = ConnectionOptions::builder()
+        .host(gremlin_host())
+        .port(gremlin_port())
+        .pool_size(num_cpus::get().try_into().unwrap_or(8))
+        .serializer(GraphSON::V3)
+        .deserializer(GraphSON::V3);
+    if let (Some(user), Some(pass)) = (gremlin_user(), gremlin_pass()) {
+        options_builder = options_builder.credentials(&user, &pass);
+    }
+    if gremlin_use_tls() {
+        options_builder = options_builder.ssl(true).tls_options(TlsOptions {
+            accept_invalid_certs: gremlin_accept_invalid_tls(),
+        });
+    }
+    let options = options_builder.build();
+    let client = GremlinClient::connect(options)
+    /*
     let client = GremlinClient::connect(
         ConnectionOptions::builder()
             .host(gremlin_host())
@@ -323,6 +348,7 @@ fn clear_gremlin_db() {
             .credentials(&gremlin_user(), &gremlin_pass())
             .build(),
     )
+    */
     .expect("Expected successful gremlin client creation.");
 
     let _ = client.execute("g.V().drop()", &[]);

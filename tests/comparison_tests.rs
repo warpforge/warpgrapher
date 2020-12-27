@@ -42,7 +42,7 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "BLACKWING"));
-    
+   
     // CONTAINS
     let results = client
         .read_node("Project", "__typename id name", None, Some(&json!({"name": { "CONTAINS" : "STAR" }})))
@@ -216,7 +216,6 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
         )
         .await
         .unwrap();
-
     assert!(p1.is_object());
     assert!(p1.get("issues").unwrap().is_array());
     let issues1 = p1.get("issues").unwrap().as_array().unwrap();
@@ -363,7 +362,6 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
         .await
         .unwrap();
     let _results_array = results.as_array().unwrap();
-    //println!("results_array: {:#?}", results_array);
     // TODO: FIX: this is returning STARDUST twice in the results array
     //assert_eq!(results_array.len(), 1);
 

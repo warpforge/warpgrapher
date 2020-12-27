@@ -24,7 +24,7 @@ use std::env::var_os;
 use std::fmt::Debug;
 
 #[cfg(feature = "gremlin")]
-fn env_bool(var_name: &str) -> Result<bool, Error> {
+pub fn env_bool(var_name: &str) -> Result<bool, Error> {
     Ok(env_string(var_name)?.parse::<bool>()?)
 }
 
