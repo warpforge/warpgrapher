@@ -290,13 +290,13 @@ where
             .into_iter()
             .next()
             .ok_or_else(|| Error::InputItemNotFound {
-                name: info.name().to_string() + "::NEW or ::$EXISTING",
+                name: info.name().to_string() + "::$NEW or ::$EXISTING",
             })?;
 
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "NEW" => {
+            "$NEW" => {
                 let node = visit_node_create_mutation_input::<T, RequestCtx>(
                     node_var,
                     v,

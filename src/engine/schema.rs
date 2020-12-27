@@ -569,9 +569,9 @@ fn generate_node_input(t: &Type) -> NodeType {
         ),
     );
     props.insert(
-        "NEW".to_string(),
+        "$NEW".to_string(),
         Property::new(
-            "NEW".to_string(),
+            "$NEW".to_string(),
             PropertyKind::Input,
             fmt_node_create_mutation_input_name(t),
         ),
@@ -2872,8 +2872,8 @@ mod tests {
         assert!(!project_match.required);
         assert!(!project_match.list);
         assert!(project_match.arguments.is_empty());
-        let project_create = project_input.props.get("NEW").unwrap();
-        assert!(project_create.name == "NEW");
+        let project_create = project_input.props.get("$NEW").unwrap();
+        assert!(project_create.name == "$NEW");
         assert!(project_create.kind == PropertyKind::Input);
         assert!(project_create.type_name == "ProjectCreateMutationInput");
         assert!(!project_create.required);
