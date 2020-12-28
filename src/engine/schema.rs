@@ -140,7 +140,6 @@ pub(crate) struct Property {
     name: String,
     kind: PropertyKind,
     type_name: String,
-    //type_name: GraphqlType,
     required: bool,
     list: bool,
     arguments: HashMap<String, Argument>,
@@ -150,7 +149,6 @@ pub(crate) struct Property {
 
 impl Property {
     fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
-    //fn new(name: String, kind: PropertyKind, type_name: GraphqlType) -> Property {
         Property {
             name,
             kind,
@@ -203,10 +201,8 @@ impl Property {
         self.required
     }
 
-    //pub(crate) fn type_name(&self) -> &str {
-    pub(crate) fn type_name(&self) -> GraphqlType {
-        //&self.type_name
-        self.type_name
+    pub(crate) fn type_name(&self) -> &str {
+        &self.type_name
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
@@ -296,8 +292,7 @@ fn generate_props(
                     Property::new(
                         p.name().to_string(),
                         PropertyKind::Scalar,
-                        //p.type_name().to_string(),
-                        p.type_name(),
+                        p.type_name().to_string(),
                     )
                     .with_required(p.required() && object)
                     .with_list(p.list())
@@ -310,8 +305,7 @@ fn generate_props(
                     Property::new(
                         p.name().to_string(),
                         PropertyKind::DynamicScalar,
-                        //p.type_name().to_string(),
-                        p.type_name(),
+                        p.type_name().to_string(),
                     )
                     .with_required(p.required() && object)
                     .with_list(p.list())
@@ -350,7 +344,7 @@ fn generate_query_props(
                 p.name().to_string(),
                 match p.type_name().as_ref() {
                     "Boolean" => PropertyKind::Scalar,
-                    //"ID" => PropertyKind::ScalarComp,
+                    "ID" => PropertyKind::ScalarComp,
                     "String" => PropertyKind::ScalarComp,
                     "Int" => PropertyKind::ScalarComp,
                     "Float" => PropertyKind::ScalarComp,
@@ -358,7 +352,7 @@ fn generate_query_props(
                 },
                 match p.type_name().as_ref() {
                     "Boolean" => "Boolean".to_string(),
-                    //"ID" => fmt_string_query_input_name(),
+                    "ID" => fmt_string_query_input_name(),
                     "String" => fmt_string_query_input_name(),
                     "Int" => fmt_int_query_input_name(),
                     "Float" => fmt_float_query_input_name(),
@@ -452,8 +446,8 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     name: String
 ///     owner: ProjectOwnerQueryInput
 /// }
-fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_query_props(t.props_as_slice(), true).unwrap(); // TODO: handle error
+fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
+    let mut props = generate_query_props(t.props_as_slice(), true)?;
     t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
@@ -465,7 +459,7 @@ fn generate_node_query_input(t: &Type) -> NodeType {
             .with_list(r.list()),
         );
     });
-    NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props)
+    Ok(NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props))
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
@@ -2064,7 +2058,7 @@ fn float_input(name: &str) -> Property {
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
@@ -2088,13 +2082,15 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
     );
 
     // generate graphql schema components for warpgrapher types
-    c.types().for_each(|t| {
+    //c.types().for_each(|t| {
+    for t in c.types() {
+
         // GqlNodeType
         let node_type = generate_node_object(t);
         nthm.insert(node_type.type_name.to_string(), node_type);
 
         // GqlNodeQueryInput
-        let node_query_input = generate_node_query_input(t);
+        let node_query_input = generate_node_query_input(t)?;
         nthm.insert(node_query_input.type_name.to_string(), node_query_input);
 
         // GqlNodeCreateMutationInput
@@ -2282,7 +2278,8 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
         });
-    });
+    //});
+    }
 
     // generate graphql schema components for custom endpoints and associated types
     c.endpoints().for_each(|e| {
@@ -2326,7 +2323,7 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
         NodeType::new("Query".to_string(), TypeKind::Object, query_props),
     );
 
-    nthm
+    Ok(nthm)
 }
 
 /// Takes a Warpgrapher configuration and returns the Juniper RootNode for a
@@ -2352,7 +2349,7 @@ where
     // over runtime efficiency, given that the number of configuration items
     // is lkely to be small.
 
-    let nthm = generate_schema(c);
+    let nthm = generate_schema(c)?;
     let nts = Arc::new(nthm);
     let root_mutation_info = Info::new("Mutation".to_string(), nts.clone());
     let root_query_info = Info::new("Query".to_string(), nts);
