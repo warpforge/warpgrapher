@@ -139,8 +139,8 @@ impl NodeType {
 pub(crate) struct Property {
     name: String,
     kind: PropertyKind,
-    //type_name: String,
-    type_name: GraphqlType,
+    type_name: String,
+    //type_name: GraphqlType,
     required: bool,
     list: bool,
     arguments: HashMap<String, Argument>,
@@ -149,8 +149,8 @@ pub(crate) struct Property {
 }
 
 impl Property {
-    //fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
-    fn new(name: String, kind: PropertyKind, type_name: GraphqlType) -> Property {
+    fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
+    //fn new(name: String, kind: PropertyKind, type_name: GraphqlType) -> Property {
         Property {
             name,
             kind,
@@ -203,8 +203,10 @@ impl Property {
         self.required
     }
 
-    pub(crate) fn type_name(&self) -> &str {
-        &self.type_name
+    //pub(crate) fn type_name(&self) -> &str {
+    pub(crate) fn type_name(&self) -> GraphqlType {
+        //&self.type_name
+        self.type_name
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]

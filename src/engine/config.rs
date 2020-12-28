@@ -768,8 +768,8 @@ pub struct Property {
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
-    //type_name: String,
-    type_name: GraphqlType,
+    type_name: String,
+    //type_name: GraphqlType,
 
     /// True if this property is required to be present on this type; false if the property is
     /// optional
@@ -815,8 +815,8 @@ impl Property {
     /// ```
     pub fn new(
         name: String,
-        //type_name: String,
-        type_name: GraphqlType,
+        type_name: String,
+        //type_name: GraphqlType,
         required: bool,
         list: bool,
         resolver: Option<String>,
