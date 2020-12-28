@@ -3689,7 +3689,6 @@ mod tests {
         );
     }
 
-    // TODO: bring back
     /// Passes if the right schema elements are generated
     #[test]
     fn test_generate_rel_props_input() {

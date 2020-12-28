@@ -184,7 +184,7 @@ impl TryFrom<Value> for Comparison {
             Value::Float64(_) => Comparison::default(v),
             Value::Bool(_) => Comparison::default(v),
             Value::Map(mut m) => {
-                let operation_str = m.keys().nth(0)
+                let operation_str = m.keys().next()
                     .ok_or(Error::ComparisonParsingFailed { message: "Comparison keys empty".to_string() })?
                     .clone(); // TODO: is there a way to not clone here?
                 let operand = m.remove(&operation_str).unwrap();
@@ -204,12 +204,7 @@ impl TryFrom<Value> for Comparison {
                             message: format!("Unknown operation {}", operation_str) 
                         })
                     },
-                    match operation_str.as_ref() {
-                        "NOTEQ" |
-                        "NOTCONTAINS" |
-                        "NOTIN" => true,
-                        _ => false
-                    },
+                    matches!(operation_str.as_ref(), "NOTEQ" | "NOTCONTAINS" | "NOTIN"),
                     operand
                 )
             },
