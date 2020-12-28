@@ -1304,7 +1304,7 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
     NodeType::new(
         fmt_rel_props_input_name(t, r),
         TypeKind::Input,
-        generate_props(r.props_as_slice(), false, false)
+        generate_props(r.props_as_slice(), false, false),
     )
 }
 
@@ -1954,13 +1954,9 @@ fn string_query_input() -> NodeType {
             "IN".to_string() => string_array_input("IN"),
             "NOTIN".to_string() => string_array_input("NOTIN"),
             "GT".to_string() => string_input("GT"),
-            "NOTGT".to_string() => string_input("NOTGT"),
             "GTE".to_string() => string_input("GTE"),
-            "NOTGTE".to_string() => string_input("NOTGTE"),
             "LT".to_string() => string_input("LT"),
-            "NOTLT".to_string() => string_input("NOTLT"),
             "LTE".to_string() => string_input("LTE"),
-            "NOTLTE".to_string() => string_input("NOTLTE")
         }
     )
 }
@@ -2000,13 +1996,9 @@ fn int_query_input() -> NodeType {
             "IN".to_string() => int_input("IN"),
             "NOTIN".to_string() => int_input("NOTIN"),
             "GT".to_string() => int_input("GT"),
-            "NOTGT".to_string() => int_input("NOTGT"),
             "GTE".to_string() => int_input("GTE"),
-            "NOTGTE".to_string() => int_input("NOTGTE"),
             "LT".to_string() => int_input("LT"),
-            "NOTLT".to_string() => int_input("NOTLT"),
             "LTE".to_string() => int_input("LTE"),
-            "NOTLTE".to_string() => int_input("NOTLTE")
         }
     )
 }
@@ -2034,13 +2026,9 @@ fn float_query_input() -> NodeType {
             "IN".to_string() => float_input("IN"),
             "NOTIN".to_string() => float_input("NOTIN"),
             "GT".to_string() => float_input("GT"),
-            "NOTGT".to_string() => float_input("NOTGT"),
             "GTE".to_string() => float_input("GTE"),
-            "NOTGTE".to_string() => float_input("NOTGTE"),
             "LT".to_string() => float_input("LT"),
-            "NOTLT".to_string() => float_input("NOTLT"),
             "LTE".to_string() => float_input("LTE"),
-            "NOTLTE".to_string() => float_input("NOTLTE")
         }
     )
 }

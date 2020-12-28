@@ -333,24 +333,7 @@ fn clear_gremlin_db() {
     }
     let options = options_builder.build();
     let client = GremlinClient::connect(options)
-    /*
-    let client = GremlinClient::connect(
-        ConnectionOptions::builder()
-            .host(gremlin_host())
-            .port(gremlin_port())
-            .pool_size(1)
-            .ssl(true)
-            .tls_options(TlsOptions {
-                accept_invalid_certs: true,
-            })
-            .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3)
-            .credentials(&gremlin_user(), &gremlin_pass())
-            .build(),
-    )
-    */
     .expect("Expected successful gremlin client creation.");
-
     let _ = client.execute("g.V().drop()", &[]);
 }
 

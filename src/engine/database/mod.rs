@@ -197,13 +197,9 @@ impl TryFrom<Value> for Comparison {
                         "IN" => Operation::IN,
                         "NOTIN" => Operation::IN,
                         "GT" => Operation::GT,
-                        "NOTGT" => Operation::GT,
                         "GTE" => Operation::GTE,
-                        "NOTGTE" => Operation::GTE,
                         "LT" => Operation::LT,
-                        "NOTLT" => Operation::LT,
                         "LTE" => Operation::LTE,
-                        "NOTLTE" => Operation::LTE,
                         _ => return Err(Error::ComparisonParsingFailed { 
                             message: format!("Unknown operation {}", operation_str) 
                         })
@@ -211,11 +207,7 @@ impl TryFrom<Value> for Comparison {
                     match operation_str.as_ref() {
                         "NOTEQ" |
                         "NOTCONTAINS" |
-                        "NOTIN" |
-                        "NOTGT" |
-                        "NOTGTE" |
-                        "NOTLT" | 
-                        "NOTLTE" => true,
+                        "NOTIN" => true,
                         _ => false
                     },
                     operand
