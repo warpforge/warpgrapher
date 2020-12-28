@@ -6,7 +6,7 @@ use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
-use log::{trace};
+use log::trace;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 

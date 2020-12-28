@@ -17,7 +17,7 @@ use gremlin_client::TlsOptions;
 use gremlin_client::{
     ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
 };
-use log::{trace};
+use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
