@@ -139,7 +139,8 @@ impl NodeType {
 pub(crate) struct Property {
     name: String,
     kind: PropertyKind,
-    type_name: String,
+    //type_name: String,
+    type_name: GraphqlType,
     required: bool,
     list: bool,
     arguments: HashMap<String, Argument>,
@@ -148,7 +149,8 @@ pub(crate) struct Property {
 }
 
 impl Property {
-    fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
+    //fn new(name: String, kind: PropertyKind, type_name: String) -> Property {
+    fn new(name: String, kind: PropertyKind, type_name: GraphqlType) -> Property {
         Property {
             name,
             kind,
@@ -292,7 +294,8 @@ fn generate_props(
                     Property::new(
                         p.name().to_string(),
                         PropertyKind::Scalar,
-                        p.type_name().to_string(),
+                        //p.type_name().to_string(),
+                        p.type_name(),
                     )
                     .with_required(p.required() && object)
                     .with_list(p.list())
@@ -305,7 +308,8 @@ fn generate_props(
                     Property::new(
                         p.name().to_string(),
                         PropertyKind::DynamicScalar,
-                        p.type_name().to_string(),
+                        //p.type_name().to_string(),
+                        p.type_name(),
                     )
                     .with_required(p.required() && object)
                     .with_list(p.list())
@@ -319,6 +323,9 @@ fn generate_props(
     hm
 }
 
+/// Takes a vector of WG Properties and returns a map of the appropriate
+/// query input which in turn is a nested map with the different type of 
+/// comparison operations available to the scalar type. 
 fn generate_query_props(
     props: &[crate::engine::config::Property],
     id: bool,
@@ -334,30 +341,30 @@ fn generate_query_props(
             )
         );
     }
-    props.iter().for_each(|p| {
+    for p in props.iter() {
         query_props.insert(
             p.name().to_string(),
             Property::new(
                 p.name().to_string(),
                 match p.type_name().as_ref() {
                     "Boolean" => PropertyKind::Scalar,
-                    "ID" => PropertyKind::ScalarComp,
+                    //"ID" => PropertyKind::ScalarComp,
                     "String" => PropertyKind::ScalarComp,
                     "Int" => PropertyKind::ScalarComp,
                     "Float" => PropertyKind::ScalarComp,
-                    _ => panic!(format!("unexpected prop type: {}", p.type_name())) // TODO: fix
+                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
                 },
                 match p.type_name().as_ref() {
                     "Boolean" => "Boolean".to_string(),
-                    "ID" => fmt_string_query_input_name(),
+                    //"ID" => fmt_string_query_input_name(),
                     "String" => fmt_string_query_input_name(),
                     "Int" => fmt_int_query_input_name(),
                     "Float" => fmt_float_query_input_name(),
-                    _ => panic!(format!("unexpected prop type: {}", p.type_name())) // TODO: fix
+                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
                 }
             )
         );
-    });
+    }
     Ok(query_props)
 }
 

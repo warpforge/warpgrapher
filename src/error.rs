@@ -64,6 +64,11 @@ pub enum Error {
         found: i32,
     },
 
+    /// Returned when a comparison operation/value map fails to parse into a `Comparison` struct
+    ComparisonParsingFailed {
+        message: String
+    },
+
     /// Returned if the engine is configured to operate without a database. Typically this would
     /// never be done in production
     DatabaseNotFound,
@@ -294,6 +299,9 @@ impl Display for Error {
                     expected, found
                 )
             }
+            Error::ComparisonParsingFailed { message } => {
+                write!(f, "Failed to parse comparision operation: {}", message)
+            }
             Error::DatabaseNotFound => {
                 write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
             }
@@ -471,6 +479,7 @@ impl std::error::Error for Error {
                 expected: _,
                 found: _,
             } => None,
+            Error::ComparisonParsingFailed { message: _ } => None,
             Error::DatabaseNotFound => None,
             Error::EnvironmentVariableNotFound { name: _ } => None,
             Error::EnvironmentVariableBoolNotParsed { source } => Some(source),

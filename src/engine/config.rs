@@ -734,6 +734,10 @@ impl EndpointType {
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum GraphqlType {
+
+    /// GraphQL ID
+    //ID,
+
     /// GraphQL integer
     Int,
 
@@ -764,7 +768,8 @@ pub struct Property {
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
-    type_name: String,
+    //type_name: String,
+    type_name: GraphqlType,
 
     /// True if this property is required to be present on this type; false if the property is
     /// optional
@@ -810,7 +815,8 @@ impl Property {
     /// ```
     pub fn new(
         name: String,
-        type_name: String,
+        //type_name: String,
+        type_name: GraphqlType,
         required: bool,
         list: bool,
         resolver: Option<String>,
@@ -893,8 +899,10 @@ impl Property {
     ///     None);
     ///
     /// assert_eq!("String", p.type_name());
-    pub fn type_name(&self) -> &str {
-        &self.type_name
+    //pub fn type_name(&self) -> &str {
+    pub fn type_name(&self) -> GraphqlType {
+        //&self.type_name
+        self.type_name
     }
 
     /// Returns the optional name of the custom validator associated with this property

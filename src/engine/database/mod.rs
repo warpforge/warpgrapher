@@ -135,6 +135,7 @@ pub trait DatabaseEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
+/// Represents the different type of comparison match operations
 #[derive(Clone, Debug)]
 pub enum Operation {
     EQ,
@@ -146,6 +147,9 @@ pub enum Operation {
     LTE
 }
 
+/// Struct representing a value comparison. In query operations, visitors take provided 
+/// operation/value nested map and converted them into a `Comparison` struct and pass
+/// it on the database-specific transaction for use in creating match portion of queries. 
 #[derive(Clone, Debug)]
 pub struct Comparison {
     operation: Operation,
@@ -179,9 +183,11 @@ impl TryFrom<Value> for Comparison {
             Value::Int64(_) => Comparison::default(v),
             Value::Float64(_) => Comparison::default(v),
             Value::Bool(_) => Comparison::default(v),
-            Value::Map(m) => {
-                let operation_str = m.keys().nth(0).unwrap(); // TODO: handle error
-                let operand = m.values().nth(0).unwrap(); // TODO: handle error
+            Value::Map(mut m) => {
+                let operation_str = m.keys().nth(0)
+                    .ok_or(Error::ComparisonParsingFailed { message: "Comparison keys empty".to_string() })?
+                    .clone(); // TODO: is there a way to not clone here?
+                let operand = m.remove(&operation_str).unwrap();
                 Comparison::new(
                     match operation_str.as_ref() {
                         "EQ" => Operation::EQ,
@@ -198,7 +204,9 @@ impl TryFrom<Value> for Comparison {
                         "NOTLT" => Operation::LT,
                         "LTE" => Operation::LTE,
                         "NOTLTE" => Operation::LTE,
-                        _ => panic!("unknown operation") // TODO: return error
+                        _ => return Err(Error::ComparisonParsingFailed { 
+                            message: format!("Unknown operation {}", operation_str) 
+                        })
                     },
                     match operation_str.as_ref() {
                         "NOTEQ" |
@@ -210,12 +218,11 @@ impl TryFrom<Value> for Comparison {
                         "NOTLTE" => true,
                         _ => false
                     },
-                    operand.clone(), // TODO: use reference?
+                    operand
                 )
             },
             _ => {
-                //return Err(Error::ComparisonParsingFailed)
-                panic!("need custom error");
+                return Err(Error::ComparisonParsingFailed { message: format!("Unsupported Value type: {:#?}",  v)})
             }
         })
     }
@@ -252,7 +259,6 @@ pub(crate) trait Transaction {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        //props: HashMap<String, Value>,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
@@ -276,7 +282,6 @@ pub(crate) trait Transaction {
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
-        //props: HashMap<String, Value>,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;

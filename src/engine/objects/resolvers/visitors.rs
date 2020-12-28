@@ -6,7 +6,7 @@ use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
-use log::{info, trace};
+use log::{trace};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
@@ -340,7 +340,7 @@ pub(super) fn visit_node_query_input<T>(
 where
     T: Transaction,
 {
-    info!(
+    trace!(
         "visit_node_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
         node_var,
         input,
@@ -1091,9 +1091,9 @@ where
             props.insert("id".to_owned(), id);
         }
 
-        let mut new_props : HashMap<String, Comparison> = HashMap::new();
-        for (k, v) in props.iter_mut() {
-            new_props.insert(k.to_string(), Comparison::try_from(v.clone()).unwrap()); // TODO: handle error
+        let mut value_props : HashMap<String, Comparison> = HashMap::new();
+        for (k, v) in props.drain() {
+            value_props.insert(k.to_string(), Comparison::try_from(v)?);
         }
 
         // Remove used to take ownership
@@ -1124,8 +1124,7 @@ where
             None
         };
 
-        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, new_props, sg)
-        //transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, value_props, sg)
     } else {
         transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }

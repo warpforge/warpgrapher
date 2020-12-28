@@ -17,7 +17,7 @@ use gremlin_client::TlsOptions;
 use gremlin_client::{
     ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
 };
-use log::{info, trace};
+use log::{trace};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
@@ -610,7 +610,7 @@ impl Transaction for GremlinTransaction {
             ));
 
             if self.uuid && k == "id" {
-                if let Value::String(s) = c.operand.clone() { // TODO: don't clone
+                if let Value::String(s) = &c.operand { 
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
                     return Err(Error::TypeConversionFailed {
@@ -619,7 +619,7 @@ impl Transaction for GremlinTransaction {
                     });
                 }
             } else {
-                params.insert(k + &param_suffix, c.operand.clone()); // TODO: don't clone
+                params.insert(k + &param_suffix, c.operand);
             }
         }
 
@@ -654,7 +654,7 @@ impl Transaction for GremlinTransaction {
 
         let qf = QueryFragment::new("".to_string(), query, params);
 
-        info!(
+        trace!(
             "GremlinTransaction::node_read_fragment returning -- {:#?}",
             qf
         );
@@ -1188,12 +1188,6 @@ fn gremlin_comparison_operator(c: &Comparison) -> String {
         (Operation::LTE, _) => "lte".to_string()
     }
 }
-
-/*
-
-.has('KEY',containing('VALUE'))
-
-*/
 
 #[cfg(test)]
 mod tests {

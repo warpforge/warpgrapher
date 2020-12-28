@@ -17,7 +17,7 @@ use bb8_bolt::BoltConnectionManager;
 use bolt_client::{Metadata, Params};
 use bolt_proto::error::ConversionError;
 use bolt_proto::message::{Message, Record};
-use log::{debug, info, trace};
+use log::{debug, trace};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
@@ -443,11 +443,10 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        //props: HashMap<String, Value>,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
-        info!("Neo4jTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}",
+        trace!("Neo4jTransaction::node_read_fragment called -- rel_query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, sg: {:#?}",
         rel_query_fragments, node_var, props, sg);
 
         let param_suffix = sg.suffix();
@@ -466,36 +465,30 @@ impl Transaction for Neo4jTransaction<'_> {
         }
 
         if !props.is_empty() {
-            let mut new_props : HashMap<String, Value> = HashMap::new();
-
+            let mut value_props : HashMap<String, Value> = HashMap::new();
             props.keys().enumerate().for_each(|(i, k)| {
                 let c : &Comparison = &props[k];
-
                 if i > 0 {
                     where_fragment.push_str(" AND ");
                 }
-
                 if c.negated {
                     where_fragment.push_str(" NOT ")
                 }
-
                 where_fragment.push_str(
                     &(node_var.name().to_string()
                         + "."
                         + &k
                         + " "
-                        + &neo4j_comparison_operator(c.operation.clone()) // TODO: don't clone
+                        + &neo4j_comparison_operator(&c.operation)
                         + " "
                         + "$param"
                         + &param_suffix
                         + "."
                         + &k),
                 );
-
-                new_props.insert(k.to_string(), c.operand.clone()); // TODO: use ref?
+                value_props.insert(k.to_string(), c.operand.clone()); // TODO: take ownership instead of clone
             });
-        
-            params.insert("param".to_string() + &param_suffix, new_props.into());
+            params.insert("param".to_string() + &param_suffix, value_props.into());
         }
 
         rel_query_fragments.into_iter().for_each(|rqf| {
@@ -602,8 +595,7 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
-        rel_var: &RelQueryVar,
-        //props: HashMap<String, Value>,
+        rel_var: &RelQueryVar, 
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
@@ -646,48 +638,30 @@ impl Transaction for Neo4jTransaction<'_> {
 
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
-            let mut new_props : HashMap<String, Value> = HashMap::new();
-
+            let mut value_props : HashMap<String, Value> = HashMap::new();
             props.keys().enumerate().for_each(|(i, k)| {
-                /*
-                if i >= 1 {
-                    where_fragment.push_str(" AND ");
-                }
-
-                where_fragment.push_str(
-                    //&(rel_var.name().to_string() + "." + &k + " = $" + &param_var + "." + &k),
-                );
-                */
-
                 let c : &Comparison = &props[k];
-
                 if i > 0 {
                     where_fragment.push_str(" AND ");
                 }
-
                 if c.negated {
                     where_fragment.push_str(" NOT ")
                 }
-                
                 where_fragment.push_str(
                     &(rel_var.name().to_string() 
                         + "." 
                         + &k 
                         + " " 
-                        + &neo4j_comparison_operator(c.operation.clone()) 
+                        + &neo4j_comparison_operator(&c.operation) 
                         + " " 
                         + "$" 
                         + &param_var 
                         + "." 
                         + &k),
                 );
-
-                new_props.insert(k.to_string(), c.operand.clone()); // TODO: use ref?
-                
+                value_props.insert(k.to_string(), c.operand.clone()); // TODO: take ownership instead of clone
             });
-
-            params.insert(param_var, new_props.into());
-            //params.insert(param_var, props.into());
+            params.insert(param_var, value_props.into());
         }
 
         let qf = QueryFragment::new(match_fragment, where_fragment, params);
@@ -1052,7 +1026,7 @@ impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
     }
 }
 
-fn neo4j_comparison_operator(op: Operation) -> String {
+fn neo4j_comparison_operator(op: &Operation) -> String {
     match op {
         Operation::EQ => "=".to_string(),
         Operation::CONTAINS => "CONTAINS".to_string(),

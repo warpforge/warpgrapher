@@ -341,7 +341,7 @@ where
     ///     Some("1234"),
     ///     &json!({"name": "ProjectName"}),
     ///     &json!({"props": {"since": "2000"},
-    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
+    ///            "dst": {"Feature": {"$NEW": {"name": "NewFeature"}}}})
     /// ).await;
     /// # }
     /// ```
