@@ -5,6 +5,7 @@ use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
 use database::DatabasePool;
+use events::EventHandlerBag;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
 use log::debug;
@@ -18,6 +19,7 @@ use validators::Validators;
 pub mod config;
 pub mod context;
 pub mod database;
+pub mod events;
 pub mod extensions;
 pub mod objects;
 pub mod resolvers;
@@ -47,6 +49,7 @@ where
 {
     config: Configuration,
     db_pool: DatabasePool,
+    event_handlers: EventHandlerBag<RequestCtx>,
     extensions: Extensions<RequestCtx>,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
@@ -102,6 +105,33 @@ where
     /// ```
     pub fn with_validators(mut self, validators: Validators) -> EngineBuilder<RequestCtx> {
         self.validators = validators;
+        self
+    }
+
+    /// Adds event handlers to the engine
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::extensions::Extensions;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let event_handlers = EventHandlerBag::<()>::new();
+    ///
+    /// let config = Configuration::default();
+    ///
+    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    ///     .with_event_handlers(event_handlers)
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_event_handlers(
+        mut self,
+        event_handlers: EventHandlerBag<RequestCtx>,
+    ) -> EngineBuilder<RequestCtx> {
+        self.event_handlers = event_handlers;
         self
     }
 
@@ -217,6 +247,7 @@ where
             db_pool: self.db_pool,
             resolvers: self.resolvers,
             validators: self.validators,
+            event_handlers: self.event_handlers,
             extensions: self.extensions,
             version: self.version,
             root_node,
@@ -322,6 +353,7 @@ where
     db_pool: DatabasePool,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
+    event_handlers: EventHandlerBag<RequestCtx>,
     extensions: Extensions<RequestCtx>,
     version: Option<String>,
     root_node: RootRef<RequestCtx>,
@@ -359,6 +391,7 @@ where
             db_pool: database_pool,
             resolvers: HashMap::new(),
             validators: HashMap::new(),
+            event_handlers: EventHandlerBag::new(),
             extensions: vec![],
             version: None,
         }
@@ -425,6 +458,7 @@ where
                 self.db_pool.clone(),
                 self.resolvers.clone(),
                 self.validators.clone(),
+                self.event_handlers.clone(),
                 self.extensions.clone(),
                 Some(req_ctx.clone()),
                 self.version.clone(),

@@ -13,6 +13,7 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -220,7 +221,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            &executor.context().validators(),
+            executor.context(),
         );
 
         if results.is_ok() {
@@ -261,6 +262,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input,
                 &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
             ),
             #[cfg(feature = "gremlin")]
             DatabasePool::Gremlin((c, uuid)) => self.resolve_node_delete_mutation_with_transaction(
@@ -269,6 +271,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input,
                 &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                executor,
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -279,6 +282,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
                 )
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
@@ -300,6 +304,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -320,6 +325,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
+            executor.context(),
         );
 
         if results.is_ok() {
@@ -355,6 +361,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input_opt,
                 &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
             ),
             #[cfg(feature = "gremlin")]
             DatabasePool::Gremlin((c, uuid)) => self.resolve_node_read_query_with_transaction(
@@ -362,6 +369,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input_opt,
                 &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                executor,
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -371,6 +379,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
                 )
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
@@ -401,6 +410,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -425,16 +435,41 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
+
+        let input_value_opt = if let Some(handlers) = executor
+            .context()
+            .event_handlers()
+            .before_node_read(node_var.label()?)
+        {
+            handlers
+                .iter()
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
         let query_fragment = visit_node_query_input(
             &node_var,
-            input_opt.map(|i| i.value),
+            input_value_opt,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
             transaction,
         )?;
-        let results =
-            transaction.read_nodes(&node_var, query_fragment, self.partition_key_opt, info);
+
+        let results = transaction
+            .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+            .and_then(|r| {
+                node_var.label().and_then(|label| {
+                    if let Some(handlers) =
+                        executor.context().event_handlers().after_node_read(label)
+                    {
+                        handlers.iter().try_fold(r, |v, f| f(v))
+                    } else {
+                        Ok(r)
+                    }
+                })
+            });
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -535,7 +570,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            &executor.context().validators(),
+            &executor.context(),
         );
 
         if result.is_ok() {
@@ -626,7 +661,6 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         let mut sg = SuffixGenerator::new();
-        let validators = &executor.context().validators();
 
         let td = info.type_def()?;
         let p = td.property(field_name)?;
@@ -648,7 +682,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            validators,
+            executor.context(),
         );
         if result.is_ok() {
             transaction.commit()?;
@@ -686,6 +720,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input,
                 &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
             ),
             #[cfg(feature = "gremlin")]
             DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_delete_mutation_with_transaction(
@@ -695,6 +730,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input,
                 &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                executor,
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -706,6 +742,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
                 )
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
@@ -715,6 +752,7 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -723,6 +761,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -749,6 +788,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
+            executor.context(),
         );
         if results.is_ok() {
             transaction.commit()?;
@@ -810,6 +850,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input_opt,
                 &mut GremlinTransaction::new(c.clone(), true, false),
+                executor,
             ),
             #[cfg(feature = "gremlin")]
             DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_read_query_with_transaction(
@@ -818,6 +859,7 @@ impl<'r> Resolver<'r> {
                 info,
                 input_opt,
                 &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                executor,
             ),
             #[cfg(feature = "neo4j")]
             DatabasePool::Neo4j(p) => {
@@ -828,6 +870,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut Neo4jTransaction::new(c, &mut runtime),
+                    executor,
                 )
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
@@ -873,6 +916,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
+        executor: &Executor<GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -899,30 +943,43 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin()?;
         }
+
+        let input_value_opt = if let Some(handlers) =
+            executor.context().event_handlers().before_rel_read(
+                &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+            ) {
+            handlers
+                .iter()
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
         let query_fragment = visit_rel_query_input(
             None,
             &rel_var,
-            input_opt.map(|i| i.value),
+            input_value_opt,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
             transaction,
         )?;
-        /*
-        let (query, params) = transaction.rel_read_query(
-            &match_fragment,
-            &where_fragment,
-            params,
-            &rel_var,
-            ClauseType::Query,
-        )?;
-        */
-        let results = transaction.read_rels(
-            query_fragment,
-            &rel_var,
-            Some(p.type_name()),
-            self.partition_key_opt,
-        );
+        let results = transaction
+            .read_rels(
+                query_fragment,
+                &rel_var,
+                Some(p.type_name()),
+                self.partition_key_opt,
+            )
+            .and_then(|r| {
+                if let Some(handlers) = executor.context().event_handlers().after_rel_read(
+                    &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+                ) {
+                    handlers.iter().try_fold(r, |v, f| f(v))
+                } else {
+                    Ok(r)
+                }
+            });
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -1016,7 +1073,6 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         let mut sg = SuffixGenerator::new();
-        let validators = &executor.context().validators();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
@@ -1039,7 +1095,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            validators,
+            executor.context(),
         );
 
         if results.is_ok() {

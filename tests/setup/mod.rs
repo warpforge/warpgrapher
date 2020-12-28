@@ -38,6 +38,8 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::DatabasePool;
 #[cfg(feature = "neo4j")]
+use warpgrapher::engine::events::EventHandlerBag;
+#[cfg(feature = "neo4j")]
 use warpgrapher::engine::extensions::Extensions;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::resolvers::ExecutionResult;
@@ -210,6 +212,15 @@ fn load_config(config: &str) -> Configuration {
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
 pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppRequestCtx> {
+    neo4j_test_client_with_events(config_path, EventHandlerBag::new()).await
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub(crate) async fn neo4j_test_client_with_events(
+    config_path: &str,
+    ehb: EventHandlerBag<AppRequestCtx>,
+) -> Client<AppRequestCtx> {
     // load config
     let config: Configuration = File::open(config_path)
         .expect("Failed to load config file")
@@ -241,6 +252,7 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppRequestCtx
         .with_resolvers(resolvers.clone())
         .with_validators(validators.clone())
         .with_extensions(extensions.clone())
+        .with_event_handlers(ehb)
         .build()
         .expect("Could not create warpgrapher engine");
 

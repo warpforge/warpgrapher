@@ -237,6 +237,12 @@ pub enum Error {
     /// [`Value`]: ./engine/value/enum.Value.html
     TypeNotExpected,
 
+    /// Returned when encapsulating an error thrown in event handlers provided by users of
+    /// Warpgrapher
+    UserDefinedError {
+        source: Box<dyn std::error::Error + Sync + Send>,
+    },
+
     /// Returned if the String argument for an id cannot be parsed into a UUID
     UuidNotParsed {
         source: uuid::Error,
@@ -434,6 +440,9 @@ impl Display for Error {
                     "Warpgrapher encountered a type that was not expected, such as a non-string ID"
                 )
             }
+            Error::UserDefinedError { source } => {
+                write!(f, "User defined error. Source error: {:#?}", source)
+            }
             Error::UuidNotParsed { source } => {
                 write!(
                     f,
@@ -504,6 +513,7 @@ impl std::error::Error for Error {
             Error::TransactionFinished => None,
             Error::TypeConversionFailed { src: _, dst: _ } => None,
             Error::TypeNotExpected => None,
+            Error::UserDefinedError { source: _ } => None,
             Error::UuidNotParsed { source } => Some(source),
             Error::ValidationFailed { message: _ } => None,
             Error::ValidatorNotFound { name: _ } => None,
