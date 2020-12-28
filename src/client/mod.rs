@@ -267,7 +267,7 @@ where
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.create_node("Project", "id name description", Some("1234"),
-    ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
+    ///     &json!({"name": "TodoApp", "description": "Action list tracking application"})).await;
     /// # }
     /// ```
     pub async fn create_node(

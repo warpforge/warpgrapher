@@ -553,13 +553,13 @@ fn fmt_node_input_name(t: &Type) -> String {
 /// Format:
 /// input GqlNodeInput {
 ///    $EXISTING: GqlNodeQueryInput
-///    NEW: GqlNodeCreateMutationInput
+///    $NEW: GqlNodeCreateMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectInput {
 ///     $EXISTING: ProjectQueryInput
-///     NEW: ProjectMutationInput
+///     $NEW: ProjectMutationInput
 /// }
 fn generate_node_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
@@ -1011,7 +1011,6 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_string(),
-        //Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()),
         Property::new("id".to_string(), PropertyKind::ScalarComp, fmt_string_query_input_name()),
     );
     if !r.props_as_slice().is_empty() {
@@ -1020,7 +1019,6 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
-                //fmt_rel_props_input_name(t, r),
                 fmt_rel_props_query_input_name(t, r)
             ),
         );
@@ -1330,12 +1328,12 @@ fn fmt_rel_props_query_input_name(t: &Type, r: &Relationship) -> String {
 /// input ProjectOwnerPropsInput   {
 ///     since: StringQueryInput
 /// }
-fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> NodeType {
-    NodeType::new(
+fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    Ok(NodeType::new(
         fmt_rel_props_query_input_name(t, r),
         TypeKind::Input,
-        generate_query_props(r.props_as_slice(), false).unwrap() // TODO: handle error
-    )
+        generate_query_props(r.props_as_slice(), false)?
+    ))
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
@@ -2055,7 +2053,6 @@ fn float_input(name: &str) -> Property {
     )
 }
 
-
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
 fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
@@ -2150,7 +2147,8 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        t.rels().for_each(|r| {
+        //t.rels().for_each(|r| {
+        for r in t.rels() {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);
             nthm.insert(rel_object.type_name.to_string(), rel_object);
@@ -2204,7 +2202,7 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
             nthm.insert(rel_props_input.type_name.to_string(), rel_props_input);
 
             // GqlRelPropsQueryInput
-            let rel_props_query_input = generate_rel_props_query_input(t, r);
+            let rel_props_query_input = generate_rel_props_query_input(t, r)?;
             nthm.insert(rel_props_query_input.type_name.to_string(), rel_props_query_input);
 
             // GqlRelSrcQueryInput
@@ -2277,8 +2275,7 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
                 let rel_delete_endpoint = generate_rel_delete_endpoint(t, r);
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
-        });
-    //});
+        }
     }
 
     // generate graphql schema components for custom endpoints and associated types
@@ -2445,7 +2442,7 @@ mod tests {
         generate_rel_delete_input, generate_rel_dst_delete_mutation_input,
         generate_rel_dst_query_input, generate_rel_dst_update_mutation_input,
         generate_rel_nodes_mutation_input_union, generate_rel_nodes_union, generate_rel_object,
-        generate_rel_props_object, generate_rel_query_input,
+        generate_rel_props_object, generate_rel_query_input, generate_rel_props_input,
         generate_rel_read_endpoint, generate_rel_src_delete_mutation_input,
         generate_rel_src_update_mutation_input, generate_rel_update_endpoint,
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,
@@ -2635,7 +2632,7 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_query_input = generate_node_query_input(&project_type);
+        let project_query_input = generate_node_query_input(&project_type).unwrap();
         assert!(project_query_input.type_name == "ProjectQueryInput");
         assert!(project_query_input.type_kind == TypeKind::Input);
         assert!(project_query_input.props.len() == 8);
@@ -3705,7 +3702,6 @@ mod tests {
     }
 
     // TODO: bring back
-    /*
     /// Passes if the right schema elements are generated
     #[test]
     fn test_generate_rel_props_input() {
@@ -3723,7 +3719,6 @@ mod tests {
         assert!(!project_owner_since.list);
         assert!(project_owner_since.arguments.is_empty());
     }
-    */
 
     /// Passes if the right schema elements are generated
     #[test]
@@ -4433,7 +4428,7 @@ mod tests {
     #[test]
     fn test_generate_schema() {
         let config = mock_config();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         //assert!(schema.len() == 79);
         assert!(schema.contains_key("Project"));
         assert!(schema.contains_key("ProjectQueryInput"));
@@ -4451,7 +4446,7 @@ mod tests {
     #[test]
     fn test_wg_type_endpoints_filter() {
         let config = mock_endpoints_filter();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         let query = schema.get("Query").unwrap();
         let mutation = schema.get("Mutation").unwrap();
         assert!(query.props.len() == 1);
