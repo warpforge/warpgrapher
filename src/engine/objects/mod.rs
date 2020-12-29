@@ -352,7 +352,7 @@ where
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
-                        (_, _, _) => panic!(Error::TypeNotExpected),
+                        (_, _, _) => panic!(Error::TypeNotExpected {details: None}),
                     }
                 })
             })
@@ -472,7 +472,7 @@ where
                 args,
                 executor,
             ),
-            PropertyKind::Input => Err(Error::TypeNotExpected.into()),
+            PropertyKind::Input => Err((Error::TypeNotExpected {details: None}).into()),
             PropertyKind::NodeCreateMutation => {
                 let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                     name: "input".to_string(),
@@ -547,8 +547,9 @@ where
             }
             PropertyKind::Scalar => {
                 resolver.resolve_scalar_field(info, field_name, &self.fields, executor)
-            }
-            PropertyKind::Union => Err(Error::TypeNotExpected.into()),
+            },
+            PropertyKind::ScalarComp => Err((Error::TypeNotExpected {details: None}).into()),
+            PropertyKind::Union => Err((Error::TypeNotExpected {details: None}).into()),
             PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor),
         };
 
@@ -769,7 +770,7 @@ where
             ),
             (PropertyKind::Object, &"props") => match &self.props {
                 Some(p) => resolver.resolve_rel_props(info, field_name, p, executor),
-                None => Err(Error::TypeNotExpected.into()),
+                None => Err((Error::TypeNotExpected { details: None}).into()),
             },
             (PropertyKind::Object, &"src") => match &self.src_ref {
                 NodeRef::Identifier { id, label: _ } => {
@@ -801,7 +802,7 @@ where
                     resolver.resolve_union_field_node(info, field_name, &n, executor)
                 }
             },
-            (_, _) => Err(Error::TypeNotExpected.into()),
+            (_, _) => Err((Error::TypeNotExpected {details: None}).into()),
         }
     }
 }

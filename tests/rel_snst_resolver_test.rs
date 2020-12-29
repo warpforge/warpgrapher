@@ -24,7 +24,7 @@ async fn create_snst_new_rel(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
-            &json!({"name": "Project Zero"}),
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!({"props": {"since": "yesterday"}, "dst": {"User": {"$NEW": {"name": "User Zero"}}}}),
         )
         .await
@@ -70,7 +70,7 @@ async fn snst_without_src_no_new_dst(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner",
             "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
-            &json!({"name": "Project Zero"}),
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!({"props": {"since": "yesterday"}, "dst": {"User": {"$NEW": {"name": "User Zero"}}}}),
         )
         .await
@@ -84,7 +84,7 @@ async fn snst_without_src_no_new_dst(mut client: Client<AppRequestCtx>) {
             "User",
             "id name",
             Some("1234"),
-            Some(&json!({"name": "User Zero"})),
+            Some(&json!({"name": {"EQ": "User Zero"}})),
         )
         .await
         .unwrap();
@@ -122,10 +122,10 @@ async fn create_snst_rel_existing_node(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            &json!({"name": "Project Zero"}),
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!({
                 "props": {"since": "yesterday"},
-                "dst": {"User": {"$EXISTING": {"name": "User Zero"}}}
+                "dst": {"User": {"$EXISTING": {"name": {"EQ": "User Zero"}}}}
             }),
         )
         .await
@@ -185,7 +185,7 @@ async fn read_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
         )
         .await
         .unwrap();
@@ -233,7 +233,7 @@ async fn read_snst_rel_by_src_props(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
         .await
         .unwrap();
@@ -281,7 +281,7 @@ async fn read_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
+            Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
         )
         .await
         .unwrap();
@@ -329,7 +329,7 @@ async fn update_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
             &json!({"props": {"since": "today"}}),
         )
         .await
@@ -403,7 +403,7 @@ async fn update_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props{since} dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             &json!({"props": {"since": "today"}}),
         )
         .await
@@ -477,7 +477,7 @@ async fn update_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
             "owner",
             "__typename props {since} dst {...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
+            Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
             &json!({"props": {"since": "today"}}),
         )
         .await
@@ -550,7 +550,7 @@ async fn delete_snst_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner",
             Some("1234"),
-            Some(&json!({"props": {"since": "yesterday"}})),
+            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
             None,
             None,
         )
@@ -602,7 +602,7 @@ async fn delete_snst_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner",
             Some("1234"),
-            Some(&json!({"dst": {"User": {"name": "User Zero"}}})),
+            Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
             None,
             None,
         )
@@ -670,7 +670,7 @@ async fn delete_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": "Project Zero"}}})),
+            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             None,
             None,
         )
@@ -682,7 +682,7 @@ async fn delete_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             Some("1234"),
-            Some(&json!({"name": "Project Zero"})),
+            Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
         .unwrap();
@@ -692,7 +692,7 @@ async fn delete_snst_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
             "Project",
             "owner{__typename props{since} dst{...on User{__typename name}}}",
             Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
         .unwrap();

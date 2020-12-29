@@ -1,5 +1,5 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
+use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
@@ -9,6 +9,7 @@ use crate::error::Error;
 use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
@@ -66,7 +67,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None}),
                 }
                 Ok((props, inputs))
             },
@@ -93,7 +94,7 @@ where
 
         if !inputs.is_empty() {
             let mut id_props = HashMap::new();
-            id_props.insert("id".to_string(), node.id()?.clone());
+            id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
 
             let fragment = transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
             trace!(
@@ -147,7 +148,7 @@ where
                             Ok(())
                         }
                     }
-                    _ => Err(Error::TypeNotExpected),
+                    _ => Err(Error::TypeNotExpected { details: None}),
                 }
             })?;
         }
@@ -156,7 +157,7 @@ where
 
         Ok(node)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -216,7 +217,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -303,7 +304,7 @@ where
                         Ok(())
                     }
                 }
-                _ => Err(Error::TypeNotExpected),
+                _ => Err(Error::TypeNotExpected { details: None}),
             }
         })?
     }
@@ -365,7 +366,7 @@ where
                 )?;
 
                 let mut id_props = HashMap::new();
-                id_props.insert("id".to_string(), node.id()?.clone());
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
 
                 Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
@@ -382,7 +383,7 @@ where
             }),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -414,8 +415,12 @@ where
                 itd.property(&k)
                     .map_err(|e| e)
                     .and_then(|p| match p.kind() {
+                        PropertyKind::ScalarComp => {
+                            props.insert(k, Comparison::try_from(v)?);
+                            Ok((props, rqfs))
+                        }
                         PropertyKind::Scalar => {
-                            props.insert(k, v);
+                            props.insert(k, Comparison::default(v));
                             Ok((props, rqfs))
                         }
                         PropertyKind::Input => {
@@ -435,7 +440,7 @@ where
                             )?);
                             Ok((props, rqfs))
                         }
-                        _ => Err(Error::TypeNotExpected),
+                        _ => Err(Error::TypeNotExpected { details: None}),
                     })
             },
         )?;
@@ -509,7 +514,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -561,7 +566,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None}),
                 }
                 Ok((props, inputs))
             },
@@ -626,13 +631,13 @@ where
                         )
                     }
                 }
-                _ => Err(Error::TypeNotExpected),
+                _ => Err(Error::TypeNotExpected { details: None}),
             }
         })?;
 
         Ok(nodes)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -717,7 +722,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -832,10 +837,10 @@ where
                     Ok(rels)
                 },
             ),
-            _ => Err(Error::TypeNotExpected),
+            _ => Err(Error::TypeNotExpected { details: None}),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -878,7 +883,7 @@ where
         let props = match m.remove("props") {
             None => HashMap::new(),
             Some(Value::Map(hm)) => hm,
-            Some(_) => return Err(Error::TypeNotExpected),
+            Some(_) => return Err(Error::TypeNotExpected { details: None}),
         };
 
         let rel_label =
@@ -900,7 +905,7 @@ where
                 }
             })
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1000,7 +1005,7 @@ where
 
         result
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1045,7 +1050,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1124,7 +1129,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1168,7 +1173,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1203,6 +1208,11 @@ where
             props.insert("id".to_owned(), id);
         }
 
+        let mut value_props : HashMap<String, Comparison> = HashMap::new();
+        for (k, v) in props.drain() {
+            value_props.insert(k.to_string(), Comparison::try_from(v)?);
+        }
+
         // Remove used to take ownership
         let src_fragment_opt = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
@@ -1231,7 +1241,7 @@ where
             None
         };
 
-        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, value_props, sg)
     } else {
         transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }
@@ -1277,7 +1287,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1321,7 +1331,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1432,7 +1442,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1523,7 +1533,7 @@ where
 
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 

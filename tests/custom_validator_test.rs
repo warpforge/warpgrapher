@@ -60,7 +60,7 @@ async fn custom_input_validator_update() {
             "User",
             "id name",
             Some("1234"),
-            Some(&json!({"name": "ORION"})),
+            Some(&json!({"name": {"EQ": "ORION"}})),
             &json!({"name": "SKYWALKER"}),
         )
         .await
@@ -76,7 +76,7 @@ async fn custom_input_validator_update() {
             "User",
             "id name",
             Some("1234"),
-            Some(&json!({"name": "SKYWALKER"})),
+            Some(&json!({"name": {"EQ": "SKYWALKER"}})),
             &json!({"name": "KENOBI"}),
         )
         .await

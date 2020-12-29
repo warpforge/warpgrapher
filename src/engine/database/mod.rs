@@ -18,12 +18,13 @@ use bb8_bolt::BoltConnectionManager;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinClient;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
 
 #[cfg(feature = "gremlin")]
-fn env_bool(var_name: &str) -> Result<bool, Error> {
+pub fn env_bool(var_name: &str) -> Result<bool, Error> {
     Ok(env_string(var_name)?.parse::<bool>()?)
 }
 
@@ -134,6 +135,84 @@ pub trait DatabaseEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
+/// Represents the different type of comparison match operations
+#[derive(Clone, Debug)]
+pub enum Operation {
+    EQ,
+    CONTAINS,
+    IN,
+    GT,
+    GTE,
+    LT,
+    LTE
+}
+
+/// Struct representing a value comparison. In query operations, visitors take provided 
+/// operation/value nested map and converted them into a `Comparison` struct and pass
+/// it on the database-specific transaction for use in creating match portion of queries. 
+#[derive(Clone, Debug)]
+pub struct Comparison {
+    operation: Operation,
+    operand: Value,
+    negated: bool
+}
+
+impl Comparison {
+
+    pub fn new(operation: Operation, negated: bool, operand: Value) -> Self {
+        Comparison {
+            operation,
+            operand,
+            negated
+        }
+    }
+
+    pub fn default(v: Value) -> Self {
+        Self::new(Operation::EQ, false, v)
+    }
+
+}
+
+impl TryFrom<Value> for Comparison {
+
+    type Error = Error;
+
+    fn try_from(v: Value) -> Result<Comparison, Error> {
+        Ok(match v {
+            Value::String(_) => Comparison::default(v),
+            Value::Int64(_) => Comparison::default(v),
+            Value::Float64(_) => Comparison::default(v),
+            Value::Bool(_) => Comparison::default(v),
+            Value::Map(m) => {
+                let (operation_str, operand) = m.into_iter().next()
+                    .ok_or(Error::InputItemNotFound { name: "Comparison keys".to_string() })?;
+                Comparison::new(
+                    match operation_str.as_ref() {
+                        "EQ" => Operation::EQ,
+                        "NOTEQ" => Operation::EQ,
+                        "CONTAINS" => Operation::CONTAINS,
+                        "NOTCONTAINS" => Operation::CONTAINS,
+                        "IN" => Operation::IN,
+                        "NOTIN" => Operation::IN,
+                        "GT" => Operation::GT,
+                        "GTE" => Operation::GTE,
+                        "LT" => Operation::LT,
+                        "LTE" => Operation::LTE,
+                        _ => return Err(Error::TypeNotExpected { 
+                            details: Some(format!("comparison operation {}", operation_str))
+                        })
+                    },
+                    matches!(operation_str.as_ref(), "NOTEQ" | "NOTCONTAINS" | "NOTIN"),
+                    operand
+                )
+            },
+            _ => {
+                return Err(Error::TypeNotExpected { details: Some(format!("comparison value: {:#?}",  v)) })
+            }
+        })
+    }
+}
+
 pub(crate) trait Transaction {
     fn begin(&mut self) -> Result<(), Error>;
 
@@ -165,7 +244,7 @@ pub(crate) trait Transaction {
         &mut self,
         rel_query_fragments: Vec<QueryFragment>,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
@@ -188,7 +267,7 @@ pub(crate) trait Transaction {
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 

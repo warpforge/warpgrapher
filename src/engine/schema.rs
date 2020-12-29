@@ -10,6 +10,7 @@ use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Values;
 use std::collections::{HashMap, HashSet};
@@ -79,6 +80,7 @@ pub(crate) enum PropertyKind {
     RelUpdateMutation { src_label: String, rel_name: String },
     RelDeleteMutation { src_label: String, rel_name: String },
     Scalar,
+    ScalarComp,
     Union,
     VersionQuery,
 }
@@ -318,6 +320,51 @@ fn generate_props(
     hm
 }
 
+/// Takes a vector of WG Properties and returns a map of the appropriate
+/// query input which in turn is a nested map with the different type of 
+/// comparison operations available to the scalar type. 
+fn generate_query_props(
+    props: &[crate::engine::config::Property],
+    id: bool,
+) -> Result<HashMap<String, Property>, Error> {
+    let mut query_props = HashMap::new();
+    if id {
+        query_props.insert(
+            "id".to_string(),
+            Property::new(
+                "id".to_string(),
+                PropertyKind::ScalarComp,
+                fmt_string_query_input_name()
+            )
+        );
+    }
+    for p in props.iter() {
+        query_props.insert(
+            p.name().to_string(),
+            Property::new(
+                p.name().to_string(),
+                match p.type_name().as_ref() {
+                    "Boolean" => PropertyKind::Scalar,
+                    "ID" => PropertyKind::ScalarComp,
+                    "String" => PropertyKind::ScalarComp,
+                    "Int" => PropertyKind::ScalarComp,
+                    "Float" => PropertyKind::ScalarComp,
+                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
+                },
+                match p.type_name().as_ref() {
+                    "Boolean" => "Boolean".to_string(),
+                    "ID" => fmt_string_query_input_name(),
+                    "String" => fmt_string_query_input_name(),
+                    "Int" => fmt_int_query_input_name(),
+                    "Float" => fmt_float_query_input_name(),
+                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
+                }
+            )
+        );
+    }
+    Ok(query_props)
+}
+
 /// Takes a WG type and returns the name of the corresponding GqlNodeObject.
 /// In reality all this is doing is returning the name, but it add value by
 /// maintaining consistency with using functions that returned formatted names
@@ -400,9 +447,8 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     name: String
 ///     owner: ProjectOwnerQueryInput
 /// }
-fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.props_as_slice(), true, false);
-
+fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
+    let mut props = generate_query_props(t.props_as_slice(), true)?;
     t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
@@ -414,8 +460,7 @@ fn generate_node_query_input(t: &Type) -> NodeType {
             .with_list(r.list()),
         );
     });
-
-    NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props)
+    Ok(NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props))
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
@@ -967,7 +1012,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_string(),
-        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()),
+        Property::new("id".to_string(), PropertyKind::ScalarComp, fmt_string_query_input_name()),
     );
     if !r.props_as_slice().is_empty() {
         props.insert(
@@ -975,7 +1020,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
-                fmt_rel_props_input_name(t, r),
+                fmt_rel_props_query_input_name(t, r)
             ),
         );
     }
@@ -1235,6 +1280,7 @@ fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
         props,
     )
 }
+
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
 fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
@@ -1261,6 +1307,34 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
         TypeKind::Input,
         generate_props(r.props_as_slice(), false, false),
     )
+}
+
+/// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsQueryInput
+fn fmt_rel_props_query_input_name(t: &Type, r: &Relationship) -> String {
+    t.name().to_string()
+        + &((&r.name().to_string().to_title_case())
+            .split_whitespace()
+            .collect::<String>())
+        + "PropsQueryInput"
+}
+
+/// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsQueryInput
+///
+/// Format:
+/// input GqlRelPropsQueryInput {
+///     prop[n]: <ScalarQueryInput>
+/// }
+///
+/// Ex:
+/// input ProjectOwnerPropsInput   {
+///     since: StringQueryInput
+/// }
+fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    Ok(NodeType::new(
+        fmt_rel_props_query_input_name(t, r),
+        TypeKind::Input,
+        generate_query_props(r.props_as_slice(), false)?
+    ))
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
@@ -1865,21 +1939,143 @@ fn generate_static_version_query() -> Property {
     )
 }
 
+fn fmt_string_query_input_name() -> String {
+    "StringQueryInput".to_string()
+}
+
+fn string_query_input() -> NodeType {
+    NodeType::new(
+        fmt_string_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => string_input("EQ"),
+            "NOTEQ".to_string() => string_input("NOTEQ"),
+            "CONTAINS".to_string() => string_input("CONTAINS"),
+            "NOTCONTAINS".to_string() => string_input("NOTCONTAINS"),
+            "IN".to_string() => string_array_input("IN"),
+            "NOTIN".to_string() => string_array_input("NOTIN"),
+            "GT".to_string() => string_input("GT"),
+            "GTE".to_string() => string_input("GTE"),
+            "LT".to_string() => string_input("LT"),
+            "LTE".to_string() => string_input("LTE"),
+        }
+    )
+}
+
+fn string_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "String".to_string(),
+    )
+}
+
+fn string_array_input(name: &str) -> Property {
+    Property {
+        name: name.to_string(),
+        kind: PropertyKind::Scalar,
+        type_name: "String".to_string(),
+        required: false,
+        list: true,
+        arguments: HashMap::new(),
+        resolver: None,
+        validator: None,
+    }
+}
+
+fn fmt_int_query_input_name() -> String {
+    "IntQueryInput".to_string()
+}
+
+fn int_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => int_input("EQ"),
+            "NOTEQ".to_string() => int_input("NOTEQ"),
+            "IN".to_string() => int_input("IN"),
+            "NOTIN".to_string() => int_input("NOTIN"),
+            "GT".to_string() => int_input("GT"),
+            "GTE".to_string() => int_input("GTE"),
+            "LT".to_string() => int_input("LT"),
+            "LTE".to_string() => int_input("LTE"),
+        }
+    )
+}
+
+fn int_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "Int".to_string(),
+    )
+
+}
+
+fn fmt_float_query_input_name() -> String {
+    "FloatQueryInput".to_string()
+}
+
+fn float_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(), 
+        TypeKind::Input, 
+        hashmap! {
+            "EQ".to_string() => float_input("EQ"),
+            "NOTEQ".to_string() => float_input("NOTEQ"),
+            "IN".to_string() => float_input("IN"),
+            "NOTIN".to_string() => float_input("NOTIN"),
+            "GT".to_string() => float_input("GT"),
+            "GTE".to_string() => float_input("GTE"),
+            "LT".to_string() => float_input("LT"),
+            "LTE".to_string() => float_input("LTE"),
+        }
+    )
+}
+
+fn float_input(name: &str) -> Property {
+    Property::new(
+        name.to_string(),
+        PropertyKind::Scalar,
+        "Float".to_string(),
+    )
+}
+
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
 
+    // StringQueryInput
+    nthm.insert(
+        fmt_string_query_input_name(),
+        string_query_input()
+    );
+
+    // NumberQueryInput
+    nthm.insert(
+        fmt_int_query_input_name(),
+        int_query_input()
+    );
+    
+    // FloatQueryInput
+    nthm.insert(
+        fmt_float_query_input_name(),
+        float_query_input()
+    );
+
     // generate graphql schema components for warpgrapher types
-    c.types().for_each(|t| {
+    for t in c.types() {
+
         // GqlNodeType
         let node_type = generate_node_object(t);
         nthm.insert(node_type.type_name.to_string(), node_type);
 
         // GqlNodeQueryInput
-        let node_query_input = generate_node_query_input(t);
+        let node_query_input = generate_node_query_input(t)?;
         nthm.insert(node_query_input.type_name.to_string(), node_query_input);
 
         // GqlNodeCreateMutationInput
@@ -1939,7 +2135,7 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        t.rels().for_each(|r| {
+        for r in t.rels() {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);
             nthm.insert(rel_object.type_name.to_string(), rel_object);
@@ -1991,6 +2187,10 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             // GqlRelPropsInput
             let rel_props_input = generate_rel_props_input(t, r);
             nthm.insert(rel_props_input.type_name.to_string(), rel_props_input);
+
+            // GqlRelPropsQueryInput
+            let rel_props_query_input = generate_rel_props_query_input(t, r)?;
+            nthm.insert(rel_props_query_input.type_name.to_string(), rel_props_query_input);
 
             // GqlRelSrcQueryInput
             let rel_src_query_input = generate_rel_src_query_input(t, r);
@@ -2062,8 +2262,8 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
                 let rel_delete_endpoint = generate_rel_delete_endpoint(t, r);
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
-        });
-    });
+        }
+    }
 
     // generate graphql schema components for custom endpoints and associated types
     c.endpoints().for_each(|e| {
@@ -2107,7 +2307,7 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
         NodeType::new("Query".to_string(), TypeKind::Object, query_props),
     );
 
-    nthm
+    Ok(nthm)
 }
 
 /// Takes a Warpgrapher configuration and returns the Juniper RootNode for a
@@ -2133,7 +2333,7 @@ where
     // over runtime efficiency, given that the number of configuration items
     // is lkely to be small.
 
-    let nthm = generate_schema(c);
+    let nthm = generate_schema(c)?;
     let nts = Arc::new(nthm);
     let root_mutation_info = Info::new("Mutation".to_string(), nts.clone());
     let root_query_info = Info::new("Query".to_string(), nts);
@@ -2229,7 +2429,7 @@ mod tests {
         generate_rel_delete_input, generate_rel_dst_delete_mutation_input,
         generate_rel_dst_query_input, generate_rel_dst_update_mutation_input,
         generate_rel_nodes_mutation_input_union, generate_rel_nodes_union, generate_rel_object,
-        generate_rel_props_input, generate_rel_props_object, generate_rel_query_input,
+        generate_rel_props_object, generate_rel_query_input, generate_rel_props_input,
         generate_rel_read_endpoint, generate_rel_src_delete_mutation_input,
         generate_rel_src_update_mutation_input, generate_rel_update_endpoint,
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,
@@ -2419,30 +2619,30 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_query_input = generate_node_query_input(&project_type);
+        let project_query_input = generate_node_query_input(&project_type).unwrap();
         assert!(project_query_input.type_name == "ProjectQueryInput");
         assert!(project_query_input.type_kind == TypeKind::Input);
         assert!(project_query_input.props.len() == 8);
         let project_id = project_query_input.props.get("id").unwrap();
         assert!(project_id.name == "id");
-        assert!(project_id.kind == PropertyKind::Scalar);
-        assert!(project_id.type_name == "ID");
+        assert!(project_id.kind == PropertyKind::ScalarComp);
+        assert!(project_id.type_name == "StringQueryInput");
         assert!(!project_id.required);
         assert!(!project_id.list);
         assert!(project_id.arguments.is_empty());
         let project_name = project_query_input.props.get("name").unwrap();
         assert!(project_name.name == "name");
-        assert!(project_name.kind == PropertyKind::Scalar);
-        assert!(project_name.type_name == "String");
+        assert!(project_name.kind == PropertyKind::ScalarComp);
+        assert!(project_name.type_name == "StringQueryInput");
         assert!(!project_name.required);
         assert!(!project_name.list);
         assert!(project_name.arguments.is_empty());
         let project_tags = project_query_input.props.get("tags").unwrap();
         assert!(project_tags.name == "tags");
-        assert!(project_tags.kind == PropertyKind::Scalar);
-        assert!(project_tags.type_name == "String");
+        assert!(project_tags.kind == PropertyKind::ScalarComp);
+        assert!(project_tags.type_name == "StringQueryInput");
         assert!(!project_tags.required);
-        assert!(project_tags.list);
+        //assert!(project_tags.list);
         assert!(project_tags.arguments.is_empty());
         let project_public = project_query_input.props.get("public").unwrap();
         assert!(project_public.name == "public");
@@ -2650,7 +2850,7 @@ mod tests {
         /*
             input ProjectInput {
                 $EXISTING: ProjectQueryInput
-                $NEW: ProjectCreateMutationInput
+                NEW: ProjectCreateMutationInput
             }
         */
         let project_type = mock_project_type();
@@ -3097,8 +3297,8 @@ mod tests {
         // id
         let project_owner_id = project_owner_query_input.props.get("id").unwrap();
         assert!(project_owner_id.name == "id");
-        assert!(project_owner_id.kind == PropertyKind::Scalar);
-        assert!(project_owner_id.type_name == "ID");
+        assert!(project_owner_id.kind == PropertyKind::ScalarComp);
+        assert!(project_owner_id.type_name == "StringQueryInput");
         assert!(!project_owner_id.required);
         assert!(!project_owner_id.list);
         assert!(project_owner_id.arguments.is_empty());
@@ -3106,7 +3306,7 @@ mod tests {
         let project_owner_props = project_owner_query_input.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
         assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerPropsInput");
+        assert!(project_owner_props.type_name == "ProjectOwnerPropsQueryInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
         assert!(project_owner_props.arguments.is_empty());
@@ -3139,8 +3339,8 @@ mod tests {
         // id
         let project_board_id = project_board_query_input.props.get("id").unwrap();
         assert!(project_board_id.name == "id");
-        assert!(project_board_id.kind == PropertyKind::Scalar);
-        assert!(project_board_id.type_name == "ID");
+        assert!(project_board_id.kind == PropertyKind::ScalarComp);
+        assert!(project_board_id.type_name == "StringQueryInput");
         assert!(!project_board_id.required);
         assert!(!project_board_id.list);
         assert!(project_board_id.arguments.is_empty());
@@ -3491,11 +3691,6 @@ mod tests {
     /// Passes if the right schema elements are generated
     #[test]
     fn test_generate_rel_props_input() {
-        /*
-            input ProjectOwnerPropsInput {
-                since: String
-            }
-        */
         let project_type = mock_project_type();
         let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_props_input = generate_rel_props_input(&project_type, &project_owner_rel);
@@ -4219,7 +4414,7 @@ mod tests {
     #[test]
     fn test_generate_schema() {
         let config = mock_config();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         //assert!(schema.len() == 79);
         assert!(schema.contains_key("Project"));
         assert!(schema.contains_key("ProjectQueryInput"));
@@ -4237,7 +4432,7 @@ mod tests {
     #[test]
     fn test_wg_type_endpoints_filter() {
         let config = mock_endpoints_filter();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         let query = schema.get("Query").unwrap();
         let mutation = schema.get("Mutation").unwrap();
         assert!(query.props.len() == 1);
