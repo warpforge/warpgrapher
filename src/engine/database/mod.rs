@@ -183,11 +183,9 @@ impl TryFrom<Value> for Comparison {
             Value::Int64(_) => Comparison::default(v),
             Value::Float64(_) => Comparison::default(v),
             Value::Bool(_) => Comparison::default(v),
-            Value::Map(mut m) => {
-                let operation_str = m.keys().next()
-                    .ok_or(Error::ComparisonParsingFailed { message: "Comparison keys empty".to_string() })?
-                    .clone(); // TODO: is there a way to not clone here?
-                let operand = m.remove(&operation_str).unwrap();
+            Value::Map(m) => {
+                let (operation_str, operand) = m.into_iter().next()
+                    .ok_or(Error::ComparisonParsingFailed { message: "Comparison keys empty".to_string() })?;
                 Comparison::new(
                     match operation_str.as_ref() {
                         "EQ" => Operation::EQ,

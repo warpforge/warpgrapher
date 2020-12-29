@@ -10,6 +10,7 @@ use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Values;
 use std::collections::{HashMap, HashSet};
@@ -2067,7 +2068,6 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
     );
 
     // generate graphql schema components for warpgrapher types
-    //c.types().for_each(|t| {
     for t in c.types() {
 
         // GqlNodeType
@@ -2135,7 +2135,6 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        //t.rels().for_each(|r| {
         for r in t.rels() {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);

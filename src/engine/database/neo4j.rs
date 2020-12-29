@@ -466,8 +466,7 @@ impl Transaction for Neo4jTransaction<'_> {
 
         if !props.is_empty() {
             let mut value_props : HashMap<String, Value> = HashMap::new();
-            props.keys().enumerate().for_each(|(i, k)| {
-                let c : &Comparison = &props[k];
+            props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
                 }
@@ -639,8 +638,7 @@ impl Transaction for Neo4jTransaction<'_> {
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
             let mut value_props : HashMap<String, Value> = HashMap::new();
-            props.keys().enumerate().for_each(|(i, k)| {
-                let c : &Comparison = &props[k];
+            props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
                 }
