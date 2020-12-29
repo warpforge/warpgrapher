@@ -485,7 +485,7 @@ impl Transaction for Neo4jTransaction<'_> {
                         + "."
                         + &k),
                 );
-                value_props.insert(k.to_string(), c.operand.clone()); // TODO: take ownership instead of clone
+                value_props.insert(k, c.operand);
             });
             params.insert("param".to_string() + &param_suffix, value_props.into());
         }
@@ -657,7 +657,7 @@ impl Transaction for Neo4jTransaction<'_> {
                         + "." 
                         + &k),
                 );
-                value_props.insert(k.to_string(), c.operand.clone()); // TODO: take ownership instead of clone
+                value_props.insert(k, c.operand);
             });
             params.insert(param_var, value_props.into());
         }
