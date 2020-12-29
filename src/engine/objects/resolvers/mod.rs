@@ -1164,10 +1164,10 @@ impl<'r> Resolver<'r> {
                         }
                     }
                     Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
-                        Err(Error::TypeNotExpected.into())
+                        Err((Error::TypeNotExpected {details: None}).into())
                     }
                 },
-                Value::Map(_) => Err(Error::TypeNotExpected.into()),
+                Value::Map(_) => Err((Error::TypeNotExpected {details: None}).into()),
             },
         )
     }

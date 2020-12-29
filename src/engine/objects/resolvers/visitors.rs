@@ -1,5 +1,5 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
+use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
@@ -67,7 +67,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None}),
                 }
                 Ok((props, inputs))
             },
@@ -148,7 +148,7 @@ where
                             Ok(())
                         }
                     }
-                    _ => Err(Error::TypeNotExpected),
+                    _ => Err(Error::TypeNotExpected { details: None}),
                 }
             })?;
         }
@@ -157,7 +157,7 @@ where
 
         Ok(node)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -217,7 +217,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -304,7 +304,7 @@ where
                         Ok(())
                     }
                 }
-                _ => Err(Error::TypeNotExpected),
+                _ => Err(Error::TypeNotExpected { details: None}),
             }
         })?
     }
@@ -383,7 +383,7 @@ where
             }),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -440,7 +440,7 @@ where
                             )?);
                             Ok((props, rqfs))
                         }
-                        _ => Err(Error::TypeNotExpected),
+                        _ => Err(Error::TypeNotExpected { details: None}),
                     })
             },
         )?;
@@ -514,7 +514,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -566,7 +566,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None}),
                 }
                 Ok((props, inputs))
             },
@@ -631,13 +631,13 @@ where
                         )
                     }
                 }
-                _ => Err(Error::TypeNotExpected),
+                _ => Err(Error::TypeNotExpected { details: None}),
             }
         })?;
 
         Ok(nodes)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -722,7 +722,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -837,10 +837,10 @@ where
                     Ok(rels)
                 },
             ),
-            _ => Err(Error::TypeNotExpected),
+            _ => Err(Error::TypeNotExpected { details: None}),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -883,7 +883,7 @@ where
         let props = match m.remove("props") {
             None => HashMap::new(),
             Some(Value::Map(hm)) => hm,
-            Some(_) => return Err(Error::TypeNotExpected),
+            Some(_) => return Err(Error::TypeNotExpected { details: None}),
         };
 
         let rel_label =
@@ -905,7 +905,7 @@ where
                 }
             })
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1005,7 +1005,7 @@ where
 
         result
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1050,7 +1050,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1129,7 +1129,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1173,7 +1173,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1287,7 +1287,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1331,7 +1331,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1442,7 +1442,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
@@ -1533,7 +1533,7 @@ where
 
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None})
     }
 }
 
