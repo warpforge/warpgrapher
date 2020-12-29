@@ -548,9 +548,7 @@ where
             PropertyKind::Scalar => {
                 resolver.resolve_scalar_field(info, field_name, &self.fields, executor)
             },
-            PropertyKind::ScalarComp => {
-                resolver.resolve_scalar_field(info, field_name, &self.fields, executor)
-            }
+            PropertyKind::ScalarComp => Err(Error::TypeNotExpected.into()),
             PropertyKind::Union => Err(Error::TypeNotExpected.into()),
             PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor),
         };

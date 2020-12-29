@@ -598,9 +598,9 @@ impl Transaction for GremlinTransaction {
             query.push_str(&(
                 ".has".to_string()
                 + "("
-                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
                 + &k 
-                + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
+                + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
