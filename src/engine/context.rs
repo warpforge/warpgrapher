@@ -31,6 +31,7 @@ use std::sync::Arc;
 /// # use warpgrapher::engine::resolvers::Resolvers;
 /// # use warpgrapher::engine::validators::Validators;
 /// # use warpgrapher::engine::context::GraphQLContext;
+/// # use warpgrapher::engine::events::EventHandlerBag;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # #[cfg(feature = "neo4j")]
@@ -44,6 +45,7 @@ use std::sync::Arc;
 ///     runtime.block_on(ne.pool())?,
 ///     resolvers,
 ///     validators,
+///     EventHandlerBag::<()>::new(),
 ///     vec![],
 ///     Some(()),
 ///     None,
@@ -108,6 +110,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -121,7 +124,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
-    ///     EventHandlerBag::new(),
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -168,6 +171,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -181,6 +185,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -220,6 +225,7 @@ where
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     /// # use warpgrapher::engine::resolvers::ExecutionResult;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -259,6 +265,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -294,6 +301,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -307,6 +315,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -338,6 +347,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -351,7 +361,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
-    ///     EventHandlerBag::new(),
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -382,6 +392,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -395,6 +406,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
@@ -426,6 +438,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -439,6 +452,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
@@ -469,6 +483,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::{GraphQLContext, RequestContext};
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct AppRequestCtx {
@@ -495,6 +510,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<AppRequestCtx>::new(),
     ///     vec![],
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),

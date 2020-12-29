@@ -16,15 +16,12 @@ use std::collections::HashMap;
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::BeforeMutationEventFunc;
 /// # use warpgrapher::engine::value::Value;
 ///
 /// fn before_user_create(value: Value) -> Result<Value, Error> {
 ///    // Normally work would be done here, resulting in some new value.
-///    value
+///    Ok(value)
 /// }
-///
-/// let f: Box<BeforeMutationEventFunc> = Box::new(before_user_create);
 /// ```
 pub type BeforeMutationEventFunc = fn(Value) -> Result<Value, Error>;
 
@@ -41,7 +38,7 @@ pub type BeforeMutationEventFunc = fn(Value) -> Result<Value, Error>;
 ///
 /// fn before_user_read(value: Option<Value>) -> Result<Option<Value>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
-///    value
+///    Ok(value)
 /// }
 ///
 /// let f: Box<BeforeQueryEventFunc> = Box::new(before_user_read);
@@ -58,15 +55,13 @@ pub type BeforeQueryEventFunc = fn(Option<Value>) -> Result<Option<Value>, Error
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::AfterNodeEventFunc;
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::engine::objects::Node;
 ///
-/// fn after_user_create(nodes: Vec<Node>) -> Result<Vec<Node>, Error> {
+/// fn after_user_create(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
-///    nodes
+///    Ok(nodes)
 /// }
-///
-/// let f: Box<AfterNodeEventFunc> = Box::new(after_user_create);
 /// ```
 pub type AfterNodeEventFunc<RequestCtx> =
     fn(Vec<Node<RequestCtx>>) -> Result<Vec<Node<RequestCtx>>, Error>;
@@ -81,15 +76,13 @@ pub type AfterNodeEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::AfterRelEventFunc;
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::engine::objects::Rel;
 ///
-/// fn after_project_owner_create(rel: Vec<Rel>) -> Result<Vec<Rel>, Error> {
+/// fn after_project_owner_create(rels: Vec<Rel<()>>) -> Result<Vec<Rel<()>>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
-///    rels
+///    Ok(rels)
 /// }
-///
-/// let f: Box<AfterRelEventFunc> = Box::new(after_project_owner_create);
 /// ```
 pub type AfterRelEventFunc<RequestCtx> =
     fn(Vec<Rel<RequestCtx>>) -> Result<Vec<Rel<RequestCtx>>, Error>;
@@ -99,16 +92,16 @@ pub type AfterRelEventFunc<RequestCtx> =
 /// Examples
 ///
 /// ```rust
-/// # use warpgrapher::engine::events::{BeforeEventFunc, EventHandlerBag};
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::Error;
+/// # use warpgrapher::engine::events::EventHandlerBag;
 ///
 /// fn before_user_create(value: Value) -> Result<Value, Error> {
 ///    // Normally work would be done here, resulting in some new value.
-///    value
+///    Ok(value)
 /// }
 ///
-/// let mut handlers = EventHandlerBag::new();
+/// let mut handlers = EventHandlerBag::<()>::new();
 /// handlers.register_before_node_create("User".to_string(), before_user_create);
 /// ```
 #[derive(Clone)]
@@ -135,7 +128,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
-    /// let handlers = EventHandlerBag::new();
+    /// let handlers = EventHandlerBag::<()>::new();
     /// ```
     pub fn new() -> EventHandlerBag<RequestCtx> {
         EventHandlerBag {
@@ -161,16 +154,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_user_create(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_node_create("User", before_user_create);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_node_create("User".to_string(), before_user_create);
     /// ```
     pub fn register_before_node_create(&mut self, type_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_create_handlers.get_mut(&type_name) {
@@ -187,16 +179,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_project_owner_create(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_rel_create("ProjectOwner", before_project_owner_create);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_rel_create("ProjectOwner".to_string(),
+    ///     before_project_owner_create);
     /// ```
     pub fn register_before_rel_create(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_create_handlers.get_mut(&rel_name) {
@@ -213,16 +205,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterNodeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
     ///
-    /// fn after_user_create(nodes: Vec<Node<RequestCtx>>) -> Result<Vec<Node<RequestCtx>>, Error> {
+    /// fn after_user_create(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(nodes)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_node_create("User", after_user_create);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_create("User".to_string(), after_user_create);
     /// ```
     pub fn register_after_node_create(&mut self, name: String, f: AfterNodeEventFunc<RequestCtx>) {
         if let Some(handlers) = self.after_node_create_handlers.get_mut(&name) {
@@ -239,17 +231,17 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Rel;
     ///
-    /// fn after_project_owner_create(rels: Vec<Rel<RequestCtx>>) ->
-    ///   Result<Vec<Rel<RequestCtx>>, Error> {
+    /// fn after_project_owner_create(rels: Vec<Rel<()>>) ->
+    ///   Result<Vec<Rel<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    rels
+    ///    Ok(rels)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_rel_create("ProjectOwner", after_project_owner_create);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_rel_create("ProjectOwner".to_string(), after_project_owner_create);
     /// ```
     pub fn register_after_rel_create(
         &mut self,
@@ -270,16 +262,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn before_user_read(value: Value) -> Result<Value, Error> {
+    /// fn before_user_read(value_opt: Option<Value>) -> Result<Option<Value>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value_opt)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_node_read("User", before_user_read);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_node_read("User".to_string(), before_user_read);
     /// ```
     pub fn register_before_node_read(&mut self, type_name: String, f: BeforeQueryEventFunc) {
         if let Some(handlers) = self.before_read_handlers.get_mut(&type_name) {
@@ -296,16 +287,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn before_project_owner_read(value: Value) -> Result<Value, Error> {
+    /// fn before_project_owner_read(value_opt: Option<Value>) -> Result<Option<Value>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value_opt)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_rel_read("ProjectOwner", before_project_owner_read);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_rel_read("ProjectOwner".to_string(), before_project_owner_read);
     /// ```
     pub fn register_before_rel_read(&mut self, rel_name: String, f: BeforeQueryEventFunc) {
         if let Some(handlers) = self.before_read_handlers.get_mut(&rel_name) {
@@ -322,16 +312,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterNodeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
     ///
-    /// fn after_user_read(nodes: Vec<Node<RequestCtx>>) -> Result<Vec<Node<RequestCtx>>, Error> {
+    /// fn after_user_read(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(nodes)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_node_read("User", after_user_read);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_read("User".to_string(), after_user_read);
     /// ```
     pub fn register_after_node_read(
         &mut self,
@@ -352,17 +342,17 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Rel;
     ///
-    /// fn after_project_owner_read(rels: Vec<Rel<RequestCtx>>) ->
-    ///   Result<Vec<Rel<RequestCtx>>, Error> {
+    /// fn after_project_owner_read(rels: Vec<Rel<()>>) ->
+    ///   Result<Vec<Rel<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    rels
+    ///    Ok(rels)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_rel_read("ProjectOwner", after_project_owner_read);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_rel_read("ProjectOwner".to_string(), after_project_owner_read);
     /// ```
     pub fn register_after_rel_read(&mut self, rel_name: String, f: AfterRelEventFunc<RequestCtx>) {
         if let Some(handlers) = self.after_rel_read_handlers.get_mut(&rel_name) {
@@ -379,16 +369,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_user_update(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_node_update("User", before_user_update);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_node_update("User".to_string(), before_user_update);
     /// ```
     pub fn register_before_node_update(&mut self, type_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_update_handlers.get_mut(&type_name) {
@@ -405,16 +394,17 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
+    /// # use warpgrapher::engine::events::BeforeQueryEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_project_owner_update(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_rel_update("ProjectOwner", before_project_owner_update);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_rel_update("ProjectOwner".to_string(),
+    ///     before_project_owner_update);
     /// ```
     pub fn register_before_rel_update(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_update_handlers.get_mut(&rel_name) {
@@ -431,16 +421,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterNodeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
     ///
-    /// fn after_user_update(nodes: Vec<Node<RequestCtx>>) -> Result<Vec<Node<RequestCtx>>, Error> {
+    /// fn after_user_update(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(nodes)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_node_update("User", after_user_update);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_update("User".to_string(), after_user_update);
     /// ```
     pub fn register_after_node_update(
         &mut self,
@@ -461,17 +451,18 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Rel;
     ///
-    /// fn after_project_owner_update(rels: Vec<Rel<RequestCtx>>) ->
-    ///   Result<Vec<Rel<RequestCtx>>, Error> {
+    /// fn after_project_owner_update(rels: Vec<Rel<()>>) ->
+    ///   Result<Vec<Rel<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    rels
+    ///    Ok(rels)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_rel_update("ProjectOwner", after_project_owner_update);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_rel_update("ProjectOwnerRel".to_string(),
+    ///     after_project_owner_update);
     /// ```
     pub fn register_after_rel_update(
         &mut self,
@@ -492,16 +483,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_user_delete(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_node_delete("User", before_user_delete);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_node_delete("User".to_string(), before_user_delete);
     /// ```
     pub fn register_before_node_delete(&mut self, type_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_delete_handlers.get_mut(&type_name) {
@@ -518,16 +508,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::BeforeEventFunc;
     /// # use warpgrapher::engine::value::Value;
     ///
     /// fn before_project_owner_delete(value: Value) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(value)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_before_rel_delete("ProjectOwner", before_project_owner_delete);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_rel_delete("ProjectOwnerRel".to_string(),
+    ///     before_project_owner_delete);
     /// ```
     pub fn register_before_rel_delete(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
         if let Some(handlers) = self.before_delete_handlers.get_mut(&rel_name) {
@@ -544,16 +534,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterNodeEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
     ///
-    /// fn after_user_delete(nodes: Vec<Node<RequestCtx>>) -> Result<Vec<Node<RequestCtx>>, Error> {
+    /// fn after_user_delete(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    value
+    ///    Ok(nodes)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_node_delete("User", after_user_delete);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_delete("User".to_string(), after_user_delete);
     /// ```
     pub fn register_after_node_delete(
         &mut self,
@@ -574,17 +564,18 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```rust
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::AfterRelEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Rel;
     ///
-    /// fn after_project_owner_delete(rels: Vec<Rel<RequestCtx>>) ->
-    ///   Result<Vec<Rel<RequestCtx>>, Error> {
+    /// fn after_project_owner_delete(rels: Vec<Rel<()>>) ->
+    ///   Result<Vec<Rel<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
-    ///    rels
+    ///    Ok(rels)
     /// }
     ///
-    /// let handlers = EventHandlerBag::new();
-    /// handlers.register_after_rel_delete("ProjectOwner", after_project_owner_delete);
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_rel_delete("ProjectOwnerRel".to_string(),
+    ///     after_project_owner_delete);
     /// ```
     pub fn register_after_rel_delete(
         &mut self,

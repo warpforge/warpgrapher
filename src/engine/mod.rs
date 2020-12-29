@@ -114,6 +114,7 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
