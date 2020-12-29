@@ -283,7 +283,7 @@ impl GremlinTransaction {
         } else if let Some(GValue::Int64(i)) = results.get(0) {
             Ok(i32::try_from(*i)?)
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 
@@ -314,7 +314,7 @@ impl GremlinTransaction {
                     };
                     Ok((k, v))
                 } else {
-                    Err(Error::TypeNotExpected)
+                    Err(Error::TypeNotExpected { details: None})
                 }
             })
             .collect::<Result<HashMap<String, Value>, Error>>()
@@ -328,11 +328,11 @@ impl GremlinTransaction {
                         Ok((s, GValue::String(uuid.to_hyphenated().to_string())))
                     }
                     (GKey::String(s), v) => Ok((s, v)),
-                    (_, _) => Err(Error::TypeNotExpected),
+                    (_, _) => Err(Error::TypeNotExpected { details: None}),
                 })
                 .collect()
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None})
         }
     }
 
@@ -402,7 +402,7 @@ impl GremlinTransaction {
                             if let GKey::String(k) = key {
                                 Ok((k, val.try_into()?))
                             } else {
-                                Err(Error::TypeNotExpected)
+                                Err(Error::TypeNotExpected { details: None})
                             }
                         })
                         .collect::<Result<HashMap<String, Value>, Error>>()?;

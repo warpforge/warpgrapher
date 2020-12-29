@@ -185,7 +185,7 @@ impl TryFrom<Value> for Comparison {
             Value::Bool(_) => Comparison::default(v),
             Value::Map(m) => {
                 let (operation_str, operand) = m.into_iter().next()
-                    .ok_or(Error::ComparisonParsingFailed { message: "Comparison keys empty".to_string() })?;
+                    .ok_or(Error::InputItemNotFound { name: "Comparison keys".to_string() })?;
                 Comparison::new(
                     match operation_str.as_ref() {
                         "EQ" => Operation::EQ,
@@ -198,8 +198,8 @@ impl TryFrom<Value> for Comparison {
                         "GTE" => Operation::GTE,
                         "LT" => Operation::LT,
                         "LTE" => Operation::LTE,
-                        _ => return Err(Error::ComparisonParsingFailed { 
-                            message: format!("Unknown operation {}", operation_str) 
+                        _ => return Err(Error::TypeNotExpected { 
+                            details: Some(format!("comparison operation {}", operation_str))
                         })
                     },
                     matches!(operation_str.as_ref(), "NOTEQ" | "NOTCONTAINS" | "NOTIN"),
@@ -207,7 +207,7 @@ impl TryFrom<Value> for Comparison {
                 )
             },
             _ => {
-                return Err(Error::ComparisonParsingFailed { message: format!("Unsupported Value type: {:#?}",  v)})
+                return Err(Error::TypeNotExpected { details: Some(format!("comparison value: {:#?}",  v)) })
             }
         })
     }
