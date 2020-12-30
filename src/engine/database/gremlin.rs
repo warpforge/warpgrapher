@@ -430,12 +430,13 @@ impl GremlinTransaction {
     }
 }
 
-impl Transaction for GremlinTransaction {
+impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
     fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn create_node<RequestCtx: RequestContext>(
+    //fn create_node<RequestCtx: RequestContext>(
+    fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -481,7 +482,8 @@ impl Transaction for GremlinTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels<RequestCtx: RequestContext>(
+    //fn create_rels<RequestCtx: RequestContext>(
+    fn create_rels(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -541,7 +543,8 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    //fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -662,7 +665,8 @@ impl Transaction for GremlinTransaction {
         Ok(qf)
     }
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    //fn read_nodes<RequestCtx: RequestContext>(
+    fn read_nodes(
         &mut self,
         _node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -702,7 +706,8 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    //fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -815,7 +820,8 @@ impl Transaction for GremlinTransaction {
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    fn read_rels<RequestCtx: RequestContext>(
+    //fn read_rels<RequestCtx: RequestContext>(
+    fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -856,7 +862,8 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    //fn update_nodes<RequestCtx: RequestContext>(
+    fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -895,7 +902,8 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    fn update_rels<RequestCtx: RequestContext>(
+    //fn update_rels<RequestCtx: RequestContext>(
+    fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,

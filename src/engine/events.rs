@@ -2,7 +2,9 @@
 //! processing to which a client library or application might want to add business logic. Examples
 //! include the before or after the creation of a new node.
 
+use crate::engine::schema::Info;
 use crate::engine::context::{GraphQLContext, RequestContext};
+use crate::engine::database::Transaction;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::value::Value;
 use crate::Error;
@@ -24,7 +26,7 @@ use std::collections::HashMap;
 /// }
 /// ```
 pub type BeforeMutationEventFunc<RequestCtx> = 
-    fn(Value, &GraphQLContext<RequestCtx>) -> Result<Value, Error>;
+    fn(Value, &GraphQLContext<RequestCtx>, &Transaction<RequestCtx>, &Info) -> Result<Value, Error>;
 
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
@@ -66,7 +68,7 @@ pub type BeforeQueryEventFunc<RequestCtx> =
 /// }
 /// ```
 pub type AfterNodeEventFunc<RequestCtx> =
-    fn(Vec<Node<RequestCtx>>, &GraphQLContext<RequestCtx>) -> Result<Vec<Node<RequestCtx>>, Error>;
+    fn(Vec<Node<RequestCtx>>, &GraphQLContext<RequestCtx>, &Transaction<RequestCtx>) -> Result<Vec<Node<RequestCtx>>, Error>;
 
 /// Type alias for a function called after an event affecting a relationship. The output of this
 /// function will be used as the input to the next after event function. If there are no additional

@@ -213,10 +213,10 @@ impl TryFrom<Value> for Comparison {
     }
 }
 
-pub(crate) trait Transaction {
+pub trait Transaction<RequestCtx: RequestContext> {
     fn begin(&mut self) -> Result<(), Error>;
 
-    fn create_node<RequestCtx: RequestContext>(
+    fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -224,7 +224,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    fn create_rels<RequestCtx: RequestContext>(
+    fn create_rels(
         &mut self,
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
@@ -234,7 +234,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -248,7 +248,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    fn read_nodes(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -256,7 +256,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -271,7 +271,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_rels<RequestCtx: RequestContext>(
+    fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -279,7 +279,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -288,7 +288,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn update_rels<RequestCtx: RequestContext>(
+    fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -317,7 +317,7 @@ pub(crate) trait Transaction {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct QueryFragment {
+pub struct QueryFragment {
     match_fragment: String,
     where_fragment: String,
     params: HashMap<String, Value>,
@@ -354,7 +354,7 @@ impl QueryFragment {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct NodeQueryVar {
+pub struct NodeQueryVar {
     base: String,
     suffix: String,
     label: Option<String>,
@@ -394,7 +394,7 @@ impl NodeQueryVar {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct RelQueryVar {
+pub struct RelQueryVar {
     label: String,
     suffix: String,
     name: String,
@@ -441,7 +441,7 @@ impl RelQueryVar {
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct SuffixGenerator {
+pub struct SuffixGenerator {
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     seed: i32,
 }

@@ -202,7 +202,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Node<RequestCtx>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
@@ -308,7 +308,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let itd = info
@@ -414,7 +414,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 
@@ -464,7 +464,7 @@ impl<'r> Resolver<'r> {
                     if let Some(handlers) =
                         executor.context().event_handlers().after_node_read(label)
                     {
-                        handlers.iter().try_fold(r, |v, f| f(v, executor.context()))
+                        handlers.iter().try_fold(r, |v, f| f(v, executor.context(), transaction))
                     } else {
                         Ok(r)
                     }
@@ -552,7 +552,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
@@ -658,7 +658,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 
@@ -765,7 +765,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -920,7 +920,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -1070,7 +1070,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -1262,7 +1262,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 

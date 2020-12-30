@@ -21,7 +21,7 @@ pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Node<RequestCtx>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -35,7 +35,7 @@ where
         .event_handlers()
         .before_node_create(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -96,7 +96,8 @@ where
         )?;
 
         let node = transaction
-            .create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
+            //.create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
+            .create_node(node_var, props, partition_key_opt, info)
             .and_then(|n| {
                 if let Some(handlers) = context
                     .event_handlers()
@@ -104,7 +105,7 @@ where
                 {
                     handlers
                         .iter()
-                        .try_fold(vec![n], |v, f| f(v, context))?
+                        .try_fold(vec![n], |v, f| f(v, context, transaction))?
                         .pop()
                         .ok_or_else(|| Error::ResponseItemNotFound {
                             name: "Node from after_node_create handler".to_string(),
@@ -193,7 +194,7 @@ pub(super) fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<i32, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
 {
     trace!(
         "visit_node_delete_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -206,7 +207,7 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -256,7 +257,7 @@ fn visit_node_delete_mutation_input<T, RequestCtx>(
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
-    T: Transaction,
+    T: Transaction<RequestCtx>,
 {
     trace!(
         "visit_node_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -266,13 +267,14 @@ where
     let itd = info.type_def()?;
 
     let nodes =
-        transaction.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)?;
+        //transaction.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)?;
+        transaction.read_nodes(node_var, query_fragment, partition_key_opt, info)?;
     if nodes.is_empty() {
         if let Some(handlers) = context
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            handlers.iter().try_fold(Vec::new(), |v, f| f(v, context))?;
+            handlers.iter().try_fold(Vec::new(), |v, f| f(v, context, transaction))?;
         }
         return Ok(0);
     }
@@ -337,7 +339,7 @@ where
         .event_handlers()
         .after_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(nodes, |v, f| f(v, context))?;
+        handlers.iter().try_fold(nodes, |v, f| f(v, context, transaction))?;
     }
 
     result
@@ -353,7 +355,7 @@ fn visit_node_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<QueryFragment, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -409,7 +411,7 @@ where
     }
 }
 
-pub(super) fn visit_node_query_input<T>(
+pub(super) fn visit_node_query_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -418,7 +420,8 @@ pub(super) fn visit_node_query_input<T>(
     transaction: &mut T,
 ) -> Result<QueryFragment, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_node_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -483,7 +486,7 @@ pub(super) fn visit_node_update_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -497,7 +500,7 @@ where
         .event_handlers()
         .before_node_update(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -552,7 +555,7 @@ fn visit_node_update_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -595,13 +598,14 @@ where
         )?;
 
         let nodes = transaction
-            .update_nodes::<RequestCtx>(query_fragment, node_var, props, partition_key_opt, info)
+            //.update_nodes::<RequestCtx>(query_fragment, node_var, props, partition_key_opt, info)
+            .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
             .and_then(|n| {
                 if let Some(handlers) = context
                     .event_handlers()
                     .after_node_update(node_var.label()?)
                 {
-                    handlers.iter().try_fold(n, |v, f| f(v, context))
+                    handlers.iter().try_fold(n, |v, f| f(v, context, transaction))
                 } else {
                     Ok(n)
                 }
@@ -675,7 +679,7 @@ fn visit_rel_change_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<(), Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -761,7 +765,7 @@ pub(super) fn visit_rel_create_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -771,7 +775,7 @@ where
 
     let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
         //handlers.iter().try_fold(input, |v, f| f(v))?
     } else {
         input
@@ -792,7 +796,8 @@ where
             transaction,
         )?;
 
-        let nodes = transaction.read_nodes::<RequestCtx>(
+        //let nodes = transaction.read_nodes::<RequestCtx>(
+        let nodes = transaction.read_nodes(
             src_var,
             src_fragment.clone(),
             partition_key_opt,
@@ -880,7 +885,7 @@ fn visit_rel_create_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_create_mutation_input called -- src_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
@@ -945,14 +950,14 @@ pub(super) fn visit_rel_delete_input<T, RequestCtx>(
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
-    T: Transaction,
+    T: Transaction<RequestCtx>,
 {
     trace!("visit_rel_delete_input called -- src_query_opt: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
     src_query_opt, rel_var, input, info.name());
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -976,7 +981,8 @@ where
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels =
-            transaction.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)?;
+            //transaction.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)?;
+            transaction.read_rels(fragment, rel_var, None, partition_key_opt)?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
                 handlers.iter().try_fold(Vec::new(), |v, f| f(v, context))?;
@@ -1045,7 +1051,7 @@ fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
-    T: Transaction,
+    T: Transaction<RequestCtx>,
 {
     trace!(
         "visit_rel_dst_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -1077,7 +1083,7 @@ where
     }
 }
 
-fn visit_rel_dst_query_input<T>(
+fn visit_rel_dst_query_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1086,7 +1092,8 @@ fn visit_rel_dst_query_input<T>(
     transaction: &mut T,
 ) -> Result<Option<QueryFragment>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_rel_dst_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -1125,7 +1132,7 @@ fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_dst_update_mutation_input called -- query_fragment: {:#?}, input: {:#?}, info.name: {}",
@@ -1166,7 +1173,7 @@ fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<QueryFragment, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!("visit_rel_nodes_mutation_input_union called -- node_var: {:#?}, input: {:#?}, info.name: {},", 
@@ -1200,7 +1207,7 @@ where
     }
 }
 
-pub(super) fn visit_rel_query_input<T>(
+pub(super) fn visit_rel_query_input<T, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
@@ -1210,7 +1217,8 @@ pub(super) fn visit_rel_query_input<T>(
     transaction: &mut T,
 ) -> Result<QueryFragment, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
 {
     trace!("visit_rel_query_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, input_opt: {:#?}, info.name(): {}",
         src_fragment_opt, rel_var, input_opt, info.name());
@@ -1283,7 +1291,7 @@ fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
-    T: Transaction,
+    T: Transaction<RequestCtx>,
 {
     trace!(
         "visit_rel_src_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -1326,7 +1334,7 @@ fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1358,7 +1366,7 @@ where
     }
 }
 
-fn visit_rel_src_query_input<T>(
+fn visit_rel_src_query_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1367,7 +1375,8 @@ fn visit_rel_src_query_input<T>(
     transaction: &mut T,
 ) -> Result<Option<QueryFragment>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
 {
     trace!(
         "visit_rel_src_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
@@ -1411,7 +1420,7 @@ pub(super) fn visit_rel_update_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1420,7 +1429,7 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context))?
+        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -1482,7 +1491,7 @@ fn visit_rel_update_mutation_input<T, RequestCtx>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
-    T: Transaction,
+    T: Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
     trace!(
@@ -1501,7 +1510,8 @@ where
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels = transaction
-            .update_rels::<RequestCtx>(
+            //.update_rels::<RequestCtx>(
+            .update_rels(
                 query_fragment,
                 rel_var,
                 props,
