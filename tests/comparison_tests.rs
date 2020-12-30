@@ -204,7 +204,7 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
                 "issues": {
                     "dst": {
                         "Feature": {
-                            "$EXISTING": {
+                            "EXISTING": {
                                 "name": {
                                     "CONTAINS": "CINDER"
                                 }
@@ -251,10 +251,10 @@ async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
             })), 
             &json!({
                 "issues": {
-                    "$ADD": {
+                    "ADD": {
                         "dst": {
                             "Feature": {
-                                "$EXISTING": {
+                                "EXISTING": {
                                     "name": {
                                         "CONTAINS": "Kyber"
                                     }
@@ -321,13 +321,13 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
             })), 
             &json!({
                 "issues": {
-                    "$ADD": {
+                    "ADD": {
                         "props": {
                             "since": "5 BBY"
                         },
                         "dst": {
                             "Feature": {
-                                "$EXISTING": {
+                                "EXISTING": {
                                     "name": {
                                         "CONTAINS": "Kyber"
                                     }
@@ -418,13 +418,13 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
             })), 
             &json!({
                 "issues": {
-                    "$ADD": {
+                    "ADD": {
                         "props": {
                             "since": "5 BBY"
                         },
                         "dst": {
                             "Feature": {
-                                "$EXISTING": {
+                                "EXISTING": {
                                     "name": {
                                         "CONTAINS": "Kyber"
                                     }
@@ -528,13 +528,13 @@ async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
             })), 
             &json!({
                 "issues": {
-                    "$ADD": {
+                    "ADD": {
                         "props": {
                             "since": "5 BBY"
                         },
                         "dst": {
                             "Feature": {
-                                "$EXISTING": {
+                                "EXISTING": {
                                     "name": {
                                         "CONTAINS": "Kyber"
                                     }

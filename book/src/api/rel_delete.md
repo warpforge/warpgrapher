@@ -7,7 +7,7 @@
 ```
 mutation {
     ProjectOwnerDelete(input: {
-        $MATCH: {
+        MATCH: {
             src: {
                 Project: {
                     name: "Project0"
