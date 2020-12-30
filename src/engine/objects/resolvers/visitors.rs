@@ -99,7 +99,7 @@ where
                 {
                     handlers
                         .iter()
-                        .try_fold(vec![n], |v, f| f(v))?
+                        .try_fold(vec![n], |v, f| f(v, context))?
                         .pop()
                         .ok_or_else(|| Error::ResponseItemNotFound {
                             name: "Node from after_node_create handler".to_string(),
@@ -268,7 +268,7 @@ where
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            handlers.iter().try_fold(Vec::new(), |v, f| f(v))?;
+            handlers.iter().try_fold(Vec::new(), |v, f| f(v, context))?;
         }
         return Ok(0);
     }
@@ -333,7 +333,7 @@ where
         .event_handlers()
         .after_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(nodes, |v, f| f(v))?;
+        handlers.iter().try_fold(nodes, |v, f| f(v, context))?;
     }
 
     result
@@ -598,7 +598,7 @@ where
                     .event_handlers()
                     .after_node_update(node_var.label()?)
                 {
-                    handlers.iter().try_fold(n, |v, f| f(v))
+                    handlers.iter().try_fold(n, |v, f| f(v, context))
                 } else {
                     Ok(n)
                 }
@@ -919,7 +919,7 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v))
+                    handlers.iter().try_fold(rels, |v, f| f(v, context))
                 } else {
                     Ok(rels)
                 }
@@ -977,7 +977,7 @@ where
             transaction.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-                handlers.iter().try_fold(Vec::new(), |v, f| f(v))?;
+                handlers.iter().try_fold(Vec::new(), |v, f| f(v, context))?;
             }
             return Ok(0);
         }
@@ -1021,7 +1021,7 @@ where
         let result = transaction.delete_rels(id_fragment, rel_var, partition_key_opt);
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-            handlers.iter().try_fold(rels, |v, f| f(v))?;
+            handlers.iter().try_fold(rels, |v, f| f(v, context))?;
         }
 
         result
@@ -1509,7 +1509,7 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v))
+                    handlers.iter().try_fold(rels, |v, f| f(v, context))
                 } else {
                     Ok(rels)
                 }

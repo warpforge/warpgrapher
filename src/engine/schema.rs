@@ -113,7 +113,6 @@ impl NodeType {
     }
 
     pub(crate) fn property(&self, property_name: &str) -> Result<&Property, Error> {
-        println!("property >>> {}", property_name);
         self.props
             .get(property_name)
             .ok_or_else(|| Error::SchemaItemNotFound {
@@ -164,6 +163,7 @@ impl Property {
         }
     }
 
+    /*
     pub(crate) fn default(name: String, value: Value) -> Property {
         Property {
             name: name,
@@ -194,6 +194,7 @@ impl Property {
             validator: None
         }
     }
+    */
 
     pub(crate) fn arguments(&self) -> Values<String, Argument> {
         self.arguments.values()
@@ -318,7 +319,7 @@ fn generate_props(
     }
 
     // insert properties into hashmap
-    props.iter().for_each(|p| {
+    props.iter().filter(|p| !p.hidden()).for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(

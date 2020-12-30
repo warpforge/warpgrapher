@@ -443,7 +443,7 @@ impl<'r> Resolver<'r> {
         {
             handlers
                 .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v, executor.context()))?
         } else {
             input_opt.map(|i| i.value)
         };
@@ -464,7 +464,7 @@ impl<'r> Resolver<'r> {
                     if let Some(handlers) =
                         executor.context().event_handlers().after_node_read(label)
                     {
-                        handlers.iter().try_fold(r, |v, f| f(v))
+                        handlers.iter().try_fold(r, |v, f| f(v, executor.context()))
                     } else {
                         Ok(r)
                     }
@@ -950,7 +950,7 @@ impl<'r> Resolver<'r> {
             ) {
             handlers
                 .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v, executor.context()))?
         } else {
             input_opt.map(|i| i.value)
         };
@@ -975,7 +975,7 @@ impl<'r> Resolver<'r> {
                 if let Some(handlers) = executor.context().event_handlers().after_rel_read(
                     &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
                 ) {
-                    handlers.iter().try_fold(r, |v, f| f(v))
+                    handlers.iter().try_fold(r, |v, f| f(v, executor.context()))
                 } else {
                     Ok(r)
                 }

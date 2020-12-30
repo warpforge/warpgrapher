@@ -861,6 +861,10 @@ impl Property {
         &self.name
     }
 
+    pub fn hidden(&self) -> bool {
+        self.hidden
+    }
+
     /// Returns the optional name of the custom resolver associated with this property
     ///
     /// # Examples
