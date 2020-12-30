@@ -759,8 +759,12 @@ pub enum GraphqlType {
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Property {
+
     /// Name of the property
     name: String,
+    
+    #[serde(default = "get_false")]
+    hidden: bool,
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
@@ -810,6 +814,7 @@ impl Property {
     /// ```
     pub fn new(
         name: String,
+        hidden: bool,
         type_name: String,
         required: bool,
         list: bool,
@@ -818,6 +823,7 @@ impl Property {
     ) -> Property {
         Property {
             name,
+            hidden,
             type_name,
             required,
             list,
@@ -1128,6 +1134,7 @@ impl Relationship {
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Type {
+
     /// Name of this GraphQL type, also used as the Neo4J label for nodes
     name: String,
 
