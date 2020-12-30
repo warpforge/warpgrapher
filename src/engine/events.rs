@@ -2,7 +2,7 @@
 //! processing to which a client library or application might want to add business logic. Examples
 //! include the before or after the creation of a new node.
 
-use crate::engine::context::RequestContext;
+use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::value::Value;
 use crate::Error;
@@ -23,7 +23,8 @@ use std::collections::HashMap;
 ///    Ok(value)
 /// }
 /// ```
-pub type BeforeMutationEventFunc = fn(Value) -> Result<Value, Error>;
+pub type BeforeMutationEventFunc<RequestContext> = 
+    fn(Value, &GraphQLContext<RequestContext>) -> Result<Value, Error>;
 
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
@@ -106,16 +107,16 @@ pub type AfterRelEventFunc<RequestCtx> =
 /// ```
 #[derive(Clone)]
 pub struct EventHandlerBag<RequestCtx: RequestContext> {
-    before_create_handlers: HashMap<String, Vec<BeforeMutationEventFunc>>,
+    before_create_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_create_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_create_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
     before_read_handlers: HashMap<String, Vec<BeforeQueryEventFunc>>,
     after_node_read_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_read_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
-    before_update_handlers: HashMap<String, Vec<BeforeMutationEventFunc>>,
+    before_update_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_update_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_update_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
-    before_delete_handlers: HashMap<String, Vec<BeforeMutationEventFunc>>,
+    before_delete_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_delete_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_delete_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
 }
@@ -164,11 +165,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_node_create("User".to_string(), before_user_create);
     /// ```
-    pub fn register_before_node_create(&mut self, type_name: String, f: BeforeMutationEventFunc) {
-        if let Some(handlers) = self.before_create_handlers.get_mut(&type_name) {
-            handlers.push(f);
-        } else {
-            self.before_create_handlers.insert(type_name, vec![f]);
+    pub fn register_before_node_create(&mut self, type_names: Vec<String>, f: BeforeMutationEventFunc<RequestCtx>) {
+        for type_name in type_names {
+            if let Some(handlers) = self.before_create_handlers.get_mut(&type_name) {
+                handlers.push(f);
+            } else {
+                self.before_create_handlers.insert(type_name, vec![f]);
+            }
         }
     }
 
@@ -190,7 +193,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// handlers.register_before_rel_create("ProjectOwner".to_string(),
     ///     before_project_owner_create);
     /// ```
-    pub fn register_before_rel_create(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
+    pub fn register_before_rel_create(&mut self, rel_name: String, f: BeforeMutationEventFunc<RequestCtx>) {
         if let Some(handlers) = self.before_create_handlers.get_mut(&rel_name) {
             handlers.push(f);
         } else {
@@ -362,6 +365,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
+    /*
     /// Registers an event handler `f` to be called before a node of type `type_name` is updated.
     ///
     /// # Examples
@@ -379,13 +383,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_node_update("User".to_string(), before_user_update);
     /// ```
-    pub fn register_before_node_update(&mut self, type_name: String, f: BeforeMutationEventFunc) {
+    pub fn register_before_node_update(&mut self, type_name: String, f: BeforeMutationEventFunc<RequestContext>) {
         if let Some(handlers) = self.before_update_handlers.get_mut(&type_name) {
             handlers.push(f);
         } else {
             self.before_update_handlers.insert(type_name, vec![f]);
         }
     }
+    */
 
     /// Registers an event handler `f` to be called before a rel is created.
     ///
@@ -406,7 +411,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// handlers.register_before_rel_update("ProjectOwner".to_string(),
     ///     before_project_owner_update);
     /// ```
-    pub fn register_before_rel_update(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
+    pub fn register_before_rel_update(&mut self, rel_name: String, f: BeforeMutationEventFunc<RequestCtx>) {
         if let Some(handlers) = self.before_update_handlers.get_mut(&rel_name) {
             handlers.push(f);
         } else {
@@ -493,7 +498,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_node_delete("User".to_string(), before_user_delete);
     /// ```
-    pub fn register_before_node_delete(&mut self, type_name: String, f: BeforeMutationEventFunc) {
+    pub fn register_before_node_delete(&mut self, type_name: String, f: BeforeMutationEventFunc<RequestCtx>) {
         if let Some(handlers) = self.before_delete_handlers.get_mut(&type_name) {
             handlers.push(f);
         } else {
@@ -519,7 +524,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// handlers.register_before_rel_delete("ProjectOwnerRel".to_string(),
     ///     before_project_owner_delete);
     /// ```
-    pub fn register_before_rel_delete(&mut self, rel_name: String, f: BeforeMutationEventFunc) {
+    pub fn register_before_rel_delete(&mut self, rel_name: String, f: BeforeMutationEventFunc<RequestCtx>) {
         if let Some(handlers) = self.before_delete_handlers.get_mut(&rel_name) {
             handlers.push(f);
         } else {
@@ -592,14 +597,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     pub(crate) fn before_node_create(
         &self,
         type_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_create_handlers.get(type_name)
     }
 
     pub(crate) fn before_rel_create(
         &self,
         rel_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_create_handlers.get(rel_name)
     }
 
@@ -642,14 +647,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     pub(crate) fn before_node_update(
         &self,
         type_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_update_handlers.get(type_name)
     }
 
     pub(crate) fn before_rel_update(
         &self,
         rel_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_update_handlers.get(rel_name)
     }
 
@@ -670,14 +675,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     pub(crate) fn before_node_delete(
         &self,
         type_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_delete_handlers.get(type_name)
     }
 
     pub(crate) fn before_rel_delete(
         &self,
         rel_name: &str,
-    ) -> Option<&Vec<BeforeMutationEventFunc>> {
+    ) -> Option<&Vec<BeforeMutationEventFunc<RequestCtx>>> {
         self.before_delete_handlers.get(rel_name)
     }
 

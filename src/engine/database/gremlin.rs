@@ -292,6 +292,7 @@ impl GremlinTransaction {
         type_def: &NodeType,
     ) -> Result<HashMap<String, Value>, Error> {
         trace!("GremlinTransaction::extract_node_properties called");
+        println!(">>> props: {:#?}", props);
         props
             .into_iter()
             .map(|(key, property_list)| {

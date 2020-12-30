@@ -6,6 +6,7 @@ use super::config::{
     Configuration, Endpoint, EndpointClass, GraphqlType, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
+use crate::engine::value::Value;
 use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;
@@ -112,6 +113,7 @@ impl NodeType {
     }
 
     pub(crate) fn property(&self, property_name: &str) -> Result<&Property, Error> {
+        println!("property >>> {}", property_name);
         self.props
             .get(property_name)
             .ok_or_else(|| Error::SchemaItemNotFound {
@@ -159,6 +161,37 @@ impl Property {
             arguments: HashMap::new(),
             resolver: None,
             validator: None,
+        }
+    }
+
+    pub(crate) fn default(name: String, value: Value) -> Property {
+        Property {
+            name: name,
+            kind: PropertyKind::Scalar,
+            type_name: match &value {
+                Value::String(_) => "String".to_string(),
+                Value::Int64(_) => "Int".to_string(),
+                Value::UInt64(_) => "Int".to_string(),
+                Value::Float64(_) => "Float".to_string(),
+                Value::Bool(_) => "Bool".to_string(),
+                Value::Array(a) => match (a.iter().next().unwrap()) {
+                    Value::String(_) => "String".to_string(),
+                    Value::Int64(_) => "Int".to_string(),
+                    Value::UInt64(_) => "Int".to_string(),
+                    Value::Float64(_) => "Float".to_string(),
+                    Value::Bool(_) => "Bool".to_string(),
+                    _ => "String".to_string() // TODO: right call?
+                },
+                _ => "String".to_string() // TODO: right call?
+            },
+            required: false,
+            list: match value {
+                Value::Array(_) => true,
+                _ => false
+            },
+            arguments: HashMap::new(),
+            resolver: None,
+            validator: None
         }
     }
 
