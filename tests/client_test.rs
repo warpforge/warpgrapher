@@ -132,7 +132,7 @@ async fn client_rel_crud() {
         &json!([
             {
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}} }}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}} }}
             }
         ]))
         .await.unwrap();

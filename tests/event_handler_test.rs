@@ -345,7 +345,7 @@ async fn test_before_rel_create_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         )
         .await
@@ -388,7 +388,7 @@ async fn test_before_rel_read_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         )
         .await
@@ -449,7 +449,7 @@ async fn test_before_rel_update_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         )
         .await
@@ -511,7 +511,7 @@ async fn test_before_rel_delete_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         ).await.unwrap();
 
@@ -571,7 +571,7 @@ async fn test_after_rel_create_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         )
         .await
@@ -614,7 +614,7 @@ async fn test_after_rel_read_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             )
         )
         .await
@@ -675,7 +675,7 @@ async fn test_after_rel_update_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }])
         )
         .await
@@ -737,7 +737,7 @@ async fn test_after_rel_delete_handler() {
             &json!({"name": {"EQ": "Project Zero"}}), 
             &json!([{
                 "props": {"since": "2000"}, 
-                "dst": {"Bug": {"$EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             )
         )
         .await

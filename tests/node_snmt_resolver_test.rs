@@ -34,7 +34,7 @@ async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
                 "board": {
                     "dst": {
                         "KanbanBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN-V Board"
                             }
                         }
@@ -158,7 +158,7 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
                 "board": {
                     "dst": {
                         "ScrumBoard": {
-                            "$EXISTING": {
+                            "EXISTING": {
                                 "name": {"EQ": "SPARTAN-VI Board"}
                             }
                         }
@@ -224,7 +224,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx
                 "board": {
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN-10 Board"
                             }
                         }
@@ -246,7 +246,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx
                 "board": {
                     "dst": {
                         "KanbanBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN-11 Board"
                             }
                         }
@@ -268,7 +268,7 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx
                 "board": {
                     "dst": {
                         "KanbanBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN-12 Board"
                             }
                         }
@@ -361,7 +361,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client<AppRequestCtx>)
                     },
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "ORION Board"
                             }
                         }
@@ -385,7 +385,7 @@ async fn read_node_with_matching_props_on_rel(mut client: Client<AppRequestCtx>)
                     },
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN Board"
                             }
                         }
@@ -500,7 +500,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppReq
                     },
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "ORION Board"
                             }
                         }
@@ -523,7 +523,7 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppReq
                     },
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "SPARTAN Board"
                             }
                         }
@@ -618,10 +618,10 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client<AppRequest
             })),
             &json!({
                 "board": {
-                    "$ADD": {
+                    "ADD": {
                         "dst": {
                             "KanbanBoard": {
-                                "$NEW": {
+                                "NEW": {
                                     "name": "ORION Board"
                                 }
                             }
@@ -716,10 +716,10 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRe
             })),
             &json!({
                 "board": {
-                    "$ADD": {
+                    "ADD": {
                         "dst": {
                             "ScrumBoard": {
-                                "$EXISTING": {
+                                "EXISTING": {
                                     "name": {"EQ": "ORION Board"}
                                 }
                             }
@@ -838,7 +838,7 @@ async fn delete_node(mut client: Client<AppRequestCtx>) {
                 "board": {
                     "dst": {
                         "ScrumBoard": {
-                            "$NEW": {
+                            "NEW": {
                                 "name": "ORION Board"
                             }
                         }

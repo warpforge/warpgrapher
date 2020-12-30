@@ -7,7 +7,7 @@
 ```
 mutation {
     ProjectOwnerUpdate(input: {
-        $MATCH: {
+        MATCH: {
             props: {
                 sin
             }

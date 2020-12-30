@@ -8,13 +8,13 @@
 ```
 mutation {
     ProjectOwnerCreate(input: {
-        $MATCH: {
+        MATCH: {
             name: "Project0"
         },
-        $CREATE: {
+        CREATE: {
             dst: {
                 User: {
-                    $EXISTING: {
+                    EXISTING: {
                         name: "Jane"
                     }
                 }
@@ -30,13 +30,13 @@ mutation {
 ```
 mutation {
     ProjectOwnerCreate(input: {
-        $MATCH: {
+        MATCH: {
             name: "Project0"
         },
-        $CREATE: {
+        CREATE: {
             dst: {
                 User: {
-                    $NEW: {
+                    NEW: {
                         name: "Joe"
                     }
                 }
