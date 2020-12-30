@@ -372,7 +372,7 @@ fn generate_query_props(
             )
         );
     }
-    for p in props.iter() {
+    for p in props.iter().filter(|p| !p.hidden()) {
         query_props.insert(
             p.name().to_string(),
             Property::new(

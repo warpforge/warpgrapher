@@ -380,7 +380,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    /*
     /// Registers an event handler `f` to be called before a node of type `type_name` is updated.
     ///
     /// # Examples
@@ -398,14 +397,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_node_update("User".to_string(), before_user_update);
     /// ```
-    pub fn register_before_node_update(&mut self, type_name: String, f: BeforeMutationEventFunc<RequestContext>) {
-        if let Some(handlers) = self.before_update_handlers.get_mut(&type_name) {
-            handlers.push(f);
-        } else {
-            self.before_update_handlers.insert(type_name, vec![f]);
+    pub fn register_before_node_update(&mut self, type_names: Vec<String>, f: BeforeMutationEventFunc<RequestCtx>) {
+        for type_name in type_names {
+            if let Some(handlers) = self.before_update_handlers.get_mut(&type_name) {
+                handlers.push(f);
+            } else {
+                self.before_update_handlers.insert(type_name, vec![f]);
+            }
         }
     }
-    */
 
     /// Registers an event handler `f` to be called before a rel is created.
     ///

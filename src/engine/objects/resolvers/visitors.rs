@@ -44,7 +44,7 @@ where
 
     if let Value::Map(ref m) = input {
         m.keys()
-        .filter(|k| !k.starts_with("_"))
+        //.filter(|k| !k.starts_with("_"))
         .try_for_each(|k| {
             let p = itd.property(k)?;
             match p.kind() {
@@ -60,8 +60,7 @@ where
 
     // iterate over all input fields and if any of them is of type Input,
     // pass it to the inputs group otherwise pass it to the props group
-    if let Value::Map(m) = input {
-        //let (props, inputs) = m.into_iter().try_fold(
+        /*
         let (props, inputs) = m.into_iter().fold(
             (HashMap::<String, Value>::new(), HashMap::<String, Value>::new()),
             |(mut props, mut inputs), (k, v)| {
@@ -75,7 +74,14 @@ where
                     props.insert(k, v);
                 }
                 (props, inputs)
-                /*
+            }
+        };
+        */
+
+    if let Value::Map(m) = input {
+        let (props, inputs) = m.into_iter().try_fold(
+            (HashMap::<String, Value>::new(), HashMap::<String, Value>::new()),
+            |(mut props, mut inputs), (k, v)| {
                 match itd.property(&k)?.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
                         props.insert(k, v);
@@ -86,9 +92,8 @@ where
                     _ => return Err(Error::TypeNotExpected { details: None}),
                 }
                 Ok((props, inputs))
-                */
             },
-        );
+        )?;
 
         let node = transaction
             .create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
@@ -201,7 +206,6 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        //handlers.iter().try_fold(input, |v, f| f(v))?
         handlers.iter().try_fold(input, |v, f| f(v, context))?
     } else {
         input
@@ -494,7 +498,6 @@ where
         .before_node_update(node_var.label()?)
     {
         handlers.iter().try_fold(input, |v, f| f(v, context))?
-        //handlers.iter().try_fold(input, |v, f| f(v))?
     } else {
         input
     };
@@ -950,7 +953,6 @@ where
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
         handlers.iter().try_fold(input, |v, f| f(v, context))?
-        //handlers.iter().try_fold(input, |v, f| f(v))?
     } else {
         input
     };
@@ -1419,7 +1421,6 @@ where
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
         handlers.iter().try_fold(input, |v, f| f(v, context))?
-        //handlers.iter().try_fold(input, |v, f| f(v))?
     } else {
         input
     };
