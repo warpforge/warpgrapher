@@ -398,7 +398,7 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn execute(
+    pub async fn execute(
         &self,
         req: &GraphQLRequest,
         metadata: &HashMap<String, String>,
@@ -418,19 +418,17 @@ where
                 )
             })?;
 
-        // execute graphql query
-        let res = req.execute(
-            &self.root_node,
-            &GraphQLContext::<RequestCtx>::new(
-                self.db_pool.clone(),
-                self.resolvers.clone(),
-                self.validators.clone(),
-                self.extensions.clone(),
-                Some(req_ctx.clone()),
-                self.version.clone(),
-                metadata.clone(),
-            ),
+        let gqlctx = GraphQLContext::<RequestCtx>::new(
+            self.db_pool.clone(),
+            self.resolvers.clone(),
+            self.validators.clone(),
+            self.extensions.clone(),
+            Some(req_ctx.clone()),
+            self.version.clone(),
+            metadata.clone(),
         );
+        // execute graphql query
+        let res = req.execute(&self.root_node, &gqlctx).await;
 
         // convert graphql response (json) to mutable serde_json::Value
         let res_value = serde_json::to_value(&res)?;
@@ -478,7 +476,7 @@ mod tests {
     use crate::engine::validators::Validators;
     use crate::engine::value::Value;
     use crate::{Configuration, Engine, Error};
-    use juniper::ExecutionResult;
+    use juniper::{BoxFuture, ExecutionResult};
     use std::convert::TryInto;
     use std::fs::File;
 
@@ -670,8 +668,8 @@ mod tests {
         .is_err());
     }
 
-    pub fn my_resolver(executor: ResolverFacade<()>) -> ExecutionResult {
-        executor.resolve_scalar(1 as i32)
+    pub fn my_resolver(executor: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+        Box::pin(async move { executor.resolve_scalar(1 as i32) })
     }
 
     fn my_validator(_value: &Value) -> Result<(), Error> {

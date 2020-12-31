@@ -10,8 +10,6 @@ use serde_json::{from_value, json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
-use std::sync::mpsc;
-use std::thread;
 
 /// A Warpgrapher GraphQL client
 ///
@@ -194,18 +192,12 @@ where
                 response.json::<serde_json::Value>().await?
             }
             Client::Local { engine, metadata } => {
-                let metadata: HashMap<String, String> = metadata.clone().unwrap_or_default();
-                let engine = engine.clone();
-                let (tx, rx) = mpsc::channel();
-                thread::spawn(move || {
-                    let result = from_value::<GraphQLRequest>(req_body)
-                        .map_err(|e| e.into())
-                        .and_then(|req| engine.execute(&req, &metadata));
-                    let _ = tx.send(result);
-                })
-                .join()
-                .expect("Thread panicked");
-                rx.recv()??
+                engine
+                    .execute(
+                        &from_value::<GraphQLRequest>(req_body)?,
+                        &metadata.clone().unwrap_or_default(),
+                    )
+                    .await?
             }
         };
         debug!("Client::graphql -- response body: {:#?}", body);

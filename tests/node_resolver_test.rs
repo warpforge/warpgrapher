@@ -3,12 +3,10 @@ mod setup;
 use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::bolt_client;
-#[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
 use setup::AppRequestCtx;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use setup::{clear_db, init};
+#[cfg(feature = "neo4j")]
+use setup::{bolt_client, clear_db, init};
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 use warpgrapher::client::Client;

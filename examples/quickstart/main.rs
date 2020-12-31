@@ -16,7 +16,8 @@ model:
         type: String
 ";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
@@ -51,7 +52,7 @@ fn main() {
         None,
     );
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).unwrap();
+    let result = engine.execute(&request, &metadata).await.unwrap();
 
     // display result
     println!("result: {:#?}", result);

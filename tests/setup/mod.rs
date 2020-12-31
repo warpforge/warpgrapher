@@ -48,6 +48,8 @@ use warpgrapher::engine::resolvers::Resolvers;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
+#[cfg(feature = "neo4j")]
+use warpgrapher::juniper::BoxFuture;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
@@ -425,163 +427,181 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 }
 
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_count(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let mut runtime = Runtime::new()?;
-        let mut db = runtime.block_on(p.get())?;
-        let query = "MATCH (n:Project) RETURN (n);";
-        runtime
-            .block_on(db.run_with_metadata(query, None, None))
-            .expect("Expected successful query run.");
+pub(crate) fn project_count(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+            let mut runtime = Runtime::new()?;
+            let mut db = runtime.block_on(p.get())?;
+            let query = "MATCH (n:Project) RETURN (n);";
+            runtime
+                .block_on(db.run_with_metadata(query, None, None))
+                .expect("Expected successful query run.");
 
-        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
-        match response {
-            Message::Success(_) => (),
-            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            match response {
+                Message::Success(_) => (),
+                message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            }
+
+            facade.resolve_scalar(records.len() as i32)
+        } else {
+            panic!("Unsupported database.");
         }
-
-        facade.resolve_scalar(records.len() as i32)
-    } else {
-        panic!("Unsupported database.");
-    }
+    })
 }
 
 /// custom endpoint returning scalar_list:
 #[cfg(feature = "neo4j")]
-pub(crate) fn global_top_tags(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    facade.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
+pub(crate) fn global_top_tags(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        facade.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
+    })
 }
 
 /// custom endpoint returning node
 #[cfg(feature = "neo4j")]
-pub(crate) fn global_top_dev(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    trace!("global_top_dev called");
-    let mut hm = HashMap::new();
-    hm.insert("name".to_string(), Value::String("Joe".to_string()));
-    facade.resolve_node(&facade.create_node("User", hm))
+pub(crate) fn global_top_dev(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        trace!("global_top_dev called");
+        let mut hm = HashMap::new();
+        hm.insert("name".to_string(), Value::String("Joe".to_string()));
+        facade.resolve_node(&facade.create_node("User", hm)).await
+    })
 }
 
 /// custom field returning scalar
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_points(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    facade.resolve_scalar(138)
+pub(crate) fn project_points(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move { facade.resolve_scalar(138) })
 }
 
 /// custom field returning scalar_list
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_tags(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    facade.resolve_scalar_list(vec!["cypher", "sql", "neo4j"])
+pub(crate) fn project_top_tags(
+    facade: ResolverFacade<AppRequestCtx>,
+) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move { facade.resolve_scalar_list(vec!["cypher", "sql", "neo4j"]) })
 }
 
 /// custom rel returning rel
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let mut runtime = Runtime::new()?;
-        let mut db = runtime.block_on(p.get())?;
-        let query = "MATCH (n:User) RETURN (n);";
-        runtime
-            .block_on(db.run_with_metadata(query, None, None))
-            .expect("Expected successful query run.");
+pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+            let mut runtime = Runtime::new()?;
+            let mut db = runtime.block_on(p.get())?;
+            let query = "MATCH (n:User) RETURN (n);";
+            runtime
+                .block_on(db.run_with_metadata(query, None, None))
+                .expect("Expected successful query run.");
 
-        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
-        match response {
-            Message::Success(_) => (),
-            message => return Err(Error::Neo4jQueryFailed { message }.into()),
-        }
+            let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            match response {
+                Message::Success(_) => (),
+                message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            }
 
-        let dev_id = if let bolt_proto::value::Value::Node(n) =
-            &records.get(0).expect("Expected result").fields()[0]
-        {
-            Value::try_from(n.properties().get("id").expect("Expected id").clone())
-                .expect("Expected string")
-        } else {
-            panic!("Expected node.")
-        };
+            let dev_id = if let bolt_proto::value::Value::Node(n) =
+                &records.get(0).expect("Expected result").fields()[0]
+            {
+                Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                    .expect("Expected string")
+            } else {
+                panic!("Expected node.")
+            };
 
-        std::mem::drop(db);
+            std::mem::drop(db);
 
-        facade.resolve_rel(
-            &facade
-                .create_rel(
-                    Value::String("1234567890".to_string()),
-                    None,
-                    dev_id,
-                    "User",
+            facade
+                .resolve_rel(
+                    &facade
+                        .create_rel(
+                            Value::String("1234567890".to_string()),
+                            None,
+                            dev_id,
+                            "User",
+                        )
+                        .expect("Expected new rel"),
                 )
-                .expect("Expected new rel"),
-        )
-    } else {
-        panic!("Unsupported database.");
-    }
+                .await
+        } else {
+            panic!("Unsupported database.");
+        }
+    })
 }
 
 /// custom rel returning rel_list
 #[cfg(feature = "neo4j")]
-pub(crate) fn project_top_issues(facade: ResolverFacade<AppRequestCtx>) -> ExecutionResult {
-    if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-        let mut runtime = Runtime::new()?;
-        let mut db = runtime.block_on(p.get())?;
-        let query = "MATCH (n:Bug) RETURN (n);";
-        runtime
-            .block_on(db.run_with_metadata(query, None, None))
-            .expect("Expected successful query run.");
+pub(crate) fn project_top_issues(
+    facade: ResolverFacade<AppRequestCtx>,
+) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+            let mut runtime = Runtime::new()?;
+            let mut db = runtime.block_on(p.get())?;
+            let query = "MATCH (n:Bug) RETURN (n);";
+            runtime
+                .block_on(db.run_with_metadata(query, None, None))
+                .expect("Expected successful query run.");
 
-        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
-        match response {
-            Message::Success(_) => (),
-            message => return Err(Error::Neo4jQueryFailed { message }.into()),
-        }
+            let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            match response {
+                Message::Success(_) => (),
+                message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            }
 
-        let bug_id = if let bolt_proto::value::Value::Node(n) =
-            &records.get(0).expect("Expected result").fields()[0]
-        {
-            Value::try_from(n.properties().get("id").expect("Expected id").clone())
-                .expect("Expected string")
+            let bug_id = if let bolt_proto::value::Value::Node(n) =
+                &records.get(0).expect("Expected result").fields()[0]
+            {
+                Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                    .expect("Expected string")
+            } else {
+                panic!("Expected node.")
+            };
+
+            let query = "MATCH (n:Feature) RETURN (n);";
+            runtime
+                .block_on(db.run_with_metadata(query, None, None))
+                .expect("Expected successful query run.");
+
+            let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            match response {
+                Message::Success(_) => (),
+                message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            }
+
+            let feature_id = if let bolt_proto::value::Value::Node(n) =
+                &records.get(0).expect("Expected result").fields()[0]
+            {
+                Value::try_from(n.properties().get("id").expect("Expected id").clone())
+                    .expect("Expected string")
+            } else {
+                panic!("Expected node.")
+            };
+
+            std::mem::drop(db);
+
+            facade
+                .resolve_rel_list(vec![
+                    &facade
+                        .create_rel(Value::String("1234567890".to_string()), None, bug_id, "Bug")
+                        .expect("Expected rel"),
+                    &facade
+                        .create_rel(
+                            Value::String("0987654321".to_string()),
+                            None,
+                            feature_id,
+                            "Feature",
+                        )
+                        .expect("Expected rel"),
+                ])
+                .await
         } else {
-            panic!("Expected node.")
-        };
-
-        let query = "MATCH (n:Feature) RETURN (n);";
-        runtime
-            .block_on(db.run_with_metadata(query, None, None))
-            .expect("Expected successful query run.");
-
-        let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
-        match response {
-            Message::Success(_) => (),
-            message => return Err(Error::Neo4jQueryFailed { message }.into()),
+            panic!("Unsupported database.");
         }
-
-        let feature_id = if let bolt_proto::value::Value::Node(n) =
-            &records.get(0).expect("Expected result").fields()[0]
-        {
-            Value::try_from(n.properties().get("id").expect("Expected id").clone())
-                .expect("Expected string")
-        } else {
-            panic!("Expected node.")
-        };
-
-        std::mem::drop(db);
-
-        facade.resolve_rel_list(vec![
-            &facade
-                .create_rel(Value::String("1234567890".to_string()), None, bug_id, "Bug")
-                .expect("Expected rel"),
-            &facade
-                .create_rel(
-                    Value::String("0987654321".to_string()),
-                    None,
-                    feature_id,
-                    "Feature",
-                )
-                .expect("Expected rel"),
-        ])
-    } else {
-        panic!("Unsupported database.");
-    }
+    })
 }

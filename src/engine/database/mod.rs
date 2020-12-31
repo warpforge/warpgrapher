@@ -134,10 +134,11 @@ pub trait DatabaseEndpoint {
     async fn pool(&self) -> Result<DatabasePool, Error>;
 }
 
-pub(crate) trait Transaction {
-    fn begin(&mut self) -> Result<(), Error>;
+#[async_trait]
+pub(crate) trait Transaction: Send {
+    async fn begin(&mut self) -> Result<(), Error>;
 
-    fn create_node<RequestCtx: RequestContext>(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -145,7 +146,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
@@ -169,7 +170,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -192,7 +193,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -200,7 +201,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -209,7 +210,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -218,23 +219,23 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn commit(&mut self) -> Result<(), Error>;
+    async fn commit(&mut self) -> Result<(), Error>;
 
-    fn rollback(&mut self) -> Result<(), Error>;
+    async fn rollback(&mut self) -> Result<(), Error>;
 }
 
 #[derive(Clone, Debug)]

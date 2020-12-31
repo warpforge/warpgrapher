@@ -518,19 +518,16 @@ mod tests {
     use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
     use std::collections::HashMap;
-    use tokio::runtime::Runtime;
 
     /// Passes if the pool can be created without panicking
-    #[test]
-    fn engine_new() {
-        let mut runtime = Runtime::new().expect("Expected new runtime.");
-
+    #[tokio::test]
+    async fn engine_new() {
         let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
         let resolvers: Resolvers<()> = Resolvers::new();
         let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<()> = GraphQLContext::new(
-            runtime
-                .block_on(ne.pool())
+            ne.pool()
+                .await
                 .expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,

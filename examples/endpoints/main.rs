@@ -8,6 +8,7 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::http::GraphQLRequest;
+use warpgrapher::juniper::BoxFuture;
 use warpgrapher::Engine;
 
 static CONFIG: &str = "
@@ -28,19 +29,22 @@ endpoints:
 ";
 
 // endpoint returning a list of `Issue` nodes
-fn resolve_top_issue(facade: ResolverFacade<()>) -> ExecutionResult {
-    let top_issue = facade.create_node(
-        "Issue",
-        hashmap! {
-            "name".to_string() => Value::from("Learn more rust".to_string()),
-            "points".to_string() => Value::from(5 as i64)
-        },
-    );
+fn resolve_top_issue(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        let top_issue = facade.create_node(
+            "Issue",
+            hashmap! {
+                "name".to_string() => Value::from("Learn more rust".to_string()),
+                "points".to_string() => Value::from(5 as i64)
+            },
+        );
 
-    facade.resolve_node(&top_issue)
+        facade.resolve_node(&top_issue).await
+    })
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
@@ -78,7 +82,7 @@ fn main() {
         None,
     );
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).unwrap();
+    let result = engine.execute(&request, &metadata).await.unwrap();
 
     // verify result
     println!("result: {:#?}", result);

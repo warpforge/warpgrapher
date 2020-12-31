@@ -430,12 +430,13 @@ impl GremlinTransaction {
     }
 }
 
+#[async_trait]
 impl Transaction for GremlinTransaction {
-    fn begin(&mut self) -> Result<(), Error> {
+    async fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn create_node<RequestCtx: RequestContext>(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -481,7 +482,7 @@ impl Transaction for GremlinTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -657,7 +658,7 @@ impl Transaction for GremlinTransaction {
         Ok(qf)
     }
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         _node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -805,7 +806,7 @@ impl Transaction for GremlinTransaction {
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -846,7 +847,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -885,7 +886,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -928,7 +929,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -969,7 +970,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -1010,11 +1011,11 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
-    fn commit(&mut self) -> Result<(), Error> {
+    async fn commit(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn rollback(&mut self) -> Result<(), Error> {
+    async fn rollback(&mut self) -> Result<(), Error> {
         Ok(())
     }
 }

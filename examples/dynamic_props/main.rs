@@ -6,6 +6,7 @@ use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::juniper::http::GraphQLRequest;
+use warpgrapher::juniper::BoxFuture;
 use warpgrapher::Engine;
 
 static CONFIG: &str = "
@@ -20,14 +21,17 @@ model:
       resolver: resolve_project_points
 ";
 
-fn resolve_project_points(facade: ResolverFacade<()>) -> ExecutionResult {
-    // compute value
-    let points = 5;
+fn resolve_project_points(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    Box::pin(async move {
+        // compute value
+        let points = 5;
 
-    facade.resolve_scalar(points)
+        facade.resolve_scalar(points)
+    })
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // parse warpgrapher config
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
@@ -70,7 +74,7 @@ fn main() {
         None,
     );
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).unwrap();
+    let result = engine.execute(&request, &metadata).await.unwrap();
 
     // verify result
     assert_eq!(

@@ -6,6 +6,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
+use crate::juniper::BoxFuture;
 use crate::Error;
 use inflector::Inflector;
 use std::collections::HashMap;
@@ -32,7 +33,7 @@ pub enum Object<'a, RequestCtx: RequestContext> {
 /// ExecutionResult.
 ///
 /// [`ResolverFacade`]: ./struct.ResolverFacade.html
-pub type ResolverFunc<RequestCtx> = fn(ResolverFacade<RequestCtx>) -> ExecutionResult;
+pub type ResolverFunc<RequestCtx> = fn(ResolverFacade<RequestCtx>) -> BoxFuture<ExecutionResult>;
 
 /// Type alias for a mapping from a custom resolver name to a the Rust function that implements the
 /// custom resolver.
@@ -52,7 +53,7 @@ where
     args: &'a Arguments<'a>,
     parent: Object<'a, RequestCtx>,
     partition_key_opt: Option<&'a Value>,
-    executor: &'a Executor<'a, GraphQLContext<RequestCtx>>,
+    executor: &'a Executor<'a, 'a, GraphQLContext<RequestCtx>>,
 }
 
 impl<'a, RequestCtx> ResolverFacade<'a, RequestCtx>
@@ -533,11 +534,13 @@ where
     ///     facade.resolve_node(&facade.create_node("User", hm))
     /// }
     /// ```
-    pub fn resolve_node(&self, node: &Node<RequestCtx>) -> ExecutionResult {
-        self.executor.resolve(
-            &Info::new(node.typename().to_string(), self.info.type_defs()),
-            node,
-        )
+    pub async fn resolve_node(&self, node: &Node<RequestCtx>) -> ExecutionResult {
+        self.executor
+            .resolve_async(
+                &Info::new(node.typename().to_string(), self.info.type_defs()),
+                node,
+            )
+            .await
     }
 
     /// Returns a GraphQL Object representing a graph relationship defined by an ID, props, and a
@@ -564,7 +567,7 @@ where
     ///         Some(hm1), node_id, "DstNodeLabel")?)
     /// }
     /// ```
-    pub fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
+    pub async fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
         let rel_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -572,7 +575,8 @@ where
             + "Rel";
 
         self.executor
-            .resolve(&Info::new(rel_name, self.info.type_defs()), rel)
+            .resolve_async(&Info::new(rel_name, self.info.type_defs()), rel)
+            .await
     }
 
     /// Returns a GraphQL Object array representing Warpgrapher Rels defined by an ID, props, and
@@ -608,7 +612,7 @@ where
     ///     ])
     /// }
     /// ```
-    pub fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
+    pub async fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
         let object_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -616,7 +620,8 @@ where
             + "Rel";
 
         self.executor
-            .resolve(&Info::new(object_name, self.info.type_defs()), &rels)
+            .resolve_async(&Info::new(object_name, self.info.type_defs()), &rels)
+            .await
     }
 
     /// Returns the request context
