@@ -1,5 +1,6 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison};
+use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind, Property};
@@ -35,7 +36,8 @@ where
         .event_handlers()
         .before_node_create(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -207,7 +209,8 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
     } else {
         input
     };
@@ -411,7 +414,7 @@ where
     }
 }
 
-pub(super) fn visit_node_query_input<T, RequestCtx>(
+pub(crate) fn visit_node_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -500,7 +503,8 @@ where
         .event_handlers()
         .before_node_update(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
     } else {
         input
     };
@@ -775,8 +779,8 @@ where
 
     let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
-        //handlers.iter().try_fold(input, |v, f| f(v))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -957,7 +961,8 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
     } else {
         input
     };
@@ -1083,7 +1088,7 @@ where
     }
 }
 
-fn visit_rel_dst_query_input<T, RequestCtx>(
+fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1207,7 +1212,7 @@ where
     }
 }
 
-pub(super) fn visit_rel_query_input<T, RequestCtx>(
+pub(super) fn visit_rel_query_input<T: ?Sized, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
@@ -1366,7 +1371,7 @@ where
     }
 }
 
-fn visit_rel_src_query_input<T, RequestCtx>(
+fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1429,7 +1434,8 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };

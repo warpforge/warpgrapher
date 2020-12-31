@@ -4,9 +4,10 @@
 
 use crate::engine::schema::Info;
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::Transaction;
+use crate::engine::database::{Transaction, WarpClient, SuffixGenerator, NodeQueryVar};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::value::Value;
+use crate::engine::objects::resolvers::visitors;
 use crate::Error;
 use std::collections::HashMap;
 
@@ -26,7 +27,8 @@ use std::collections::HashMap;
 /// }
 /// ```
 pub type BeforeMutationEventFunc<RequestCtx> = 
-    fn(Value, &GraphQLContext<RequestCtx>, &Transaction<RequestCtx>, &Info) -> Result<Value, Error>;
+    //fn(Value, &GraphQLContext<RequestCtx>, &mut Transaction<RequestCtx>, &Info) -> Result<Value, Error>;
+    fn(Value, EventFacade<RequestCtx>) -> Result<Value, Error>;
 
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
@@ -750,3 +752,72 @@ impl<RequestCtx: RequestContext> Default for EventHandlerBag<RequestCtx> {
         }
     }
 }
+
+pub struct EventFacade<'a, RequestCtx> 
+where
+    RequestCtx: RequestContext
+{
+    pub crud: String,
+    pub target: String,
+    pub context: &'a GraphQLContext<RequestCtx>,
+    pub transaction: &'a mut Transaction<RequestCtx>,
+    pub info: &'a Info
+}
+
+impl<'a, RequestCtx> EventFacade<'a, RequestCtx> 
+where
+    RequestCtx: RequestContext
+{
+    pub(crate) fn new(
+        crud: String,
+        target: String,
+        context: &'a GraphQLContext<RequestCtx>,
+        transaction: &'a mut Transaction<RequestCtx>,
+        info: &'a Info
+    ) -> Self 
+    {
+        Self {
+            crud,
+            target,
+            context,
+            transaction,
+            info
+        }
+    }
+
+    pub fn read_nodes(
+        &mut self,
+        type_name: &str, 
+        input: Option<Value>, 
+    ) -> Result<Vec<Node<RequestCtx>>, Error> 
+    {
+        let mut info = self.info.clone();
+        info.name = "Query".to_string();
+        let partition_key_opt = None;
+        let mut sg = SuffixGenerator::new();
+        let p = info.type_def()?.property(type_name)?;
+        let itd = if info.name() == "Query" {
+            p.input_type_definition(&info)?
+        } else {
+            info.type_def_by_name("Query")?
+                .property(p.type_name())?
+                .input_type_definition(&info)?
+        };
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+        let query_fragment = visitors::visit_node_query_input(
+            &node_var,
+            input,
+            &Info::new(itd.type_name().to_owned(), info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction
+        )?;
+        let results = self.transaction.read_nodes(&node_var, query_fragment, partition_key_opt, &info);
+        results
+    }
+}
+

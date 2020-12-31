@@ -10,6 +10,7 @@ use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+use crate::engine::objects::resolvers::visitors;
 use async_trait::async_trait;
 #[cfg(feature = "neo4j")]
 use bb8::Pool;
@@ -22,6 +23,7 @@ use std::convert::TryFrom;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
 #[cfg(feature = "gremlin")]
 pub fn env_bool(var_name: &str) -> Result<bool, Error> {
@@ -41,6 +43,9 @@ fn env_string(var_name: &str) -> Result<String, Error> {
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
+
+
+
 
 /// Contains a pool of database connections, or an enumeration variant indicating that there is no
 /// back-end database
@@ -457,4 +462,109 @@ impl SuffixGenerator {
         self.seed += 1;
         "_".to_string() + &self.seed.to_string()
     }
+}
+
+pub struct WarpClient<'a, RequestCtx: RequestContext, T: Transaction<RequestCtx>> {
+    transaction: &'a mut T,
+    info: &'a Info,
+    _rctx: PhantomData<RequestCtx>
+}
+
+impl<'a, RequestCtx, T> WarpClient<'a, RequestCtx, T> 
+where 
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
+{
+    fn new(transaction: &'a mut T, info: &'a Info) -> Self {
+        Self {
+            transaction,
+            info,
+            _rctx: PhantomData
+        }
+    }
+
+    /*
+    fn read_nodes(&mut self, type_name: &str, input: Option<Value>) -> Result<Vec<Node<RequestCtx>>, Error> {
+        read_nodes::<T, RequestCtx>(type_name, input, self.transaction, self.info)
+    }
+    */
+}
+
+/*
+pub fn read_nodes<T, RequestCtx>(
+    type_name: &str, 
+    input: Option<Value>, 
+    transaction: Box<&mut T>,
+    info: &Info
+) -> Result<Vec<Node<RequestCtx>>, Error> 
+where 
+    T: Transaction<RequestCtx>,
+    RequestCtx: RequestContext,
+{
+    let partition_key_opt = None;
+    let mut sg = SuffixGenerator::new();
+    let p = info.type_def()?.property(type_name)?;
+    let itd = if info.name() == "Query" {
+        p.input_type_definition(info)?
+    } else {
+        info.type_def_by_name("Query")?
+            .property(p.type_name())?
+            .input_type_definition(info)?
+    };
+    let node_var = NodeQueryVar::new(
+        Some(p.type_name().to_string()),
+        "node".to_string(),
+        sg.suffix(),
+    );
+    let query_fragment = visitors::visit_node_query_input(
+        &node_var,
+        input,
+        &Info::new(itd.type_name().to_owned(), info.type_defs()),
+        partition_key_opt,
+        &mut sg,
+        *transaction
+    )?;
+    let results = transaction.read_nodes(&node_var, query_fragment, partition_key_opt, info);
+    results
+}
+*/
+
+pub fn read_nodes<RequestCtx>(
+    type_name: &str, 
+    input: Option<Value>, 
+    transaction: &mut Transaction<RequestCtx>,
+    info: &Info
+) -> Result<Vec<Node<RequestCtx>>, Error> 
+where 
+    RequestCtx: RequestContext,
+{
+
+    let mut info = info.clone();
+    info.name = "Query".to_string();
+
+    let partition_key_opt = None;
+    let mut sg = SuffixGenerator::new();
+    let p = info.type_def()?.property(type_name)?;
+    let itd = if info.name() == "Query" {
+        p.input_type_definition(&info)?
+    } else {
+        info.type_def_by_name("Query")?
+            .property(p.type_name())?
+            .input_type_definition(&info)?
+    };
+    let node_var = NodeQueryVar::new(
+        Some(p.type_name().to_string()),
+        "node".to_string(),
+        sg.suffix(),
+    );
+    let query_fragment = visitors::visit_node_query_input(
+        &node_var,
+        input,
+        &Info::new(itd.type_name().to_owned(), info.type_defs()),
+        partition_key_opt,
+        &mut sg,
+        transaction
+    )?;
+    let results = transaction.read_nodes(&node_var, query_fragment, partition_key_opt, &info);
+    results
 }

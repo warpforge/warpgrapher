@@ -28,7 +28,7 @@ use std::sync::Arc;
 /// [`Engine`]: ../struct.Engine.html
 #[derive(Clone, Debug, PartialEq)]
 pub struct Info {
-    name: String,
+    pub(crate) name: String,
     type_defs: Arc<HashMap<String, NodeType>>,
 }
 

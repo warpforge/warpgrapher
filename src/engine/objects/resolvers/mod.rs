@@ -27,7 +27,7 @@ use visitors::{
 };
 
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-mod visitors;
+pub(crate) mod visitors;
 
 pub(super) struct Resolver<'r> {
     partition_key_opt: Option<&'r Value>,

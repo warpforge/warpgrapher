@@ -21,7 +21,7 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-mod resolvers;
+pub(crate) mod resolvers;
 
 #[derive(Clone, Debug)]
 struct Input<RequestCtx>
