@@ -17,10 +17,6 @@ use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use std::sync::Arc;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use tokio::sync::Mutex;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
@@ -159,7 +155,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
                 .await
@@ -170,7 +166,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                     executor,
                 )
                 .await
@@ -182,7 +178,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                     executor,
                 )
                 .await
@@ -208,7 +204,7 @@ impl<'r> Resolver<'r> {
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Node<RequestCtx>, Error>
     where
@@ -219,9 +215,7 @@ impl<'r> Resolver<'r> {
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
             "node".to_string(),
@@ -233,16 +227,15 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
             &executor.context().validators(),
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if results.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
 
         results
@@ -275,7 +268,7 @@ impl<'r> Resolver<'r> {
                     label,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                 )
                 .await
             }
@@ -286,7 +279,7 @@ impl<'r> Resolver<'r> {
                     label,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 )
                 .await
             }
@@ -298,7 +291,7 @@ impl<'r> Resolver<'r> {
                     label,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                 )
                 .await
             }
@@ -320,7 +313,7 @@ impl<'r> Resolver<'r> {
         label: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -332,9 +325,7 @@ impl<'r> Resolver<'r> {
             .property(field_name)?
             .input_type_definition(info)?;
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
 
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
         let results = visit_node_delete_input::<T, RequestCtx>(
@@ -343,15 +334,14 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if results.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
 
         results
@@ -379,7 +369,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                 )
                 .await
             }
@@ -389,7 +379,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 )
                 .await
             }
@@ -400,7 +390,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                 )
                 .await
             }
@@ -435,7 +425,7 @@ impl<'r> Resolver<'r> {
         field_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -457,11 +447,9 @@ impl<'r> Resolver<'r> {
             sg.suffix(),
         );
 
-        let mut lock = transaction.lock().await;
         if info.name() == "Mutation" || info.name() == "Query" {
-            lock.begin().await?;
+            transaction.begin().await?;
         }
-        std::mem::drop(lock);
 
         let query_fragment = visit_node_query_input(
             &node_var,
@@ -469,20 +457,19 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
-        let mut lock = transaction.lock().await;
-        let results = lock
+        let results = transaction
             .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
             .await;
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
-                lock.commit().await?;
+                transaction.commit().await?;
             } else {
-                lock.rollback().await?;
+                transaction.rollback().await?;
             }
         }
 
@@ -511,7 +498,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
                 .await
@@ -522,7 +509,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                     executor,
                 )
                 .await
@@ -534,7 +521,7 @@ impl<'r> Resolver<'r> {
                     field_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                     executor,
                 )
                 .await
@@ -561,7 +548,7 @@ impl<'r> Resolver<'r> {
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
@@ -572,9 +559,7 @@ impl<'r> Resolver<'r> {
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
         let result = visit_node_update_input::<T, RequestCtx>(
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
@@ -585,16 +570,15 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
             &executor.context().validators(),
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if result.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
         result
     }
@@ -626,7 +610,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
                 .await
@@ -639,7 +623,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                     executor,
                 )
                 .await
@@ -653,7 +637,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                     executor,
                 )
                 .await
@@ -678,7 +662,7 @@ impl<'r> Resolver<'r> {
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
@@ -695,9 +679,7 @@ impl<'r> Resolver<'r> {
         let src_var =
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
         let result = visit_rel_create_input::<T, RequestCtx>(
             &src_var,
             rel_name,
@@ -709,16 +691,15 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
             validators,
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if result.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
 
         result
@@ -749,7 +730,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                 )
                 .await
             }
@@ -761,7 +742,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 )
                 .await
             }
@@ -774,7 +755,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                 )
                 .await
             }
@@ -792,7 +773,7 @@ impl<'r> Resolver<'r> {
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -810,9 +791,7 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
 
         let results = visit_rel_delete_input::<T, RequestCtx>(
             None,
@@ -821,15 +800,14 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if results.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
 
         results
@@ -886,7 +864,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                 )
                 .await
             }
@@ -897,7 +875,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                 )
                 .await
             }
@@ -909,7 +887,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input_opt,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                 )
                 .await
             }
@@ -959,7 +937,7 @@ impl<'r> Resolver<'r> {
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -984,9 +962,7 @@ impl<'r> Resolver<'r> {
         let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
 
         if info.name() == "Mutation" || info.name() == "Query" {
-            let mut lock = transaction.lock().await;
-            lock.begin().await?;
-            std::mem::drop(lock);
+            transaction.begin().await?;
         }
         let query_fragment = visit_rel_query_input(
             None,
@@ -995,11 +971,10 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
-        let mut lock = transaction.lock().await;
-        let results = lock
+        let results = transaction
             .read_rels(
                 query_fragment,
                 &rel_var,
@@ -1010,9 +985,9 @@ impl<'r> Resolver<'r> {
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
-                lock.commit().await?;
+                transaction.commit().await?;
             } else {
-                lock.rollback().await?;
+                transaction.rollback().await?;
             }
         }
 
@@ -1047,7 +1022,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), true, false))),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
                 .await
@@ -1060,7 +1035,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(GremlinTransaction::new(c.clone(), false, *uuid))),
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
                     executor,
                 )
                 .await
@@ -1074,7 +1049,7 @@ impl<'r> Resolver<'r> {
                     rel_name,
                     info,
                     input,
-                    Arc::new(Mutex::new(Neo4jTransaction::new(c))),
+                    &mut Neo4jTransaction::new(c),
                     executor,
                 )
                 .await
@@ -1099,7 +1074,7 @@ impl<'r> Resolver<'r> {
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        transaction: Arc<Mutex<T>>,
+        transaction: &mut T,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
@@ -1120,9 +1095,7 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
-        let mut lock = transaction.lock().await;
-        lock.begin().await?;
-        std::mem::drop(lock);
+        transaction.begin().await?;
         let results = visit_rel_update_input::<T, RequestCtx>(
             None,
             &rel_var,
@@ -1131,16 +1104,15 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction.clone(),
+            transaction,
             validators,
         )
         .await;
 
-        let mut lock = transaction.lock().await;
         if results.is_ok() {
-            lock.commit().await?;
+            transaction.commit().await?;
         } else {
-            lock.rollback().await?;
+            transaction.rollback().await?;
         }
 
         results

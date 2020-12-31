@@ -24,8 +24,6 @@ use std::io::BufReader;
 use std::iter::FromIterator;
 #[cfg(feature = "neo4j")]
 use std::sync::Arc;
-#[cfg(feature = "neo4j")]
-use tokio::runtime::Runtime;
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::gremlin::CosmosEndpoint;
@@ -430,15 +428,13 @@ fn name_validator(value: &Value) -> Result<(), Error> {
 pub(crate) fn project_count(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-            let mut runtime = Runtime::new()?;
-            let mut db = runtime.block_on(p.get())?;
+            let mut db = p.get().await?;
             let query = "MATCH (n:Project) RETURN (n);";
-            runtime
-                .block_on(db.run_with_metadata(query, None, None))
+            db.run_with_metadata(query, None, None)
+                .await
                 .expect("Expected successful query run.");
-
             let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            let (response, records) = db.pull(Some(pull_meta)).await?;
             match response {
                 Message::Success(_) => (),
                 message => return Err(Error::Neo4jQueryFailed { message }.into()),
@@ -489,15 +485,14 @@ pub(crate) fn project_top_tags(
 pub(crate) fn project_top_dev(facade: ResolverFacade<AppRequestCtx>) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-            let mut runtime = Runtime::new()?;
-            let mut db = runtime.block_on(p.get())?;
+            let mut db = p.get().await?;
             let query = "MATCH (n:User) RETURN (n);";
-            runtime
-                .block_on(db.run_with_metadata(query, None, None))
+            db.run_with_metadata(query, None, None)
+                .await
                 .expect("Expected successful query run.");
 
             let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            let (response, records) = db.pull(Some(pull_meta)).await?;
             match response {
                 Message::Success(_) => (),
                 message => return Err(Error::Neo4jQueryFailed { message }.into()),
@@ -539,15 +534,14 @@ pub(crate) fn project_top_issues(
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-            let mut runtime = Runtime::new()?;
-            let mut db = runtime.block_on(p.get())?;
+            let mut db = p.get().await?;
             let query = "MATCH (n:Bug) RETURN (n);";
-            runtime
-                .block_on(db.run_with_metadata(query, None, None))
+            db.run_with_metadata(query, None, None)
+                .await
                 .expect("Expected successful query run.");
 
             let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            let (response, records) = db.pull(Some(pull_meta)).await?;
             match response {
                 Message::Success(_) => (),
                 message => return Err(Error::Neo4jQueryFailed { message }.into()),
@@ -563,12 +557,12 @@ pub(crate) fn project_top_issues(
             };
 
             let query = "MATCH (n:Feature) RETURN (n);";
-            runtime
-                .block_on(db.run_with_metadata(query, None, None))
+            db.run_with_metadata(query, None, None)
+                .await
                 .expect("Expected successful query run.");
 
             let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-            let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+            let (response, records) = db.pull(Some(pull_meta)).await?;
             match response {
                 Message::Success(_) => (),
                 message => return Err(Error::Neo4jQueryFailed { message }.into()),

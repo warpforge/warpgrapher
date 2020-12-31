@@ -9,8 +9,6 @@ use crate::error::Error;
 use juniper::BoxFuture;
 use log::trace;
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 
 pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
     node_var: &'a NodeQueryVar,
@@ -18,7 +16,7 @@ pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
     info: &'a Info,
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &'a mut T,
     validators: &'a Validators,
 ) -> BoxFuture<'a, Result<Node<RequestCtx>, Error>>
 where
@@ -64,8 +62,7 @@ where
                 },
             )?;
 
-            let mut lock = transaction.lock().await;
-            let node = lock
+            let node = transaction
                 .create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
                 .await?;
 
@@ -73,12 +70,12 @@ where
                 let mut id_props = HashMap::new();
                 id_props.insert("id".to_string(), node.id()?.clone());
 
-                let fragment = lock.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
+                let fragment =
+                    transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
                 trace!(
                     "visit_node_create_mutation_input -- fragment: {:#?}",
                     fragment
                 );
-                std::mem::drop(lock);
 
                 for (k, v) in inputs.into_iter() {
                     let p = itd.property(&k)?;
@@ -101,7 +98,7 @@ where
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
                                         sg,
-                                        transaction.clone(),
+                                        transaction,
                                         validators,
                                     )
                                     .await?;
@@ -120,7 +117,7 @@ where
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     sg,
-                                    transaction.clone(),
+                                    transaction,
                                     validators,
                                 )
                                 .await?;
@@ -146,7 +143,7 @@ pub(super) async fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<i32, Error>
 where
     T: Transaction,
@@ -169,7 +166,7 @@ where
             ),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
@@ -198,7 +195,7 @@ fn visit_node_delete_mutation_input<'a, T, RequestCtx>(
     info: &'a Info,
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &'a mut T,
 ) -> BoxFuture<'a, Result<i32, Error>>
 where
     RequestCtx: RequestContext,
@@ -212,16 +209,14 @@ where
 
         let itd = info.type_def()?;
 
-        let mut lock = transaction.lock().await;
-        let nodes = lock
+        let nodes = transaction
             .read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)
             .await?;
         if nodes.is_empty() {
             return Ok(0);
         }
 
-        let fragment = lock.node_read_by_ids_fragment(node_var, &nodes)?;
-        std::mem::drop(lock);
+        let fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
         if let Some(Value::Map(m)) = input {
             for (k, v) in m.into_iter() {
@@ -244,7 +239,7 @@ where
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     sg,
-                                    transaction.clone(),
+                                    transaction,
                                 )
                                 .await?;
                             }
@@ -262,7 +257,7 @@ where
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
-                                transaction.clone(),
+                                transaction,
                             )
                             .await?;
                         }
@@ -272,8 +267,8 @@ where
             }
         }
 
-        let mut lock = transaction.lock().await;
-        lock.delete_nodes(fragment, node_var, partition_key_opt)
+        transaction
+            .delete_nodes(fragment, node_var, partition_key_opt)
             .await
     })
 }
@@ -284,7 +279,7 @@ async fn visit_node_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<QueryFragment, Error>
 where
@@ -318,7 +313,7 @@ where
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                     partition_key_opt,
                     sg,
-                    transaction.clone(),
+                    transaction,
                     validators,
                 )
                 .await?;
@@ -326,8 +321,7 @@ where
                 let mut id_props = HashMap::new();
                 id_props.insert("id".to_string(), node.id()?.clone());
 
-                let mut lock = transaction.lock().await;
-                Ok(lock.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
+                Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
             "$EXISTING" => Ok(visit_node_query_input(
                 node_var,
@@ -353,7 +347,7 @@ pub(super) fn visit_node_query_input<'a, T>(
     info: &'a Info,
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &'a mut T,
 ) -> BoxFuture<'a, Result<QueryFragment, Error>>
 where
     T: 'a + Transaction,
@@ -392,7 +386,7 @@ where
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
-                                transaction.clone(),
+                                transaction,
                             )
                             .await?,
                         );
@@ -401,11 +395,9 @@ where
                 }
             }
 
-            let mut lock = transaction.lock().await;
-            lock.node_read_fragment(rqfs, &node_var, props, sg)
+            transaction.node_read_fragment(rqfs, &node_var, props, sg)
         } else {
-            let mut lock = transaction.lock().await;
-            lock.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
+            transaction.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
         }
     })
 }
@@ -416,7 +408,7 @@ pub(super) async fn visit_node_update_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
@@ -442,7 +434,7 @@ where
             ),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
@@ -478,7 +470,7 @@ fn visit_node_update_mutation_input<'a, T, RequestCtx>(
     info: &'a Info,
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &'a mut T,
     validators: &'a Validators,
 ) -> BoxFuture<'a, Result<Vec<Node<RequestCtx>>, Error>>
 where
@@ -523,8 +515,7 @@ where
                 },
             )?;
 
-            let mut lock = transaction.lock().await;
-            let nodes = lock
+            let nodes = transaction
                 .update_nodes::<RequestCtx>(
                     query_fragment,
                     node_var,
@@ -536,8 +527,7 @@ where
             if nodes.is_empty() {
                 return Ok(nodes);
             }
-            let node_fragment = lock.node_read_by_ids_fragment(node_var, &nodes)?;
-            std::mem::drop(lock);
+            let node_fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
             for (k, v) in inputs.into_iter() {
                 // inputs.into_iter().try_for_each(|(k, v)| {
@@ -560,7 +550,7 @@ where
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     sg,
-                                    transaction.clone(),
+                                    transaction,
                                     validators,
                                 )
                                 .await?;
@@ -578,7 +568,7 @@ where
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
-                                transaction.clone(),
+                                transaction,
                                 validators,
                             )
                             .await?;
@@ -603,7 +593,7 @@ async fn visit_rel_change_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<(), Error>
 where
@@ -691,7 +681,7 @@ pub(super) async fn visit_rel_create_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
@@ -715,15 +705,13 @@ where
             ),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
-        let mut lock = transaction.lock().await;
-        let nodes = lock
+        let nodes = transaction
             .read_nodes::<RequestCtx>(src_var, src_fragment.clone(), partition_key_opt, info)
             .await?;
-        std::mem::drop(lock);
 
         if nodes.is_empty() {
             return Ok(Vec::new());
@@ -781,7 +769,7 @@ where
                             ),
                             partition_key_opt,
                             sg,
-                            transaction.clone(),
+                            transaction,
                             validators,
                         )
                         .await?,
@@ -806,7 +794,7 @@ async fn visit_rel_create_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
@@ -829,7 +817,7 @@ where
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
             validators,
         )
         .await?;
@@ -840,16 +828,16 @@ where
             Some(_) => return Err(Error::TypeNotExpected),
         };
 
-        let mut lock = transaction.lock().await;
-        lock.create_rels(
-            src_fragment,
-            dst_fragment,
-            rel_var,
-            props,
-            props_type_name,
-            partition_key_opt,
-        )
-        .await
+        transaction
+            .create_rels(
+                src_fragment,
+                dst_fragment,
+                rel_var,
+                props,
+                props_type_name,
+                partition_key_opt,
+            )
+            .await
     } else {
         Err(Error::TypeNotExpected)
     }
@@ -862,7 +850,7 @@ pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -884,20 +872,18 @@ where
             ),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
-        let mut lock = transaction.lock().await;
-        let rels = lock
+        let rels = transaction
             .read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)
             .await?;
         if rels.is_empty() {
             return Ok(0);
         }
 
-        let id_fragment = lock.rel_read_by_ids_fragment(rel_var, &rels)?;
-        std::mem::drop(lock);
+        let id_fragment = transaction.rel_read_by_ids_fragment(rel_var, &rels)?;
 
         if let Some(src) = m.remove("src") {
             // Uses remove to take ownership
@@ -911,7 +897,7 @@ where
                 ),
                 partition_key_opt,
                 sg,
-                transaction.clone(),
+                transaction,
             )
             .await?;
         }
@@ -928,13 +914,13 @@ where
                 ),
                 partition_key_opt,
                 sg,
-                transaction.clone(),
+                transaction,
             )
             .await?;
         }
 
-        let mut lock = transaction.lock().await;
-        lock.delete_rels(id_fragment, rel_var, partition_key_opt)
+        transaction
+            .delete_rels(id_fragment, rel_var, partition_key_opt)
             .await
     } else {
         Err(Error::TypeNotExpected)
@@ -948,7 +934,7 @@ async fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -990,7 +976,7 @@ async fn visit_rel_dst_query_input<T>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<Option<QueryFragment>, Error>
 where
     T: Transaction,
@@ -1031,7 +1017,7 @@ async fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
@@ -1073,7 +1059,7 @@ async fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<QueryFragment, Error>
 where
@@ -1119,7 +1105,7 @@ pub(super) async fn visit_rel_query_input<T>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<QueryFragment, Error>
 where
     T: Transaction,
@@ -1151,7 +1137,7 @@ where
                 &Info::new(src_prop.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 sg,
-                transaction.clone(),
+                transaction,
             )
             .await?
         } else {
@@ -1166,18 +1152,16 @@ where
                 &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
                 partition_key_opt,
                 sg,
-                transaction.clone(),
+                transaction,
             )
             .await?
         } else {
             None
         };
 
-        let mut lock = transaction.lock().await;
-        lock.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
     } else {
-        let mut lock = transaction.lock().await;
-        lock.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
+        transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }
 }
 
@@ -1188,7 +1172,7 @@ async fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -1231,7 +1215,7 @@ async fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
@@ -1274,7 +1258,7 @@ async fn visit_rel_src_query_input<T>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
 ) -> Result<Option<QueryFragment>, Error>
 where
     T: Transaction,
@@ -1318,7 +1302,7 @@ pub(super) async fn visit_rel_update_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
@@ -1342,7 +1326,7 @@ where
             ),
             partition_key_opt,
             sg,
-            transaction.clone(),
+            transaction,
         )
         .await?;
 
@@ -1384,7 +1368,7 @@ async fn visit_rel_update_mutation_input<T, RequestCtx>(
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
-    transaction: Arc<Mutex<T>>,
+    transaction: &mut T,
     validators: &Validators,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
@@ -1404,8 +1388,7 @@ where
             HashMap::new()
         };
 
-        let mut lock = transaction.lock().await;
-        let rels = lock
+        let rels = transaction
             .update_rels::<RequestCtx>(
                 query_fragment,
                 rel_var,
@@ -1418,8 +1401,7 @@ where
             return Ok(rels);
         }
 
-        let id_fragment = lock.rel_read_by_ids_fragment(rel_var, &rels)?;
-        std::mem::drop(lock);
+        let id_fragment = transaction.rel_read_by_ids_fragment(rel_var, &rels)?;
 
         if let Some(src) = m.remove("src") {
             // calling remove to take ownership
@@ -1433,7 +1415,7 @@ where
                 ),
                 partition_key_opt,
                 sg,
-                transaction.clone(),
+                transaction,
                 validators,
             )
             .await?;

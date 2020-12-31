@@ -153,16 +153,19 @@ impl<RequestCtx> GraphQLValueAsync for Input<RequestCtx> where RequestCtx: Reque
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-///     let typename = "User";
+/// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+///     Box::pin(async move {
+///         let typename = "User";
 ///
-///     let mut props = HashMap::new();
-///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+///         let mut props = HashMap::new();
+///         props.insert("role".to_string(), Value::String("Admin".to_string()));
 ///
-///     let n = facade.create_node(typename, props);
+///         let n = facade.create_node(typename, props);
 ///
-///     facade.resolve_node(&n)
+///         facade.resolve_node(&n).await
+///     })
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -659,18 +662,21 @@ pub(crate) enum NodeRef<RequestCtx: RequestContext> {
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-///     // do work
-///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+/// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+///     Box::pin(async move {
+///         // do work
+///        let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
 ///
-///     let mut hm1 = HashMap::new();
-///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+///         let mut hm1 = HashMap::new();
+///         hm1.insert("role".to_string(), Value::String("member".to_string()));
 ///
-///     // return rel
-///     facade.resolve_rel(&facade.create_rel(
-///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-///         Some(hm1), node_id, "DstNodeLabel")?)
+///         // return rel
+///         facade.resolve_rel(&facade.create_rel(
+///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+///             Some(hm1), node_id, "DstNodeLabel")?).await
+///     })
 /// }
 /// ```
 #[derive(Clone, Debug)]

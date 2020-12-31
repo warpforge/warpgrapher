@@ -387,14 +387,15 @@ where
     /// # use serde_json::{from_value, json};
     /// # use std::collections::HashMap;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
     ///
     /// let metadata: HashMap<String, String> = HashMap::new();
     /// let req_body = json!({"query": "query { name }"});
     ///
-    /// let result = engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata)?;
+    /// let result = engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -669,7 +670,7 @@ mod tests {
     }
 
     pub fn my_resolver(executor: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
-        Box::pin(async move { executor.resolve_scalar(1 as i32) })
+        Box::pin(async move { executor.resolve_scalar(1) })
     }
 
     fn my_validator(_value: &Value) -> Result<(), Error> {
