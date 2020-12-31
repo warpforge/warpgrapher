@@ -12,10 +12,10 @@ To update the `status` of the `Project` node with `name == "Project 2"`:
 mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 name: "Project 2"
             },
-            $SET: {
+            SET: {
                 status: "INACTIVE"
             }
         }
@@ -32,7 +32,7 @@ To update the status of any `Project` nodes containing an `owner` relationship t
 mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 owner: {
                     dst: {
                         User: {
@@ -41,7 +41,7 @@ mutation {
                     }
                 }
             },
-            $SET: {
+            SET: {
                 status: "INACTIVE"
             }
         }
@@ -58,16 +58,16 @@ To update a specific `Project` node to add several `issue` relationships to new 
 mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 id: "<ID>"
             },
-            $SET: {
+            SET: {
                 issues: [
                     {
-                        $ADD: {
+                        ADD: {
                             dst: {
                                 Feature: {
-                                    $NEW: {
+                                    NEW: {
                                         name: "Add login page"
                                     }
                                 }
@@ -75,10 +75,10 @@ mutation {
                         }
                     },
                     {
-                        $ADD: {
+                        ADD: {
                             dst: {
                                 Bug: {
-                                    $NEW: {
+                                    NEW: {
                                         name: "Fix auth bug"
                                     }
                                 }

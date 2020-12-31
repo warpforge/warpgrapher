@@ -330,7 +330,7 @@ where
                 },
             ))
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None})
         }
     }
 
@@ -387,7 +387,7 @@ where
                 NodeRef::Node(dst),
             ))
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 
@@ -469,7 +469,7 @@ where
         if let Object::Node(n) = self.parent {
             Ok(n)
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 

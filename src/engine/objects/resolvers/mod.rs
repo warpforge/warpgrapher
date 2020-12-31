@@ -4,6 +4,8 @@ use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::gremlin::GremlinTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::database::Comparison;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::database::{NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction};
@@ -13,6 +15,8 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -228,7 +232,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            &executor.context().validators(),
+            executor.context(),
         )
         .await;
 
@@ -269,6 +273,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut GremlinTransaction::new(c.clone(), true, false),
+                    executor,
                 )
                 .await
             }
@@ -280,6 +285,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
                 )
                 .await
             }
@@ -292,6 +298,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut Neo4jTransaction::new(c),
+                    executor,
                 )
                 .await
             }
@@ -314,6 +321,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -335,6 +343,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
+            executor.context(),
         )
         .await;
 
@@ -370,6 +379,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut GremlinTransaction::new(c.clone(), true, false),
+                    executor,
                 )
                 .await
             }
@@ -380,6 +390,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
                 )
                 .await
             }
@@ -391,6 +402,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut Neo4jTransaction::new(c),
+                    executor,
                 )
                 .await
             }
@@ -426,6 +438,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -451,9 +464,21 @@ impl<'r> Resolver<'r> {
             transaction.begin().await?;
         }
 
+        let input_value_opt = if let Some(handlers) = executor
+            .context()
+            .event_handlers()
+            .before_node_read(node_var.label()?)
+        {
+            handlers
+                .iter()
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
         let query_fragment = visit_node_query_input(
             &node_var,
-            input_opt.map(|i| i.value),
+            input_value_opt,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
@@ -463,7 +488,18 @@ impl<'r> Resolver<'r> {
 
         let results = transaction
             .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-            .await;
+            .await
+            .and_then(|r| {
+                node_var.label().and_then(|label| {
+                    if let Some(handlers) =
+                        executor.context().event_handlers().after_node_read(label)
+                    {
+                        handlers.iter().try_fold(r, |v, f| f(v))
+                    } else {
+                        Ok(r)
+                    }
+                })
+            });
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -571,7 +607,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            &executor.context().validators(),
+            executor.context(),
         )
         .await;
 
@@ -670,7 +706,6 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         let mut sg = SuffixGenerator::new();
-        let validators = &executor.context().validators();
 
         let td = info.type_def()?;
         let p = td.property(field_name)?;
@@ -692,7 +727,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            validators,
+            executor.context(),
         )
         .await;
 
@@ -731,6 +766,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut GremlinTransaction::new(c.clone(), true, false),
+                    executor,
                 )
                 .await
             }
@@ -743,6 +779,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
                 )
                 .await
             }
@@ -756,6 +793,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input,
                     &mut Neo4jTransaction::new(c),
+                    executor,
                 )
                 .await
             }
@@ -766,6 +804,7 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
@@ -774,6 +813,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -801,6 +841,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
+            executor.context(),
         )
         .await;
 
@@ -865,6 +906,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut GremlinTransaction::new(c.clone(), true, false),
+                    executor,
                 )
                 .await
             }
@@ -876,6 +918,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
                 )
                 .await
             }
@@ -888,6 +931,7 @@ impl<'r> Resolver<'r> {
                     info,
                     input_opt,
                     &mut Neo4jTransaction::new(c),
+                    executor,
                 )
                 .await
             }
@@ -938,6 +982,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -964,10 +1009,22 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin().await?;
         }
+
+        let input_value_opt = if let Some(handlers) =
+            executor.context().event_handlers().before_rel_read(
+                &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+            ) {
+            handlers
+                .iter()
+                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
         let query_fragment = visit_rel_query_input(
             None,
             &rel_var,
-            input_opt.map(|i| i.value),
+            input_value_opt,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
@@ -981,7 +1038,16 @@ impl<'r> Resolver<'r> {
                 Some(p.type_name()),
                 self.partition_key_opt,
             )
-            .await;
+            .await
+            .and_then(|r| {
+                if let Some(handlers) = executor.context().event_handlers().after_rel_read(
+                    &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+                ) {
+                    handlers.iter().try_fold(r, |v, f| f(v))
+                } else {
+                    Ok(r)
+                }
+            });
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
@@ -1082,7 +1148,6 @@ impl<'r> Resolver<'r> {
         T: Transaction,
     {
         let mut sg = SuffixGenerator::new();
-        let validators = &executor.context().validators();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
@@ -1105,7 +1170,7 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            validators,
+            executor.context(),
         )
         .await;
 
@@ -1175,10 +1240,10 @@ impl<'r> Resolver<'r> {
                         }
                     }
                     Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
-                        Err(Error::TypeNotExpected.into())
+                        Err((Error::TypeNotExpected { details: None }).into())
                     }
                 },
-                Value::Map(_) => Err(Error::TypeNotExpected.into()),
+                Value::Map(_) => Err((Error::TypeNotExpected { details: None }).into()),
             },
         )
     }
@@ -1291,7 +1356,7 @@ impl<'r> Resolver<'r> {
                 let node_var =
                     NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
-                props.insert("id".to_string(), dst_id.clone());
+                props.insert("id".to_string(), Comparison::default(dst_id.clone()));
                 let query_fragment =
                     transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
                 transaction

@@ -36,6 +36,8 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::DatabasePool;
 #[cfg(feature = "neo4j")]
+use warpgrapher::engine::events::EventHandlerBag;
+#[cfg(feature = "neo4j")]
 use warpgrapher::engine::extensions::Extensions;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::resolvers::ExecutionResult;
@@ -51,6 +53,8 @@ use warpgrapher::juniper::BoxFuture;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
+#[cfg(feature = "gremlin")]
+use warpgrapher::engine::database::env_bool;
 
 #[allow(dead_code)]
 pub(crate) fn init() {
@@ -117,22 +121,28 @@ fn gremlin_port() -> u16 {
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-fn gremlin_user() -> String {
+fn gremlin_user() -> Option<String> {
     var_os("WG_GREMLIN_USER")
-        .expect("Expected WG_GREMLIN_USER to be set.")
-        .to_str()
-        .expect("Expected WG_GREMLIN_USER to be a string.")
-        .to_owned()
+    .map(|osstr| osstr.to_string_lossy().into_owned())
 }
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-fn gremlin_pass() -> String {
+fn gremlin_pass() -> Option<String> {
     var_os("WG_GREMLIN_PASS")
-        .expect("Expected WG_GREMLIN_PASS to be set.")
-        .to_str()
-        .expect("Expected WG_GREMLIN_PASS to be a string.")
-        .to_owned()
+    .map(|osstr| osstr.to_string_lossy().into_owned())
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_use_tls() -> bool {
+    env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true)
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "gremlin")]
+fn gremlin_accept_invalid_tls() -> bool {
+    env_bool("WG_GREMLIN_CERT").unwrap_or(true)
 }
 
 #[cfg(feature = "neo4j")]
@@ -210,6 +220,15 @@ fn load_config(config: &str) -> Configuration {
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
 pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppRequestCtx> {
+    neo4j_test_client_with_events(config_path, EventHandlerBag::new()).await
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "neo4j")]
+pub(crate) async fn neo4j_test_client_with_events(
+    config_path: &str,
+    ehb: EventHandlerBag<AppRequestCtx>,
+) -> Client<AppRequestCtx> {
     // load config
     let config: Configuration = File::open(config_path)
         .expect("Failed to load config file")
@@ -241,6 +260,7 @@ pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<AppRequestCtx
         .with_resolvers(resolvers.clone())
         .with_validators(validators.clone())
         .with_extensions(extensions.clone())
+        .with_event_handlers(ehb)
         .build()
         .expect("Could not create warpgrapher engine");
 
@@ -309,22 +329,23 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<AppRequestC
 #[cfg(feature = "gremlin")]
 #[allow(dead_code)]
 fn clear_gremlin_db() {
-    let client = GremlinClient::connect(
-        ConnectionOptions::builder()
-            .host(gremlin_host())
-            .port(gremlin_port())
-            .pool_size(1)
-            .ssl(true)
-            .tls_options(TlsOptions {
-                accept_invalid_certs: true,
-            })
-            .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3)
-            .credentials(&gremlin_user(), &gremlin_pass())
-            .build(),
-    )
+    let mut options_builder = ConnectionOptions::builder()
+        .host(gremlin_host())
+        .port(gremlin_port())
+        .pool_size(num_cpus::get().try_into().unwrap_or(8))
+        .serializer(GraphSON::V3)
+        .deserializer(GraphSON::V3);
+    if let (Some(user), Some(pass)) = (gremlin_user(), gremlin_pass()) {
+        options_builder = options_builder.credentials(&user, &pass);
+    }
+    if gremlin_use_tls() {
+        options_builder = options_builder.ssl(true).tls_options(TlsOptions {
+            accept_invalid_certs: gremlin_accept_invalid_tls(),
+        });
+    }
+    let options = options_builder.build();
+    let client = GremlinClient::connect(options)
     .expect("Expected successful gremlin client creation.");
-
     let _ = client.execute("g.V().drop()", &[]);
 }
 

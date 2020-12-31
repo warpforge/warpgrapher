@@ -1,14 +1,16 @@
-use crate::engine::context::RequestContext;
-use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
+use crate::engine::context::{GraphQLContext, RequestContext};
+use crate::engine::database::{Comparison, NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
+use inflector::Inflector;
 use juniper::BoxFuture;
 use log::trace;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 
 pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
     node_var: &'a NodeQueryVar,
@@ -17,7 +19,7 @@ pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut T,
-    validators: &'a Validators,
+    context: &'a GraphQLContext<RequestCtx>,
 ) -> BoxFuture<'a, Result<Node<RequestCtx>, Error>>
 where
     T: 'a + Transaction,
@@ -31,15 +33,26 @@ where
         info.name()
     );
 
+        let input = if let Some(handlers) = context
+            .event_handlers()
+            .before_node_create(node_var.label()?)
+        {
+            handlers.iter().try_fold(input, |v, f| f(v))?
+        } else {
+            input
+        };
+
         let itd = info.type_def()?;
 
         if let Value::Map(ref m) = input {
             m.keys().try_for_each(|k| {
                 let p = itd.property(k)?;
                 match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => p
-                        .validator()
-                        .map_or(Ok(()), |v_name| validate_input(validators, &v_name, &input)),
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                        p.validator().map_or(Ok(()), |v_name| {
+                            validate_input(context.validators(), &v_name, &input)
+                        })
+                    }
                     _ => Ok(()), // No validation action to take
                 }
             })?
@@ -56,7 +69,7 @@ where
                         PropertyKind::Input => {
                             inputs.insert(k, v);
                         }
-                        _ => return Err(Error::TypeNotExpected),
+                        _ => return Err(Error::TypeNotExpected { details: None }),
                     }
                     Ok((props, inputs))
                 },
@@ -64,11 +77,27 @@ where
 
             let node = transaction
                 .create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
-                .await?;
+                .await
+                .and_then(|n| {
+                    if let Some(handlers) = context
+                        .event_handlers()
+                        .after_node_create(node_var.label()?)
+                    {
+                        handlers
+                            .iter()
+                            .try_fold(vec![n], |v, f| f(v))?
+                            .pop()
+                            .ok_or_else(|| Error::ResponseItemNotFound {
+                                name: "Node from after_node_create handler".to_string(),
+                            })
+                    } else {
+                        Ok(n)
+                    }
+                })?;
 
             if !inputs.is_empty() {
                 let mut id_props = HashMap::new();
-                id_props.insert("id".to_string(), node.id()?.clone());
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
 
                 let fragment =
                     transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
@@ -99,7 +128,7 @@ where
                                         partition_key_opt,
                                         sg,
                                         transaction,
-                                        validators,
+                                        context,
                                     )
                                     .await?;
                                 }
@@ -118,12 +147,12 @@ where
                                     partition_key_opt,
                                     sg,
                                     transaction,
-                                    validators,
+                                    context,
                                 )
                                 .await?;
                             }
                         }
-                        _ => return Err(Error::TypeNotExpected),
+                        _ => return Err(Error::TypeNotExpected { details: None }),
                     }
                 }
             }
@@ -132,7 +161,7 @@ where
 
             Ok(node)
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None })
         }
     })
 }
@@ -144,6 +173,7 @@ pub(super) async fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<i32, Error>
 where
     T: Transaction,
@@ -155,13 +185,22 @@ where
         info.name()
     );
 
+    let input = if let Some(handlers) = context
+        .event_handlers()
+        .before_node_delete(node_var.label()?)
+    {
+        handlers.iter().try_fold(input, |v, f| f(v))?
+    } else {
+        input
+    };
+
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
         let fragment = visit_node_query_input(
             node_var,
-            m.remove("$MATCH"), // Remove used to take ownership
+            m.remove("MATCH"), // Remove used to take ownership
             &Info::new(
-                itd.property("$MATCH")?.type_name().to_owned(),
+                itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -173,21 +212,23 @@ where
         visit_node_delete_mutation_input::<T, RequestCtx>(
             fragment,
             &node_var,
-            m.remove("$DELETE"),
+            m.remove("DELETE"),
             &Info::new(
-                itd.property("$DELETE")?.type_name().to_owned(),
+                itd.property("DELETE")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
             sg,
             transaction,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn visit_node_delete_mutation_input<'a, T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &'a NodeQueryVar,
@@ -196,6 +237,7 @@ fn visit_node_delete_mutation_input<'a, T, RequestCtx>(
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut T,
+    context: &'a GraphQLContext<RequestCtx>,
 ) -> BoxFuture<'a, Result<i32, Error>>
 where
     RequestCtx: RequestContext,
@@ -213,6 +255,12 @@ where
             .read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)
             .await?;
         if nodes.is_empty() {
+            if let Some(handlers) = context
+                .event_handlers()
+                .after_node_delete(node_var.label()?)
+            {
+                handlers.iter().try_fold(Vec::new(), |v, f| f(v))?;
+            }
             return Ok(0);
         }
 
@@ -240,6 +288,7 @@ where
                                     partition_key_opt,
                                     sg,
                                     transaction,
+                                    context,
                                 )
                                 .await?;
                             }
@@ -258,18 +307,28 @@ where
                                 partition_key_opt,
                                 sg,
                                 transaction,
+                                context,
                             )
                             .await?;
                         }
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
             }
         }
 
-        transaction
+        let result = transaction
             .delete_nodes(fragment, node_var, partition_key_opt)
-            .await
+            .await;
+
+        if let Some(handlers) = context
+            .event_handlers()
+            .after_node_delete(node_var.label()?)
+        {
+            handlers.iter().try_fold(nodes, |v, f| f(v))?;
+        }
+
+        result
     })
 }
 
@@ -280,7 +339,7 @@ async fn visit_node_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<QueryFragment, Error>
 where
     T: Transaction,
@@ -300,13 +359,13 @@ where
             .into_iter()
             .next()
             .ok_or_else(|| Error::InputItemNotFound {
-                name: info.name().to_string() + "::$NEW or ::$EXISTING",
+                name: info.name().to_string() + "::NEW or ::EXISTING",
             })?;
 
         let p = itd.property(&k)?;
 
         match k.as_ref() {
-            "$NEW" => {
+            "NEW" => {
                 let node = visit_node_create_mutation_input::<T, RequestCtx>(
                     node_var,
                     v,
@@ -314,16 +373,16 @@ where
                     partition_key_opt,
                     sg,
                     transaction,
-                    validators,
+                    context,
                 )
                 .await?;
 
                 let mut id_props = HashMap::new();
-                id_props.insert("id".to_string(), node.id()?.clone());
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
 
                 Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
-            "$EXISTING" => Ok(visit_node_query_input(
+            "EXISTING" => Ok(visit_node_query_input(
                 node_var,
                 Some(v),
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -337,7 +396,7 @@ where
             }),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -369,8 +428,11 @@ where
             for (k, v) in m.into_iter() {
                 let p = itd.property(&k)?;
                 match p.kind() {
+                    PropertyKind::ScalarComp => {
+                        props.insert(k, Comparison::try_from(v)?);
+                    }
                     PropertyKind::Scalar => {
-                        props.insert(k, v);
+                        props.insert(k, Comparison::default(v));
                     }
                     PropertyKind::Input => {
                         rqfs.push(
@@ -391,7 +453,7 @@ where
                             .await?,
                         );
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
             }
 
@@ -409,7 +471,7 @@ pub(super) async fn visit_node_update_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -422,14 +484,23 @@ where
         info.name()
     );
 
+    let input = if let Some(handlers) = context
+        .event_handlers()
+        .before_node_update(node_var.label()?)
+    {
+        handlers.iter().try_fold(input, |v, f| f(v))?
+    } else {
+        input
+    };
+
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
         let query_fragment = visit_node_query_input(
             node_var,
-            m.remove("$MATCH"), // Remove used to take ownership
+            m.remove("MATCH"), // Remove used to take ownership
             &Info::new(
-                itd.property("$MATCH")?.type_name().to_owned(),
+                itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -441,24 +512,24 @@ where
         visit_node_update_mutation_input::<T, RequestCtx>(
             query_fragment,
             node_var,
-            m.remove("$SET").ok_or_else(|| {
+            m.remove("SET").ok_or_else(|| {
                 // remove() used here to take ownership of the "set" value, not borrow it
                 Error::InputItemNotFound {
-                    name: "input::$SET".to_string(),
+                    name: "input::SET".to_string(),
                 }
             })?,
             &Info::new(
-                itd.property("$SET")?.type_name().to_owned(),
+                itd.property("SET")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
             sg,
             transaction,
-            validators,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -471,7 +542,7 @@ fn visit_node_update_mutation_input<'a, T, RequestCtx>(
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut T,
-    validators: &'a Validators,
+    context: &'a GraphQLContext<RequestCtx>,
 ) -> BoxFuture<'a, Result<Vec<Node<RequestCtx>>, Error>>
 where
     T: 'a + Transaction,
@@ -490,9 +561,11 @@ where
                 let p = itd.property(k)?;
 
                 match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => p
-                        .validator()
-                        .map_or(Ok(()), |v_name| validate_input(validators, &v_name, &input)),
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                        p.validator().map_or(Ok(()), |v_name| {
+                            validate_input(context.validators(), &v_name, &input)
+                        })
+                    }
                     _ => Ok(()), // No validation action to take
                 }
             })?;
@@ -509,7 +582,7 @@ where
                         PropertyKind::Input => {
                             inputs.insert(k, v);
                         }
-                        _ => return Err(Error::TypeNotExpected),
+                        _ => return Err(Error::TypeNotExpected { details: None }),
                     }
                     Ok((props, inputs))
                 },
@@ -523,14 +596,23 @@ where
                     partition_key_opt,
                     info,
                 )
-                .await?;
+                .await
+                .and_then(|n| {
+                    if let Some(handlers) = context
+                        .event_handlers()
+                        .after_node_update(node_var.label()?)
+                    {
+                        handlers.iter().try_fold(n, |v, f| f(v))
+                    } else {
+                        Ok(n)
+                    }
+                })?;
             if nodes.is_empty() {
                 return Ok(nodes);
             }
             let node_fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
             for (k, v) in inputs.into_iter() {
-                // inputs.into_iter().try_for_each(|(k, v)| {
                 let p = itd.property(&k)?;
 
                 match p.kind() {
@@ -551,7 +633,7 @@ where
                                     partition_key_opt,
                                     sg,
                                     transaction,
-                                    validators,
+                                    context,
                                 )
                                 .await?;
                             }
@@ -569,18 +651,18 @@ where
                                 partition_key_opt,
                                 sg,
                                 transaction,
-                                validators,
+                                context,
                             )
                             .await?;
                         }
                     }
-                    _ => return Err(Error::TypeNotExpected),
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
             }
 
             Ok(nodes)
         } else {
-            Err(Error::TypeNotExpected)
+            Err(Error::TypeNotExpected { details: None })
         }
     })
 }
@@ -594,7 +676,7 @@ async fn visit_rel_change_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<(), Error>
 where
     T: Transaction,
@@ -608,7 +690,7 @@ where
     let itd = info.type_def()?;
 
     if let Value::Map(mut m) = input {
-        if let Some(v) = m.remove("$ADD") {
+        if let Some(v) = m.remove("ADD") {
             // Using remove to take ownership
             visit_rel_create_mutation_input::<T, RequestCtx>(
                 src_fragment,
@@ -616,35 +698,36 @@ where
                 None,
                 v,
                 &Info::new(
-                    itd.property("$ADD")?.type_name().to_owned(),
+                    itd.property("ADD")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
                 sg,
                 transaction,
-                validators,
+                context,
             )
             .await?;
 
             Ok(())
-        } else if let Some(v) = m.remove("$DELETE") {
+        } else if let Some(v) = m.remove("DELETE") {
             // Using remove to take ownership
             visit_rel_delete_input::<T, RequestCtx>(
                 Some(src_fragment),
                 rel_var,
                 v,
                 &Info::new(
-                    itd.property("$DELETE")?.type_name().to_owned(),
+                    itd.property("DELETE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
                 sg,
                 transaction,
+                context,
             )
             .await?;
 
             Ok(())
-        } else if let Some(v) = m.remove("$UPDATE") {
+        } else if let Some(v) = m.remove("UPDATE") {
             // Using remove to take ownership
             visit_rel_update_input::<T, RequestCtx>(
                 Some(src_fragment),
@@ -652,23 +735,23 @@ where
                 None,
                 v,
                 &Info::new(
-                    itd.property("$UPDATE")?.type_name().to_owned(),
+                    itd.property("UPDATE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
                 sg,
                 transaction,
-                validators,
+                context,
             )
             .await?;
             Ok(())
         } else {
             Err(Error::InputItemNotFound {
-                name: itd.type_name().to_string() + "::$ADD|$DELETE|$UPDATE",
+                name: itd.type_name().to_string() + "::ADD|DELETE|UPDATE",
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -682,7 +765,7 @@ pub(super) async fn visit_rel_create_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -693,14 +776,21 @@ where
         src_var, rel_name, input, info.name()
     );
 
+    let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
+    let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
+        handlers.iter().try_fold(input, |v, f| f(v))?
+    } else {
+        input
+    };
+
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
         let src_fragment = visit_node_query_input(
             src_var,
-            m.remove("$MATCH"), // Remove used to take ownership
+            m.remove("MATCH"), // Remove used to take ownership
             &Info::new(
-                itd.property("$MATCH")?.type_name().to_owned(),
+                itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -717,10 +807,10 @@ where
             return Ok(Vec::new());
         }
 
-        let create_input = m.remove("$CREATE").ok_or_else(|| {
+        let create_input = m.remove("CREATE").ok_or_else(|| {
             // Using remove to take ownership
             Error::InputItemNotFound {
-                name: "input::$CREATE".to_string(),
+                name: "input::CREATE".to_string(),
             }
         })?;
 
@@ -738,13 +828,13 @@ where
                     props_type_name,
                     create_input,
                     &Info::new(
-                        itd.property("$CREATE")?.type_name().to_owned(),
+                        itd.property("CREATE")?.type_name().to_owned(),
                         info.type_defs(),
                     ),
                     partition_key_opt,
                     sg,
                     transaction,
-                    validators,
+                    context,
                 )
                 .await
             }
@@ -764,13 +854,13 @@ where
                             props_type_name,
                             create_input_value,
                             &Info::new(
-                                itd.property("$CREATE")?.type_name().to_owned(),
+                                itd.property("CREATE")?.type_name().to_owned(),
                                 info.type_defs(),
                             ),
                             partition_key_opt,
                             sg,
                             transaction,
-                            validators,
+                            context,
                         )
                         .await?,
                     );
@@ -778,10 +868,10 @@ where
                 Ok(rels)
             }
 
-            _ => Err(Error::TypeNotExpected),
+            _ => Err(Error::TypeNotExpected { details: None }),
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -795,7 +885,7 @@ async fn visit_rel_create_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -818,16 +908,18 @@ where
             partition_key_opt,
             sg,
             transaction,
-            validators,
+            context,
         )
         .await?;
 
         let props = match m.remove("props") {
             None => HashMap::new(),
             Some(Value::Map(hm)) => hm,
-            Some(_) => return Err(Error::TypeNotExpected),
+            Some(_) => return Err(Error::TypeNotExpected { details: None }),
         };
 
+        let rel_label =
+            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         transaction
             .create_rels(
                 src_fragment,
@@ -838,11 +930,19 @@ where
                 partition_key_opt,
             )
             .await
+            .and_then(|rels| {
+                if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
+                    handlers.iter().try_fold(rels, |v, f| f(v))
+                } else {
+                    Ok(rels)
+                }
+            })
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
@@ -851,6 +951,7 @@ pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -859,15 +960,22 @@ where
     trace!("visit_rel_delete_input called -- src_query_opt: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
     src_query_opt, rel_var, input, info.name());
 
+    let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+    let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
+        handlers.iter().try_fold(input, |v, f| f(v))?
+    } else {
+        input
+    };
+
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
         let fragment = visit_rel_query_input(
             src_query_opt,
             rel_var,
-            m.remove("$MATCH"), // remove rather than get to take ownership
+            m.remove("MATCH"), // remove rather than get to take ownership
             &Info::new(
-                itd.property("$MATCH")?.type_name().to_owned(),
+                itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -876,10 +984,15 @@ where
         )
         .await?;
 
+        let rel_label =
+            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels = transaction
             .read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)
             .await?;
         if rels.is_empty() {
+            if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
+                handlers.iter().try_fold(Vec::new(), |v, f| f(v))?;
+            }
             return Ok(0);
         }
 
@@ -898,6 +1011,7 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
+                context,
             )
             .await?;
         }
@@ -915,18 +1029,26 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
+                context,
             )
             .await?;
         }
 
-        transaction
+        let result = transaction
             .delete_rels(id_fragment, rel_var, partition_key_opt)
-            .await
+            .await;
+
+        if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
+            handlers.iter().try_fold(rels, |v, f| f(v))?;
+        }
+
+        result
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
@@ -935,6 +1057,7 @@ async fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -963,10 +1086,11 @@ where
             partition_key_opt,
             sg,
             transaction,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1018,7 +1142,7 @@ async fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -1045,11 +1169,11 @@ where
             partition_key_opt,
             sg,
             transaction,
-            validators,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1060,7 +1184,7 @@ async fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<QueryFragment, Error>
 where
     T: Transaction,
@@ -1090,11 +1214,11 @@ where
             partition_key_opt,
             sg,
             transaction,
-            validators,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1129,6 +1253,11 @@ where
             props.insert("id".to_owned(), id);
         }
 
+        let mut value_props: HashMap<String, Comparison> = HashMap::new();
+        for (k, v) in props.drain() {
+            value_props.insert(k.to_string(), Comparison::try_from(v)?);
+        }
+
         // Remove used to take ownership
         let src_fragment_opt = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input(
@@ -1159,12 +1288,13 @@ where
             None
         };
 
-        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, props, sg)
+        transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, value_props, sg)
     } else {
         transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
@@ -1173,6 +1303,7 @@ async fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<i32, Error>
 where
     RequestCtx: RequestContext,
@@ -1200,10 +1331,11 @@ where
             partition_key_opt,
             sg,
             transaction,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1216,7 +1348,7 @@ async fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Node<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -1244,11 +1376,11 @@ where
             partition_key_opt,
             sg,
             transaction,
-            validators,
+            context,
         )
         .await
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1303,7 +1435,7 @@ pub(super) async fn visit_rel_update_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -1313,15 +1445,22 @@ where
          "visit_rel_update_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
          src_fragment_opt, rel_var, props_type_name, input, info.name());
 
+    let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+    let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
+        handlers.iter().try_fold(input, |v, f| f(v))?
+    } else {
+        input
+    };
+
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
         let fragment = visit_rel_query_input(
             src_fragment_opt,
             &rel_var,
-            m.remove("$MATCH"), // uses remove to take ownership
+            m.remove("MATCH"), // uses remove to take ownership
             &Info::new(
-                itd.property("$MATCH")?.type_name().to_owned(),
+                itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
             partition_key_opt,
@@ -1332,7 +1471,7 @@ where
 
         trace!("visit_rel_update_input -- fragment: {:#?}", fragment);
 
-        if let Some(update) = m.remove("$SET") {
+        if let Some(update) = m.remove("SET") {
             // remove used to take ownership
             visit_rel_update_mutation_input::<T, RequestCtx>(
                 fragment,
@@ -1340,22 +1479,22 @@ where
                 props_type_name,
                 update,
                 &Info::new(
-                    itd.property("$SET")?.type_name().to_owned(),
+                    itd.property("SET")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
                 partition_key_opt,
                 sg,
                 transaction,
-                validators,
+                context,
             )
             .await
         } else {
             Err(Error::InputItemNotFound {
-                name: "input::$SET".to_string(),
+                name: "input::SET".to_string(),
             })
         }
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1369,7 +1508,7 @@ async fn visit_rel_update_mutation_input<T, RequestCtx>(
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut T,
-    validators: &Validators,
+    context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error>
 where
     T: Transaction,
@@ -1388,6 +1527,8 @@ where
             HashMap::new()
         };
 
+        let rel_label =
+            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels = transaction
             .update_rels::<RequestCtx>(
                 query_fragment,
@@ -1396,7 +1537,14 @@ where
                 props_type_name,
                 partition_key_opt,
             )
-            .await?;
+            .await
+            .and_then(|rels| {
+                if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
+                    handlers.iter().try_fold(rels, |v, f| f(v))
+                } else {
+                    Ok(rels)
+                }
+            })?;
         if rels.is_empty() {
             return Ok(rels);
         }
@@ -1416,7 +1564,7 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-                validators,
+                context,
             )
             .await?;
         }
@@ -1433,14 +1581,14 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-                validators,
+                context,
             )
             .await?;
         }
 
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected)
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 

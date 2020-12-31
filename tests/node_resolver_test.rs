@@ -21,7 +21,6 @@ async fn create_single_node(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name description status priority estimate active", Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
-            // &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN"}),
         )
         .await
         .unwrap();
@@ -95,7 +94,7 @@ async fn read_query(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name description status priority estimate active",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -170,7 +169,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -191,7 +190,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
             &json!({"status": "ACTIVE"}),
         )
         .await
@@ -207,7 +206,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -317,7 +316,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -337,7 +336,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
             None,
         )
         .await
@@ -349,7 +348,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -412,7 +411,7 @@ async fn delete_mutation_null_query(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project1"})),
+            Some(&json!({"name": {"EQ": "Project1"}})),
         )
         .await
         .unwrap();
@@ -454,7 +453,7 @@ async fn error_on_node_missing_id(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name",
             Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
         .unwrap();
@@ -466,7 +465,7 @@ async fn error_on_node_missing_id(mut client: Client<AppRequestCtx>) {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "Project One"})),
+            Some(&json!({"name": {"EQ": "Project One"}})),
             &json!({"status": "ACTIVE"}),
         )
         .await

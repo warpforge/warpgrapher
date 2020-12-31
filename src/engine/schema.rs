@@ -10,6 +10,7 @@ use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;
 use juniper::RootNode;
+use maplit::hashmap;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Values;
 use std::collections::{HashMap, HashSet};
@@ -80,6 +81,7 @@ pub(crate) enum PropertyKind {
     RelUpdateMutation { src_label: String, rel_name: String },
     RelDeleteMutation { src_label: String, rel_name: String },
     Scalar,
+    ScalarComp,
     Union,
     VersionQuery,
 }
@@ -319,6 +321,59 @@ fn generate_props(
     hm
 }
 
+/// Takes a vector of WG Properties and returns a map of the appropriate
+/// query input which in turn is a nested map with the different type of
+/// comparison operations available to the scalar type.
+fn generate_query_props(
+    props: &[crate::engine::config::Property],
+    id: bool,
+) -> Result<HashMap<String, Property>, Error> {
+    let mut query_props = HashMap::new();
+    if id {
+        query_props.insert(
+            "id".to_string(),
+            Property::new(
+                "id".to_string(),
+                PropertyKind::ScalarComp,
+                fmt_string_query_input_name(),
+            ),
+        );
+    }
+    for p in props.iter() {
+        query_props.insert(
+            p.name().to_string(),
+            Property::new(
+                p.name().to_string(),
+                match p.type_name().as_ref() {
+                    "Boolean" => PropertyKind::Scalar,
+                    "ID" => PropertyKind::ScalarComp,
+                    "String" => PropertyKind::ScalarComp,
+                    "Int" => PropertyKind::ScalarComp,
+                    "Float" => PropertyKind::ScalarComp,
+                    _ => {
+                        return Err(Error::SchemaItemNotFound {
+                            name: p.type_name().to_string(),
+                        })
+                    }
+                },
+                match p.type_name().as_ref() {
+                    "Boolean" => "Boolean".to_string(),
+                    "ID" => fmt_string_query_input_name(),
+                    "String" => fmt_string_query_input_name(),
+                    "Int" => fmt_int_query_input_name(),
+                    "Float" => fmt_float_query_input_name(),
+                    _ => {
+                        return Err(Error::SchemaItemNotFound {
+                            name: p.type_name().to_string(),
+                        })
+                    }
+                },
+            ),
+        );
+    }
+    Ok(query_props)
+}
+
 /// Takes a WG type and returns the name of the corresponding GqlNodeObject.
 /// In reality all this is doing is returning the name, but it add value by
 /// maintaining consistency with using functions that returned formatted names
@@ -401,9 +456,8 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     name: String
 ///     owner: ProjectOwnerQueryInput
 /// }
-fn generate_node_query_input(t: &Type) -> NodeType {
-    let mut props = generate_props(&t.props_as_slice(), true, false);
-
+fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
+    let mut props = generate_query_props(t.props_as_slice(), true)?;
     t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
@@ -415,8 +469,11 @@ fn generate_node_query_input(t: &Type) -> NodeType {
             .with_list(r.list()),
         );
     });
-
-    NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props)
+    Ok(NodeType::new(
+        fmt_node_query_input_name(t),
+        TypeKind::Input,
+        props,
+    ))
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
@@ -509,29 +566,29 @@ fn fmt_node_input_name(t: &Type) -> String {
 ///
 /// Format:
 /// input GqlNodeInput {
-///    $EXISTING: GqlNodeQueryInput
-///    $NEW: GqlNodeCreateMutationInput
+///    EXISTING: GqlNodeQueryInput
+///    NEW: GqlNodeCreateMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectInput {
-///     $EXISTING: ProjectQueryInput
-///     $NEW: ProjectMutationInput
+///     EXISTING: ProjectQueryInput
+///     NEW: ProjectMutationInput
 /// }
 fn generate_node_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$EXISTING".to_string(),
+        "EXISTING".to_string(),
         Property::new(
-            "$EXISTING".to_string(),
+            "EXISTING".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
         ),
     );
     props.insert(
-        "$NEW".to_string(),
+        "NEW".to_string(),
         Property::new(
-            "$NEW".to_string(),
+            "NEW".to_string(),
             PropertyKind::Input,
             fmt_node_create_mutation_input_name(t),
         ),
@@ -548,29 +605,29 @@ fn fmt_node_update_input_name(t: &Type) -> String {
 ///
 /// Format:
 /// input GqlNodeUpdateInput {
-///     $MATCH: GqlNodeQueryInput
-///     $SET: GqlNodeCreateMutationInput
+///     MATCH: GqlNodeQueryInput
+///     SET: GqlNodeCreateMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectUpdateInput {
-///     $MATCH: ProjectQueryInput
-///     $SET: ProjectMutationInput
+///     MATCH: ProjectQueryInput
+///     SET: ProjectMutationInput
 /// }
 fn generate_node_update_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$MATCH".to_string(),
+        "MATCH".to_string(),
         Property::new(
-            "$MATCH".to_string(),
+            "MATCH".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
         ),
     );
     props.insert(
-        "$SET".to_string(),
+        "SET".to_string(),
         Property::new(
-            "$SET".to_string(),
+            "SET".to_string(),
             PropertyKind::Input,
             fmt_node_update_mutation_input_name(t),
         ),
@@ -587,29 +644,29 @@ fn fmt_node_delete_input_name(t: &Type) -> String {
 ///
 /// Format:
 /// input GqlNodeDeleteInput {
-///     $MATCH: GqlNodeQueryInput
+///     MATCH: GqlNodeQueryInput
 ///     delete: GqlNodeDeleteMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectDeleteInput {
-///     $MATCH: ProjectQueryInput
+///     MATCH: ProjectQueryInput
 ///     delete: ProjectDeleteMutationInput
 /// }
 fn generate_node_delete_input(t: &Type) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$MATCH".to_string(),
+        "MATCH".to_string(),
         Property::new(
-            "$MATCH".to_string(),
+            "MATCH".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
         ),
     );
     props.insert(
-        "$DELETE".to_string(),
+        "DELETE".to_string(),
         Property::new(
-            "$DELETE".to_string(),
+            "DELETE".to_string(),
             PropertyKind::Input,
             fmt_node_delete_mutation_input_name(t),
         ),
@@ -968,7 +1025,11 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_string(),
-        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()),
+        Property::new(
+            "id".to_string(),
+            PropertyKind::ScalarComp,
+            fmt_string_query_input_name(),
+        ),
     );
     if !r.props_as_slice().is_empty() {
         props.insert(
@@ -976,7 +1037,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
-                fmt_rel_props_input_name(t, r),
+                fmt_rel_props_query_input_name(t, r),
             ),
         );
     }
@@ -1063,39 +1124,39 @@ fn fmt_rel_change_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelChangeInput {
-///     $ADD: GqlRelCreateMutationInput
-///     $UPDATE: GqlRelUpdateMutationInput
-///     $DELETE: GqlRelDeleteInput
+///     ADD: GqlRelCreateMutationInput
+///     UPDATE: GqlRelUpdateMutationInput
+///     DELETE: GqlRelDeleteInput
 /// }
 ///
 /// Ex:
 /// input ProjectIssuesChangeInput {
-///     $ADD: ProjectIssuesCreateMutationInput
-///     $UPDATE: ProjectIssuesUpdateInput
-///     $DELETE: ProjectIssuesDeleteInput
+///     ADD: ProjectIssuesCreateMutationInput
+///     UPDATE: ProjectIssuesUpdateInput
+///     DELETE: ProjectIssuesDeleteInput
 /// }
 fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$ADD".to_string(),
+        "ADD".to_string(),
         Property::new(
-            "$ADD".to_string(),
+            "ADD".to_string(),
             PropertyKind::Input,
             fmt_rel_create_mutation_input_name(t, r),
         ),
     );
     props.insert(
-        "$UPDATE".to_string(),
+        "UPDATE".to_string(),
         Property::new(
-            "$UPDATE".to_string(),
+            "UPDATE".to_string(),
             PropertyKind::Input,
             fmt_rel_update_input_name(t, r),
         ),
     );
     props.insert(
-        "$DELETE".to_string(),
+        "DELETE".to_string(),
         Property::new(
-            "$DELETE".to_string(),
+            "DELETE".to_string(),
             PropertyKind::Input,
             fmt_rel_delete_input_name(t, r),
         ),
@@ -1236,6 +1297,7 @@ fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
         props,
     )
 }
+
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
 fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
@@ -1262,6 +1324,34 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
         TypeKind::Input,
         generate_props(r.props_as_slice(), false, false),
     )
+}
+
+/// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsQueryInput
+fn fmt_rel_props_query_input_name(t: &Type, r: &Relationship) -> String {
+    t.name().to_string()
+        + &((&r.name().to_string().to_title_case())
+            .split_whitespace()
+            .collect::<String>())
+        + "PropsQueryInput"
+}
+
+/// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsQueryInput
+///
+/// Format:
+/// input GqlRelPropsQueryInput {
+///     prop[n]: <ScalarQueryInput>
+/// }
+///
+/// Ex:
+/// input ProjectOwnerPropsInput   {
+///     since: StringQueryInput
+/// }
+fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    Ok(NodeType::new(
+        fmt_rel_props_query_input_name(t, r),
+        TypeKind::Input,
+        generate_query_props(r.props_as_slice(), false)?,
+    ))
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
@@ -1385,29 +1475,29 @@ fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelCreateInput {
-///     $MATCH: <GqlNodeQueryInput>
+///     MATCH: <GqlNodeQueryInput>
 ///     create: <GqlRelCreateMutationInput>
 /// }
 ///
 /// Ex:
 /// input ProjectOwnerCreateInput   {
-///     $MATCH: ProjectQueryInput
-///     $CREATE: ProjectOwnerCreateMutationInput
+///     MATCH: ProjectQueryInput
+///     CREATE: ProjectOwnerCreateMutationInput
 /// }
 fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$MATCH".to_string(),
+        "MATCH".to_string(),
         Property::new(
-            "$MATCH".to_string(),
+            "MATCH".to_string(),
             PropertyKind::Input,
             fmt_node_query_input_name(t),
         ),
     );
     props.insert(
-        "$CREATE".to_string(),
+        "CREATE".to_string(),
         Property::new(
-            "$CREATE".to_string(),
+            "CREATE".to_string(),
             PropertyKind::Input,
             fmt_rel_create_mutation_input_name(t, &r),
         )
@@ -1429,29 +1519,29 @@ fn fmt_rel_update_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelUpdateInput {
-///     $MATCH: GqlRelQueryInput
-///     $SET: GqlRelUpdateMutationInput
+///     MATCH: GqlRelQueryInput
+///     SET: GqlRelUpdateMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectOwnerUpdateInput   {
-///     $MATCH: ProjectOwnerQueryInput
-///     $SET: ProjectOwnerUpdateMutationInput
+///     MATCH: ProjectOwnerQueryInput
+///     SET: ProjectOwnerUpdateMutationInput
 /// }
 fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$MATCH".to_string(),
+        "MATCH".to_string(),
         Property::new(
-            "$MATCH".to_string(),
+            "MATCH".to_string(),
             PropertyKind::Input,
             fmt_rel_query_input_name(t, r),
         ),
     );
     props.insert(
-        "$SET".to_string(),
+        "SET".to_string(),
         Property::new(
-            "$SET".to_string(),
+            "SET".to_string(),
             PropertyKind::Input,
             fmt_rel_update_mutation_input_name(t, &r),
         )
@@ -1473,23 +1563,23 @@ fn fmt_rel_delete_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelDeleteInput {
-///    $MATCH: GqlRelQueryInput
+///    MATCH: GqlRelQueryInput
 ///    src: GqlRelSrcDeleteMutationInput
 ///    dst: GqlRelDstDeleteMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectOwnerDeleteInput {
-///    $MATCH: ProjectOwnerQueryInput
+///    MATCH: ProjectOwnerQueryInput
 ///    src: ProjectOwnerSrcDeleteMutationInput
 ///    dst: ProjectOwnerDstDeleteMutationInput
 /// }
 fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
-        "$MATCH".to_string(),
+        "MATCH".to_string(),
         Property::new(
-            "$MATCH".to_string(),
+            "MATCH".to_string(),
             PropertyKind::Input,
             fmt_rel_query_input_name(t, r),
         ),
@@ -1866,21 +1956,119 @@ fn generate_static_version_query() -> Property {
     )
 }
 
+fn fmt_string_query_input_name() -> String {
+    "StringQueryInput".to_string()
+}
+
+fn string_query_input() -> NodeType {
+    NodeType::new(
+        fmt_string_query_input_name(),
+        TypeKind::Input,
+        hashmap! {
+            "EQ".to_string() => string_input("EQ"),
+            "NOTEQ".to_string() => string_input("NOTEQ"),
+            "CONTAINS".to_string() => string_input("CONTAINS"),
+            "NOTCONTAINS".to_string() => string_input("NOTCONTAINS"),
+            "IN".to_string() => string_array_input("IN"),
+            "NOTIN".to_string() => string_array_input("NOTIN"),
+            "GT".to_string() => string_input("GT"),
+            "GTE".to_string() => string_input("GTE"),
+            "LT".to_string() => string_input("LT"),
+            "LTE".to_string() => string_input("LTE"),
+        },
+    )
+}
+
+fn string_input(name: &str) -> Property {
+    Property::new(name.to_string(), PropertyKind::Scalar, "String".to_string())
+}
+
+fn string_array_input(name: &str) -> Property {
+    Property {
+        name: name.to_string(),
+        kind: PropertyKind::Scalar,
+        type_name: "String".to_string(),
+        required: false,
+        list: true,
+        arguments: HashMap::new(),
+        resolver: None,
+        validator: None,
+    }
+}
+
+fn fmt_int_query_input_name() -> String {
+    "IntQueryInput".to_string()
+}
+
+fn int_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(),
+        TypeKind::Input,
+        hashmap! {
+            "EQ".to_string() => int_input("EQ"),
+            "NOTEQ".to_string() => int_input("NOTEQ"),
+            "IN".to_string() => int_input("IN"),
+            "NOTIN".to_string() => int_input("NOTIN"),
+            "GT".to_string() => int_input("GT"),
+            "GTE".to_string() => int_input("GTE"),
+            "LT".to_string() => int_input("LT"),
+            "LTE".to_string() => int_input("LTE"),
+        },
+    )
+}
+
+fn int_input(name: &str) -> Property {
+    Property::new(name.to_string(), PropertyKind::Scalar, "Int".to_string())
+}
+
+fn fmt_float_query_input_name() -> String {
+    "FloatQueryInput".to_string()
+}
+
+fn float_query_input() -> NodeType {
+    NodeType::new(
+        fmt_int_query_input_name(),
+        TypeKind::Input,
+        hashmap! {
+            "EQ".to_string() => float_input("EQ"),
+            "NOTEQ".to_string() => float_input("NOTEQ"),
+            "IN".to_string() => float_input("IN"),
+            "NOTIN".to_string() => float_input("NOTIN"),
+            "GT".to_string() => float_input("GT"),
+            "GTE".to_string() => float_input("GTE"),
+            "LT".to_string() => float_input("LT"),
+            "LTE".to_string() => float_input("LTE"),
+        },
+    )
+}
+
+fn float_input(name: &str) -> Property {
+    Property::new(name.to_string(), PropertyKind::Scalar, "Float".to_string())
+}
+
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
+fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();
 
+    // StringQueryInput
+    nthm.insert(fmt_string_query_input_name(), string_query_input());
+
+    // NumberQueryInput
+    nthm.insert(fmt_int_query_input_name(), int_query_input());
+    // FloatQueryInput
+    nthm.insert(fmt_float_query_input_name(), float_query_input());
+
     // generate graphql schema components for warpgrapher types
-    c.types().for_each(|t| {
+    for t in c.types() {
         // GqlNodeType
         let node_type = generate_node_object(t);
         nthm.insert(node_type.type_name.to_string(), node_type);
 
         // GqlNodeQueryInput
-        let node_query_input = generate_node_query_input(t);
+        let node_query_input = generate_node_query_input(t)?;
         nthm.insert(node_query_input.type_name.to_string(), node_query_input);
 
         // GqlNodeCreateMutationInput
@@ -1940,7 +2128,7 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             mutation_props.insert(delete_endpoint.name().to_string(), delete_endpoint);
         }
 
-        t.rels().for_each(|r| {
+        for r in t.rels() {
             // GqlRelObject
             let rel_object = generate_rel_object(t, r);
             nthm.insert(rel_object.type_name.to_string(), rel_object);
@@ -1992,6 +2180,13 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
             // GqlRelPropsInput
             let rel_props_input = generate_rel_props_input(t, r);
             nthm.insert(rel_props_input.type_name.to_string(), rel_props_input);
+
+            // GqlRelPropsQueryInput
+            let rel_props_query_input = generate_rel_props_query_input(t, r)?;
+            nthm.insert(
+                rel_props_query_input.type_name.to_string(),
+                rel_props_query_input,
+            );
 
             // GqlRelSrcQueryInput
             let rel_src_query_input = generate_rel_src_query_input(t, r);
@@ -2063,8 +2258,8 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
                 let rel_delete_endpoint = generate_rel_delete_endpoint(t, r);
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
-        });
-    });
+        }
+    }
 
     // generate graphql schema components for custom endpoints and associated types
     c.endpoints().for_each(|e| {
@@ -2113,7 +2308,7 @@ fn generate_schema(c: &Configuration) -> HashMap<String, NodeType> {
         NodeType::new("Subscription".to_string(), TypeKind::Object, HashMap::new()),
     );
 
-    nthm
+    Ok(nthm)
 }
 
 /// Takes a Warpgrapher configuration and returns the Juniper RootNode for a
@@ -2139,7 +2334,7 @@ where
     // over runtime efficiency, given that the number of configuration items
     // is lkely to be small.
 
-    let nthm = generate_schema(c);
+    let nthm = generate_schema(c)?;
     let nts = Arc::new(nthm);
     let root_mutation_info = Info::new("Mutation".to_string(), nts.clone());
     let root_query_info = Info::new("Query".to_string(), nts.clone());
@@ -2428,30 +2623,30 @@ mod tests {
             }
         */
         let project_type = mock_project_type();
-        let project_query_input = generate_node_query_input(&project_type);
+        let project_query_input = generate_node_query_input(&project_type).unwrap();
         assert!(project_query_input.type_name == "ProjectQueryInput");
         assert!(project_query_input.type_kind == TypeKind::Input);
         assert!(project_query_input.props.len() == 8);
         let project_id = project_query_input.props.get("id").unwrap();
         assert!(project_id.name == "id");
-        assert!(project_id.kind == PropertyKind::Scalar);
-        assert!(project_id.type_name == "ID");
+        assert!(project_id.kind == PropertyKind::ScalarComp);
+        assert!(project_id.type_name == "StringQueryInput");
         assert!(!project_id.required);
         assert!(!project_id.list);
         assert!(project_id.arguments.is_empty());
         let project_name = project_query_input.props.get("name").unwrap();
         assert!(project_name.name == "name");
-        assert!(project_name.kind == PropertyKind::Scalar);
-        assert!(project_name.type_name == "String");
+        assert!(project_name.kind == PropertyKind::ScalarComp);
+        assert!(project_name.type_name == "StringQueryInput");
         assert!(!project_name.required);
         assert!(!project_name.list);
         assert!(project_name.arguments.is_empty());
         let project_tags = project_query_input.props.get("tags").unwrap();
         assert!(project_tags.name == "tags");
-        assert!(project_tags.kind == PropertyKind::Scalar);
-        assert!(project_tags.type_name == "String");
+        assert!(project_tags.kind == PropertyKind::ScalarComp);
+        assert!(project_tags.type_name == "StringQueryInput");
         assert!(!project_tags.required);
-        assert!(project_tags.list);
+        //assert!(project_tags.list);
         assert!(project_tags.arguments.is_empty());
         let project_public = project_query_input.props.get("public").unwrap();
         assert!(project_public.name == "public");
@@ -2658,21 +2853,21 @@ mod tests {
     fn test_generate_node_input() {
         /*
             input ProjectInput {
-                $EXISTING: ProjectQueryInput
-                $NEW: ProjectCreateMutationInput
+                EXISTING: ProjectQueryInput
+                NEW: ProjectCreateMutationInput
             }
         */
         let project_type = mock_project_type();
         let project_input = generate_node_input(&project_type);
-        let project_match = project_input.props.get("$EXISTING").unwrap();
-        assert!(project_match.name == "$EXISTING");
+        let project_match = project_input.props.get("EXISTING").unwrap();
+        assert!(project_match.name == "EXISTING");
         assert!(project_match.kind == PropertyKind::Input);
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
         assert!(project_match.arguments.is_empty());
-        let project_create = project_input.props.get("$NEW").unwrap();
-        assert!(project_create.name == "$NEW");
+        let project_create = project_input.props.get("NEW").unwrap();
+        assert!(project_create.name == "NEW");
         assert!(project_create.kind == PropertyKind::Input);
         assert!(project_create.type_name == "ProjectCreateMutationInput");
         assert!(!project_create.required);
@@ -2692,21 +2887,21 @@ mod tests {
     fn test_generate_node_update_input() {
         /*
             input ProjectUpdateInput {
-                $MATCH: ProjectQueryInput
-                $SET: ProjectUpdateMutationInput
+                MATCH: ProjectQueryInput
+                SET: ProjectUpdateMutationInput
             }
         */
         let project_type = mock_project_type();
         let project_update_input = generate_node_update_input(&project_type);
-        let project_match = project_update_input.props.get("$MATCH").unwrap();
-        assert!(project_match.name == "$MATCH");
+        let project_match = project_update_input.props.get("MATCH").unwrap();
+        assert!(project_match.name == "MATCH");
         assert!(project_match.kind == PropertyKind::Input);
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
         assert!(project_match.arguments.is_empty());
-        let project_update = project_update_input.props.get("$SET").unwrap();
-        assert!(project_update.name == "$SET");
+        let project_update = project_update_input.props.get("SET").unwrap();
+        assert!(project_update.name == "SET");
         assert!(project_update.kind == PropertyKind::Input);
         assert!(project_update.type_name == "ProjectUpdateMutationInput");
         assert!(!project_update.required);
@@ -2726,7 +2921,7 @@ mod tests {
     fn test_generate_node_delete_input() {
         /*
             input ProjectDeleteInput {
-                $MATCH: ProjectQueryInput
+                MATCH: ProjectQueryInput
                 delete: ProjectDeleteMutationInput
             }
         */
@@ -2734,15 +2929,15 @@ mod tests {
         let project_delete_input = generate_node_delete_input(&project_type);
         assert!(project_delete_input.type_name == "ProjectDeleteInput");
         assert!(project_delete_input.props.len() == 2);
-        let project_match = project_delete_input.props.get("$MATCH").unwrap();
-        assert!(project_match.name == "$MATCH");
+        let project_match = project_delete_input.props.get("MATCH").unwrap();
+        assert!(project_match.name == "MATCH");
         assert!(project_match.kind == PropertyKind::Input);
         assert!(project_match.type_name == "ProjectQueryInput");
         assert!(!project_match.required);
         assert!(!project_match.list);
         assert!(project_match.arguments.is_empty());
-        let project_delete = project_delete_input.props.get("$DELETE").unwrap();
-        assert!(project_delete.name == "$DELETE");
+        let project_delete = project_delete_input.props.get("DELETE").unwrap();
+        assert!(project_delete.name == "DELETE");
         assert!(project_delete.kind == PropertyKind::Input);
         assert!(project_delete.type_name == "ProjectDeleteMutationInput");
         assert!(!project_delete.required);
@@ -3106,8 +3301,8 @@ mod tests {
         // id
         let project_owner_id = project_owner_query_input.props.get("id").unwrap();
         assert!(project_owner_id.name == "id");
-        assert!(project_owner_id.kind == PropertyKind::Scalar);
-        assert!(project_owner_id.type_name == "ID");
+        assert!(project_owner_id.kind == PropertyKind::ScalarComp);
+        assert!(project_owner_id.type_name == "StringQueryInput");
         assert!(!project_owner_id.required);
         assert!(!project_owner_id.list);
         assert!(project_owner_id.arguments.is_empty());
@@ -3115,7 +3310,7 @@ mod tests {
         let project_owner_props = project_owner_query_input.props.get("props").unwrap();
         assert!(project_owner_props.name == "props");
         assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerPropsInput");
+        assert!(project_owner_props.type_name == "ProjectOwnerPropsQueryInput");
         assert!(!project_owner_props.required);
         assert!(!project_owner_props.list);
         assert!(project_owner_props.arguments.is_empty());
@@ -3148,8 +3343,8 @@ mod tests {
         // id
         let project_board_id = project_board_query_input.props.get("id").unwrap();
         assert!(project_board_id.name == "id");
-        assert!(project_board_id.kind == PropertyKind::Scalar);
-        assert!(project_board_id.type_name == "ID");
+        assert!(project_board_id.kind == PropertyKind::ScalarComp);
+        assert!(project_board_id.type_name == "StringQueryInput");
         assert!(!project_board_id.required);
         assert!(!project_board_id.list);
         assert!(project_board_id.arguments.is_empty());
@@ -3252,9 +3447,9 @@ mod tests {
     fn test_generate_rel_change_input() {
         /*
             input ProjectIssuesChangeInput {
-                $ADD: ProjectIssuesCreateMutationInput
-                $UPDATE: ProjectIssuesUpdateInput
-                $DELETE: ProjectIssuesDeleteInput
+                ADD: ProjectIssuesCreateMutationInput
+                UPDATE: ProjectIssuesUpdateInput
+                DELETE: ProjectIssuesDeleteInput
             }
         */
         let project_type = mock_project_type();
@@ -3262,25 +3457,25 @@ mod tests {
         let project_issues_change_input =
             generate_rel_change_input(&project_type, &project_issues_rel);
         assert!(project_issues_change_input.type_name == "ProjectIssuesChangeInput");
-        // $ADD
-        let project_issues_add = project_issues_change_input.props.get("$ADD").unwrap();
-        assert!(project_issues_add.name == "$ADD");
+        // ADD
+        let project_issues_add = project_issues_change_input.props.get("ADD").unwrap();
+        assert!(project_issues_add.name == "ADD");
         assert!(project_issues_add.kind == PropertyKind::Input);
         assert!(project_issues_add.type_name == "ProjectIssuesCreateMutationInput");
         assert!(!project_issues_add.required);
         assert!(!project_issues_add.list);
         assert!(project_issues_add.arguments.is_empty());
-        // $UPDATE
-        let project_issues_update = project_issues_change_input.props.get("$UPDATE").unwrap();
-        assert!(project_issues_update.name == "$UPDATE");
+        // UPDATE
+        let project_issues_update = project_issues_change_input.props.get("UPDATE").unwrap();
+        assert!(project_issues_update.name == "UPDATE");
         assert!(project_issues_update.kind == PropertyKind::Input);
         assert!(project_issues_update.type_name == "ProjectIssuesUpdateInput");
         assert!(!project_issues_update.required);
         assert!(!project_issues_update.list);
         assert!(project_issues_update.arguments.is_empty());
-        // $DELETE
-        let project_issues_delete = project_issues_change_input.props.get("$DELETE").unwrap();
-        assert!(project_issues_delete.name == "$DELETE");
+        // DELETE
+        let project_issues_delete = project_issues_change_input.props.get("DELETE").unwrap();
+        assert!(project_issues_delete.name == "DELETE");
         assert!(project_issues_delete.kind == PropertyKind::Input);
         assert!(project_issues_delete.type_name == "ProjectIssuesDeleteInput");
         assert!(!project_issues_delete.required);
@@ -3500,11 +3695,6 @@ mod tests {
     /// Passes if the right schema elements are generated
     #[test]
     fn test_generate_rel_props_input() {
-        /*
-            input ProjectOwnerPropsInput {
-                since: String
-            }
-        */
         let project_type = mock_project_type();
         let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
         let project_owner_props_input = generate_rel_props_input(&project_type, &project_owner_rel);
@@ -3714,7 +3904,7 @@ mod tests {
     fn test_generate_rel_create_input() {
         /*
             input ProjectOwnerCreateInput {
-                $MATCH: ProjectQueryInput
+                MATCH: ProjectQueryInput
                 create: ProjectOwnerCreateMutationInput
             }
         */
@@ -3725,15 +3915,15 @@ mod tests {
         assert!(project_owner_create_input.type_name == "ProjectOwnerCreateInput");
         assert!(project_owner_create_input.type_kind == TypeKind::Input);
         assert!(project_owner_create_input.props.len() == 2);
-        let project_owner_match = project_owner_create_input.props.get("$MATCH").unwrap();
-        assert!(project_owner_match.name == "$MATCH");
+        let project_owner_match = project_owner_create_input.props.get("MATCH").unwrap();
+        assert!(project_owner_match.name == "MATCH");
         assert!(project_owner_match.kind == PropertyKind::Input);
         assert!(project_owner_match.type_name == "ProjectQueryInput");
         assert!(!project_owner_match.required);
         assert!(!project_owner_match.list);
         assert!(project_owner_match.arguments.is_empty());
-        let project_owner_create = project_owner_create_input.props.get("$CREATE").unwrap();
-        assert!(project_owner_create.name == "$CREATE");
+        let project_owner_create = project_owner_create_input.props.get("CREATE").unwrap();
+        assert!(project_owner_create.name == "CREATE");
         assert!(project_owner_create.kind == PropertyKind::Input);
         assert!(project_owner_create.type_name == "ProjectOwnerCreateMutationInput");
         assert!(!project_owner_create.required);
@@ -3741,7 +3931,7 @@ mod tests {
         assert!(project_owner_create.arguments.is_empty());
         /*
             input ProjectBoardCreateInput {
-                $MATCH: ProjectQueryInput
+                MATCH: ProjectQueryInput
                 create: ProjectBoardCreateMutationInput
             }
         */
@@ -3751,15 +3941,15 @@ mod tests {
         assert!(project_board_create_input.type_name == "ProjectBoardCreateInput");
         assert!(project_board_create_input.type_kind == TypeKind::Input);
         assert!(project_board_create_input.props.len() == 2);
-        let project_board_match = project_board_create_input.props.get("$MATCH").unwrap();
-        assert!(project_board_match.name == "$MATCH");
+        let project_board_match = project_board_create_input.props.get("MATCH").unwrap();
+        assert!(project_board_match.name == "MATCH");
         assert!(project_board_match.kind == PropertyKind::Input);
         assert!(project_board_match.type_name == "ProjectQueryInput");
         assert!(!project_board_match.required);
         assert!(!project_board_match.list);
         assert!(project_board_match.arguments.is_empty());
-        let project_board_create = project_board_create_input.props.get("$CREATE").unwrap();
-        assert!(project_board_create.name == "$CREATE");
+        let project_board_create = project_board_create_input.props.get("CREATE").unwrap();
+        assert!(project_board_create.name == "CREATE");
         assert!(project_board_create.kind == PropertyKind::Input);
         assert!(project_board_create.type_name == "ProjectBoardCreateMutationInput");
         assert!(!project_board_create.required);
@@ -3789,7 +3979,7 @@ mod tests {
     fn test_generate_rel_update_input() {
         /*
             input ProjectOwnerUpdateInput {
-                $MATCH: ProjectOwnerQueryInput
+                MATCH: ProjectOwnerQueryInput
                 update: ProjectOwnerUpdateMutationInput!
             }
         */
@@ -3800,15 +3990,15 @@ mod tests {
         assert!(project_owner_update_input.type_name == "ProjectOwnerUpdateInput");
         assert!(project_owner_update_input.type_kind == TypeKind::Input);
         assert!(project_owner_update_input.props.len() == 2);
-        let project_owner_match = project_owner_update_input.props.get("$MATCH").unwrap();
-        assert!(project_owner_match.name == "$MATCH");
+        let project_owner_match = project_owner_update_input.props.get("MATCH").unwrap();
+        assert!(project_owner_match.name == "MATCH");
         assert!(project_owner_match.kind == PropertyKind::Input);
         assert!(project_owner_match.type_name == "ProjectOwnerQueryInput");
         assert!(!project_owner_match.required);
         assert!(!project_owner_match.list);
         assert!(project_owner_match.arguments.is_empty());
-        let project_owner_update = project_owner_update_input.props.get("$SET").unwrap();
-        assert!(project_owner_update.name == "$SET");
+        let project_owner_update = project_owner_update_input.props.get("SET").unwrap();
+        assert!(project_owner_update.name == "SET");
         assert!(project_owner_update.kind == PropertyKind::Input);
         assert!(project_owner_update.type_name == "ProjectOwnerUpdateMutationInput");
         assert!(project_owner_update.required);
@@ -3816,7 +4006,7 @@ mod tests {
         assert!(project_owner_update.arguments.is_empty());
         /*
             input ProjectBoardUpdateInput {
-                $MATCH: ProjectBoardQueryInput
+                MATCH: ProjectBoardQueryInput
                 update: ProjectBoardUpdateMutationInput!
             }
         */
@@ -3826,15 +4016,15 @@ mod tests {
         assert!(project_board_update_input.type_name == "ProjectBoardUpdateInput");
         assert!(project_board_update_input.type_kind == TypeKind::Input);
         assert!(project_board_update_input.props.len() == 2);
-        let project_board_match = project_board_update_input.props.get("$MATCH").unwrap();
-        assert!(project_board_match.name == "$MATCH");
+        let project_board_match = project_board_update_input.props.get("MATCH").unwrap();
+        assert!(project_board_match.name == "MATCH");
         assert!(project_board_match.kind == PropertyKind::Input);
         assert!(project_board_match.type_name == "ProjectBoardQueryInput");
         assert!(!project_board_match.required);
         assert!(!project_board_match.list);
         assert!(project_board_match.arguments.is_empty());
-        let project_board_update = project_board_update_input.props.get("$SET").unwrap();
-        assert!(project_board_update.name == "$SET");
+        let project_board_update = project_board_update_input.props.get("SET").unwrap();
+        assert!(project_board_update.name == "SET");
         assert!(project_board_update.kind == PropertyKind::Input);
         assert!(project_board_update.type_name == "ProjectBoardUpdateMutationInput");
         assert!(project_board_update.required);
@@ -3856,7 +4046,7 @@ mod tests {
     fn test_generate_rel_delete_input() {
         /*
         input ProjectOwnerDeleteInput {
-            $MATCH: ProjectOwnerQueryInput
+            MATCH: ProjectOwnerQueryInput
             src: ProjectOwnerSrcMutationInput
             dst: ProjectOwnerDstDeleteMutationInput
         }
@@ -3866,8 +4056,8 @@ mod tests {
         let project_owner_delete_input =
             generate_rel_delete_input(&project_type, &project_owner_rel);
         assert!(project_owner_delete_input.type_name == "ProjectOwnerDeleteInput");
-        let pmatch = project_owner_delete_input.props.get("$MATCH").unwrap();
-        assert!(pmatch.name == "$MATCH");
+        let pmatch = project_owner_delete_input.props.get("MATCH").unwrap();
+        assert!(pmatch.name == "MATCH");
         assert!(pmatch.kind == PropertyKind::Input);
         assert!(pmatch.type_name == "ProjectOwnerQueryInput");
         assert!(!pmatch.required);
@@ -4228,7 +4418,7 @@ mod tests {
     #[test]
     fn test_generate_schema() {
         let config = mock_config();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         //assert!(schema.len() == 79);
         assert!(schema.contains_key("Project"));
         assert!(schema.contains_key("ProjectQueryInput"));
@@ -4246,7 +4436,7 @@ mod tests {
     #[test]
     fn test_wg_type_endpoints_filter() {
         let config = mock_endpoints_filter();
-        let schema = generate_schema(&config);
+        let schema = generate_schema(&config).unwrap();
         let query = schema.get("Query").unwrap();
         let mutation = schema.get("Mutation").unwrap();
         assert!(query.props.len() == 1);

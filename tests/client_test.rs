@@ -42,7 +42,7 @@ async fn client_node_crud() {
             "Project",
             "__typename id name status",
             Some("1234"),
-            Some(&json!({"name": "MJOLNIR"})),
+            Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             &json!({"status": "ACTIVE"}),
         )
         .await
@@ -69,7 +69,7 @@ async fn client_node_crud() {
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"name": "MJOLNIR"})),
+            Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             None,
         )
         .await
@@ -108,8 +108,34 @@ async fn client_rel_crud() {
         .await
         .unwrap();
 
-    let results = client.create_rel("Project", "issues", "id props { since } src { id name } dst { ...on Bug { id name } }", Some("1234"),
-    &json!({"name": "Project Zero"}), &json!([{"props": {"since": "2000"}, "dst": {"Bug": {"$EXISTING": {"name": "Bug Zero"}}}}])).await.unwrap();
+    let results = client.create_rel(
+        "Project", 
+        "issues", 
+        "id 
+        props { 
+            since 
+        } 
+        src { 
+            id 
+            name 
+        } 
+        dst { 
+            ...on Bug { 
+                id 
+                name 
+            } 
+        }", 
+        Some("1234"),
+        &json!({
+            "name": {"EQ": "Project Zero"}
+        }), 
+        &json!([
+            {
+                "props": {"since": "2000"}, 
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}} }}
+            }
+        ]))
+        .await.unwrap();
 
     assert!(results.is_array());
     let r0 = &results[0];
@@ -143,7 +169,7 @@ async fn client_rel_crud() {
             "issues",
             "id props { since }",
             Some("1234"),
-            Some(&json!({"props": {"since": "2000"}})),
+            Some(&json!({"props": {"since": { "EQ": "2000"}}})),
             &json!({"props": {"since": "2010"}}),
         )
         .await
@@ -178,7 +204,7 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": "2010"}})),
+            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
             None,
             None,
         )

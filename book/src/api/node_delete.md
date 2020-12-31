@@ -10,10 +10,10 @@ To delete `Project` nodes with status "INACTIVE", call `ProjectDelete` with:
 mutation {
     ProjectDelete(
         input: {
-            $MATCH: {
+            MATCH: {
                 status: "INACTIVE"
             },
-            $DELETE: {
+            DELETE: {
             }
         }
     )

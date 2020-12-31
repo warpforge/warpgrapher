@@ -48,7 +48,7 @@ mutation {
             owner: {
                 dst: {
                     User: {
-                        $NEW: {
+                        NEW: {
                             name: "Smith"
                         }
                     }
@@ -73,7 +73,7 @@ mutation {
             owner: {
                 dst: {
                     User: {
-                        $EXISTING: {
+                        EXISTING: {
                             name: "Oneill"
                         }
                     }

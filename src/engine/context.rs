@@ -1,6 +1,7 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
 //! context contains a connection pool for the Neo4J database.
 use crate::engine::database::DatabasePool;
+use crate::engine::events::EventHandlerBag;
 use crate::engine::extensions::{Extension, Extensions};
 use crate::engine::resolvers::{ResolverFunc, Resolvers};
 use crate::engine::validators::Validators;
@@ -30,6 +31,7 @@ use std::sync::Arc;
 /// # use warpgrapher::engine::resolvers::Resolvers;
 /// # use warpgrapher::engine::validators::Validators;
 /// # use warpgrapher::engine::context::GraphQLContext;
+/// # use warpgrapher::engine::events::EventHandlerBag;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # #[cfg(feature = "neo4j")]
@@ -43,6 +45,7 @@ use std::sync::Arc;
 ///     runtime.block_on(ne.pool())?,
 ///     resolvers,
 ///     validators,
+///     EventHandlerBag::<()>::new(),
 ///     vec![],
 ///     Some(()),
 ///     None,
@@ -58,6 +61,7 @@ where
     pool: DatabasePool,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
+    event_handlers: EventHandlerBag<RequestCtx>,
     extensions: Extensions<RequestCtx>,
     request_ctx: Option<RequestCtx>,
     version: Option<String>,
@@ -78,6 +82,7 @@ where
     /// part of the Warpgrapher configuration
     /// * validators - the [`Validators`] structure containing any custom input validators
     /// provided as part of the Warpgrapher configuration
+    /// * event_handlers - the [`EventHandlerBag`] structure containing business logic
     /// * extensions - the [`Extensions`] structure containing any pre- or post-request hooks
     /// * request_ctx - an optional per-request context, implementing the [`RequestContext`] trait,
     /// provided by the application using the Warpgrapher framework to pass application-specific,
@@ -86,6 +91,7 @@ where
     /// used to respond to the version static endpoint
     ///
     /// [`DatabasePool`]: ../database/enum.DatabasePool.html
+    /// [`EventHandlerBag`]: ../events/type.EventHanlderBag.html
     /// [`Extensions`]: ../extensions/type.Extensions.html
     /// [`RequestContext`]: ./trait.RequestContext.html
     /// [`Resolvers`]: ../resolvers/type.Resolvers.html
@@ -104,6 +110,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -117,6 +124,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -130,6 +138,7 @@ where
         pool: DatabasePool,
         resolvers: Resolvers<RequestCtx>,
         validators: Validators,
+        event_handlers: EventHandlerBag<RequestCtx>,
         extensions: Extensions<RequestCtx>,
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
@@ -139,6 +148,7 @@ where
             pool,
             resolvers,
             validators,
+            event_handlers,
             extensions,
             request_ctx,
             version,
@@ -161,6 +171,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -174,6 +185,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -214,6 +226,7 @@ where
     /// # use warpgrapher::engine::context::GraphQLContext;
     /// # use warpgrapher::engine::resolvers::ExecutionResult;
     /// # use warpgrapher::juniper::BoxFuture;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
@@ -255,6 +268,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -290,6 +304,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -303,6 +318,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::new(),
     ///     vec![],
     ///     Some(()),
     ///     None,
@@ -316,6 +332,52 @@ where
     /// ```
     pub fn validators(&self) -> &Validators {
         &self.validators
+    }
+
+    /// Returns the collection of event handlers providing business logic for before and after
+    /// Warpgrapher's auto-generated CRUD operations.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use std::collections::HashMap;
+    /// # #[cfg(feature = "neo4j")]
+    /// # use tokio::runtime::Runtime;
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// # use warpgrapher::engine::resolvers::Resolvers;
+    /// # use warpgrapher::engine::validators::Validators;
+    /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let mut runtime = Runtime::new()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let ne = Neo4jEndpoint::from_env()?;
+    /// let resolvers: Resolvers<()> = Resolvers::new();
+    /// let validators: Validators = Validators::new();
+    /// # #[cfg(feature = "neo4j")]
+    /// let gqlctx: GraphQLContext<()> = GraphQLContext::new(
+    ///     runtime.block_on(ne.pool())?,
+    ///     resolvers,
+    ///     validators,
+    ///     EventHandlerBag::<()>::new(),
+    ///     vec![],
+    ///     Some(()),
+    ///     None,
+    ///     HashMap::new()
+    /// );
+    ///
+    /// # #[cfg(feature = "neo4j")]
+    /// let event_handlers = gqlctx.event_handlers();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn event_handlers(&self) -> &EventHandlerBag<RequestCtx> {
+        &self.event_handlers
     }
 
     /// Returns an optional string for the version of the GraphQL service
@@ -333,6 +395,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -346,6 +409,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
@@ -377,6 +441,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # #[cfg(feature = "neo4j")]
@@ -390,6 +455,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<()>::new(),
     ///     vec![],
     ///     Some(()),
     ///     Some("0.0.0".to_string()),
@@ -420,6 +486,7 @@ where
     /// # use warpgrapher::engine::resolvers::Resolvers;
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::{GraphQLContext, RequestContext};
+    /// # use warpgrapher::engine::events::EventHandlerBag;
     ///
     /// #[derive(Clone, Debug)]
     /// pub struct AppRequestCtx {
@@ -446,6 +513,7 @@ where
     ///     runtime.block_on(ne.pool())?,
     ///     resolvers,
     ///     validators,
+    ///     EventHandlerBag::<AppRequestCtx>::new(),
     ///     vec![],
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
@@ -518,6 +586,7 @@ mod tests {
     use super::GraphQLContext;
     use crate::engine::database::neo4j::Neo4jEndpoint;
     use crate::engine::database::DatabaseEndpoint;
+    use crate::engine::events::EventHandlerBag;
     use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
     use std::collections::HashMap;
@@ -534,6 +603,7 @@ mod tests {
                 .expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,
+            EventHandlerBag::new(),
             vec![],
             Some(()),
             None,

@@ -259,7 +259,7 @@ where
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let projects = client.create_node("Project", "id name description", Some("1234"),
-    ///     &json!({"name": "TodoApp", "description": "TODO list tracking application"})).await;
+    ///     &json!({"name": "TodoApp", "description": "Action list tracking application"})).await;
     /// # }
     /// ```
     pub async fn create_node(
@@ -333,7 +333,7 @@ where
     ///     Some("1234"),
     ///     &json!({"name": "ProjectName"}),
     ///     &json!({"props": {"since": "2000"},
-    ///            "dst": {"Feature": {"$NEW": {"name": "NewFeature"}}}})
+    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
     /// ).await;
     /// # }
     /// ```
@@ -357,7 +357,7 @@ where
         );
 
         let query = Client::<()>::fmt_create_rel_query(type_name, rel_name, shape);
-        let input = json!({"$MATCH": match_input, "$CREATE": create_input});
+        let input = json!({"MATCH": match_input, "CREATE": create_input});
         let result_field = type_name.to_string()
             + &((&rel_name.to_string().to_title_case())
                 .split_whitespace()
@@ -431,9 +431,9 @@ where
 
         let query = Client::<()>::fmt_delete_node_query(type_name);
         let input = if let Some(di) = delete_input {
-            json!({"$MATCH": match_input, "$DELETE": di})
+            json!({"MATCH": match_input, "DELETE": di})
         } else {
-            json!({ "$MATCH": match_input })
+            json!({ "MATCH": match_input })
         };
         let result_field = type_name.to_string() + "Delete";
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
@@ -518,7 +518,7 @@ where
         let query = Client::<()>::fmt_delete_rel_query(type_name, rel_name);
         let mut m = HashMap::new();
         if let Some(mi) = match_input {
-            m.insert("$MATCH".to_string(), mi);
+            m.insert("MATCH".to_string(), mi);
         }
         if let Some(src) = src_input {
             m.insert("src".to_string(), src);
@@ -741,7 +741,7 @@ where
         );
 
         let query = Client::<()>::fmt_update_node_query(type_name, shape);
-        let input = json!({"$MATCH": match_input, "$SET": update_input});
+        let input = json!({"MATCH": match_input, "SET": update_input});
         let result_field = type_name.to_string() + "Update";
         self.graphql(&query, partition_key, Some(&input), Some(&result_field))
             .await
@@ -819,7 +819,7 @@ where
         );
 
         let query = Client::<()>::fmt_update_rel_query(type_name, rel_name, shape);
-        let input = json!({"$MATCH": match_input, "$SET": update_input});
+        let input = json!({"MATCH": match_input, "SET": update_input});
         let result_field = type_name.to_string()
             + &((&rel_name.to_string().to_title_case())
                 .split_whitespace()
