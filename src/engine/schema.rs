@@ -6,7 +6,6 @@ use super::config::{
     Configuration, Endpoint, EndpointClass, GraphqlType, Relationship, Type, TypeDef,
 };
 use super::objects::Node;
-use crate::engine::value::Value;
 use crate::engine::context::RequestContext;
 use crate::error::Error;
 use inflector::Inflector;

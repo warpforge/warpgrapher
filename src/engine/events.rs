@@ -4,7 +4,7 @@
 
 use crate::engine::schema::Info;
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{Transaction, WarpClient, SuffixGenerator, NodeQueryVar};
+use crate::engine::database::{Transaction, SuffixGenerator, NodeQueryVar};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::value::Value;
 use crate::engine::objects::resolvers::visitors;
@@ -27,7 +27,6 @@ use std::collections::HashMap;
 /// }
 /// ```
 pub type BeforeMutationEventFunc<RequestCtx> = 
-    //fn(Value, &GraphQLContext<RequestCtx>, &mut Transaction<RequestCtx>, &Info) -> Result<Value, Error>;
     fn(Value, EventFacade<RequestCtx>) -> Result<Value, Error>;
 
 /// Type alias for a function called before an event. The Value returned by this function will be
@@ -49,7 +48,7 @@ pub type BeforeMutationEventFunc<RequestCtx> =
 /// let f: Box<BeforeQueryEventFunc> = Box::new(before_user_read);
 /// ```
 pub type BeforeQueryEventFunc<RequestCtx> = 
-    fn(Option<Value>, &GraphQLContext<RequestCtx>) -> Result<Option<Value>, Error>;
+    fn(Option<Value>, EventFacade<RequestCtx>) -> Result<Option<Value>, Error>;
 
 /// Type alias for a function called after an event affecting a node. The output of this function
 /// will be used as the input to the next after event function. If there are no additional after
@@ -70,7 +69,7 @@ pub type BeforeQueryEventFunc<RequestCtx> =
 /// }
 /// ```
 pub type AfterNodeEventFunc<RequestCtx> =
-    fn(Vec<Node<RequestCtx>>, &GraphQLContext<RequestCtx>, &Transaction<RequestCtx>) -> Result<Vec<Node<RequestCtx>>, Error>;
+    fn(Vec<Node<RequestCtx>>, EventFacade<RequestCtx>) -> Result<Vec<Node<RequestCtx>>, Error>;
 
 /// Type alias for a function called after an event affecting a relationship. The output of this
 /// function will be used as the input to the next after event function. If there are no additional
@@ -91,7 +90,7 @@ pub type AfterNodeEventFunc<RequestCtx> =
 /// }
 /// ```
 pub type AfterRelEventFunc<RequestCtx> =
-    fn(Vec<Rel<RequestCtx>>, &GraphQLContext<RequestCtx>) -> Result<Vec<Rel<RequestCtx>>, Error>;
+    fn(Vec<Rel<RequestCtx>>, EventFacade<RequestCtx>) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
 /// Collects event handlers for application during query processing.
 ///
@@ -760,7 +759,7 @@ where
     pub crud: String,
     pub target: String,
     pub context: &'a GraphQLContext<RequestCtx>,
-    pub transaction: &'a mut Transaction<RequestCtx>,
+    pub transaction: &'a mut dyn Transaction<RequestCtx>,
     pub info: &'a Info
 }
 
@@ -772,7 +771,7 @@ where
         crud: String,
         target: String,
         context: &'a GraphQLContext<RequestCtx>,
-        transaction: &'a mut Transaction<RequestCtx>,
+        transaction: &'a mut dyn Transaction<RequestCtx>,
         info: &'a Info
     ) -> Self 
     {

@@ -3,7 +3,7 @@ use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transact
 use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
-use crate::engine::schema::{Info, PropertyKind, Property};
+use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -37,7 +37,6 @@ where
         .before_node_create(node_var.label()?)
     {
         handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
     } else {
         input
     };
@@ -98,7 +97,6 @@ where
         )?;
 
         let node = transaction
-            //.create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
             .create_node(node_var, props, partition_key_opt, info)
             .and_then(|n| {
                 if let Some(handlers) = context
@@ -107,7 +105,7 @@ where
                 {
                     handlers
                         .iter()
-                        .try_fold(vec![n], |v, f| f(v, context, transaction))?
+                        .try_fold(vec![n], |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?
                         .pop()
                         .ok_or_else(|| Error::ResponseItemNotFound {
                             name: "Node from after_node_create handler".to_string(),
@@ -270,14 +268,13 @@ where
     let itd = info.type_def()?;
 
     let nodes =
-        //transaction.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)?;
         transaction.read_nodes(node_var, query_fragment, partition_key_opt, info)?;
     if nodes.is_empty() {
         if let Some(handlers) = context
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            handlers.iter().try_fold(Vec::new(), |v, f| f(v, context, transaction))?;
+            handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
         }
         return Ok(0);
     }
@@ -342,7 +339,7 @@ where
         .event_handlers()
         .after_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(nodes, |v, f| f(v, context, transaction))?;
+        handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?;
     }
 
     result
@@ -602,14 +599,13 @@ where
         )?;
 
         let nodes = transaction
-            //.update_nodes::<RequestCtx>(query_fragment, node_var, props, partition_key_opt, info)
             .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
             .and_then(|n| {
                 if let Some(handlers) = context
                     .event_handlers()
                     .after_node_update(node_var.label()?)
                 {
-                    handlers.iter().try_fold(n, |v, f| f(v, context, transaction))
+                    handlers.iter().try_fold(n, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))
                 } else {
                     Ok(n)
                 }
@@ -931,7 +927,7 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v, context))
+                    handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))
                 } else {
                     Ok(rels)
                 }
@@ -961,7 +957,6 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
         handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
     } else {
         input
@@ -986,11 +981,10 @@ where
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels =
-            //transaction.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)?;
             transaction.read_rels(fragment, rel_var, None, partition_key_opt)?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-                handlers.iter().try_fold(Vec::new(), |v, f| f(v, context))?;
+                handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
             }
             return Ok(0);
         }
@@ -1034,7 +1028,7 @@ where
         let result = transaction.delete_rels(id_fragment, rel_var, partition_key_opt);
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-            handlers.iter().try_fold(rels, |v, f| f(v, context))?;
+            handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
         }
 
         result
@@ -1526,7 +1520,7 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v, context))
+                    handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))
                 } else {
                     Ok(rels)
                 }
