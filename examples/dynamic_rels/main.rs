@@ -27,7 +27,7 @@ model:
        resolver: resolve_project_top_contributor
 ";
 
-fn resolve_project_top_contributor(facade: ResolverFacade<'_, ()>) -> BoxFuture<ExecutionResult> {
+fn resolve_project_top_contributor(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         // create dynamic dst node
         let mut top_contributor_props = HashMap::<String, Value>::new();
