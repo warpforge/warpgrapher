@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison, Operation
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -459,7 +459,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
 
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -587,7 +587,7 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
-        rel_var: &RelQueryVar, 
+        rel_var: &RelQueryVar,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
@@ -630,7 +630,7 @@ impl Transaction for Neo4jTransaction<'_> {
 
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -639,15 +639,15 @@ impl Transaction for Neo4jTransaction<'_> {
                     where_fragment.push_str(" NOT ")
                 }
                 where_fragment.push_str(
-                    &(rel_var.name().to_string() 
-                        + "." 
-                        + &k 
-                        + " " 
-                        + &neo4j_comparison_operator(&c.operation) 
-                        + " " 
-                        + "$" 
-                        + &param_var 
-                        + "." 
+                    &(rel_var.name().to_string()
+                        + "."
+                        + &k
+                        + " "
+                        + &neo4j_comparison_operator(&c.operation)
+                        + " "
+                        + "$"
+                        + &param_var
+                        + "."
                         + &k),
                 );
                 value_props.insert(k, c.operand);
@@ -1020,6 +1020,6 @@ fn neo4j_comparison_operator(op: &Operation) -> String {
         Operation::GT => ">".to_string(),
         Operation::GTE => ">=".to_string(),
         Operation::LT => "<".to_string(),
-        Operation::LTE => "<=".to_string()
+        Operation::LTE => "<=".to_string(),
     }
 }

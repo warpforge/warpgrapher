@@ -4,8 +4,8 @@ use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison, Operation
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
@@ -314,7 +314,7 @@ impl GremlinTransaction {
                     };
                     Ok((k, v))
                 } else {
-                    Err(Error::TypeNotExpected { details: None})
+                    Err(Error::TypeNotExpected { details: None })
                 }
             })
             .collect::<Result<HashMap<String, Value>, Error>>()
@@ -328,11 +328,11 @@ impl GremlinTransaction {
                         Ok((s, GValue::String(uuid.to_hyphenated().to_string())))
                     }
                     (GKey::String(s), v) => Ok((s, v)),
-                    (_, _) => Err(Error::TypeNotExpected { details: None}),
+                    (_, _) => Err(Error::TypeNotExpected { details: None }),
                 })
                 .collect()
         } else {
-            Err(Error::TypeNotExpected { details: None})
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 
@@ -402,7 +402,7 @@ impl GremlinTransaction {
                             if let GKey::String(k) = key {
                                 Ok((k, val.try_into()?))
                             } else {
-                                Err(Error::TypeNotExpected { details: None})
+                                Err(Error::TypeNotExpected { details: None })
                             }
                         })
                         .collect::<Result<HashMap<String, Value>, Error>>()?;
@@ -596,22 +596,22 @@ impl Transaction for GremlinTransaction {
         }
 
         for (k, c) in props.into_iter() {
-            query.push_str(&(
-                ".has".to_string()
+            query.push_str(
+                &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
-                + &k 
+                + &k
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
-                + "))"
-            ));
+                + &k
+                + &param_suffix
+                + "))"),
+            );
 
             if self.uuid && k == "id" {
-                if let Value::String(s) = &c.operand { 
+                if let Value::String(s) = &c.operand {
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
                     return Err(Error::TypeConversionFailed {
@@ -754,19 +754,19 @@ impl Transaction for GremlinTransaction {
         }
 
         for (k, c) in props.into_iter() {
-            query.push_str(&(
-                ".has".to_string()
+            query.push_str(
+                &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
-                + &k 
+                + &k
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
-                + "))"
-            ));
+                + &k
+                + &param_suffix
+                + "))"),
+            );
 
             if self.uuid && k == "id" {
                 if let Value::String(s) = c.operand {
@@ -1186,7 +1186,7 @@ fn gremlin_comparison_operator(c: &Comparison) -> String {
         (Operation::GT, _) => "gt".to_string(),
         (Operation::GTE, _) => "gte".to_string(),
         (Operation::LT, _) => "lt".to_string(),
-        (Operation::LTE, _) => "lte".to_string()
+        (Operation::LTE, _) => "lte".to_string(),
     }
 }
 

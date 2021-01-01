@@ -2,12 +2,17 @@ mod setup;
 
 #[cfg(feature = "neo4j")]
 use serde_json::json;
+#[cfg(feature = "neo4j")]
 use setup::AppRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
+#[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::EventHandlerBag;
+#[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::{Node, Rel};
+#[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
+#[cfg(feature = "neo4j")]
 use warpgrapher::Error;
 
 #[derive(Debug)]
@@ -21,24 +26,28 @@ impl std::fmt::Display for TestError {
     }
 }
 
+#[cfg(feature = "neo4j")]
 fn bmef(_v: Value) -> Result<Value, Error> {
     Err(Error::UserDefinedError {
         source: Box::new(TestError {}),
     })
 }
 
+#[cfg(feature = "neo4j")]
 fn bqef(_v_opt: Option<Value>) -> Result<Option<Value>, Error> {
     Err(Error::UserDefinedError {
         source: Box::new(TestError {}),
     })
 }
 
+#[cfg(feature = "neo4j")]
 fn anef(_v: Vec<Node<AppRequestCtx>>) -> Result<Vec<Node<AppRequestCtx>>, Error> {
     Err(Error::UserDefinedError {
         source: Box::new(TestError {}),
     })
 }
 
+#[cfg(feature = "neo4j")]
 fn aref(_v: Vec<Rel<AppRequestCtx>>) -> Result<Vec<Rel<AppRequestCtx>>, Error> {
     Err(Error::UserDefinedError {
         source: Box::new(TestError {}),
@@ -338,15 +347,15 @@ async fn test_before_rel_create_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
+            }]),
         )
         .await
         .unwrap();
@@ -381,15 +390,15 @@ async fn test_before_rel_read_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
+            }]),
         )
         .await
         .unwrap();
@@ -442,15 +451,15 @@ async fn test_before_rel_update_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
+            }]),
         )
         .await
         .unwrap();
@@ -504,16 +513,18 @@ async fn test_before_rel_delete_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
-        ).await.unwrap();
+            }]),
+        )
+        .await
+        .unwrap();
 
     assert!(results.is_array());
     let r0 = &results[0];
@@ -564,15 +575,15 @@ async fn test_after_rel_create_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
+            }]),
         )
         .await
         .unwrap();
@@ -607,15 +618,15 @@ async fn test_after_rel_read_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
-            )
+            ),
         )
         .await
         .unwrap();
@@ -668,15 +679,15 @@ async fn test_after_rel_update_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
-            }])
+            }]),
         )
         .await
         .unwrap();
@@ -730,15 +741,15 @@ async fn test_after_rel_delete_handler() {
 
     let results = client
         .create_rel(
-            "Project", 
-            "issues", 
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }", 
+            "Project",
+            "issues",
+            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
-            &json!({"name": {"EQ": "Project Zero"}}), 
+            &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"}, 
+                "props": {"since": "2000"},
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
-            )
+            ),
         )
         .await
         .unwrap();

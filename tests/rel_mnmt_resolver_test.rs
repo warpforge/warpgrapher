@@ -1072,8 +1072,10 @@ async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) 
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}, 
-                "dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
+            Some(
+                &json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}, 
+                "dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}}),
+            ),
             None,
             None,
         )
