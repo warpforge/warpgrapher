@@ -7,7 +7,7 @@ use setup::AppRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::events::EventHandlerBag;
+use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "neo4j")]
