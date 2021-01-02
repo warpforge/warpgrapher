@@ -1,5 +1,5 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{Comparison, NodeQueryVar, QueryFragment, RelQueryVar, Transaction, CrudOperation};
+use crate::engine::database::{Comparison, CrudOperation, NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
 use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
@@ -8,49 +8,45 @@ use crate::engine::validators::Validators;
 use crate::engine::value::Value;
 use crate::error::Error;
 use inflector::Inflector;
+use juniper::BoxFuture;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-pub(super) fn visit_node_create_mutation_input<T, RequestCtx>(
-    node_var: &NodeQueryVar,
+pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
+    node_var: &'a NodeQueryVar,
     input: Value,
-    info: &Info,
-    partition_key_opt: Option<&Value>,
-    sg: &mut SuffixGenerator,
-    transaction: &mut T,
-    context: &GraphQLContext<RequestCtx>,
-) -> Result<Node<RequestCtx>, Error>
+    info: &'a Info,
+    partition_key_opt: Option<&'a Value>,
+    sg: &'a mut SuffixGenerator,
+    transaction: &'a mut T,
+    context: &'a GraphQLContext<RequestCtx>,
+) -> BoxFuture<'a, Result<Node<RequestCtx>, Error>>
 where
-    T: Transaction<RequestCtx>,
+    T: 'a + Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
-    trace!(
+    Box::pin(async move {
+        trace!(
         "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
         node_var,
         input,
         info.name()
     );
 
-    let input = if let Some(handlers) = context
-        .event_handlers()
-        .before_node_create(node_var.label()?)
-    {
-        handlers.iter().try_fold(input, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::CreateNode("?".to_string()), context, transaction, info),
-            )
-        })?
-    } else {
-        input
-    };
+        let input = if let Some(handlers) = context
+            .event_handlers()
+            .before_node_create(node_var.label()?)
+        {
+            handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new(CrudOperation::CreateNode("?".to_string()), context, transaction, info) ))?
+        } else {
+            input
+        };
 
-    let itd = info.type_def()?;
+        let itd = info.type_def()?;
 
-    if let Value::Map(ref m) = input {
-        m.keys()
-            .try_for_each(|k| {
+        if let Value::Map(ref m) = input {
+            m.keys().try_for_each(|k| {
                 let p = itd.property(k)?;
                 match p.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -61,75 +57,89 @@ where
                     _ => Ok(()), // No validation action to take
                 }
             })?
-    }
+        }
 
-    if let Value::Map(m) = input {
-        let (props, inputs) = m.into_iter().try_fold(
-            (
-                HashMap::<String, Value>::new(),
-                HashMap::<String, Value>::new(),
-            ),
-            |(mut props, mut inputs), (k, v)| {
-                match itd.property(&k)?.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
-                        props.insert(k, v);
+        if let Value::Map(m) = input {
+            let (props, inputs) = m.into_iter().try_fold(
+                (HashMap::new(), HashMap::new()),
+                |(mut props, mut inputs), (k, v)| {
+                    match itd.property(&k)?.kind() {
+                        PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                            props.insert(k, v);
+                        }
+                        PropertyKind::Input => {
+                            inputs.insert(k, v);
+                        }
+                        _ => return Err(Error::TypeNotExpected { details: None }),
                     }
-                    PropertyKind::Input => {
-                        inputs.insert(k, v);
-                    }
-                    _ => return Err(Error::TypeNotExpected { details: None }),
-                }
-                Ok((props, inputs))
-            },
-        )?;
+                    Ok((props, inputs))
+                },
+            )?;
 
-        let node = transaction
-            .create_node(node_var, props, partition_key_opt, info)
-            .and_then(|n| {
-                if let Some(handlers) = context
-                    .event_handlers()
-                    .after_node_create(node_var.label()?)
-                {
-                    handlers
-                        .iter()
-                        .try_fold(vec![n], |v, f| {
-                            f(
-                                v,
-                                EventFacade::new(
+            let node = transaction
+                //.create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
+                .create_node(node_var, props, partition_key_opt, info)
+                .await
+                .and_then(|n| {
+                    if let Some(handlers) = context
+                        .event_handlers()
+                        .after_node_create(node_var.label()?)
+                    {
+                        handlers
+                            .iter()
+                            .try_fold(vec![n], |v, f| f(v, EventFacade::new(
                                     CrudOperation::CreateNode("?".to_string()),
                                     context,
                                     transaction,
                                     info,
-                                ),
-                            )
-                        })?
-                        .pop()
-                        .ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "Node from after_node_create handler".to_string(),
-                        })
-                } else {
-                    Ok(n)
-                }
-            })?;
+                                )))?
+                            .pop()
+                            .ok_or_else(|| Error::ResponseItemNotFound {
+                                name: "Node from after_node_create handler".to_string(),
+                            })
+                    } else {
+                        Ok(n)
+                    }
+                })?;
 
-        if !inputs.is_empty() {
-            let mut id_props = HashMap::new();
-            id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
+            if !inputs.is_empty() {
+                let mut id_props = HashMap::new();
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
 
-            let fragment = transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
-            trace!(
-                "visit_node_create_mutation_input -- fragment: {:#?}",
-                fragment
-            );
+                let fragment =
+                    transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
+                trace!(
+                    "visit_node_create_mutation_input -- fragment: {:#?}",
+                    fragment
+                );
 
-            inputs.into_iter().try_for_each(|(k, v)| {
-                let p = itd.property(&k)?;
+                for (k, v) in inputs.into_iter() {
+                    let p = itd.property(&k)?;
 
-                match p.kind() {
-                    PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok(()), // Handled earlier
-                    PropertyKind::Input => {
-                        if let Value::Array(input_array) = v {
-                            input_array.into_iter().try_for_each(|val| {
+                    match p.kind() {
+                        PropertyKind::Scalar | PropertyKind::DynamicScalar => (), // Handled earlier
+                        PropertyKind::Input => {
+                            if let Value::Array(input_array) = v {
+                                for val in input_array.into_iter() {
+                                    visit_rel_create_mutation_input::<T, RequestCtx>(
+                                        fragment.clone(),
+                                        &RelQueryVar::new(
+                                            p.name().to_string(),
+                                            sg.suffix(),
+                                            node_var.clone(),
+                                            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                        ),
+                                        None,
+                                        val,
+                                        &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                        partition_key_opt,
+                                        sg,
+                                        transaction,
+                                        context,
+                                    )
+                                    .await?;
+                                }
+                            } else {
                                 visit_rel_create_mutation_input::<T, RequestCtx>(
                                     fragment.clone(),
                                     &RelQueryVar::new(
@@ -139,49 +149,31 @@ where
                                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                     ),
                                     None,
-                                    val,
+                                    v,
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
                                     sg,
                                     transaction,
                                     context,
-                                )?;
-                                Ok(())
-                            })
-                        } else {
-                            visit_rel_create_mutation_input::<T, RequestCtx>(
-                                fragment.clone(),
-                                &RelQueryVar::new(
-                                    p.name().to_string(),
-                                    sg.suffix(),
-                                    node_var.clone(),
-                                    NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                                ),
-                                None,
-                                v,
-                                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
-                                sg,
-                                transaction,
-                                context,
-                            )?;
-                            Ok(())
+                                )
+                                .await?;
+                            }
                         }
+                        _ => return Err(Error::TypeNotExpected { details: None }),
                     }
-                    _ => Err(Error::TypeNotExpected { details: None }),
                 }
-            })?;
+            }
+
+            trace!("visit_node_create_muation_input -- returning {:#?}", node);
+
+            Ok(node)
+        } else {
+            Err(Error::TypeNotExpected { details: None })
         }
-
-        trace!("visit_node_create_muation_input -- returning {:#?}", node);
-
-        Ok(node)
-    } else {
-        Err(Error::TypeNotExpected { details: None })
-    }
+    })
 }
 
-pub(super) fn visit_node_delete_input<T, RequestCtx: RequestContext>(
+pub(super) async fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -226,7 +218,8 @@ where
             partition_key_opt,
             sg,
             transaction,
-        )?;
+        )
+        .await?;
 
         visit_node_delete_mutation_input::<T, RequestCtx>(
             fragment,
@@ -241,59 +234,78 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_delete_mutation_input<T, RequestCtx>(
+fn visit_node_delete_mutation_input<'a, T, RequestCtx>(
     query_fragment: QueryFragment,
-    node_var: &NodeQueryVar,
+    node_var: &'a NodeQueryVar,
     input: Option<Value>,
-    info: &Info,
-    partition_key_opt: Option<&Value>,
-    sg: &mut SuffixGenerator,
-    transaction: &mut T,
-    context: &GraphQLContext<RequestCtx>,
-) -> Result<i32, Error>
+    info: &'a Info,
+    partition_key_opt: Option<&'a Value>,
+    sg: &'a mut SuffixGenerator,
+    transaction: &'a mut T,
+    context: &'a GraphQLContext<RequestCtx>,
+) -> BoxFuture<'a, Result<i32, Error>>
 where
     RequestCtx: RequestContext,
-    T: Transaction<RequestCtx>,
+    T: 'a + Transaction<RequestCtx>,
 {
-    trace!(
+    Box::pin(async move {
+        trace!(
         "visit_node_delete_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
         query_fragment, node_var, input, info.name()
     );
 
-    let itd = info.type_def()?;
+        let itd = info.type_def()?;
 
-    let nodes = transaction.read_nodes(node_var, query_fragment, partition_key_opt, info)?;
-    if nodes.is_empty() {
-        if let Some(handlers) = context
-            .event_handlers()
-            .after_node_delete(node_var.label()?)
-        {
-            handlers.iter().try_fold(Vec::new(), |v, f| {
-                f(
-                    v,
-                    EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
-                )
-            })?;
+        let nodes = transaction
+            .read_nodes(node_var, query_fragment, partition_key_opt, info)
+            //.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)
+            .await?;
+        if nodes.is_empty() {
+            if let Some(handlers) = context
+                .event_handlers()
+                .after_node_delete(node_var.label()?)
+            {
+                handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info)))?;
+            }
+            return Ok(0);
         }
-        return Ok(0);
-    }
 
-    let fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
+        let fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
-    if let Some(Value::Map(m)) = input {
-        m.into_iter().try_for_each(|(k, v)| {
-            let p = itd.property(&k)?;
+        if let Some(Value::Map(m)) = input {
+            for (k, v) in m.into_iter() {
+                let p = itd.property(&k)?;
 
-            match p.kind() {
-                PropertyKind::Input => {
-                    if let Value::Array(input_array) = v {
-                        input_array.into_iter().try_for_each(|val| {
+                match p.kind() {
+                    PropertyKind::Input => {
+                        if let Value::Array(input_array) = v {
+                            for val in input_array.into_iter() {
+                                let rel_var = RelQueryVar::new(
+                                    k.to_string(),
+                                    sg.suffix(),
+                                    node_var.clone(),
+                                    NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                );
+                                visit_rel_delete_input::<T, RequestCtx>(
+                                    Some(fragment.clone()),
+                                    &rel_var,
+                                    val,
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    sg,
+                                    transaction,
+                                    context,
+                                )
+                                .await?;
+                            }
+                        } else {
                             let rel_var = RelQueryVar::new(
                                 k.to_string(),
                                 sg.suffix(),
@@ -303,59 +315,37 @@ where
                             visit_rel_delete_input::<T, RequestCtx>(
                                 Some(fragment.clone()),
                                 &rel_var,
-                                val,
+                                v,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
                                 transaction,
                                 context,
-                            )?;
-                            Ok(())
-                        })
-                    } else {
-                        let rel_var = RelQueryVar::new(
-                            k.to_string(),
-                            sg.suffix(),
-                            node_var.clone(),
-                            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                        );
-                        visit_rel_delete_input::<T, RequestCtx>(
-                            Some(fragment.clone()),
-                            &rel_var,
-                            v,
-                            &Info::new(p.type_name().to_owned(), info.type_defs()),
-                            partition_key_opt,
-                            sg,
-                            transaction,
-                            context,
-                        )?;
-
-                        Ok(())
+                            )
+                            .await?;
+                        }
                     }
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
-                _ => Err(Error::TypeNotExpected { details: None }),
             }
-        })?
-    }
+        }
 
-    let result = transaction.delete_nodes(fragment, node_var, partition_key_opt);
+        let result = transaction
+            .delete_nodes(fragment, node_var, partition_key_opt)
+            .await;
 
-    if let Some(handlers) = context
-        .event_handlers()
-        .after_node_delete(node_var.label()?)
-    {
-        handlers.iter().try_fold(nodes, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
-            )
-        })?;
-    }
+        if let Some(handlers) = context
+            .event_handlers()
+            .after_node_delete(node_var.label()?)
+        {
+            handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),))?;
+        }
 
-    result
+        result
+    })
 }
 
-fn visit_node_input<T, RequestCtx>(
+async fn visit_node_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -397,7 +387,8 @@ where
                     sg,
                     transaction,
                     context,
-                )?;
+                )
+                .await?;
 
                 let mut id_props = HashMap::new();
                 id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
@@ -411,7 +402,8 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-            )?),
+            )
+            .await?),
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + &k,
             }),
@@ -421,45 +413,47 @@ where
     }
 }
 
-pub(crate) fn visit_node_query_input<T: ?Sized, RequestCtx>(
-    node_var: &NodeQueryVar,
+//pub(crate) fn visit_node_query_input<T: ?Sized, RequestCtx>(
+//    node_var: &NodeQueryVar,
+pub(crate) fn visit_node_query_input<'a, T: ?Sized, RequestCtx>(
+    node_var: &'a NodeQueryVar,
     input: Option<Value>,
-    info: &Info,
-    partition_key_opt: Option<&Value>,
-    sg: &mut SuffixGenerator,
-    transaction: &mut T,
-) -> Result<QueryFragment, Error>
+    info: &'a Info,
+    partition_key_opt: Option<&'a Value>,
+    sg: &'a mut SuffixGenerator,
+    transaction: &'a mut T,
+) -> BoxFuture<'a, Result<QueryFragment, Error>>
 where
-    T: Transaction<RequestCtx>,
+    T: 'a + Transaction<RequestCtx>,
     RequestCtx: RequestContext,
+    //T: 'a + Transaction,
 {
-    trace!(
-        "visit_node_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
-        node_var,
-        input,
-        info.name()
-    );
+    Box::pin(async move {
+        trace!(
+            "visit_node_query_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+            node_var,
+            input,
+            info.name()
+        );
 
-    let itd = info.type_def()?;
-    let dst_var = NodeQueryVar::new(None, "dst".to_string(), sg.suffix());
+        let itd = info.type_def()?;
+        let dst_var = NodeQueryVar::new(None, "dst".to_string(), sg.suffix());
 
-    if let Some(Value::Map(m)) = input {
-        let (props, rqfs) = m.into_iter().try_fold(
-            (HashMap::new(), Vec::new()),
-            |(mut props, mut rqfs), (k, v)| {
-                itd.property(&k)
-                    .map_err(|e| e)
-                    .and_then(|p| match p.kind() {
-                        PropertyKind::ScalarComp => {
-                            props.insert(k, Comparison::try_from(v)?);
-                            Ok((props, rqfs))
-                        }
-                        PropertyKind::Scalar => {
-                            props.insert(k, Comparison::default(v));
-                            Ok((props, rqfs))
-                        }
-                        PropertyKind::Input => {
-                            rqfs.push(visit_rel_query_input(
+        if let Some(Value::Map(m)) = input {
+            let mut props = HashMap::new();
+            let mut rqfs = Vec::new();
+            for (k, v) in m.into_iter() {
+                let p = itd.property(&k)?;
+                match p.kind() {
+                    PropertyKind::ScalarComp => {
+                        props.insert(k, Comparison::try_from(v)?);
+                    }
+                    PropertyKind::Scalar => {
+                        props.insert(k, Comparison::default(v));
+                    }
+                    PropertyKind::Input => {
+                        rqfs.push(
+                            visit_rel_query_input(
                                 None,
                                 &RelQueryVar::new(
                                     k.to_string(),
@@ -472,21 +466,22 @@ where
                                 partition_key_opt,
                                 sg,
                                 transaction,
-                            )?);
-                            Ok((props, rqfs))
-                        }
-                        _ => Err(Error::TypeNotExpected { details: None }),
-                    })
-            },
-        )?;
+                            )
+                            .await?,
+                        );
+                    }
+                    _ => return Err(Error::TypeNotExpected { details: None }),
+                }
+            }
 
-        transaction.node_read_fragment(rqfs, &node_var, props, sg)
-    } else {
-        transaction.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
-    }
+            transaction.node_read_fragment(rqfs, &node_var, props, sg)
+        } else {
+            transaction.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
+        }
+    })
 }
 
-pub(super) fn visit_node_update_input<T, RequestCtx>(
+pub(super) async fn visit_node_update_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -533,7 +528,8 @@ where
             partition_key_opt,
             sg,
             transaction,
-        )?;
+        )
+        .await?;
 
         visit_node_update_mutation_input::<T, RequestCtx>(
             query_fragment,
@@ -553,146 +549,149 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_update_mutation_input<T, RequestCtx>(
+fn visit_node_update_mutation_input<'a, T, RequestCtx>(
     query_fragment: QueryFragment,
-    node_var: &NodeQueryVar,
+    node_var: &'a NodeQueryVar,
     input: Value,
-    info: &Info,
-    partition_key_opt: Option<&Value>,
-    sg: &mut SuffixGenerator,
-    transaction: &mut T,
-    context: &GraphQLContext<RequestCtx>,
-) -> Result<Vec<Node<RequestCtx>>, Error>
+    info: &'a Info,
+    partition_key_opt: Option<&'a Value>,
+    sg: &'a mut SuffixGenerator,
+    transaction: &'a mut T,
+    context: &'a GraphQLContext<RequestCtx>,
+) -> BoxFuture<'a, Result<Vec<Node<RequestCtx>>, Error>>
 where
-    T: Transaction<RequestCtx>,
+    T: 'a + Transaction<RequestCtx>,
     RequestCtx: RequestContext,
 {
-    trace!(
+    Box::pin(async move {
+        trace!(
         "visit_node_update_mutation_input called -- query_fragment: {:#?}, node_var: {:#?}, input: {:#?}, info.name: {}",
         query_fragment, node_var, input, info.name(),
     );
 
-    let itd = info.type_def()?;
+        let itd = info.type_def()?;
 
-    if let Value::Map(ref m) = input {
-        m.keys().try_for_each(|k| {
-            let p = itd.property(k)?;
+        if let Value::Map(ref m) = input {
+            m.keys().try_for_each(|k| {
+                let p = itd.property(k)?;
 
-            match p.kind() {
-                PropertyKind::Scalar | PropertyKind::DynamicScalar => {
-                    p.validator().map_or(Ok(()), |v_name| {
-                        validate_input(context.validators(), &v_name, &input)
-                    })
-                }
-                _ => Ok(()), // No validation action to take
-            }
-        })?;
-    }
-
-    if let Value::Map(m) = input {
-        let (props, inputs) = m.into_iter().try_fold(
-            (HashMap::new(), HashMap::new()),
-            |(mut props, mut inputs), (k, v)| {
-                match itd.property(&k)?.kind() {
+                match p.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
-                        props.insert(k, v);
+                        p.validator().map_or(Ok(()), |v_name| {
+                            validate_input(context.validators(), &v_name, &input)
+                        })
                     }
-                    PropertyKind::Input => {
-                        inputs.insert(k, v);
-                    }
-                    _ => return Err(Error::TypeNotExpected { details: None }),
-                }
-                Ok((props, inputs))
-            },
-        )?;
-
-        let nodes = transaction
-            .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
-            .and_then(|n| {
-                if let Some(handlers) = context
-                    .event_handlers()
-                    .after_node_update(node_var.label()?)
-                {
-                    handlers.iter().try_fold(n, |v, f| {
-                        f(
-                            v,
-                            EventFacade::new(
-                                CrudOperation::UpdateNode("?".to_string()),
-                                context,
-                                transaction,
-                                info,
-                            ),
-                        )
-                    })
-                } else {
-                    Ok(n)
+                    _ => Ok(()), // No validation action to take
                 }
             })?;
-        if nodes.is_empty() {
-            return Ok(nodes);
         }
-        let node_fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
 
-        inputs.into_iter().try_for_each(|(k, v)| {
-            let p = itd.property(&k)?;
+        if let Value::Map(m) = input {
+            let (props, inputs) = m.into_iter().try_fold(
+                (HashMap::new(), HashMap::new()),
+                |(mut props, mut inputs), (k, v)| {
+                    match itd.property(&k)?.kind() {
+                        PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                            props.insert(k, v);
+                        }
+                        PropertyKind::Input => {
+                            inputs.insert(k, v);
+                        }
+                        _ => return Err(Error::TypeNotExpected { details: None }),
+                    }
+                    Ok((props, inputs))
+                },
+            )?;
 
-            match p.kind() {
-                PropertyKind::Scalar | PropertyKind::DynamicScalar => Ok(()), // Properties handled above
-                PropertyKind::Input => {
-                    if let Value::Array(input_array) = v {
-                        input_array.into_iter().try_for_each(|val| {
+            let nodes = transaction
+                //.update_nodes::<RequestCtx>(
+                .update_nodes(
+                    query_fragment,
+                    node_var,
+                    props,
+                    partition_key_opt,
+                    info,
+                )
+                .await
+                .and_then(|n| {
+                    if let Some(handlers) = context
+                        .event_handlers()
+                        .after_node_update(node_var.label()?)
+                    {
+                        handlers.iter().try_fold(n, |v, f| f(v, EventFacade::new(CrudOperation::UpdateNode("?".to_string()), context, transaction, info)))
+                    } else {
+                        Ok(n)
+                    }
+                })?;
+            if nodes.is_empty() {
+                return Ok(nodes);
+            }
+            let node_fragment = transaction.node_read_by_ids_fragment(node_var, &nodes)?;
+
+            for (k, v) in inputs.into_iter() {
+                let p = itd.property(&k)?;
+
+                match p.kind() {
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => (), // Properties handled above
+                    PropertyKind::Input => {
+                        if let Value::Array(input_array) = v {
+                            for val in input_array.into_iter() {
+                                visit_rel_change_input::<T, RequestCtx>(
+                                    node_fragment.clone(),
+                                    &RelQueryVar::new(
+                                        k.clone(),
+                                        sg.suffix(),
+                                        node_var.clone(),
+                                        NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+                                    ),
+                                    val,
+                                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                                    partition_key_opt,
+                                    sg,
+                                    transaction,
+                                    context,
+                                )
+                                .await?;
+                            }
+                        } else {
                             visit_rel_change_input::<T, RequestCtx>(
                                 node_fragment.clone(),
                                 &RelQueryVar::new(
-                                    k.clone(),
+                                    k,
                                     sg.suffix(),
                                     node_var.clone(),
                                     NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                 ),
-                                val,
+                                v,
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
                                 partition_key_opt,
                                 sg,
                                 transaction,
                                 context,
                             )
-                        })
-                    } else {
-                        visit_rel_change_input::<T, RequestCtx>(
-                            node_fragment.clone(),
-                            &RelQueryVar::new(
-                                k,
-                                sg.suffix(),
-                                node_var.clone(),
-                                NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
-                            ),
-                            v,
-                            &Info::new(p.type_name().to_owned(), info.type_defs()),
-                            partition_key_opt,
-                            sg,
-                            transaction,
-                            context,
-                        )
+                            .await?;
+                        }
                     }
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
-                _ => Err(Error::TypeNotExpected { details: None }),
             }
-        })?;
 
-        Ok(nodes)
-    } else {
-        Err(Error::TypeNotExpected { details: None })
-    }
+            Ok(nodes)
+        } else {
+            Err(Error::TypeNotExpected { details: None })
+        }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_change_input<T, RequestCtx>(
+async fn visit_rel_change_input<T, RequestCtx>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
@@ -729,7 +728,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
 
             Ok(())
         } else if let Some(v) = m.remove("DELETE") {
@@ -746,7 +746,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
 
             Ok(())
         } else if let Some(v) = m.remove("UPDATE") {
@@ -764,7 +765,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
             Ok(())
         } else {
             Err(Error::InputItemNotFound {
@@ -777,7 +779,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_rel_create_input<T, RequestCtx>(
+pub(super) async fn visit_rel_create_input<T, RequestCtx>(
     src_var: &NodeQueryVar,
     rel_name: &str,
     props_type_name: Option<&str>,
@@ -822,11 +824,12 @@ where
             partition_key_opt,
             sg,
             transaction,
-        )?;
+        )
+        .await?;
 
-        //let nodes = transaction.read_nodes::<RequestCtx>(
-        let nodes =
-            transaction.read_nodes(src_var, src_fragment.clone(), partition_key_opt, info)?;
+        let nodes = transaction
+            .read_nodes(src_var, src_fragment.clone(), partition_key_opt, info)
+            .await?;
 
         if nodes.is_empty() {
             return Ok(Vec::new());
@@ -861,34 +864,37 @@ where
                     transaction,
                     context,
                 )
+                .await
             }
-            Value::Array(create_input_array) => create_input_array.into_iter().try_fold(
-                Vec::new(),
-                |mut rels, create_input_value| -> Result<Vec<Rel<RequestCtx>>, Error> {
+            Value::Array(create_input_array) => {
+                let mut rels = Vec::new();
+                for create_input_value in create_input_array {
                     let rel_var = RelQueryVar::new(
                         rel_name.to_string(),
                         sg.suffix(),
                         src_var.clone(),
                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                     );
-                    rels.append(&mut visit_rel_create_mutation_input::<T, RequestCtx>(
-                        src_fragment.clone(),
-                        &rel_var,
-                        props_type_name,
-                        create_input_value,
-                        &Info::new(
-                            itd.property("CREATE")?.type_name().to_owned(),
-                            info.type_defs(),
-                        ),
-                        partition_key_opt,
-                        sg,
-                        transaction,
-                        context,
-                    )?);
-
-                    Ok(rels)
-                },
-            ),
+                    rels.append(
+                        &mut visit_rel_create_mutation_input::<T, RequestCtx>(
+                            src_fragment.clone(),
+                            &rel_var,
+                            props_type_name,
+                            create_input_value,
+                            &Info::new(
+                                itd.property("CREATE")?.type_name().to_owned(),
+                                info.type_defs(),
+                            ),
+                            partition_key_opt,
+                            sg,
+                            transaction,
+                            context,
+                        )
+                        .await?,
+                    );
+                }
+                Ok(rels)
+            }
             _ => Err(Error::TypeNotExpected { details: None }),
         }
     } else {
@@ -897,7 +903,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_create_mutation_input<T, RequestCtx>(
+async fn visit_rel_create_mutation_input<T, RequestCtx>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -930,7 +936,8 @@ where
             sg,
             transaction,
             context,
-        )?;
+        )
+        .await?;
 
         let props = match m.remove("props") {
             None => HashMap::new(),
@@ -949,6 +956,7 @@ where
                 props_type_name,
                 partition_key_opt,
             )
+            .await
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
                     handlers.iter().try_fold(rels, |v, f| {
@@ -972,7 +980,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_rel_delete_input<T, RequestCtx>(
+pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input: Value,
@@ -1015,11 +1023,15 @@ where
             partition_key_opt,
             sg,
             transaction,
-        )?;
+        )
+        .await?;
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
-        let rels = transaction.read_rels(fragment, rel_var, None, partition_key_opt)?;
+        let rels = transaction
+            .read_rels(fragment, rel_var, None, partition_key_opt)
+            //.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)
+            .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
                 handlers.iter().try_fold(Vec::new(), |v, f| {
@@ -1053,7 +1065,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
         }
 
         if let Some(dst) = m.remove("dst") {
@@ -1070,10 +1083,13 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
         }
 
-        let result = transaction.delete_rels(id_fragment, rel_var, partition_key_opt);
+        let result = transaction
+            .delete_rels(id_fragment, rel_var, partition_key_opt)
+            .await;
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
             handlers.iter().try_fold(rels, |v, f| {
@@ -1091,7 +1107,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
+async fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1130,12 +1146,14 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
-fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
+//fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
+async fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1158,14 +1176,17 @@ where
         if let Some((k, v)) = m.into_iter().next() {
             let p = info.type_def()?.property(&k)?;
 
-            Ok(Some(visit_node_query_input(
-                node_var,
-                Some(v),
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
-                sg,
-                transaction,
-            )?))
+            Ok(Some(
+                visit_node_query_input(
+                    node_var,
+                    Some(v),
+                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                    partition_key_opt,
+                    sg,
+                    transaction,
+                )
+                .await?,
+            ))
         } else {
             Ok(None)
         }
@@ -1174,7 +1195,7 @@ where
     }
 }
 
-fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     input: Value,
     info: &Info,
@@ -1210,12 +1231,13 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
-fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
+async fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -1254,12 +1276,14 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
-pub(super) fn visit_rel_query_input<T: ?Sized, RequestCtx>(
+//pub(super) fn visit_rel_query_input<T: ?Sized, RequestCtx>(
+pub(super) async fn visit_rel_query_input<T: ?Sized, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
@@ -1305,7 +1329,8 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-            )?
+            )
+            .await?
         } else {
             src_fragment_opt
         };
@@ -1319,7 +1344,8 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-            )?
+            )
+            .await?
         } else {
             None
         };
@@ -1331,7 +1357,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
+async fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1369,13 +1395,14 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_src_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_src_update_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1413,12 +1440,14 @@ where
             transaction,
             context,
         )
+        .await
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
 }
 
-fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
+//fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
+async fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
     info: &Info,
@@ -1448,7 +1477,8 @@ where
                 partition_key_opt,
                 sg,
                 transaction,
-            )?;
+            )
+            .await?;
 
             Ok(Some(fragment))
         } else {
@@ -1460,7 +1490,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn visit_rel_update_input<T, RequestCtx>(
+pub(super) async fn visit_rel_update_input<T, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -1505,7 +1535,8 @@ where
             partition_key_opt,
             sg,
             transaction,
-        )?;
+        )
+        .await?;
 
         trace!("visit_rel_update_input -- fragment: {:#?}", fragment);
 
@@ -1525,6 +1556,7 @@ where
                 transaction,
                 context,
             )
+            .await
         } else {
             Err(Error::InputItemNotFound {
                 name: "input::SET".to_string(),
@@ -1536,7 +1568,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_rel_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_update_mutation_input<T, RequestCtx>(
     query_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -1574,6 +1606,7 @@ where
                 props_type_name,
                 partition_key_opt,
             )
+            .await
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
                     handlers.iter().try_fold(rels, |v, f| {
@@ -1611,7 +1644,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
         }
 
         if let Some(dst) = m.remove("dst") {
@@ -1627,7 +1661,8 @@ where
                 sg,
                 transaction,
                 context,
-            )?;
+            )
+            .await?;
         }
 
         Ok(rels)

@@ -6,6 +6,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
+use crate::juniper::BoxFuture;
 use crate::Error;
 use inflector::Inflector;
 use std::collections::HashMap;
@@ -32,7 +33,7 @@ pub enum Object<'a, RequestCtx: RequestContext> {
 /// ExecutionResult.
 ///
 /// [`ResolverFacade`]: ./struct.ResolverFacade.html
-pub type ResolverFunc<RequestCtx> = fn(ResolverFacade<RequestCtx>) -> ExecutionResult;
+pub type ResolverFunc<RequestCtx> = fn(ResolverFacade<RequestCtx>) -> BoxFuture<ExecutionResult>;
 
 /// Type alias for a mapping from a custom resolver name to a the Rust function that implements the
 /// custom resolver.
@@ -52,7 +53,7 @@ where
     args: &'a Arguments<'a>,
     parent: Object<'a, RequestCtx>,
     partition_key_opt: Option<&'a Value>,
-    executor: &'a Executor<'a, GraphQLContext<RequestCtx>>,
+    executor: &'a Executor<'a, 'a, GraphQLContext<RequestCtx>>,
 }
 
 impl<'a, RequestCtx> ResolverFacade<'a, RequestCtx>
@@ -256,16 +257,19 @@ where
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let typename = "User";
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let typename = "User";
     ///
-    ///     let mut props = HashMap::new();
-    ///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+    ///         let mut props = HashMap::new();
+    ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
     ///
-    ///     let n = facade.create_node(typename, props);
+    ///         let n = facade.create_node(typename, props);
     ///
-    ///     facade.resolve_node(&n)
+    ///         facade.resolve_node(&n).await
+    ///     })
     /// }
     /// ```
     pub fn create_node(&self, typename: &str, props: HashMap<String, Value>) -> Node<RequestCtx> {
@@ -288,16 +292,20 @@ where
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
-    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
-    ///     let mut rel_props = HashMap::new();
-    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///         let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///         let mut rel_props = HashMap::new();
+    ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
-    ///     let rel = facade.create_rel(rel_id, Some(rel_props), node_id, "DstNodeLabel")?;
-    ///     facade.resolve_rel(&rel)
+    ///         let rel = facade.
+    ///             create_rel(rel_id, Some(rel_props), node_id, "DstNodeLabel")?;
+    ///         facade.resolve_rel(&rel).await
+    ///     })
     /// }
     /// ```
     pub fn create_rel(
@@ -342,20 +350,23 @@ where
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
-    ///     let typename = "User";
-    ///     let mut props = HashMap::new();
-    ///     props.insert("role".to_string(), Value::String("Admin".to_string()));
-    ///     let n = facade.create_node(typename, props);
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///         let typename = "User";
+    ///         let mut props = HashMap::new();
+    ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
+    ///         let n = facade.create_node(typename, props);
     ///
-    ///     let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
-    ///     let mut rel_props = HashMap::new();
-    ///     rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
+    ///         let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///         let mut rel_props = HashMap::new();
+    ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
-    ///     let rel = facade.create_rel_with_dst_node(rel_id, Some(rel_props), n)?;
-    ///     facade.resolve_rel(&rel)
+    ///         let rel = facade.create_rel_with_dst_node(rel_id, Some(rel_props), n)?;
+    ///         facade.resolve_rel(&rel).await
+    ///     })
     /// }
     /// ```
     pub fn create_rel_with_dst_node(
@@ -388,13 +399,16 @@ where
     ///
     /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let info = facade.info();
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let info = facade.info();
     ///
-    ///     // use info
+    ///         // use info
     ///
-    ///     facade.resolve_null()
+    ///         facade.resolve_null()
+    ///     })
     /// }
     /// ```
     pub fn info(&self) -> &Info {
@@ -409,13 +423,16 @@ where
     /// ```rust,no_run
     /// # use warpgrapher::engine::resolvers::{Executor, ExecutionResult};
     /// # use warpgrapher::engine::resolvers::ResolverFacade;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let exeuctor = facade.executor();
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let exeuctor = facade.executor();
     ///
-    ///     // use executor
+    ///         // use executor
     ///
-    ///     facade.resolve_null()
+    ///         facade.resolve_null()
+    ///     })
     /// }
     /// ```
     pub fn executor(&self) -> &Executor<GraphQLContext<RequestCtx>> {
@@ -434,15 +451,18 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
-    /// # use warpgrapher::engine::objects::GraphQLType;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::juniper::BoxFuture;
+    /// # use warpgrapher::juniper::{GraphQLType, GraphQLValue};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let parent_node = facade.parent_node()?;
-    ///     println!("Parent type: {:#?}",
-    ///         parent_node.concrete_type_name(facade.executor().context(), facade.info()));
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         let parent_node = facade.parent_node()?;
+    ///         println!("Parent type: {:#?}",
+    ///             parent_node.concrete_type_name(facade.executor().context(), facade.info()));
     ///
-    ///     facade.resolve_null()
+    ///         facade.resolve_null()
+    ///     })
     /// }
     /// ```
     pub fn parent_node(&self) -> Result<&Node<RequestCtx>, Error> {
@@ -459,12 +479,15 @@ where
     ///
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     // do work
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
     ///
-    ///     // return null
-    ///     facade.resolve_null()
+    ///         // return null
+    ///         facade.resolve_null()
+    ///     })
     /// }
     /// ```
     pub fn resolve_null(&self) -> ExecutionResult {
@@ -477,12 +500,15 @@ where
     ///
     /// ```rust, no_run
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     // do work
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
     ///
-    ///     // return string
-    ///     facade.resolve_scalar("Hello")
+    ///         // return string
+    ///         facade.resolve_scalar("Hello")
+    ///     })
     /// }
     /// ```
     pub fn resolve_scalar<T>(&self, v: T) -> ExecutionResult
@@ -497,12 +523,15 @@ where
     /// # Examples
     /// ```rust, no_run
     /// use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     // do work
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
     ///
-    ///     // return string
-    ///     facade.resolve_scalar_list(vec![1, 2, 3])
+    ///         // return string
+    ///         facade.resolve_scalar_list(vec![1, 2, 3])
+    ///     })
     /// }
     /// ```
     pub fn resolve_scalar_list<T>(&self, v: Vec<T>) -> ExecutionResult
@@ -522,22 +551,27 @@ where
     /// use std::collections::HashMap;
     /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// use warpgrapher::engine::value::Value;
+    /// use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     // do work
-    ///     let mut hm = HashMap::new();
-    ///     hm.insert("name".to_string(), Value::String("John Doe".to_string()));
-    ///     hm.insert("age".to_string(), Value::Int64(21));
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
+    ///         let mut hm = HashMap::new();
+    ///         hm.insert("name".to_string(), Value::String("John Doe".to_string()));
+    ///         hm.insert("age".to_string(), Value::Int64(21));
     ///
-    ///     // return node
-    ///     facade.resolve_node(&facade.create_node("User", hm))
+    ///         // return node
+    ///         facade.resolve_node(&facade.create_node("User", hm)).await
+    ///     })
     /// }
     /// ```
-    pub fn resolve_node(&self, node: &Node<RequestCtx>) -> ExecutionResult {
-        self.executor.resolve(
-            &Info::new(node.typename().to_string(), self.info.type_defs()),
-            node,
-        )
+    pub async fn resolve_node(&self, node: &Node<RequestCtx>) -> ExecutionResult {
+        self.executor
+            .resolve_async(
+                &Info::new(node.typename().to_string(), self.info.type_defs()),
+                node,
+            )
+            .await
     }
 
     /// Returns a GraphQL Object representing a graph relationship defined by an ID, props, and a
@@ -550,21 +584,24 @@ where
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     // do work
-    ///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
+    ///         let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
     ///
-    ///     let mut hm1 = HashMap::new();
-    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+    ///         let mut hm1 = HashMap::new();
+    ///         hm1.insert("role".to_string(), Value::String("member".to_string()));
     ///
-    ///     // return rel
-    ///     facade.resolve_rel(&facade.create_rel(
-    ///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///         Some(hm1), node_id, "DstNodeLabel")?)
+    ///         // return rel
+    ///         facade.resolve_rel(&facade.create_rel(
+    ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///             Some(hm1), node_id, "DstNodeLabel")?).await
+    ///     })
     /// }
     /// ```
-    pub fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
+    pub async fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
         let rel_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -572,7 +609,8 @@ where
             + "Rel";
 
         self.executor
-            .resolve(&Info::new(rel_name, self.info.type_defs()), rel)
+            .resolve_async(&Info::new(rel_name, self.info.type_defs()), rel)
+            .await
     }
 
     /// Returns a GraphQL Object array representing Warpgrapher Rels defined by an ID, props, and
@@ -584,31 +622,34 @@ where
     /// # use std::collections::HashMap;
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
     ///     // do work
     ///
-    ///     let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
-    ///     let node_id2 = Value::String("87654321-4321-4321-4321-1234567890ab".to_string());
+    ///         let node_id1 = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+    ///         let node_id2 = Value::String("87654321-4321-4321-4321-1234567890ab".to_string());
     ///
-    ///     let mut hm1 = HashMap::new();
-    ///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+    ///         let mut hm1 = HashMap::new();
+    ///         hm1.insert("role".to_string(), Value::String("member".to_string()));
     ///
-    ///     let mut hm2 = HashMap::new();
-    ///     hm2.insert("role".to_string(), Value::String("leader".to_string()));
+    ///         let mut hm2 = HashMap::new();
+    ///         hm2.insert("role".to_string(), Value::String("leader".to_string()));
     ///
-    ///     // return rel list
-    ///     facade.resolve_rel_list(vec![
-    ///         &facade.create_rel(
-    ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm1), node_id1, "DstNodeLabel")?,
-    ///         &facade.create_rel(
-    ///             Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm2), node_id2, "DstNodeLabel")?
-    ///     ])
+    ///         // return rel list
+    ///         facade.resolve_rel_list(vec![
+    ///             &facade.create_rel(
+    ///                 Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///                 Some(hm1), node_id1, "DstNodeLabel")?,
+    ///             &facade.create_rel(
+    ///                 Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+    ///                 Some(hm2), node_id2, "DstNodeLabel")?
+    ///         ]).await
+    ///     })
     /// }
     /// ```
-    pub fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
+    pub async fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
         let object_name = self.info.name().to_string()
             + &((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
@@ -616,7 +657,8 @@ where
             + "Rel";
 
         self.executor
-            .resolve(&Info::new(object_name, self.info.type_defs()), &rels)
+            .resolve_async(&Info::new(object_name, self.info.type_defs()), &rels)
+            .await
     }
 
     /// Returns the request context
@@ -625,13 +667,16 @@ where
     /// ```rust, no_run
     ///
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn custom_resolve(context: ResolverFacade<()>) -> ExecutionResult {
-    ///     if let Some(request_context) = context.request_context() {
-    ///         // use request_context
-    ///     }
+    /// fn custom_resolve(context: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         if let Some(request_context) = context.request_context() {
+    ///             // use request_context
+    ///         }
     ///
-    ///     context.resolve_null()
+    ///         context.resolve_null()
+    ///     })
     /// }
     /// ```
     pub fn request_context(&self) -> Option<&RequestCtx> {

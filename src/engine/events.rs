@@ -60,7 +60,7 @@ pub type BeforeQueryEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::event::EventFacade;
+/// # use warpgrapher::engine::events::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Node;
 ///
@@ -82,7 +82,7 @@ pub type AfterNodeEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::event::EventFacade;
+/// # use warpgrapher::engine::events::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Rel;
 ///
@@ -101,7 +101,7 @@ pub type AfterRelEventFunc<RequestCtx> =
 /// ```rust
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::{EventHandlerBag, EventFacde};
+/// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
 ///
 /// fn before_user_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
 ///    // Normally work would be done here, resulting in some new value.
@@ -838,15 +838,20 @@ where
     }
     */
 
-    pub fn read_nodes(
+    //BoxFuture<'a, Result<QueryFragment, Error>>
+
+    pub async fn read_nodes(
         &mut self,
         type_name: &str,
         input: Option<Value>,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
+        let partition_key_opt = None;
+
         let mut info = self.info.clone();
         info.name = "Query".to_string();
-        let partition_key_opt = None;
+
         let mut sg = SuffixGenerator::new();
+
         let p = info.type_def()?.property(type_name)?;
         let itd = if info.name() == "Query" {
             p.input_type_definition(&info)?
@@ -855,11 +860,13 @@ where
                 .property(p.type_name())?
                 .input_type_definition(&info)?
         };
+
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
             "node".to_string(),
             sg.suffix(),
         );
+
         let query_fragment = visitors::visit_node_query_input(
             &node_var,
             input,
@@ -867,10 +874,11 @@ where
             partition_key_opt,
             &mut sg,
             self.transaction,
-        )?;
+        ).await?;
+
         let results =
             self.transaction
-                .read_nodes(&node_var, query_fragment, partition_key_opt, &info);
+                .read_nodes(&node_var, query_fragment, partition_key_opt, &info).await;
         results
     }
 }

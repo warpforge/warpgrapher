@@ -436,11 +436,15 @@ impl Display for Error {
                     src, dst
                 )
             }
-            Error::TypeNotExpected { details }=> {
+            Error::TypeNotExpected { details } => {
                 write!(
                     f,
                     "Warpgrapher encountered a type that was not expected {}",
-                    if let Some(s) = details { format!("({:#?}", s) } else { "".to_string() }
+                    if let Some(s) = details {
+                        format!("({:#?}", s)
+                    } else {
+                        "".to_string()
+                    }
                 )
             }
             Error::UserDefinedError { source } => {

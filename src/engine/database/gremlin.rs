@@ -430,12 +430,21 @@ impl GremlinTransaction {
     }
 }
 
+/*
 impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
     fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
     fn create_node(
+*/
+#[async_trait]
+impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
+    async fn begin(&mut self) -> Result<(), Error> {
+        Ok(())
+    }
+
+    async fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -481,7 +490,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels(
+    async fn create_rels(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -604,8 +613,8 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
+                + &k
+                + &param_suffix
                 + "))"),
             );
 
@@ -662,7 +671,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         Ok(qf)
     }
 
-    fn read_nodes(
+    async fn read_nodes(
         &mut self,
         _node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -757,13 +766,13 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                 &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
-                + &k 
+                + &k
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
+                + &k
+                + &param_suffix
                 + "))"),
             );
 
@@ -815,7 +824,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    fn read_rels(
+    async fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -856,7 +865,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn update_nodes(
+    async fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -895,7 +904,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::nodes(results, info)
     }
 
-    fn update_rels(
+    async fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -938,7 +947,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -979,7 +988,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::extract_count(results)
     }
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -1020,11 +1029,11 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::extract_count(results)
     }
 
-    fn commit(&mut self) -> Result<(), Error> {
+    async fn commit(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn rollback(&mut self) -> Result<(), Error> {
+    async fn rollback(&mut self) -> Result<(), Error> {
         Ok(())
     }
 }

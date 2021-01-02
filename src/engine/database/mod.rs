@@ -227,10 +227,18 @@ impl TryFrom<Value> for Comparison {
     }
 }
 
+/*
 pub trait Transaction<RequestCtx: RequestContext> {
     fn begin(&mut self) -> Result<(), Error>;
 
     fn create_node(
+*/
+
+#[async_trait]
+pub trait Transaction<RequestCtx: RequestContext>: Send {
+    async fn begin(&mut self) -> Result<(), Error>;
+
+    async fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -238,7 +246,7 @@ pub trait Transaction<RequestCtx: RequestContext> {
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    fn create_rels(
+    async fn create_rels(
         &mut self,
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
@@ -262,7 +270,7 @@ pub trait Transaction<RequestCtx: RequestContext> {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_nodes(
+    async fn read_nodes(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -285,7 +293,7 @@ pub trait Transaction<RequestCtx: RequestContext> {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_rels(
+    async fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -293,7 +301,7 @@ pub trait Transaction<RequestCtx: RequestContext> {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn update_nodes(
+    async fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -302,7 +310,7 @@ pub trait Transaction<RequestCtx: RequestContext> {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn update_rels(
+    async fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -311,23 +319,23 @@ pub trait Transaction<RequestCtx: RequestContext> {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn commit(&mut self) -> Result<(), Error>;
+    async fn commit(&mut self) -> Result<(), Error>;
 
-    fn rollback(&mut self) -> Result<(), Error>;
+    async fn rollback(&mut self) -> Result<(), Error>;
 }
 
 #[derive(Clone, Debug)]

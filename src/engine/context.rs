@@ -225,29 +225,32 @@ where
     /// # use warpgrapher::engine::validators::Validators;
     /// # use warpgrapher::engine::context::GraphQLContext;
     /// # use warpgrapher::engine::resolvers::ExecutionResult;
+    /// # use warpgrapher::juniper::BoxFuture;
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::Error;
     ///
     /// # #[cfg(feature = "neo4j")]
-    /// pub fn project_count(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
-    ///         let mut runtime = Runtime::new()?;
-    ///         let mut db = runtime.block_on(p.get())?;
-    ///         let query = "MATCH (n:Project) RETURN (n)";
-    ///         runtime.block_on(db.run_with_metadata(query, None, None))
-    ///             .expect("Expected successful query run.");
+    /// pub fn project_count(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         if let DatabasePool::Neo4j(p) = facade.executor().context().pool() {
+    ///             let mut runtime = Runtime::new()?;
+    ///             let mut db = runtime.block_on(p.get())?;
+    ///             let query = "MATCH (n:Project) RETURN (n)";
+    ///             runtime.block_on(db.run_with_metadata(query, None, None))
+    ///                 .expect("Expected successful query run.");
     ///
-    ///         let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-    ///         let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
-    ///         match response {
-    ///             Message::Success(_) => (),
-    ///             message => return Err(Error::Neo4jQueryFailed { message }.into()),
+    ///             let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
+    ///             let (response, records) = runtime.block_on(db.pull(Some(pull_meta)))?;
+    ///             match response {
+    ///                 Message::Success(_) => (),
+    ///                 message => return Err(Error::Neo4jQueryFailed { message }.into()),
+    ///             }
+    ///
+    ///             facade.resolve_scalar(records.len() as i32)
+    ///         } else {
+    ///             panic!("Unsupported database.");
     ///         }
-    ///
-    ///         facade.resolve_scalar(records.len() as i32)
-    ///     } else {
-    ///         panic!("Unsupported database.");
-    ///     }
+    ///     })
     /// }
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -587,19 +590,16 @@ mod tests {
     use crate::engine::resolvers::Resolvers;
     use crate::engine::validators::Validators;
     use std::collections::HashMap;
-    use tokio::runtime::Runtime;
 
     /// Passes if the pool can be created without panicking
-    #[test]
-    fn engine_new() {
-        let mut runtime = Runtime::new().expect("Expected new runtime.");
-
+    #[tokio::test]
+    async fn engine_new() {
         let ne = Neo4jEndpoint::from_env().expect("Couldn't build database pool from env vars.");
         let resolvers: Resolvers<()> = Resolvers::new();
         let validators: Validators = Validators::new();
         let _gqlctx: GraphQLContext<()> = GraphQLContext::new(
-            runtime
-                .block_on(ne.pool())
+            ne.pool()
+                .await
                 .expect("Expected to unwrap Neo4J database pool."),
             resolvers,
             validators,

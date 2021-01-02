@@ -57,7 +57,8 @@ impl Info {
     }
 }
 
-pub(super) type RootRef<RequestCtx> = Arc<RootNode<'static, Node<RequestCtx>, Node<RequestCtx>>>;
+pub(super) type RootRef<RequestCtx> =
+    Arc<RootNode<'static, Node<RequestCtx>, Node<RequestCtx>, Node<RequestCtx>>>;
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) enum ArgumentKind {
@@ -2336,6 +2337,11 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
         NodeType::new("Query".to_string(), TypeKind::Object, query_props),
     );
 
+    nthm.insert(
+        "Subscription".to_string(),
+        NodeType::new("Subscription".to_string(), TypeKind::Object, HashMap::new()),
+    );
+
     Ok(nthm)
 }
 
@@ -2365,13 +2371,16 @@ where
     let nthm = generate_schema(c)?;
     let nts = Arc::new(nthm);
     let root_mutation_info = Info::new("Mutation".to_string(), nts.clone());
-    let root_query_info = Info::new("Query".to_string(), nts);
+    let root_query_info = Info::new("Query".to_string(), nts.clone());
+    let root_subscription_info = Info::new("Subscription".to_string(), nts);
     catch_unwind(|| {
         Arc::new(RootNode::new_with_info(
             Node::new("Query".to_string(), HashMap::new()),
             Node::new("Mutation".to_string(), HashMap::new()),
+            Node::new("Subscription".to_string(), HashMap::new()),
             root_query_info,
             root_mutation_info,
+            root_subscription_info,
         ))
     })
     .map_err(|e| {
