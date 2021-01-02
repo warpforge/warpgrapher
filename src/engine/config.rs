@@ -759,10 +759,10 @@ pub enum GraphqlType {
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Property {
-
     /// Name of the property
     name: String,
-    
+
+    /// If true, removes this property from the schema and hides it from the public API
     #[serde(default = "get_false")]
     hidden: bool,
 
@@ -1438,6 +1438,7 @@ pub(crate) fn mock_project_type() -> Type {
         vec![
             Property::new(
                 "name".to_string(),
+                false,
                 "String".to_string(),
                 true,
                 false,
@@ -1446,6 +1447,7 @@ pub(crate) fn mock_project_type() -> Type {
             ),
             Property::new(
                 "tags".to_string(),
+                false,
                 "String".to_string(),
                 false,
                 true,
@@ -1454,6 +1456,7 @@ pub(crate) fn mock_project_type() -> Type {
             ),
             Property::new(
                 "public".to_string(),
+                false,
                 "Boolean".to_string(),
                 true,
                 false,
@@ -1468,6 +1471,7 @@ pub(crate) fn mock_project_type() -> Type {
                 vec!["User".to_string()],
                 vec![Property::new(
                     "since".to_string(),
+                    false,
                     "String".to_string(),
                     false,
                     false,
@@ -1512,6 +1516,7 @@ fn mock_user_type() -> Type {
         "User".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1529,6 +1534,7 @@ fn mock_kanbanboard_type() -> Type {
         "KanbanBoard".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1546,6 +1552,7 @@ fn mock_scrumboard_type() -> Type {
         "ScrumBoard".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1563,6 +1570,7 @@ fn mock_feature_type() -> Type {
         "Feature".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1580,6 +1588,7 @@ fn mock_bug_type() -> Type {
         "Bug".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1597,6 +1606,7 @@ fn mock_commit_type() -> Type {
         "Commit".to_string(),
         vec![Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1649,6 +1659,7 @@ pub(crate) fn mock_endpoint_three() -> Endpoint {
                 "BurndownFilter".to_string(),
                 vec![Property::new(
                     "ticket_types".to_string(),
+                    false,
                     "String".to_string(),
                     true,
                     false,
@@ -1666,6 +1677,7 @@ pub(crate) fn mock_endpoint_three() -> Endpoint {
                 "BurndownMetrics".to_string(),
                 vec![Property::new(
                     "points".to_string(),
+                    false,
                     "Int".to_string(),
                     false,
                     false,
@@ -1710,6 +1722,7 @@ pub(crate) fn mock_endpoints_filter() -> Configuration {
             "User".to_string(),
             vec![Property::new(
                 "name".to_string(),
+                false,
                 "String".to_string(),
                 true,
                 false,
@@ -1748,6 +1761,7 @@ mod tests {
                     vec![
                         Property::new(
                             "username".to_string(),
+                            false,
                             "String".to_string(),
                             false,
                             false,
@@ -1756,6 +1770,7 @@ mod tests {
                         ),
                         Property::new(
                             "email".to_string(),
+                            false,
                             "String".to_string(),
                             false,
                             false,
@@ -1771,6 +1786,7 @@ mod tests {
                     "Team".to_string(),
                     vec![Property::new(
                         "teamname".to_string(),
+                        false,
                         "String".to_string(),
                         false,
                         false,
@@ -1808,6 +1824,7 @@ mod tests {
     fn new_property() {
         let p = Property::new(
             "name".to_string(),
+            false,
             "String".to_string(),
             true,
             false,
@@ -1827,6 +1844,7 @@ mod tests {
             vec![
                 Property::new(
                     "name".to_string(),
+                    false,
                     "String".to_string(),
                     true,
                     false,
@@ -1835,6 +1853,7 @@ mod tests {
                 ),
                 Property::new(
                     "role".to_string(),
+                    false,
                     "String".to_string(),
                     true,
                     false,

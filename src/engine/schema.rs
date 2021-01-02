@@ -354,8 +354,8 @@ fn generate_props(
 }
 
 /// Takes a vector of WG Properties and returns a map of the appropriate
-/// query input which in turn is a nested map with the different type of 
-/// comparison operations available to the scalar type. 
+/// query input which in turn is a nested map with the different type of
+/// comparison operations available to the scalar type.
 fn generate_query_props(
     props: &[crate::engine::config::Property],
     id: bool,
@@ -367,8 +367,8 @@ fn generate_query_props(
             Property::new(
                 "id".to_string(),
                 PropertyKind::ScalarComp,
-                fmt_string_query_input_name()
-            )
+                fmt_string_query_input_name(),
+            ),
         );
     }
     for p in props.iter().filter(|p| !p.hidden()) {
@@ -382,7 +382,11 @@ fn generate_query_props(
                     "String" => PropertyKind::ScalarComp,
                     "Int" => PropertyKind::ScalarComp,
                     "Float" => PropertyKind::ScalarComp,
-                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
+                    _ => {
+                        return Err(Error::SchemaItemNotFound {
+                            name: p.type_name().to_string(),
+                        })
+                    }
                 },
                 match p.type_name().as_ref() {
                     "Boolean" => "Boolean".to_string(),
@@ -390,9 +394,13 @@ fn generate_query_props(
                     "String" => fmt_string_query_input_name(),
                     "Int" => fmt_int_query_input_name(),
                     "Float" => fmt_float_query_input_name(),
-                    _ => return Err(Error::SchemaItemNotFound {name: p.type_name().to_string() } )
-                }
-            )
+                    _ => {
+                        return Err(Error::SchemaItemNotFound {
+                            name: p.type_name().to_string(),
+                        })
+                    }
+                },
+            ),
         );
     }
     Ok(query_props)
@@ -493,7 +501,11 @@ fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
             .with_list(r.list()),
         );
     });
-    Ok(NodeType::new(fmt_node_query_input_name(t), TypeKind::Input, props))
+    Ok(NodeType::new(
+        fmt_node_query_input_name(t),
+        TypeKind::Input,
+        props,
+    ))
 }
 
 /// Takes a WG type and returns the name of the corresponding GqlNodeCreateMutationInput
@@ -1045,7 +1057,11 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
     props.insert(
         "id".to_string(),
-        Property::new("id".to_string(), PropertyKind::ScalarComp, fmt_string_query_input_name()),
+        Property::new(
+            "id".to_string(),
+            PropertyKind::ScalarComp,
+            fmt_string_query_input_name(),
+        ),
     );
     if !r.props_as_slice().is_empty() {
         props.insert(
@@ -1053,7 +1069,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
             Property::new(
                 "props".to_string(),
                 PropertyKind::Input,
-                fmt_rel_props_query_input_name(t, r)
+                fmt_rel_props_query_input_name(t, r),
             ),
         );
     }
@@ -1366,7 +1382,7 @@ fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType
     Ok(NodeType::new(
         fmt_rel_props_query_input_name(t, r),
         TypeKind::Input,
-        generate_query_props(r.props_as_slice(), false)?
+        generate_query_props(r.props_as_slice(), false)?,
     ))
 }
 
@@ -1978,8 +1994,8 @@ fn fmt_string_query_input_name() -> String {
 
 fn string_query_input() -> NodeType {
     NodeType::new(
-        fmt_string_query_input_name(), 
-        TypeKind::Input, 
+        fmt_string_query_input_name(),
+        TypeKind::Input,
         hashmap! {
             "EQ".to_string() => string_input("EQ"),
             "NOTEQ".to_string() => string_input("NOTEQ"),
@@ -1991,16 +2007,12 @@ fn string_query_input() -> NodeType {
             "GTE".to_string() => string_input("GTE"),
             "LT".to_string() => string_input("LT"),
             "LTE".to_string() => string_input("LTE"),
-        }
+        },
     )
 }
 
 fn string_input(name: &str) -> Property {
-    Property::new(
-        name.to_string(),
-        PropertyKind::Scalar,
-        "String".to_string(),
-    )
+    Property::new(name.to_string(), PropertyKind::Scalar, "String".to_string())
 }
 
 fn string_array_input(name: &str) -> Property {
@@ -2022,8 +2034,8 @@ fn fmt_int_query_input_name() -> String {
 
 fn int_query_input() -> NodeType {
     NodeType::new(
-        fmt_int_query_input_name(), 
-        TypeKind::Input, 
+        fmt_int_query_input_name(),
+        TypeKind::Input,
         hashmap! {
             "EQ".to_string() => int_input("EQ"),
             "NOTEQ".to_string() => int_input("NOTEQ"),
@@ -2033,17 +2045,12 @@ fn int_query_input() -> NodeType {
             "GTE".to_string() => int_input("GTE"),
             "LT".to_string() => int_input("LT"),
             "LTE".to_string() => int_input("LTE"),
-        }
+        },
     )
 }
 
 fn int_input(name: &str) -> Property {
-    Property::new(
-        name.to_string(),
-        PropertyKind::Scalar,
-        "Int".to_string(),
-    )
-
+    Property::new(name.to_string(), PropertyKind::Scalar, "Int".to_string())
 }
 
 fn fmt_float_query_input_name() -> String {
@@ -2052,8 +2059,8 @@ fn fmt_float_query_input_name() -> String {
 
 fn float_query_input() -> NodeType {
     NodeType::new(
-        fmt_int_query_input_name(), 
-        TypeKind::Input, 
+        fmt_int_query_input_name(),
+        TypeKind::Input,
         hashmap! {
             "EQ".to_string() => float_input("EQ"),
             "NOTEQ".to_string() => float_input("NOTEQ"),
@@ -2063,16 +2070,12 @@ fn float_query_input() -> NodeType {
             "GTE".to_string() => float_input("GTE"),
             "LT".to_string() => float_input("LT"),
             "LTE".to_string() => float_input("LTE"),
-        }
+        },
     )
 }
 
 fn float_input(name: &str) -> Property {
-    Property::new(
-        name.to_string(),
-        PropertyKind::Scalar,
-        "Float".to_string(),
-    )
+    Property::new(name.to_string(), PropertyKind::Scalar, "Float".to_string())
 }
 
 /// Takes a WG config and returns a map of graphql schema components for model
@@ -2083,26 +2086,16 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
     let mut query_props = HashMap::new();
 
     // StringQueryInput
-    nthm.insert(
-        fmt_string_query_input_name(),
-        string_query_input()
-    );
+    nthm.insert(fmt_string_query_input_name(), string_query_input());
 
     // NumberQueryInput
-    nthm.insert(
-        fmt_int_query_input_name(),
-        int_query_input()
-    );
-    
+    nthm.insert(fmt_int_query_input_name(), int_query_input());
+
     // FloatQueryInput
-    nthm.insert(
-        fmt_float_query_input_name(),
-        float_query_input()
-    );
+    nthm.insert(fmt_float_query_input_name(), float_query_input());
 
     // generate graphql schema components for warpgrapher types
     for t in c.types() {
-
         // GqlNodeType
         let node_type = generate_node_object(t);
         nthm.insert(node_type.type_name.to_string(), node_type);
@@ -2223,7 +2216,10 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
 
             // GqlRelPropsQueryInput
             let rel_props_query_input = generate_rel_props_query_input(t, r)?;
-            nthm.insert(rel_props_query_input.type_name.to_string(), rel_props_query_input);
+            nthm.insert(
+                rel_props_query_input.type_name.to_string(),
+                rel_props_query_input,
+            );
 
             // GqlRelSrcQueryInput
             let rel_src_query_input = generate_rel_src_query_input(t, r);
@@ -2462,7 +2458,7 @@ mod tests {
         generate_rel_delete_input, generate_rel_dst_delete_mutation_input,
         generate_rel_dst_query_input, generate_rel_dst_update_mutation_input,
         generate_rel_nodes_mutation_input_union, generate_rel_nodes_union, generate_rel_object,
-        generate_rel_props_object, generate_rel_query_input, generate_rel_props_input,
+        generate_rel_props_input, generate_rel_props_object, generate_rel_query_input,
         generate_rel_read_endpoint, generate_rel_src_delete_mutation_input,
         generate_rel_src_update_mutation_input, generate_rel_update_endpoint,
         generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,

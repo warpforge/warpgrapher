@@ -1,5 +1,5 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{NodeQueryVar, QueryFragment, RelQueryVar, Transaction, Comparison};
+use crate::engine::database::{Comparison, NodeQueryVar, QueryFragment, RelQueryVar, Transaction, CrudOperation};
 use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
@@ -36,7 +36,12 @@ where
         .event_handlers()
         .before_node_create(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::CreateNode("?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -45,43 +50,25 @@ where
 
     if let Value::Map(ref m) = input {
         m.keys()
-        //.filter(|k| !k.starts_with("_"))
-        .try_for_each(|k| {
-            let p = itd.property(k)?;
-            match p.kind() {
-                PropertyKind::Scalar | PropertyKind::DynamicScalar => {
-                    p.validator().map_or(Ok(()), |v_name| {
-                        validate_input(context.validators(), &v_name, &input)
-                    })
-                }
-                _ => Ok(()), // No validation action to take
-            }
-        })?
-    }
-
-    // iterate over all input fields and if any of them is of type Input,
-    // pass it to the inputs group otherwise pass it to the props group
-        /*
-        let (props, inputs) = m.into_iter().fold(
-            (HashMap::<String, Value>::new(), HashMap::<String, Value>::new()),
-            |(mut props, mut inputs), (k, v)| {
-                if let Ok(p) = itd.property(&k) {
-                    if let PropertyKind::Input = p.kind() {
-                        inputs.insert(k, v);
-                    } else {
-                        props.insert(k, v);
+            .try_for_each(|k| {
+                let p = itd.property(k)?;
+                match p.kind() {
+                    PropertyKind::Scalar | PropertyKind::DynamicScalar => {
+                        p.validator().map_or(Ok(()), |v_name| {
+                            validate_input(context.validators(), &v_name, &input)
+                        })
                     }
-                } else {
-                    props.insert(k, v);
+                    _ => Ok(()), // No validation action to take
                 }
-                (props, inputs)
-            }
-        };
-        */
+            })?
+    }
 
     if let Value::Map(m) = input {
         let (props, inputs) = m.into_iter().try_fold(
-            (HashMap::<String, Value>::new(), HashMap::<String, Value>::new()),
+            (
+                HashMap::<String, Value>::new(),
+                HashMap::<String, Value>::new(),
+            ),
             |(mut props, mut inputs), (k, v)| {
                 match itd.property(&k)?.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
@@ -90,7 +77,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected { details: None}),
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
                 Ok((props, inputs))
             },
@@ -105,7 +92,17 @@ where
                 {
                     handlers
                         .iter()
-                        .try_fold(vec![n], |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?
+                        .try_fold(vec![n], |v, f| {
+                            f(
+                                v,
+                                EventFacade::new(
+                                    CrudOperation::CreateNode("?".to_string()),
+                                    context,
+                                    transaction,
+                                    info,
+                                ),
+                            )
+                        })?
                         .pop()
                         .ok_or_else(|| Error::ResponseItemNotFound {
                             name: "Node from after_node_create handler".to_string(),
@@ -117,7 +114,7 @@ where
 
         if !inputs.is_empty() {
             let mut id_props = HashMap::new();
-            id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
+            id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
 
             let fragment = transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?;
             trace!(
@@ -171,7 +168,7 @@ where
                             Ok(())
                         }
                     }
-                    _ => Err(Error::TypeNotExpected { details: None}),
+                    _ => Err(Error::TypeNotExpected { details: None }),
                 }
             })?;
         }
@@ -180,7 +177,7 @@ where
 
         Ok(node)
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -207,8 +204,12 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -241,7 +242,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -267,14 +268,18 @@ where
 
     let itd = info.type_def()?;
 
-    let nodes =
-        transaction.read_nodes(node_var, query_fragment, partition_key_opt, info)?;
+    let nodes = transaction.read_nodes(node_var, query_fragment, partition_key_opt, info)?;
     if nodes.is_empty() {
         if let Some(handlers) = context
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
+            handlers.iter().try_fold(Vec::new(), |v, f| {
+                f(
+                    v,
+                    EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
+                )
+            })?;
         }
         return Ok(0);
     }
@@ -328,7 +333,7 @@ where
                         Ok(())
                     }
                 }
-                _ => Err(Error::TypeNotExpected { details: None}),
+                _ => Err(Error::TypeNotExpected { details: None }),
             }
         })?
     }
@@ -339,7 +344,12 @@ where
         .event_handlers()
         .after_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?;
+        handlers.iter().try_fold(nodes, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
+            )
+        })?;
     }
 
     result
@@ -390,7 +400,7 @@ where
                 )?;
 
                 let mut id_props = HashMap::new();
-                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()) );
+                id_props.insert("id".to_string(), Comparison::default(node.id()?.clone()));
 
                 Ok(transaction.node_read_fragment(Vec::new(), node_var, id_props, sg)?)
             }
@@ -407,7 +417,7 @@ where
             }),
         }
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -465,7 +475,7 @@ where
                             )?);
                             Ok((props, rqfs))
                         }
-                        _ => Err(Error::TypeNotExpected { details: None}),
+                        _ => Err(Error::TypeNotExpected { details: None }),
                     })
             },
         )?;
@@ -500,8 +510,12 @@ where
         .event_handlers()
         .before_node_update(node_var.label()?)
     {
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::UpdateNode("?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -540,7 +554,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -592,7 +606,7 @@ where
                     PropertyKind::Input => {
                         inputs.insert(k, v);
                     }
-                    _ => return Err(Error::TypeNotExpected { details: None}),
+                    _ => return Err(Error::TypeNotExpected { details: None }),
                 }
                 Ok((props, inputs))
             },
@@ -605,7 +619,17 @@ where
                     .event_handlers()
                     .after_node_update(node_var.label()?)
                 {
-                    handlers.iter().try_fold(n, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))
+                    handlers.iter().try_fold(n, |v, f| {
+                        f(
+                            v,
+                            EventFacade::new(
+                                CrudOperation::UpdateNode("?".to_string()),
+                                context,
+                                transaction,
+                                info,
+                            ),
+                        )
+                    })
                 } else {
                     Ok(n)
                 }
@@ -657,13 +681,13 @@ where
                         )
                     }
                 }
-                _ => Err(Error::TypeNotExpected { details: None}),
+                _ => Err(Error::TypeNotExpected { details: None }),
             }
         })?;
 
         Ok(nodes)
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -748,7 +772,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -775,8 +799,12 @@ where
 
     let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::CreateRel("?".to_string(), "?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -797,12 +825,8 @@ where
         )?;
 
         //let nodes = transaction.read_nodes::<RequestCtx>(
-        let nodes = transaction.read_nodes(
-            src_var,
-            src_fragment.clone(),
-            partition_key_opt,
-            info,
-        )?;
+        let nodes =
+            transaction.read_nodes(src_var, src_fragment.clone(), partition_key_opt, info)?;
 
         if nodes.is_empty() {
             return Ok(Vec::new());
@@ -865,10 +889,10 @@ where
                     Ok(rels)
                 },
             ),
-            _ => Err(Error::TypeNotExpected { details: None}),
+            _ => Err(Error::TypeNotExpected { details: None }),
         }
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -911,7 +935,7 @@ where
         let props = match m.remove("props") {
             None => HashMap::new(),
             Some(Value::Map(hm)) => hm,
-            Some(_) => return Err(Error::TypeNotExpected { details: None}),
+            Some(_) => return Err(Error::TypeNotExpected { details: None }),
         };
 
         let rel_label =
@@ -927,13 +951,23 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))
+                    handlers.iter().try_fold(rels, |v, f| {
+                        f(
+                            v,
+                            EventFacade::new(
+                                CrudOperation::CreateRel("?".to_string(), "?".to_string()),
+                                context,
+                                transaction,
+                                info,
+                            ),
+                        )
+                    })
                 } else {
                     Ok(rels)
                 }
             })
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -957,7 +991,12 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -980,11 +1019,20 @@ where
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
-        let rels =
-            transaction.read_rels(fragment, rel_var, None, partition_key_opt)?;
+        let rels = transaction.read_rels(fragment, rel_var, None, partition_key_opt)?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-                handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
+                handlers.iter().try_fold(Vec::new(), |v, f| {
+                    f(
+                        v,
+                        EventFacade::new(
+                            CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                })?;
             }
             return Ok(0);
         }
@@ -1028,12 +1076,17 @@ where
         let result = transaction.delete_rels(id_fragment, rel_var, partition_key_opt);
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-            handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))?;
+            handlers.iter().try_fold(rels, |v, f| {
+                f(
+                    v,
+                    EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
+                )
+            })?;
         }
 
         result
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1078,7 +1131,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1158,7 +1211,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1202,7 +1255,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1238,7 +1291,7 @@ where
             props.insert("id".to_owned(), id);
         }
 
-        let mut value_props : HashMap<String, Comparison> = HashMap::new();
+        let mut value_props: HashMap<String, Comparison> = HashMap::new();
         for (k, v) in props.drain() {
             value_props.insert(k.to_string(), Comparison::try_from(v)?);
         }
@@ -1317,7 +1370,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1361,7 +1414,7 @@ where
             context,
         )
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1428,8 +1481,12 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
-        handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info) ))?
-        //handlers.iter().try_fold(input, |v, f| f(v, context, transaction, info))?
+        handlers.iter().try_fold(input, |v, f| {
+            f(
+                v,
+                EventFacade::new(CrudOperation::UpdateRel("?".to_string(), "?".to_string()), context, transaction, info),
+            )
+        })?
     } else {
         input
     };
@@ -1474,7 +1531,7 @@ where
             })
         }
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 
@@ -1510,7 +1567,6 @@ where
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
         let rels = transaction
-            //.update_rels::<RequestCtx>(
             .update_rels(
                 query_fragment,
                 rel_var,
@@ -1520,7 +1576,17 @@ where
             )
             .and_then(|rels| {
                 if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| f(v, EventFacade::new("".to_string(), "".to_string(), context, transaction, info)))
+                    handlers.iter().try_fold(rels, |v, f| {
+                        f(
+                            v,
+                            EventFacade::new(
+                                CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
+                                context,
+                                transaction,
+                                info,
+                            ),
+                        )
+                    })
                 } else {
                     Ok(rels)
                 }
@@ -1566,7 +1632,7 @@ where
 
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected { details: None})
+        Err(Error::TypeNotExpected { details: None })
     }
 }
 

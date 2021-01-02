@@ -70,7 +70,7 @@ where
 
 impl<RequestCtx> GraphQLContext<RequestCtx>
 where
-    RequestCtx: RequestContext
+    RequestCtx: RequestContext,
 {
     /// Creates a new context, used for providing additional information for use in Warpgrapher
     /// resolvers

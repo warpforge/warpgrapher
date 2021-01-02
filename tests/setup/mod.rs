@@ -27,6 +27,8 @@ use std::sync::Arc;
 #[cfg(feature = "neo4j")]
 use tokio::runtime::Runtime;
 use warpgrapher::engine::context::RequestContext;
+#[cfg(feature = "gremlin")]
+use warpgrapher::engine::database::env_bool;
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 #[cfg(feature = "gremlin")]
@@ -53,8 +55,6 @@ use warpgrapher::engine::value::Value;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
-#[cfg(feature = "gremlin")]
-use warpgrapher::engine::database::env_bool;
 
 #[allow(dead_code)]
 pub(crate) fn init() {
@@ -122,15 +122,13 @@ fn gremlin_port() -> u16 {
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
 fn gremlin_user() -> Option<String> {
-    var_os("WG_GREMLIN_USER")
-    .map(|osstr| osstr.to_string_lossy().into_owned())
+    var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned())
 }
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
 fn gremlin_pass() -> Option<String> {
-    var_os("WG_GREMLIN_PASS")
-    .map(|osstr| osstr.to_string_lossy().into_owned())
+    var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned())
 }
 
 #[allow(dead_code)]
@@ -344,8 +342,8 @@ fn clear_gremlin_db() {
         });
     }
     let options = options_builder.build();
-    let client = GremlinClient::connect(options)
-    .expect("Expected successful gremlin client creation.");
+    let client =
+        GremlinClient::connect(options).expect("Expected successful gremlin client creation.");
     let _ = client.execute("g.V().drop()", &[]);
 }
 

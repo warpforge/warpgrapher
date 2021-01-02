@@ -236,7 +236,7 @@ pub enum Error {
     ///
     /// [`Value`]: ./engine/value/enum.Value.html
     TypeNotExpected {
-        details: Option<String>
+        details: Option<String>,
     },
 
     /// Returned when encapsulating an error thrown in event handlers provided by users of

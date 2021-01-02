@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison, Operation
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -285,7 +285,7 @@ impl<'t> Neo4jTransaction<'t> {
     }
 }
 
-impl Transaction for Neo4jTransaction<'_> {
+impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_> {
     fn begin(&mut self) -> Result<(), Error> {
         debug!("Neo4jTransaction::begin called");
 
@@ -297,7 +297,8 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
-    fn create_node<RequestCtx: RequestContext>(
+    //fn create_node<RequestCtx: RequestContext>(
+    fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -342,7 +343,8 @@ impl Transaction for Neo4jTransaction<'_> {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels<RequestCtx: RequestContext>(
+    //fn create_rels<RequestCtx: RequestContext>(
+    fn create_rels(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -412,7 +414,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    //fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -465,7 +468,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
 
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -506,7 +509,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    //fn read_nodes<RequestCtx: RequestContext>(
+    fn read_nodes(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -554,7 +558,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    //fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -594,7 +599,7 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
-        rel_var: &RelQueryVar, 
+        rel_var: &RelQueryVar,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
@@ -637,7 +642,7 @@ impl Transaction for Neo4jTransaction<'_> {
 
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -646,15 +651,15 @@ impl Transaction for Neo4jTransaction<'_> {
                     where_fragment.push_str(" NOT ")
                 }
                 where_fragment.push_str(
-                    &(rel_var.name().to_string() 
-                        + "." 
-                        + &k 
-                        + " " 
-                        + &neo4j_comparison_operator(&c.operation) 
-                        + " " 
-                        + "$" 
-                        + &param_var 
-                        + "." 
+                    &(rel_var.name().to_string()
+                        + "."
+                        + &k
+                        + " "
+                        + &neo4j_comparison_operator(&c.operation)
+                        + " "
+                        + "$"
+                        + &param_var
+                        + "."
                         + &k),
                 );
                 value_props.insert(k, c.operand);
@@ -667,7 +672,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    fn read_rels<RequestCtx: RequestContext>(
+    //fn read_rels<RequestCtx: RequestContext>(
+    fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -713,7 +719,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    //fn update_nodes<RequestCtx: RequestContext>(
+    fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -767,7 +774,8 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn update_rels<RequestCtx: RequestContext>(
+    //fn update_rels<RequestCtx: RequestContext>(
+    fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -1032,6 +1040,6 @@ fn neo4j_comparison_operator(op: &Operation) -> String {
         Operation::GT => ">".to_string(),
         Operation::GTE => ">=".to_string(),
         Operation::LT => "<".to_string(),
-        Operation::LTE => "<=".to_string()
+        Operation::LTE => "<=".to_string(),
     }
 }

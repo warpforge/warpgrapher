@@ -322,7 +322,7 @@ where
                 },
             ))
         } else {
-            Err(Error::TypeNotExpected { details: None})
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 

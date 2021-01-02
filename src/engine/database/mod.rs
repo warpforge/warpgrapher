@@ -42,6 +42,17 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
+pub enum CrudOperation {
+    ReadNode(String),
+    ReadRel(String, String),
+    CreateNode(String),
+    CreateRel(String, String),
+    UpdateNode(String),
+    UpdateRel(String, String),
+    DeleteNode(String),
+    DeleteRel(String, String),
+}
+
 /// Contains a pool of database connections, or an enumeration variant indicating that there is no
 /// back-end database
 #[derive(Clone, Debug)]
@@ -144,37 +155,34 @@ pub enum Operation {
     GT,
     GTE,
     LT,
-    LTE
+    LTE,
 }
 
-/// Struct representing a value comparison. In query operations, visitors take provided 
+/// Struct representing a value comparison. In query operations, visitors take provided
 /// operation/value nested map and converted them into a `Comparison` struct and pass
-/// it on the database-specific transaction for use in creating match portion of queries. 
+/// it on the database-specific transaction for use in creating match portion of queries.
 #[derive(Clone, Debug)]
 pub struct Comparison {
     operation: Operation,
     operand: Value,
-    negated: bool
+    negated: bool,
 }
 
 impl Comparison {
-
     pub fn new(operation: Operation, negated: bool, operand: Value) -> Self {
         Comparison {
             operation,
             operand,
-            negated
+            negated,
         }
     }
 
     pub fn default(v: Value) -> Self {
         Self::new(Operation::EQ, false, v)
     }
-
 }
 
 impl TryFrom<Value> for Comparison {
-
     type Error = Error;
 
     fn try_from(v: Value) -> Result<Comparison, Error> {
@@ -184,8 +192,10 @@ impl TryFrom<Value> for Comparison {
             Value::Float64(_) => Comparison::default(v),
             Value::Bool(_) => Comparison::default(v),
             Value::Map(m) => {
-                let (operation_str, operand) = m.into_iter().next()
-                    .ok_or(Error::InputItemNotFound { name: "Comparison keys".to_string() })?;
+                let (operation_str, operand) =
+                    m.into_iter().next().ok_or(Error::InputItemNotFound {
+                        name: "Comparison keys".to_string(),
+                    })?;
                 Comparison::new(
                     match operation_str.as_ref() {
                         "EQ" => Operation::EQ,
@@ -198,16 +208,20 @@ impl TryFrom<Value> for Comparison {
                         "GTE" => Operation::GTE,
                         "LT" => Operation::LT,
                         "LTE" => Operation::LTE,
-                        _ => return Err(Error::TypeNotExpected { 
-                            details: Some(format!("comparison operation {}", operation_str))
-                        })
+                        _ => {
+                            return Err(Error::TypeNotExpected {
+                                details: Some(format!("comparison operation {}", operation_str)),
+                            })
+                        }
                     },
                     matches!(operation_str.as_ref(), "NOTEQ" | "NOTCONTAINS" | "NOTIN"),
-                    operand
+                    operand,
                 )
-            },
+            }
             _ => {
-                return Err(Error::TypeNotExpected { details: Some(format!("comparison value: {:#?}",  v)) })
+                return Err(Error::TypeNotExpected {
+                    details: Some(format!("comparison value: {:#?}", v)),
+                })
             }
         })
     }
