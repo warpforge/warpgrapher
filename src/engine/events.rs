@@ -589,6 +589,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_create(
         &self,
         type_name: &str,
@@ -596,6 +597,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_create(
         &self,
         rel_name: &str,
@@ -603,6 +605,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_create(
         &self,
         type_name: &str,
@@ -610,6 +613,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_create_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_create(
         &self,
         rel_name: &str,
@@ -617,14 +621,17 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_create_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_read(&self, type_name: &str) -> Option<&Vec<BeforeQueryEventFunc>> {
         self.before_read_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_read(&self, rel_name: &str) -> Option<&Vec<BeforeQueryEventFunc>> {
         self.before_read_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_read(
         &self,
         type_name: &str,
@@ -632,6 +639,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_read_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_read(
         &self,
         rel_name: &str,
@@ -639,6 +647,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_read_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_update(
         &self,
         type_name: &str,
@@ -646,6 +655,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_update(
         &self,
         rel_name: &str,
@@ -653,6 +663,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_update(
         &self,
         type_name: &str,
@@ -660,6 +671,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_update_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_update(
         &self,
         rel_name: &str,
@@ -667,6 +679,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_update_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_delete(
         &self,
         type_name: &str,
@@ -674,6 +687,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_delete(
         &self,
         rel_name: &str,
@@ -681,6 +695,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_delete(
         &self,
         type_name: &str,
@@ -688,6 +703,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_delete_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_delete(
         &self,
         rel_name: &str,

@@ -4,7 +4,9 @@ use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::gremlin::GremlinTransaction;
 #[cfg(feature = "neo4j")]
 use crate::engine::database::neo4j::Neo4jTransaction;
-use crate::engine::database::{DatabasePool, Comparison};
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::database::Comparison;
+use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::database::{NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction};
 use crate::engine::resolvers::Object;
@@ -13,12 +15,11 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
-#[cfg(feature = "neo4j")]
-use tokio::runtime::Runtime;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
@@ -42,13 +43,13 @@ impl<'r> Resolver<'r> {
         Resolver { partition_key_opt }
     }
 
-    pub(super) fn resolve_custom_endpoint<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_custom_endpoint<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
-        parent: Object<RequestCtx>,
-        args: &Arguments,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        parent: Object<'_, RequestCtx>,
+        args: &Arguments<'_>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_endpoint called -- info.name: {}, field_name: {}",
@@ -68,16 +69,17 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             executor,
         ))
+        .await
     }
 
-    pub(super) fn resolve_custom_field<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_custom_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         resolver: Option<&String>,
-        parent: Object<RequestCtx>,
-        args: &Arguments,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        parent: Object<'_, RequestCtx>,
+        args: &Arguments<'_>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_field called -- info.name: {:#?}, field_name: {:#?}",
@@ -99,16 +101,17 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &executor,
         ))
+        .await
     }
 
-    pub(super) fn resolve_custom_rel<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_custom_rel<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         rel_name: &str,
         resolver: Option<&String>,
-        parent: Object<RequestCtx>,
-        args: &Arguments,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        parent: Object<'_, RequestCtx>,
+        args: &Arguments<'_>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_custom_rel called -- info.name: {}, rel_name: {}",
@@ -130,14 +133,15 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             executor,
         ))
+        .await
     }
 
-    pub(super) fn resolve_node_create_mutation<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_node_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
@@ -146,37 +150,42 @@ impl<'r> Resolver<'r> {
             input
         );
 
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let result: Node<RequestCtx> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_create_mutation_with_transaction(
-                field_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_create_mutation_with_transaction(
-                field_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_node_create_mutation_with_transaction(
                     field_name,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_node_create_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_node_create_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
@@ -185,20 +194,22 @@ impl<'r> Resolver<'r> {
             "Resolver::resolve_node_create_mutation -- result: {:#?}",
             result
         );
-        executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &result,
-        )
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &result,
+            )
+            .await
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_create_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_node_create_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Node<RequestCtx>, Error>
     where
         RequestCtx: RequestContext,
@@ -208,7 +219,7 @@ impl<'r> Resolver<'r> {
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        transaction.begin()?;
+        transaction.begin().await?;
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
             "node".to_string(),
@@ -222,25 +233,26 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             executor.context(),
-        );
+        )
+        .await;
 
         if results.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
 
         results
     }
 
     #[allow(unused_variables)]
-    pub(super) fn resolve_node_delete_mutation<RequestCtx>(
+    pub(super) async fn resolve_node_delete_mutation<RequestCtx>(
         &mut self,
         field_name: &str,
         label: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult
     where
         RequestCtx: RequestContext,
@@ -252,38 +264,43 @@ impl<'r> Resolver<'r> {
             input
         );
 
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let results: i32 = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_delete_mutation_with_transaction(
-                field_name,
-                label,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_delete_mutation_with_transaction(
-                field_name,
-                label,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_node_delete_mutation_with_transaction(
                     field_name,
                     label,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_node_delete_mutation_with_transaction(
+                    field_name,
+                    label,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_node_delete_mutation_with_transaction(
+                    field_name,
+                    label,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
@@ -297,14 +314,14 @@ impl<'r> Resolver<'r> {
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_delete_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_node_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         label: &str,
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -316,7 +333,8 @@ impl<'r> Resolver<'r> {
             .property(field_name)?
             .input_type_definition(info)?;
 
-        transaction.begin()?;
+        transaction.begin().await?;
+
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
         let results = visit_node_delete_input::<T, RequestCtx>(
             &node_var,
@@ -326,23 +344,24 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             executor.context(),
-        );
+        )
+        .await;
 
         if results.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
 
         results
     }
 
-    pub(super) fn resolve_node_read_query<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_node_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_read_query called -- info.name: {}, field_name: {}, input_opt: {:#?}",
@@ -350,37 +369,42 @@ impl<'r> Resolver<'r> {
             field_name,
             input_opt
         );
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_read_query_with_transaction(
-                field_name,
-                info,
-                input_opt,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_read_query_with_transaction(
-                field_name,
-                info,
-                input_opt,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_node_read_query_with_transaction(
                     field_name,
                     info,
                     input_opt,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_node_read_query_with_transaction(
+                    field_name,
+                    info,
+                    input_opt,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_node_read_query_with_transaction(
+                    field_name,
+                    info,
+                    input_opt,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
@@ -391,26 +415,30 @@ impl<'r> Resolver<'r> {
         );
 
         if p.list() {
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
+            executor
+                .resolve_async(
+                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                    &results,
+                )
+                .await
         } else {
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results.first(),
-            )
+            executor
+                .resolve_async(
+                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                    &results.first(),
+                )
+                .await
         }
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_read_query_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_node_read_query_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -433,7 +461,7 @@ impl<'r> Resolver<'r> {
         );
 
         if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.begin()?;
+            transaction.begin().await?;
         }
 
         let input_value_opt = if let Some(handlers) = executor
@@ -455,10 +483,12 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-        )?;
+        )
+        .await?;
 
         let results = transaction
             .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+            .await
             .and_then(|r| {
                 node_var.label().and_then(|label| {
                     if let Some(handlers) =
@@ -473,21 +503,21 @@ impl<'r> Resolver<'r> {
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
-                transaction.commit()?;
+                transaction.commit().await?;
             } else {
-                transaction.rollback()?;
+                transaction.rollback().await?;
             }
         }
 
         results
     }
 
-    pub(super) fn resolve_node_update_mutation<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_node_update_mutation called -- info.name: {:#?}, field_name: {}, input: {:#?}",
@@ -495,37 +525,42 @@ impl<'r> Resolver<'r> {
             field_name,
             input
         );
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_node_update_mutation_with_transaction(
-                field_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_node_update_mutation_with_transaction(
-                field_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_node_update_mutation_with_transaction(
                     field_name,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_node_update_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_node_update_mutation_with_transaction(
+                    field_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
@@ -535,20 +570,22 @@ impl<'r> Resolver<'r> {
             results
         );
 
-        executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results,
-        )
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results,
+            )
+            .await
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_node_update_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_node_update_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -558,7 +595,7 @@ impl<'r> Resolver<'r> {
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
-        transaction.begin()?;
+        transaction.begin().await?;
         let result = visit_node_update_input::<T, RequestCtx>(
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
@@ -570,25 +607,26 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-            &executor.context(),
-        );
+            executor.context(),
+        )
+        .await;
 
         if result.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
         result
     }
 
-    pub(super) fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_create_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -597,56 +635,63 @@ impl<'r> Resolver<'r> {
         src_label,
         rel_name, input
     );
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let results: Vec<Rel<RequestCtx>> = match &executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_rel_create_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_create_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_rel_create_mutation_with_transaction(
                     field_name,
                     src_label,
                     rel_name,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_rel_create_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_rel_create_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
-        executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results,
-        )
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results,
+            )
+            .await
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_create_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_rel_create_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
@@ -654,7 +699,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -669,7 +714,7 @@ impl<'r> Resolver<'r> {
         let src_var =
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
-        transaction.begin()?;
+        transaction.begin().await?;
         let result = visit_rel_create_input::<T, RequestCtx>(
             &src_var,
             rel_name,
@@ -683,24 +728,26 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             executor.context(),
-        );
+        )
+        .await;
+
         if result.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
 
         result
     }
 
-    pub(super) fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_delete_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -708,42 +755,47 @@ impl<'r> Resolver<'r> {
         field_name,
         src_label, rel_name, input
     );
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
 
         let results: i32 = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_rel_delete_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_delete_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_rel_delete_mutation_with_transaction(
                     field_name,
                     src_label,
                     rel_name,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_rel_delete_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_rel_delete_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
@@ -753,7 +805,7 @@ impl<'r> Resolver<'r> {
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
@@ -761,7 +813,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
@@ -779,7 +831,8 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
-        transaction.begin()?;
+        transaction.begin().await?;
+
         let results = visit_rel_delete_input::<T, RequestCtx>(
             None,
             &rel_var,
@@ -789,22 +842,24 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             executor.context(),
-        );
+        )
+        .await;
+
         if results.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
 
         results
     }
 
-    pub(super) fn resolve_rel_props<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_rel_props<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         props: &Node<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
@@ -815,19 +870,21 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
 
-        executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            props,
-        )
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                props,
+            )
+            .await
     }
 
-    pub(super) fn resolve_rel_read_query<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_rel_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
@@ -838,49 +895,56 @@ impl<'r> Resolver<'r> {
         input_opt
     );
 
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_rel_read_query_with_transaction(
-                field_name,
-                rel_name,
-                info,
-                input_opt,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_read_query_with_transaction(
-                field_name,
-                rel_name,
-                info,
-                input_opt,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_rel_read_query_with_transaction(
                     field_name,
                     rel_name,
                     info,
                     input_opt,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_rel_read_query_with_transaction(
+                    field_name,
+                    rel_name,
+                    info,
+                    input_opt,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_rel_read_query_with_transaction(
+                    field_name,
+                    rel_name,
+                    info,
+                    input_opt,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
         if p.list() {
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
+            executor
+                .resolve_async(
+                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                    &results,
+                )
+                .await
         } else {
             if results.len() > 1 {
                 return Err(Error::RelDuplicated {
@@ -900,23 +964,25 @@ impl<'r> Resolver<'r> {
                 .into());
             }
 
-            executor.resolve(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results.first(),
-            )
+            executor
+                .resolve_async(
+                    &Info::new(p.type_name().to_owned(), info.type_defs()),
+                    &results.first(),
+                )
+                .await
         }
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_read_query_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_rel_read_query_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         rel_name: &str,
         info: &Info,
         input_opt: Option<Input<RequestCtx>>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -941,7 +1007,7 @@ impl<'r> Resolver<'r> {
         let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
 
         if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.begin()?;
+            transaction.begin().await?;
         }
 
         let input_value_opt = if let Some(handlers) =
@@ -963,7 +1029,8 @@ impl<'r> Resolver<'r> {
             self.partition_key_opt,
             &mut sg,
             transaction,
-        )?;
+        )
+        .await?;
         let results = transaction
             .read_rels(
                 query_fragment,
@@ -971,6 +1038,7 @@ impl<'r> Resolver<'r> {
                 Some(p.type_name()),
                 self.partition_key_opt,
             )
+            .await
             .and_then(|r| {
                 if let Some(handlers) = executor.context().event_handlers().after_rel_read(
                     &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
@@ -983,23 +1051,23 @@ impl<'r> Resolver<'r> {
 
         if info.name() == "Mutation" || info.name() == "Query" {
             if results.is_ok() {
-                transaction.commit()?;
+                transaction.commit().await?;
             } else {
-                transaction.rollback()?;
+                transaction.rollback().await?;
             }
         }
 
         results
     }
 
-    pub(super) fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
         input: Input<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
         "Resolver::resolve_rel_update_mutation called -- info.name: {:#?}, field_name: {}, src_label: {}, rel_name: {}, input: {:#?}",
@@ -1009,56 +1077,63 @@ impl<'r> Resolver<'r> {
         input
     );
 
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let p = info.type_def()?.property(field_name)?;
 
         let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_rel_update_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-                executor,
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_rel_update_mutation_with_transaction(
-                field_name,
-                src_label,
-                rel_name,
-                info,
-                input,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                executor,
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_rel_update_mutation_with_transaction(
                     field_name,
                     src_label,
                     rel_name,
                     info,
                     input,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                     executor,
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_rel_update_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                    executor,
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_rel_update_mutation_with_transaction(
+                    field_name,
+                    src_label,
+                    rel_name,
+                    info,
+                    input,
+                    &mut Neo4jTransaction::new(c),
+                    executor,
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
-        executor.resolve(
-            &Info::new(p.type_name().to_owned(), info.type_defs()),
-            &results,
-        )
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results,
+            )
+            .await
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn resolve_rel_update_mutation_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_rel_update_mutation_with_transaction<RequestCtx, T>(
         &mut self,
         field_name: &str,
         src_label: &str,
@@ -1066,7 +1141,7 @@ impl<'r> Resolver<'r> {
         info: &Info,
         input: Input<RequestCtx>,
         transaction: &mut T,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
@@ -1085,7 +1160,7 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
-        transaction.begin()?;
+        transaction.begin().await?;
         let results = visit_rel_update_input::<T, RequestCtx>(
             None,
             &rel_var,
@@ -1096,23 +1171,24 @@ impl<'r> Resolver<'r> {
             &mut sg,
             transaction,
             executor.context(),
-        );
+        )
+        .await;
 
         if results.is_ok() {
-            transaction.commit()?;
+            transaction.commit().await?;
         } else {
-            transaction.rollback()?;
+            transaction.rollback().await?;
         }
 
         results
     }
 
-    pub(super) fn resolve_scalar_field<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_scalar_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         fields: &HashMap<String, Value>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_scalar_field called -- info.name: {}, field_name: {}",
@@ -1164,17 +1240,17 @@ impl<'r> Resolver<'r> {
                         }
                     }
                     Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
-                        Err((Error::TypeNotExpected {details: None}).into())
+                        Err((Error::TypeNotExpected { details: None }).into())
                     }
                 },
-                Value::Map(_) => Err((Error::TypeNotExpected {details: None}).into()),
+                Value::Map(_) => Err((Error::TypeNotExpected { details: None }).into()),
             },
         )
     }
 
-    pub(super) fn resolve_static_version_query<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_static_version_query<RequestCtx: RequestContext>(
         &mut self,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         match &executor.context().version() {
             Some(v) => Ok(juniper::Value::scalar(v.to_string())),
@@ -1182,13 +1258,13 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    pub(super) fn resolve_union_field<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_union_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         dst_label: &str,
         field_name: &str,
         dst_id: &Value,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
             "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
@@ -1197,62 +1273,71 @@ impl<'r> Resolver<'r> {
             dst_id
         );
 
-        #[cfg(feature = "neo4j")]
-        let mut runtime = Runtime::new()?;
         let results: Vec<Node<RequestCtx>> = match executor.context().pool() {
             #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => self.resolve_union_field_with_transaction(
-                info,
-                dst_label,
-                field_name,
-                dst_id,
-                &mut GremlinTransaction::new(c.clone(), true, false),
-            ),
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => self.resolve_union_field_with_transaction(
-                info,
-                dst_label,
-                field_name,
-                dst_id,
-                &mut GremlinTransaction::new(c.clone(), false, *uuid),
-            ),
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = runtime.block_on(p.get())?;
+            DatabasePool::Cosmos(c) => {
                 self.resolve_union_field_with_transaction(
                     info,
                     dst_label,
                     field_name,
                     dst_id,
-                    &mut Neo4jTransaction::new(c, &mut runtime),
+                    &mut GremlinTransaction::new(c.clone(), true, false),
                 )
+                .await
+            }
+            #[cfg(feature = "gremlin")]
+            DatabasePool::Gremlin((c, uuid)) => {
+                self.resolve_union_field_with_transaction(
+                    info,
+                    dst_label,
+                    field_name,
+                    dst_id,
+                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
+                )
+                .await
+            }
+            #[cfg(feature = "neo4j")]
+            DatabasePool::Neo4j(p) => {
+                let c = p.get().await?;
+                self.resolve_union_field_with_transaction(
+                    info,
+                    dst_label,
+                    field_name,
+                    dst_id,
+                    &mut Neo4jTransaction::new(c),
+                )
+                .await
             }
             DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
         }?;
 
-        executor.resolve(
-            &Info::new(dst_label.to_string(), info.type_defs()),
-            &results.first().ok_or(Error::ResponseSetNotFound)?,
-        )
+        executor
+            .resolve_async(
+                &Info::new(dst_label.to_string(), info.type_defs()),
+                &results.first().ok_or(Error::ResponseSetNotFound)?,
+            )
+            .await
     }
 
-    pub(super) fn resolve_union_field_node<RequestCtx: RequestContext>(
+    pub(super) async fn resolve_union_field_node<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
         field_name: &str,
         dst: &Node<RequestCtx>,
-        executor: &Executor<GraphQLContext<RequestCtx>>,
+        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!("Resolver::resolve_union_field_node called -- info.name: {}, field_name: {}, dst: {:#?}", info.name(), field_name, dst);
 
-        executor.resolve(
-            &Info::new(dst.type_name().to_string(), info.type_defs()),
-            dst,
-        )
+        executor
+            .resolve_async(
+                &Info::new(dst.type_name().to_string(), info.type_defs()),
+                dst,
+            )
+            .await
     }
 
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) fn resolve_union_field_with_transaction<RequestCtx, T>(
+    pub(super) async fn resolve_union_field_with_transaction<RequestCtx, T>(
         &mut self,
         info: &Info,
         dst_label: &str,
@@ -1271,10 +1356,12 @@ impl<'r> Resolver<'r> {
                 let node_var =
                     NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
                 let mut props = HashMap::new();
-                props.insert("id".to_string(), Comparison::default(dst_id.clone()) );
+                props.insert("id".to_string(), Comparison::default(dst_id.clone()));
                 let query_fragment =
                     transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
-                transaction.read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+                transaction
+                    .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+                    .await
             }
             _ => Err(Error::SchemaItemNotFound {
                 name: info.name().to_string() + "::" + field_name,

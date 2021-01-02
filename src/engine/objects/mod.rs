@@ -9,11 +9,11 @@ use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
 use juniper::meta::MetaType;
-pub use juniper::GraphQLType;
 use juniper::{
-    Arguments, DefaultScalarValue, ExecutionResult, Executor, FromInputValue, InputValue, Registry,
-    Selection, ID,
+    Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor, FromInputValue,
+    InputValue, Registry, Selection, ID,
 };
+pub use juniper::{GraphQLType, GraphQLTypeAsync, GraphQLValue, GraphQLValueAsync};
 use log::{error, trace};
 use resolvers::Resolver;
 use std::collections::HashMap;
@@ -60,9 +60,6 @@ impl<RequestCtx> GraphQLType for Input<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<RequestCtx>;
-    type TypeInfo = Info;
-
     fn name(info: &Self::TypeInfo) -> Option<&str> {
         Some(&info.name())
     }
@@ -133,6 +130,20 @@ where
     }
 }
 
+impl<RequestCtx> GraphQLValue for Input<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    type Context = GraphQLContext<RequestCtx>;
+    type TypeInfo = Info;
+
+    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+        Some(&info.name())
+    }
+}
+
+impl<RequestCtx> GraphQLValueAsync for Input<RequestCtx> where RequestCtx: RequestContext {}
+
 /// Represents a node in the graph data structure for auto-generated CRUD operations and custom
 /// resolvers.
 ///
@@ -142,16 +153,19 @@ where
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-///     let typename = "User";
+/// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+///     Box::pin(async move {
+///         let typename = "User";
 ///
-///     let mut props = HashMap::new();
-///     props.insert("role".to_string(), Value::String("Admin".to_string()));
+///         let mut props = HashMap::new();
+///         props.insert("role".to_string(), Value::String("Admin".to_string()));
 ///
-///     let n = facade.create_node(typename, props);
+///         let n = facade.create_node(typename, props);
 ///
-///     facade.resolve_node(&n)
+///         facade.resolve_node(&n).await
+///     })
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -352,7 +366,7 @@ where
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
-                        (_, _, _) => panic!(Error::TypeNotExpected {details: None}),
+                        (_, _, _) => panic!(Error::TypeNotExpected { details: None }),
                     }
                 })
             })
@@ -372,10 +386,34 @@ impl<RequestCtx> GraphQLType for Node<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
+    fn name(info: &Self::TypeInfo) -> Option<&str> {
+        Some(&info.name())
+    }
+
+    fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
+    where
+        DefaultScalarValue: 'r,
+    {
+        trace!("Node::meta called -- info.name: {}", info.name());
+        let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
+            error!("Node::meta panicking on type: {}", info.name().to_string());
+            panic!(e)
+        });
+
+        match nt.type_kind() {
+            TypeKind::Union => Node::<RequestCtx>::union_meta(nt, info, registry),
+            _ => Node::<RequestCtx>::object_meta(nt, info, registry),
+        }
+    }
+}
+
+impl<RequestCtx> GraphQLValue for Node<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
     type Context = GraphQLContext<RequestCtx>;
     type TypeInfo = Info;
-
-    fn name(info: &Self::TypeInfo) -> Option<&str> {
+    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
         Some(&info.name())
     }
 
@@ -399,184 +437,194 @@ where
 
         tn
     }
+}
 
-    fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
-    where
-        DefaultScalarValue: 'r,
-    {
-        trace!("Node::meta called -- info.name: {}", info.name());
-        let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
-            error!("Node::meta panicking on type: {}", info.name().to_string());
-            panic!(e)
-        });
+impl<RequestCtx> GraphQLValueAsync for Node<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    fn resolve_field_async<'a>(
+        &'a self,
+        info: &'a Self::TypeInfo,
+        field_name: &'a str,
+        args: &'a Arguments,
+        executor: &'a Executor<Self::Context>,
+    ) -> BoxFuture<'a, ExecutionResult> {
+        Box::pin(async move {
+            let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
+                name: info.name().to_string(),
+            })?;
+            trace!(
+                "Node::resolve_field called -- sn: {}, field_name: {}",
+                sn,
+                field_name,
+            );
 
-        match nt.type_kind() {
-            TypeKind::Union => Node::<RequestCtx>::union_meta(nt, info, registry),
-            _ => Node::<RequestCtx>::object_meta(nt, info, registry),
-        }
+            let p = info.type_def()?.property(field_name)?;
+            let input_opt: Option<Input<RequestCtx>> = args.get("input");
+
+            // The partition key is only in the arguments for the outermost query or mutation.
+            // For lower-level field resolution, the partition key is read from the field of the parent.
+            // An alternate design would've been to carry the partitionKey in context, but this way
+            // recursive resolve calls from custom resolvers that execute cross-partition queries will
+            // work correctly, as each node carries its own partition, for any recursion to fill out the
+            // other rels and nodes loaded by the shape.
+            let arg_partition_key = args.get("partitionKey");
+            let partition_key_opt: Option<&Value> = arg_partition_key
+                .as_ref()
+                .or_else(|| self.fields.get("partitionKey"));
+
+            let mut resolver = Resolver::new(partition_key_opt);
+
+            let result = match p.kind() {
+                PropertyKind::CustomResolver => {
+                    resolver
+                        .resolve_custom_endpoint(
+                            info,
+                            field_name,
+                            Object::Node(self),
+                            args,
+                            executor,
+                        )
+                        .await
+                }
+                PropertyKind::DynamicScalar => {
+                    resolver
+                        .resolve_custom_field(
+                            info,
+                            field_name,
+                            p.resolver(),
+                            Object::Node(self),
+                            args,
+                            executor,
+                        )
+                        .await
+                }
+                PropertyKind::DynamicRel { rel_name } => {
+                    resolver
+                        .resolve_custom_rel(
+                            info,
+                            &rel_name,
+                            p.resolver(),
+                            Object::Node(self),
+                            args,
+                            executor,
+                        )
+                        .await
+                }
+                PropertyKind::Input => Err((Error::TypeNotExpected { details: None }).into()),
+                PropertyKind::NodeCreateMutation => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_node_create_mutation(field_name, info, input, executor)
+                        .await
+                }
+                PropertyKind::NodeDeleteMutation { label } => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_node_delete_mutation(field_name, &label, info, input, executor)
+                        .await
+                }
+                PropertyKind::NodeUpdateMutation => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_node_update_mutation(field_name, info, input, executor)
+                        .await
+                }
+                PropertyKind::Object => {
+                    resolver
+                        .resolve_node_read_query(field_name, info, input_opt, executor)
+                        .await
+                }
+                PropertyKind::Rel { rel_name } => {
+                    let io = match sn {
+                        "Mutation" | "Query" => input_opt,
+                        _ => {
+                            let mut src_node = HashMap::new();
+                            src_node.insert("id".to_string(), self.id()?.clone());
+                            let mut src = HashMap::new();
+                            src.insert(
+                                info.type_def()?.type_name().to_string(),
+                                Value::Map(src_node),
+                            );
+                            let mut hm = HashMap::new();
+                            hm.insert("src".to_string(), Value::Map(src));
+                            Some(Input::new(Value::Map(hm)))
+                        }
+                    };
+                    resolver
+                        .resolve_rel_read_query(field_name, &rel_name, info, io, executor)
+                        .await
+                }
+                PropertyKind::RelCreateMutation {
+                    src_label,
+                    rel_name,
+                } => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_rel_create_mutation(
+                            field_name, &src_label, &rel_name, info, input, executor,
+                        )
+                        .await
+                }
+                PropertyKind::RelDeleteMutation {
+                    src_label,
+                    rel_name,
+                } => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_rel_delete_mutation(
+                            field_name, &src_label, &rel_name, info, input, executor,
+                        )
+                        .await
+                }
+                PropertyKind::RelUpdateMutation {
+                    src_label,
+                    rel_name,
+                } => {
+                    let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
+                        name: "input".to_string(),
+                    })?;
+                    resolver
+                        .resolve_rel_update_mutation(
+                            field_name, &src_label, &rel_name, info, input, executor,
+                        )
+                        .await
+                }
+                PropertyKind::Scalar => {
+                    resolver
+                        .resolve_scalar_field(info, field_name, &self.fields, executor)
+                        .await
+                }
+
+                PropertyKind::ScalarComp => Err((Error::TypeNotExpected { details: None }).into()),
+                PropertyKind::Union => Err((Error::TypeNotExpected { details: None }).into()),
+                PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor).await,
+            };
+
+            trace!("Node::resolve_field -- result: {:#?}", result);
+
+            result
+        })
     }
 
-    fn resolve_field(
-        &self,
-        info: &Self::TypeInfo,
-        field_name: &str,
-        args: &Arguments,
-        executor: &Executor<Self::Context>,
-    ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
-            name: info.name().to_string(),
-        })?;
-        trace!(
-            "Node::resolve_field called -- sn: {}, field_name: {}",
-            sn,
-            field_name,
-        );
-
-        let p = info.type_def()?.property(field_name)?;
-        let input_opt: Option<Input<RequestCtx>> = args.get("input");
-
-        // The partition key is only in the arguments for the outermost query or mutation.
-        // For lower-level field resolution, the partition key is read from the field of the parent.
-        // An alternate design would've been to carry the partitionKey in context, but this way
-        // recursive resolve calls from custom resolvers that execute cross-partition queries will
-        // work correctly, as each node carries its own partition, for any recursion to fill out the
-        // other rels and nodes loaded by the shape.
-        let arg_partition_key = args.get("partitionKey");
-        let partition_key_opt: Option<&Value> = arg_partition_key
-            .as_ref()
-            .or_else(|| self.fields.get("partitionKey"));
-
-        let mut resolver = Resolver::new(partition_key_opt);
-
-        let result = match p.kind() {
-            PropertyKind::CustomResolver => resolver.resolve_custom_endpoint(
-                info,
-                field_name,
-                Object::Node(self),
-                args,
-                executor,
-            ),
-            PropertyKind::DynamicScalar => resolver.resolve_custom_field(
-                info,
-                field_name,
-                p.resolver(),
-                Object::Node(self),
-                args,
-                executor,
-            ),
-            PropertyKind::DynamicRel { rel_name } => resolver.resolve_custom_rel(
-                info,
-                &rel_name,
-                p.resolver(),
-                Object::Node(self),
-                args,
-                executor,
-            ),
-            PropertyKind::Input => Err((Error::TypeNotExpected {details: None}).into()),
-            PropertyKind::NodeCreateMutation => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_create_mutation(field_name, info, input, executor)
-            }
-            PropertyKind::NodeDeleteMutation { label } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_delete_mutation(field_name, &label, info, input, executor)
-            }
-            PropertyKind::NodeUpdateMutation => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_node_update_mutation(field_name, info, input, executor)
-            }
-            PropertyKind::Object => {
-                resolver.resolve_node_read_query(field_name, info, input_opt, executor)
-            }
-            PropertyKind::Rel { rel_name } => {
-                let io = match sn {
-                    "Mutation" | "Query" => input_opt,
-                    _ => {
-                        let mut src_node = HashMap::new();
-                        src_node.insert("id".to_string(), self.id()?.clone());
-                        let mut src = HashMap::new();
-                        src.insert(
-                            info.type_def()?.type_name().to_string(),
-                            Value::Map(src_node),
-                        );
-                        let mut hm = HashMap::new();
-                        hm.insert("src".to_string(), Value::Map(src));
-                        Some(Input::new(Value::Map(hm)))
-                    }
-                };
-                resolver.resolve_rel_read_query(field_name, &rel_name, info, io, executor)
-            }
-            PropertyKind::RelCreateMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_create_mutation(
-                    field_name, &src_label, &rel_name, info, input, executor,
-                )
-            }
-            PropertyKind::RelDeleteMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_delete_mutation(
-                    field_name, &src_label, &rel_name, info, input, executor,
-                )
-            }
-            PropertyKind::RelUpdateMutation {
-                src_label,
-                rel_name,
-            } => {
-                let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
-                    name: "input".to_string(),
-                })?;
-                resolver.resolve_rel_update_mutation(
-                    field_name, &src_label, &rel_name, info, input, executor,
-                )
-            }
-            PropertyKind::Scalar => {
-                resolver.resolve_scalar_field(info, field_name, &self.fields, executor)
-            },
-            PropertyKind::ScalarComp => Err((Error::TypeNotExpected {details: None}).into()),
-            PropertyKind::Union => Err((Error::TypeNotExpected {details: None}).into()),
-            PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor),
-        };
-
-        trace!("Node::resolve_field -- result: {:#?}", result);
-
-        result
-    }
-
-    fn resolve_into_type(
-        &self,
-        info: &Self::TypeInfo,
+    fn resolve_into_type_async<'a>(
+        &'a self,
+        info: &'a Self::TypeInfo,
         type_name: &str,
-        _selection_set: Option<&[Selection]>,
-        executor: &Executor<Self::Context>,
-    ) -> ExecutionResult {
-        let sn = Self::name(info).ok_or_else(|| Error::SchemaItemNotFound {
-            name: info.name().to_string(),
-        })?;
-
-        trace!(
-            "Node::resolve_into_type called -- sn: {}, info.name: {}, type_name: {}, self.concrete_typename: {}",
-            sn,
-            info.name(),
-            type_name,
-            self.concrete_typename
-        );
-
+        _selection_set: Option<&'a [Selection<'a>]>,
+        executor: &'a Executor<'a, 'a, Self::Context>,
+    ) -> BoxFuture<'a, ExecutionResult> {
         // this mismatch can occur when query fragments are used. correct behavior is to not
         // resolve it
         if info.name() != type_name {
@@ -585,13 +633,17 @@ where
                 info.name(),
                 type_name
             );
-            return Ok(juniper::Value::Null);
+            return Box::pin(async move { Ok(juniper::Value::Null) });
         }
 
-        executor.resolve(
-            &Info::new(self.concrete_typename.to_owned(), info.type_defs()),
-            &Some(self),
-        )
+        Box::pin(async move {
+            executor
+                .resolve_async(
+                    &Info::new(self.concrete_typename.to_owned(), info.type_defs()),
+                    &Some(self),
+                )
+                .await
+        })
     }
 }
 
@@ -612,18 +664,21 @@ pub(crate) enum NodeRef<RequestCtx: RequestContext> {
 /// # use std::collections::HashMap;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-///     // do work
-///     let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
+/// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+///     Box::pin(async move {
+///         // do work
+///        let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
 ///
-///     let mut hm1 = HashMap::new();
-///     hm1.insert("role".to_string(), Value::String("member".to_string()));
+///         let mut hm1 = HashMap::new();
+///         hm1.insert("role".to_string(), Value::String("member".to_string()));
 ///
-///     // return rel
-///     facade.resolve_rel(&facade.create_rel(
-///         Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-///         Some(hm1), node_id, "DstNodeLabel")?)
+///         // return rel
+///         facade.resolve_rel(&facade.create_rel(
+///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
+///             Some(hm1), node_id, "DstNodeLabel")?).await
+///     })
 /// }
 /// ```
 #[derive(Clone, Debug)]
@@ -669,30 +724,8 @@ impl<RequestCtx> GraphQLType for Rel<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    type Context = GraphQLContext<RequestCtx>;
-    type TypeInfo = Info;
-
     fn name(info: &Self::TypeInfo) -> Option<&str> {
         Some(&info.name())
-    }
-
-    fn concrete_type_name(&self, _context: &Self::Context, info: &Self::TypeInfo) -> String {
-        let tn = info
-            .type_def_by_name(&info.name())
-            .unwrap_or_else(|e| {
-                error!("Rel::concrete_type_name panicking on type: {}", info.name());
-                panic!(e)
-            })
-            .type_name()
-            .to_owned();
-
-        trace!(
-            "Rel::concrete_type_name called -- info.name: {}, returning {}",
-            info.name(),
-            tn
-        );
-
-        tn
     }
 
     fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
@@ -739,70 +772,125 @@ where
             .build_object_type::<Rel<RequestCtx>>(info, &fields)
             .into_meta()
     }
+}
 
-    fn resolve_field(
-        &self,
-        info: &Self::TypeInfo,
-        field_name: &str,
-        args: &Arguments,
-        executor: &Executor<Self::Context>,
-    ) -> ExecutionResult {
+impl<RequestCtx> GraphQLValue for Rel<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    type Context = GraphQLContext<RequestCtx>;
+    type TypeInfo = Info;
+
+    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+        Some(&info.name())
+    }
+
+    fn concrete_type_name(&self, _context: &Self::Context, info: &Self::TypeInfo) -> String {
+        let tn = info
+            .type_def_by_name(&info.name())
+            .unwrap_or_else(|e| {
+                error!("Rel::concrete_type_name panicking on type: {}", info.name());
+                panic!(e)
+            })
+            .type_name()
+            .to_owned();
+
         trace!(
-            "Rel::resolve_field_with_transaction called -- field_name: {}",
-            field_name
+            "Rel::concrete_type_name called -- info.name: {}, returning {}",
+            info.name(),
+            tn
         );
-        let p = info.type_def()?.property(field_name)?;
-        let arg_partition_key = args.get("partitionKey");
-        let partition_key_opt: Option<&Value> = arg_partition_key
-            .as_ref()
-            .or_else(|| self.partition_key.as_ref());
 
-        let mut resolver = Resolver::new(partition_key_opt);
+        tn
+    }
+}
 
-        match (p.kind(), &field_name) {
-            (PropertyKind::DynamicScalar, _) => resolver.resolve_custom_field(
-                info,
-                field_name,
-                p.resolver(),
-                Object::Rel(self),
-                args,
-                executor,
-            ),
-            (PropertyKind::Object, &"props") => match &self.props {
-                Some(p) => resolver.resolve_rel_props(info, field_name, p, executor),
-                None => Err((Error::TypeNotExpected { details: None}).into()),
-            },
-            (PropertyKind::Object, &"src") => match &self.src_ref {
-                NodeRef::Identifier { id, label: _ } => {
-                    let mut hm = HashMap::new();
-                    hm.insert("id".to_string(), id.clone());
-                    let input = Input::new(Value::Map(hm));
-                    resolver.resolve_node_read_query(field_name, info, Some(input), executor)
+impl<RequestCtx> GraphQLValueAsync for Rel<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    fn resolve_field_async<'a>(
+        &'a self,
+        info: &'a Self::TypeInfo,
+        field_name: &'a str,
+        args: &'a Arguments,
+        executor: &'a Executor<Self::Context>,
+    ) -> BoxFuture<'a, ExecutionResult> {
+        Box::pin(async move {
+            trace!(
+                "Rel::resolve_field_with_transaction called -- field_name: {}",
+                field_name
+            );
+            let p = info.type_def()?.property(field_name)?;
+            let arg_partition_key = args.get("partitionKey");
+            let partition_key_opt: Option<&Value> = arg_partition_key
+                .as_ref()
+                .or_else(|| self.partition_key.as_ref());
+
+            let mut resolver = Resolver::new(partition_key_opt);
+
+            match (p.kind(), &field_name) {
+                (PropertyKind::DynamicScalar, _) => {
+                    resolver
+                        .resolve_custom_field(
+                            info,
+                            field_name,
+                            p.resolver(),
+                            Object::Rel(self),
+                            args,
+                            executor,
+                        )
+                        .await
                 }
-                NodeRef::Node(n) => {
-                    executor.resolve(&Info::new(n.type_name().clone(), info.type_defs()), &n)
+                (PropertyKind::Object, &"props") => match &self.props {
+                    Some(p) => {
+                        resolver
+                            .resolve_rel_props(info, field_name, p, executor)
+                            .await
+                    }
+                    None => Err(Error::TypeNotExpected { details: None }.into()),
+                },
+                (PropertyKind::Object, &"src") => match &self.src_ref {
+                    NodeRef::Identifier { id, label: _ } => {
+                        let mut hm = HashMap::new();
+                        hm.insert("id".to_string(), id.clone());
+                        let input = Input::new(Value::Map(hm));
+                        resolver
+                            .resolve_node_read_query(field_name, info, Some(input), executor)
+                            .await
+                    }
+                    NodeRef::Node(n) => {
+                        executor
+                            .resolve_async(&Info::new(n.type_name().clone(), info.type_defs()), &n)
+                            .await
+                    }
+                },
+                (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
+                    name: field_name.to_string(),
                 }
-            },
-            (PropertyKind::Object, _) => Err(Error::ResponseItemNotFound {
-                name: field_name.to_string(),
+                .into()),
+                (PropertyKind::Scalar, _) => {
+                    if field_name == "id" {
+                        executor
+                            .resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
+                    } else {
+                        executor.resolve_with_ctx(&(), &None::<String>)
+                    }
+                }
+                (PropertyKind::Union, _) => match &self.dst_ref {
+                    NodeRef::Identifier { id, label } => {
+                        resolver
+                            .resolve_union_field(info, label, field_name, &id, executor)
+                            .await
+                    }
+                    NodeRef::Node(n) => {
+                        resolver
+                            .resolve_union_field_node(info, field_name, &n, executor)
+                            .await
+                    }
+                },
+                (_, _) => Err((Error::TypeNotExpected { details: None }).into()),
             }
-            .into()),
-            (PropertyKind::Scalar, _) => {
-                if field_name == "id" {
-                    executor.resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
-                } else {
-                    executor.resolve_with_ctx(&(), &None::<String>)
-                }
-            }
-            (PropertyKind::Union, _) => match &self.dst_ref {
-                NodeRef::Identifier { id, label } => {
-                    resolver.resolve_union_field(info, label, field_name, &id, executor)
-                }
-                NodeRef::Node(n) => {
-                    resolver.resolve_union_field_node(info, field_name, &n, executor)
-                }
-            },
-            (_, _) => Err((Error::TypeNotExpected {details: None}).into()),
-        }
+        })
     }
 }

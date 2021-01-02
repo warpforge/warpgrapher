@@ -144,37 +144,34 @@ pub enum Operation {
     GT,
     GTE,
     LT,
-    LTE
+    LTE,
 }
 
-/// Struct representing a value comparison. In query operations, visitors take provided 
+/// Struct representing a value comparison. In query operations, visitors take provided
 /// operation/value nested map and converted them into a `Comparison` struct and pass
-/// it on the database-specific transaction for use in creating match portion of queries. 
+/// it on the database-specific transaction for use in creating match portion of queries.
 #[derive(Clone, Debug)]
 pub struct Comparison {
     operation: Operation,
     operand: Value,
-    negated: bool
+    negated: bool,
 }
 
 impl Comparison {
-
     pub fn new(operation: Operation, negated: bool, operand: Value) -> Self {
         Comparison {
             operation,
             operand,
-            negated
+            negated,
         }
     }
 
     pub fn default(v: Value) -> Self {
         Self::new(Operation::EQ, false, v)
     }
-
 }
 
 impl TryFrom<Value> for Comparison {
-
     type Error = Error;
 
     fn try_from(v: Value) -> Result<Comparison, Error> {
@@ -184,8 +181,10 @@ impl TryFrom<Value> for Comparison {
             Value::Float64(_) => Comparison::default(v),
             Value::Bool(_) => Comparison::default(v),
             Value::Map(m) => {
-                let (operation_str, operand) = m.into_iter().next()
-                    .ok_or(Error::InputItemNotFound { name: "Comparison keys".to_string() })?;
+                let (operation_str, operand) =
+                    m.into_iter().next().ok_or(Error::InputItemNotFound {
+                        name: "Comparison keys".to_string(),
+                    })?;
                 Comparison::new(
                     match operation_str.as_ref() {
                         "EQ" => Operation::EQ,
@@ -198,25 +197,30 @@ impl TryFrom<Value> for Comparison {
                         "GTE" => Operation::GTE,
                         "LT" => Operation::LT,
                         "LTE" => Operation::LTE,
-                        _ => return Err(Error::TypeNotExpected { 
-                            details: Some(format!("comparison operation {}", operation_str))
-                        })
+                        _ => {
+                            return Err(Error::TypeNotExpected {
+                                details: Some(format!("comparison operation {}", operation_str)),
+                            })
+                        }
                     },
                     matches!(operation_str.as_ref(), "NOTEQ" | "NOTCONTAINS" | "NOTIN"),
-                    operand
+                    operand,
                 )
-            },
+            }
             _ => {
-                return Err(Error::TypeNotExpected { details: Some(format!("comparison value: {:#?}",  v)) })
+                return Err(Error::TypeNotExpected {
+                    details: Some(format!("comparison value: {:#?}", v)),
+                })
             }
         })
     }
 }
 
-pub(crate) trait Transaction {
-    fn begin(&mut self) -> Result<(), Error>;
+#[async_trait]
+pub(crate) trait Transaction: Send {
+    async fn begin(&mut self) -> Result<(), Error>;
 
-    fn create_node<RequestCtx: RequestContext>(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -224,7 +228,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
@@ -248,7 +252,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -271,7 +275,7 @@ pub(crate) trait Transaction {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -279,7 +283,7 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -288,7 +292,7 @@ pub(crate) trait Transaction {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -297,23 +301,23 @@ pub(crate) trait Transaction {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
     ) -> Result<i32, Error>;
 
-    fn commit(&mut self) -> Result<(), Error>;
+    async fn commit(&mut self) -> Result<(), Error>;
 
-    fn rollback(&mut self) -> Result<(), Error>;
+    async fn rollback(&mut self) -> Result<(), Error>;
 }
 
 #[derive(Clone, Debug)]

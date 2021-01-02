@@ -4,8 +4,8 @@ use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison, Operation
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
@@ -314,7 +314,7 @@ impl GremlinTransaction {
                     };
                     Ok((k, v))
                 } else {
-                    Err(Error::TypeNotExpected { details: None})
+                    Err(Error::TypeNotExpected { details: None })
                 }
             })
             .collect::<Result<HashMap<String, Value>, Error>>()
@@ -328,11 +328,11 @@ impl GremlinTransaction {
                         Ok((s, GValue::String(uuid.to_hyphenated().to_string())))
                     }
                     (GKey::String(s), v) => Ok((s, v)),
-                    (_, _) => Err(Error::TypeNotExpected { details: None}),
+                    (_, _) => Err(Error::TypeNotExpected { details: None }),
                 })
                 .collect()
         } else {
-            Err(Error::TypeNotExpected { details: None})
+            Err(Error::TypeNotExpected { details: None })
         }
     }
 
@@ -402,7 +402,7 @@ impl GremlinTransaction {
                             if let GKey::String(k) = key {
                                 Ok((k, val.try_into()?))
                             } else {
-                                Err(Error::TypeNotExpected { details: None})
+                                Err(Error::TypeNotExpected { details: None })
                             }
                         })
                         .collect::<Result<HashMap<String, Value>, Error>>()?;
@@ -430,12 +430,13 @@ impl GremlinTransaction {
     }
 }
 
+#[async_trait]
 impl Transaction for GremlinTransaction {
-    fn begin(&mut self) -> Result<(), Error> {
+    async fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn create_node<RequestCtx: RequestContext>(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -481,7 +482,7 @@ impl Transaction for GremlinTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -595,22 +596,22 @@ impl Transaction for GremlinTransaction {
         }
 
         for (k, c) in props.into_iter() {
-            query.push_str(&(
-                ".has".to_string()
+            query.push_str(
+                &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
-                + &k 
+                + &k
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
-                + "))"
-            ));
+                + &k
+                + &param_suffix
+                + "))"),
+            );
 
             if self.uuid && k == "id" {
-                if let Value::String(s) = &c.operand { 
+                if let Value::String(s) = &c.operand {
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
                     return Err(Error::TypeConversionFailed {
@@ -662,7 +663,7 @@ impl Transaction for GremlinTransaction {
         Ok(qf)
     }
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         _node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -753,19 +754,19 @@ impl Transaction for GremlinTransaction {
         }
 
         for (k, c) in props.into_iter() {
-            query.push_str(&(
-                ".has".to_string()
+            query.push_str(
+                &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
-                + &k 
+                + &k
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
                 + ", " 
                 + &gremlin_comparison_operator(&c)
                 + "("
-                + &k 
-                + &param_suffix 
-                + "))"
-            ));
+                + &k
+                + &param_suffix
+                + "))"),
+            );
 
             if self.uuid && k == "id" {
                 if let Value::String(s) = c.operand {
@@ -815,7 +816,7 @@ impl Transaction for GremlinTransaction {
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -856,7 +857,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -895,7 +896,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -938,7 +939,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -979,7 +980,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -1020,11 +1021,11 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
-    fn commit(&mut self) -> Result<(), Error> {
+    async fn commit(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    fn rollback(&mut self) -> Result<(), Error> {
+    async fn rollback(&mut self) -> Result<(), Error> {
         Ok(())
     }
 }
@@ -1185,7 +1186,7 @@ fn gremlin_comparison_operator(c: &Comparison) -> String {
         (Operation::GT, _) => "gt".to_string(),
         (Operation::GTE, _) => "gte".to_string(),
         (Operation::LT, _) => "lt".to_string(),
-        (Operation::LTE, _) => "lte".to_string()
+        (Operation::LTE, _) => "lte".to_string(),
     }
 }
 

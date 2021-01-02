@@ -236,7 +236,7 @@ pub enum Error {
     ///
     /// [`Value`]: ./engine/value/enum.Value.html
     TypeNotExpected {
-        details: Option<String>
+        details: Option<String>,
     },
 
     /// Returned when encapsulating an error thrown in event handlers provided by users of
@@ -436,11 +436,15 @@ impl Display for Error {
                     src, dst
                 )
             }
-            Error::TypeNotExpected { details }=> {
+            Error::TypeNotExpected { details } => {
                 write!(
                     f,
                     "Warpgrapher encountered a type that was not expected {}",
-                    if let Some(s) = details { format!("({:#?}", s) } else { "".to_string() }
+                    if let Some(s) = details {
+                        format!("({:#?}", s)
+                    } else {
+                        "".to_string()
+                    }
                 )
             }
             Error::UserDefinedError { source } => {

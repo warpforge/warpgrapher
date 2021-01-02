@@ -6,13 +6,54 @@ use warpgrapher::client::Client;
 use warpgrapher_macros::wg_test;
 
 async fn create_test_fixtures(client: &mut Client<AppRequestCtx>) {
-    client.create_node("Project", "id", None, &json!({"name": "STARDUST"})).await.unwrap();
-    client.create_node("Project", "id", None, &json!({"name": "STARSCREAM"})).await.unwrap();
-    client.create_node("Project", "id", None, &json!({"name": "BLACKWING"})).await.unwrap();
-    client.create_node("Feature", "id", None, &json!({"name": "Kyber Prism", "points": 10})).await.unwrap();
-    client.create_node("Feature", "id", None, &json!({"name": "Kyber Refractor", "points": 15})).await.unwrap();
-    client.create_node("Feature", "id", None, &json!({"name": "CINDER Orbital Platforms", "points": 7})).await.unwrap();
-    client.create_node("Feature", "id", None, &json!({"name": "CINDER Particle Weapons", "points": 20})).await.unwrap();
+    client
+        .create_node("Project", "id", None, &json!({"name": "STARDUST"}))
+        .await
+        .unwrap();
+    client
+        .create_node("Project", "id", None, &json!({"name": "STARSCREAM"}))
+        .await
+        .unwrap();
+    client
+        .create_node("Project", "id", None, &json!({"name": "BLACKWING"}))
+        .await
+        .unwrap();
+    client
+        .create_node(
+            "Feature",
+            "id",
+            None,
+            &json!({"name": "Kyber Prism", "points": 10}),
+        )
+        .await
+        .unwrap();
+    client
+        .create_node(
+            "Feature",
+            "id",
+            None,
+            &json!({"name": "Kyber Refractor", "points": 15}),
+        )
+        .await
+        .unwrap();
+    client
+        .create_node(
+            "Feature",
+            "id",
+            None,
+            &json!({"name": "CINDER Orbital Platforms", "points": 7}),
+        )
+        .await
+        .unwrap();
+    client
+        .create_node(
+            "Feature",
+            "id",
+            None,
+            &json!({"name": "CINDER Particle Weapons", "points": 20}),
+        )
+        .await
+        .unwrap();
 }
 
 #[wg_test]
@@ -22,16 +63,26 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // EQ
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "EQ": "STARDUST" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "EQ": "STARDUST" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
     assert_eq!(results_array.len(), 1);
     assert_eq!(results_array[0].get("name").unwrap(), "STARDUST");
-    
+
     // NOTEQ
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "NOTEQ": "STARDUST" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "NOTEQ": "STARDUST" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -42,10 +93,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "BLACKWING"));
-   
+
     // CONTAINS
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "CONTAINS" : "STAR" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "CONTAINS" : "STAR" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -56,10 +112,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "STARDUST"));
-    
+
     // CONTAINS
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "CONTAINS": "BLACK" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "CONTAINS": "BLACK" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -67,10 +128,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "BLACKWING"));
-    
+
     // NOTCONTAINS
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "NOTCONTAINS" : "STARDUST" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "NOTCONTAINS" : "STARDUST" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -81,10 +147,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "BLACKWING"));
-    
+
     // NOTCONTAINS
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "NOTCONTAINS": "STAR" }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "NOTCONTAINS": "STAR" }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -92,10 +163,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "BLACKWING"));
-    
+
     // IN
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "IN": ["STARDUST", "STARSCREAM", "BLACKWING"] }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "IN": ["STARDUST", "STARSCREAM", "BLACKWING"] }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -109,10 +185,15 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
     assert!(results_array
         .iter()
         .any(|i| i.get("name").unwrap() == "STARDUST"));
-   
+
     // NOTIN
     let results = client
-        .read_node("Project", "__typename id name", None, Some(&json!({"name": { "NOTIN": ["STARDUST"] }})))
+        .read_node(
+            "Project",
+            "__typename id name",
+            None,
+            Some(&json!({"name": { "NOTIN": ["STARDUST"] }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -126,7 +207,12 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // GT
     let results = client
-        .read_node("Feature", "__typename id name", None, Some(&json!({"points": { "GT": 10 }})))
+        .read_node(
+            "Feature",
+            "__typename id name",
+            None,
+            Some(&json!({"points": { "GT": 10 }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -140,7 +226,12 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // GTE
     let results = client
-        .read_node("Feature", "__typename id name", None, Some(&json!({"points": { "GTE": 10 }})))
+        .read_node(
+            "Feature",
+            "__typename id name",
+            None,
+            Some(&json!({"points": { "GTE": 10 }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -157,7 +248,12 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // LT
     let results = client
-        .read_node("Feature", "__typename id name", None, Some(&json!({"points": { "LT": 10 }})))
+        .read_node(
+            "Feature",
+            "__typename id name",
+            None,
+            Some(&json!({"points": { "LT": 10 }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -168,7 +264,12 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // LTE
     let results = client
-        .read_node("Feature", "__typename id name", None, Some(&json!({"points": { "LTE": 10 }})))
+        .read_node(
+            "Feature",
+            "__typename id name",
+            None,
+            Some(&json!({"points": { "LTE": 10 }})),
+        )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
@@ -189,7 +290,7 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
     // create node with nested rels to 2 rels
     let p1 = client
         .create_node(
-            "Project", 
+            "Project",
             "__typename 
             issues { 
                 dst { 
@@ -197,8 +298,8 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
                         name 
                     } 
                 } 
-            }", 
-            None, 
+            }",
+            None,
             &json!({
                 "name": "CINDER",
                 "issues": {
@@ -212,7 +313,7 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -236,7 +337,7 @@ async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
     // update node to create nested rels to 2 rels using comparisons
     let results = client
         .update_node(
-            "Project", 
+            "Project",
             "__typename 
             issues { 
                 dst { 
@@ -244,11 +345,11 @@ async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
                         name 
                     } 
                 } 
-            }", 
+            }",
             None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
-            })), 
+            })),
             &json!({
                 "issues": {
                     "ADD": {
@@ -263,7 +364,7 @@ async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -288,12 +389,7 @@ async fn test_delete_node_comparison(mut client: Client<AppRequestCtx>) {
 
     // delete nodes
     let results = client
-        .delete_node(
-            "Feature",
-            None,
-            Some(&json!({"points": {"GT": 10 }})),
-            None
-        )
+        .delete_node("Feature", None, Some(&json!({"points": {"GT": 10 }})), None)
         .await
         .unwrap();
     assert_eq!(results, 2);
@@ -306,7 +402,7 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
 
     let _results = client
         .update_node(
-            "Project", 
+            "Project",
             "__typename 
             issues { 
                 dst { 
@@ -314,11 +410,11 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
                         name 
                     } 
                 } 
-            }", 
+            }",
             None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
-            })), 
+            })),
             &json!({
                 "issues": {
                     "ADD": {
@@ -336,7 +432,7 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -344,11 +440,11 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
     // query node by rel comparison match
     let results = client
         .read_node(
-            "Project", 
+            "Project",
             "__typename 
             id 
-            name", 
-            None, 
+            name",
+            None,
             Some(&json!({
                 "issues": [
                     {
@@ -357,7 +453,7 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 ]
-            }))
+            })),
         )
         .await
         .unwrap();
@@ -382,7 +478,7 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
                 "props": {
                     "since": { "EQ": "5 BBY" }
                 }
-            }))
+            })),
         )
         .await
         .unwrap();
@@ -403,7 +499,7 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
 
     let _results = client
         .update_node(
-            "Project", 
+            "Project",
             "__typename 
             issues { 
                 dst { 
@@ -411,11 +507,11 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
                         name 
                     } 
                 } 
-            }", 
+            }",
             None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
-            })), 
+            })),
             &json!({
                 "issues": {
                     "ADD": {
@@ -433,7 +529,7 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -459,7 +555,7 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
                 "props": {
                     "since": "0 BBY"
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -485,24 +581,20 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
                         "name": { "CONTAINS": "Kyber" }
                     }
                 }
-            }))
+            })),
         )
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();
     assert_eq!(results_array.len(), 2);
-    assert!(results_array
-        .iter()
-        .any(|i| {
-            i.get("dst").unwrap().get("name").unwrap() == "Kyber Refractor" &&
-            i.get("props").unwrap().get("since").unwrap() == "0 BBY"
-        }));
-    assert!(results_array
-        .iter()
-        .any(|i| {
-            i.get("dst").unwrap().get("name").unwrap() == "Kyber Prism" &&
-            i.get("props").unwrap().get("since").unwrap() == "0 BBY"
-        }));
+    assert!(results_array.iter().any(|i| {
+        i.get("dst").unwrap().get("name").unwrap() == "Kyber Refractor"
+            && i.get("props").unwrap().get("since").unwrap() == "0 BBY"
+    }));
+    assert!(results_array.iter().any(|i| {
+        i.get("dst").unwrap().get("name").unwrap() == "Kyber Prism"
+            && i.get("props").unwrap().get("since").unwrap() == "0 BBY"
+    }));
 }
 
 #[wg_test]
@@ -513,7 +605,7 @@ async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
     // create rels
     let _results = client
         .update_node(
-            "Project", 
+            "Project",
             "__typename 
             issues { 
                 dst { 
@@ -521,11 +613,11 @@ async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
                         name 
                     } 
                 } 
-            }", 
+            }",
             None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
-            })), 
+            })),
             &json!({
                 "issues": {
                     "ADD": {
@@ -543,7 +635,7 @@ async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
                         }
                     }
                 }
-            })
+            }),
         )
         .await
         .unwrap();
@@ -560,20 +652,14 @@ async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
                 }
             })),
             None,
-            None
+            None,
         )
         .await
         .unwrap();
 
     // verify rels where deleted
     let results = client
-        .read_rel(
-            "Project",
-            "issues",
-            "__typename",
-            None,
-            None
-        )
+        .read_rel("Project", "issues", "__typename", None, None)
         .await
         .unwrap();
     let results_array = results.as_array().unwrap();

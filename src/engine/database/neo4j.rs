@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, RelQueryVar,
-    SuffixGenerator, Transaction, Comparison, Operation
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -21,7 +21,6 @@ use log::{debug, trace};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
-use tokio::runtime::Runtime;
 
 /// A Neo4J endpoint collects the information necessary to generate a connection string and
 /// build a database connection pool.
@@ -142,15 +141,11 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 #[derive(Debug)]
 pub(crate) struct Neo4jTransaction<'t> {
     client: PooledConnection<'t, BoltConnectionManager>,
-    runtime: &'t mut Runtime,
 }
 
 impl<'t> Neo4jTransaction<'t> {
-    pub fn new(
-        client: PooledConnection<'t, BoltConnectionManager>,
-        runtime: &'t mut Runtime,
-    ) -> Neo4jTransaction<'t> {
-        Neo4jTransaction { client, runtime }
+    pub fn new(client: PooledConnection<'t, BoltConnectionManager>) -> Neo4jTransaction<'t> {
+        Neo4jTransaction { client }
     }
 
     fn add_rel_return(query: String, src_var: &str, rel_var: &str, dst_var: &str) -> String {
@@ -285,11 +280,12 @@ impl<'t> Neo4jTransaction<'t> {
     }
 }
 
+#[async_trait]
 impl Transaction for Neo4jTransaction<'_> {
-    fn begin(&mut self) -> Result<(), Error> {
+    async fn begin(&mut self) -> Result<(), Error> {
         debug!("Neo4jTransaction::begin called");
 
-        let response = self.runtime.block_on(self.client.begin(None));
+        let response = self.client.begin(None).await;
         match response {
             Ok(Message::Success(_)) => Ok(()),
             Ok(message) => Err(Error::Neo4jQueryFailed { message }),
@@ -297,7 +293,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
-    fn create_node<RequestCtx: RequestContext>(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -326,11 +322,10 @@ impl Transaction for Neo4jTransaction<'_> {
         );
 
         let p = Params::from(params);
-        self.runtime
-            .block_on(self.client.run_with_metadata(query, Some(p), None))?;
+        self.client.run_with_metadata(query, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -342,7 +337,7 @@ impl Transaction for Neo4jTransaction<'_> {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -399,11 +394,10 @@ impl Transaction for Neo4jTransaction<'_> {
         );
 
         let p = Params::from(params);
-        self.runtime
-            .block_on(self.client.run_with_metadata(q, Some(p), None))?;
+        self.client.run_with_metadata(q, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -465,7 +459,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
 
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -506,7 +500,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -539,13 +533,12 @@ impl Transaction for Neo4jTransaction<'_> {
             query,
             params
         );
-        self.runtime.block_on(
-            self.client
-                .run_with_metadata(query, Some(params.into()), None),
-        )?;
+        self.client
+            .run_with_metadata(query, Some(params.into()), None)
+            .await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -594,7 +587,7 @@ impl Transaction for Neo4jTransaction<'_> {
         &mut self,
         src_fragment_opt: Option<QueryFragment>,
         dst_fragment_opt: Option<QueryFragment>,
-        rel_var: &RelQueryVar, 
+        rel_var: &RelQueryVar,
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
@@ -637,7 +630,7 @@ impl Transaction for Neo4jTransaction<'_> {
 
         let param_var = "param".to_string() + &sg.suffix();
         if !props.is_empty() {
-            let mut value_props : HashMap<String, Value> = HashMap::new();
+            let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
                 if i > 0 {
                     where_fragment.push_str(" AND ");
@@ -646,15 +639,15 @@ impl Transaction for Neo4jTransaction<'_> {
                     where_fragment.push_str(" NOT ")
                 }
                 where_fragment.push_str(
-                    &(rel_var.name().to_string() 
-                        + "." 
-                        + &k 
-                        + " " 
-                        + &neo4j_comparison_operator(&c.operation) 
-                        + " " 
-                        + "$" 
-                        + &param_var 
-                        + "." 
+                    &(rel_var.name().to_string()
+                        + "."
+                        + &k
+                        + " "
+                        + &neo4j_comparison_operator(&c.operation)
+                        + " "
+                        + "$"
+                        + &param_var
+                        + "."
                         + &k),
                 );
                 value_props.insert(k, c.operand);
@@ -667,7 +660,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -698,13 +691,12 @@ impl Transaction for Neo4jTransaction<'_> {
             query,
             params
         );
-        self.runtime.block_on(
-            self.client
-                .run_with_metadata(query, Some(params.into()), None),
-        )?;
+        self.client
+            .run_with_metadata(query, Some(params.into()), None)
+            .await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -713,7 +705,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -754,11 +746,10 @@ impl Transaction for Neo4jTransaction<'_> {
         );
 
         let p = Params::from(params);
-        self.runtime
-            .block_on(self.client.run_with_metadata(query, Some(p), None))?;
+        self.client.run_with_metadata(query, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -767,7 +758,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -808,11 +799,10 @@ impl Transaction for Neo4jTransaction<'_> {
         );
 
         let p = Params::from(params);
-        self.runtime
-            .block_on(self.client.run_with_metadata(q, Some(p), None))?;
+        self.client.run_with_metadata(q, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -821,7 +811,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn delete_nodes(
+    async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -854,13 +844,12 @@ impl Transaction for Neo4jTransaction<'_> {
             params
         );
 
-        self.runtime.block_on(
-            self.client
-                .run_with_metadata(query, Some(params.into()), None),
-        )?;
+        self.client
+            .run_with_metadata(query, Some(params.into()), None)
+            .await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -869,7 +858,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::extract_count(records)
     }
 
-    fn delete_rels(
+    async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -902,13 +891,12 @@ impl Transaction for Neo4jTransaction<'_> {
             params
         );
 
-        self.runtime.block_on(
-            self.client
-                .run_with_metadata(query, Some(params.into()), None),
-        )?;
+        self.client
+            .run_with_metadata(query, Some(params.into()), None)
+            .await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.runtime.block_on(self.client.pull(Some(pull_meta)))?;
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -917,15 +905,15 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::extract_count(records)
     }
 
-    fn commit(&mut self) -> Result<(), Error> {
+    async fn commit(&mut self) -> Result<(), Error> {
         debug!("transaction::commit called");
 
-        Ok(self.runtime.block_on(self.client.commit()).map(|_| ())?)
+        Ok(self.client.commit().await.map(|_| ())?)
     }
 
-    fn rollback(&mut self) -> Result<(), Error> {
+    async fn rollback(&mut self) -> Result<(), Error> {
         debug!("transaction::rollback called");
-        Ok(self.runtime.block_on(self.client.rollback()).map(|_| ())?)
+        Ok(self.client.rollback().await.map(|_| ())?)
     }
 }
 
@@ -1032,6 +1020,6 @@ fn neo4j_comparison_operator(op: &Operation) -> String {
         Operation::GT => ">".to_string(),
         Operation::GTE => ">=".to_string(),
         Operation::LT => "<".to_string(),
-        Operation::LTE => "<=".to_string()
+        Operation::LTE => "<=".to_string(),
     }
 }
