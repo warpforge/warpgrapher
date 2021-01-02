@@ -754,7 +754,7 @@ pub enum GraphqlType {
 /// ```rust
 /// # use warpgrapher::engine::config::Property;
 ///
-/// let p = Property::new("name".to_string(), "String".to_string(), true, false, None, None);
+/// let p = Property::new("name".to_string(), false, "String".to_string(), true, false, None, None);
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -810,7 +810,7 @@ impl Property {
     /// ```rust
     /// # use warpgrapher::engine::config::Property;
     ///
-    /// let p = Property::new("name".to_string(), "String".to_string(), true, false, None, None);
+    /// let p = Property::new("name".to_string(), false, "String".to_string(), true, false, None, None);
     /// ```
     pub fn new(
         name: String,
@@ -1129,8 +1129,8 @@ impl Relationship {
 ///
 /// let t = Type::new(
 ///     "User".to_string(),
-///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None),
-///          Property::new("role".to_string(), "String".to_string(), true, false, None, None)),
+///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
+///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
 ///     vec!(),
 ///     EndpointsFilter::all()
 /// );
@@ -1178,8 +1178,8 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
+    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1208,8 +1208,8 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
+    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1232,8 +1232,8 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
+    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1255,7 +1255,7 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1277,7 +1277,7 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1300,9 +1300,9 @@ impl Type {
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
     ///     vec!(Relationship::new("rel_name".to_string(), false, vec!("Role".to_string()), vec!(
-    ///         Property::new("rel_prop".to_string(), "String".to_string(), true, false, None, None)
+    ///         Property::new("rel_prop".to_string(), false, "String".to_string(), true, false, None, None)
     ///     ), EndpointsFilter::all(), None)),
     ///     EndpointsFilter::all()
     /// );

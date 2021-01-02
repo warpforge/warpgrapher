@@ -37,10 +37,10 @@ pub type BeforeMutationEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::BeforeQueryEventFunc;
+/// # use warpgrapher::engine::events::{BeforeQueryEventFunc, EventFacade};
 /// # use warpgrapher::engine::value::Value;
 ///
-/// fn before_user_read(value: Option<Value>) -> Result<Option<Value>, Error> {
+/// fn before_user_read(value: Option<Value>, ef: EventFacade<()>) -> Result<Option<Value>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
 ///    Ok(value)
 /// }
@@ -60,10 +60,11 @@ pub type BeforeQueryEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
+/// # use warpgrapher::engine::event::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Node;
 ///
-/// fn after_user_create(nodes: Vec<Node<()>>) -> Result<Vec<Node<()>>, Error> {
+/// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
 ///    Ok(nodes)
 /// }
@@ -81,10 +82,11 @@ pub type AfterNodeEventFunc<RequestCtx> =
 ///
 /// ```rust
 /// # use warpgrapher::Error;
+/// # use warpgrapher::engine::event::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Rel;
 ///
-/// fn after_project_owner_create(rels: Vec<Rel<()>>) -> Result<Vec<Rel<()>>, Error> {
+/// fn after_project_owner_create(rels: Vec<Rel<()>>, ef: EventFacade<()>) -> Result<Vec<Rel<()>>, Error> {
 ///    // Normally work would be done here, resulting in some new value.
 ///    Ok(rels)
 /// }
@@ -99,9 +101,9 @@ pub type AfterRelEventFunc<RequestCtx> =
 /// ```rust
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::events::EventHandlerBag;
+/// # use warpgrapher::engine::events::{EventHandlerBag, EventFacde};
 ///
-/// fn before_user_create(value: Value) -> Result<Value, Error> {
+/// fn before_user_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
 ///    // Normally work would be done here, resulting in some new value.
 ///    Ok(value)
 /// }
@@ -161,7 +163,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     ///
-    /// fn before_user_create(value: Value, ef: EventFacede<()>) -> Result<Value, Error> {
+    /// fn before_user_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
     ///    // Normally work would be done here, resulting in some new value.
     ///    Ok(value)
     /// }
@@ -513,7 +515,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Rel;
     ///
-    /// fn after_project_owner_update(rels: Vec<Rel<()>>, EventFacade<()>) ->
+    /// fn after_project_owner_update(rels: Vec<Rel<()>>, ef: EventFacade<()>) ->
     ///   Result<Vec<Rel<()>>, Error> {
     ///    // Normally work would be done here, resulting in some new value.
     ///    Ok(rels)
@@ -616,7 +618,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
-    /// handlers.register_after_node_delete("User".to_string(), after_user_delete);
+    /// handlers.register_after_node_delete(vec!["User".to_string()], after_user_delete);
     /// ```
     pub fn register_after_node_delete(
         &mut self,
