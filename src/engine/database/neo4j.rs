@@ -406,7 +406,6 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    //fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
     fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
@@ -548,7 +547,6 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::nodes(records, info)
     }
 
-    //fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
     fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,

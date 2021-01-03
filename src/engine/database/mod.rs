@@ -42,6 +42,9 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
+/// Represents the different types of Crud Operations along with the target of the
+/// operation (node typename and rel typename for rel ops). This enum is passed to 
+/// event handler functions.
 pub enum CrudOperation {
     ReadNode(String),
     ReadRel(String, String),
@@ -226,13 +229,6 @@ impl TryFrom<Value> for Comparison {
         })
     }
 }
-
-/*
-pub trait Transaction<RequestCtx: RequestContext> {
-    fn begin(&mut self) -> Result<(), Error>;
-
-    fn create_node(
-*/
 
 #[async_trait]
 pub trait Transaction<RequestCtx: RequestContext>: Send {

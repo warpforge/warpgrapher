@@ -472,21 +472,6 @@ impl<'r> Resolver<'r> {
             .event_handlers()
             .before_node_read(node_var.label()?)
         {
-            /*
-            handlers
-                .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| {
-                    f(
-                        v,
-                        EventFacade::new(
-                            CrudOperation::ReadNode(field_name.to_string()),
-                            executor.context(),
-                            transaction,
-                            info,
-                        ),
-                    )
-                })?
-            */
             let mut input_opt_value = input_opt.map(|i| i.value);
             for f in handlers.iter() {
                 input_opt_value = f(
@@ -514,43 +499,6 @@ impl<'r> Resolver<'r> {
             transaction,
         )
         .await?;
-
-        /*
-        let results = transaction
-            .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-            .await
-            .and_then(|r| {
-                node_var.label().and_then(|label| {
-                    if let Some(handlers) =
-                        executor.context().event_handlers().after_node_read(label)
-                    {
-                        handlers.iter().try_fold(r, |v, f| {
-                            f(
-                                v,
-                                EventFacade::new(
-                                    CrudOperation::ReadNode(field_name.to_string()),
-                                    executor.context(),
-                                    transaction,
-                                    info,
-                                ),
-                            )
-                        })
-                    } else {
-                        Ok(r)
-                    }
-                })
-            });
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            if results.is_ok() {
-                transaction.commit().await?;
-            } else {
-                transaction.rollback().await?;
-            }
-        }
-
-        results
-        */
 
         // TODO: review this code block very closely
 
@@ -1146,43 +1094,7 @@ impl<'r> Resolver<'r> {
         )
         .await?;
 
-        /*
-        let mut results = transaction
-            .read_rels(
-                query_fragment,
-                &rel_var,
-                Some(p.type_name()),
-                self.partition_key_opt,
-            )
-            .await?;
-            .and_then(|r| {
-                if let Some(handlers) = executor.context().event_handlers().after_rel_read(
-                    &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
-                ) {
-                    handlers.iter().try_fold(r, |v, f| {
-                        f(
-                            v,
-                            EventFacade::new(
-                                CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
-                                executor.context(),
-                                transaction,
-                                info,
-                            ),
-                        )
-                    })
-                } else {
-                    Ok(r)
-                }
-            });
-        if info.name() == "Mutation" || info.name() == "Query" {
-            if results.is_ok() {
-                transaction.commit().await?;
-            } else {
-                transaction.rollback().await?;
-            }
-        }
-        results
-        */
+        // TODO: review this code block very closely
 
         let mut results = transaction
             .read_rels(

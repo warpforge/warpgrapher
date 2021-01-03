@@ -430,14 +430,6 @@ impl GremlinTransaction {
     }
 }
 
-/*
-impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
-    fn begin(&mut self) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn create_node(
-*/
 #[async_trait]
 impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
     async fn begin(&mut self) -> Result<(), Error> {

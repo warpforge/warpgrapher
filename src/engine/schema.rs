@@ -163,39 +163,6 @@ impl Property {
         }
     }
 
-    /*
-    pub(crate) fn default(name: String, value: Value) -> Property {
-        Property {
-            name: name,
-            kind: PropertyKind::Scalar,
-            type_name: match &value {
-                Value::String(_) => "String".to_string(),
-                Value::Int64(_) => "Int".to_string(),
-                Value::UInt64(_) => "Int".to_string(),
-                Value::Float64(_) => "Float".to_string(),
-                Value::Bool(_) => "Bool".to_string(),
-                Value::Array(a) => match (a.iter().next().unwrap()) {
-                    Value::String(_) => "String".to_string(),
-                    Value::Int64(_) => "Int".to_string(),
-                    Value::UInt64(_) => "Int".to_string(),
-                    Value::Float64(_) => "Float".to_string(),
-                    Value::Bool(_) => "Bool".to_string(),
-                    _ => "String".to_string() // TODO: right call?
-                },
-                _ => "String".to_string() // TODO: right call?
-            },
-            required: false,
-            list: match value {
-                Value::Array(_) => true,
-                _ => false
-            },
-            arguments: HashMap::new(),
-            resolver: None,
-            validator: None
-        }
-    }
-    */
-
     pub(crate) fn arguments(&self) -> Values<String, Argument> {
         self.arguments.values()
     }
