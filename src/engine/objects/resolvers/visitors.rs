@@ -44,7 +44,7 @@ where
                 input = f(
                     input,
                     EventFacade::new(
-                        CrudOperation::CreateNode("?".to_string()),
+                        CrudOperation::CreateNode(info.name().to_string()),
                         context,
                         transaction,
                         info,
@@ -100,7 +100,7 @@ where
                     v = f(
                         v,
                         EventFacade::new(
-                            CrudOperation::CreateNode("?".to_string()),
+                            CrudOperation::CreateNode(info.name().to_string()),
                             context,
                             transaction,
                             info,
@@ -213,7 +213,7 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::DeleteNode("?".to_string()),
+                    CrudOperation::DeleteNode(info.name().to_string()),
                     context,
                     transaction,
                     info,
@@ -296,7 +296,7 @@ where
                     v = f(
                         v,
                         EventFacade::new(
-                            CrudOperation::DeleteNode("?".to_string()),
+                            CrudOperation::DeleteNode(info.name().to_string()),
                             context,
                             transaction,
                             info,
@@ -373,7 +373,7 @@ where
                 nodes = f(
                     nodes,
                     EventFacade::new(
-                        CrudOperation::DeleteNode("?".to_string()),
+                        CrudOperation::DeleteNode(info.name().to_string()),
                         context,
                         transaction,
                         info,
@@ -548,7 +548,7 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::UpdateNode("?".to_string()),
+                    CrudOperation::UpdateNode(info.name().to_string()),
                     context,
                     transaction,
                     info,
@@ -667,7 +667,7 @@ where
                     nodes = f(
                         nodes,
                         EventFacade::new(
-                            CrudOperation::UpdateNode("?".to_string()),
+                            CrudOperation::UpdateNode(info.name().to_string()),
                             context,
                             transaction,
                             info,
@@ -852,7 +852,7 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::CreateRel("?".to_string(), "?".to_string()),
+                    CrudOperation::CreateRel(info.name().to_string(), rel_name.to_string()),
                     context,
                     transaction,
                     info,
@@ -1016,7 +1016,8 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        CrudOperation::CreateRel("?".to_string(), "?".to_string()),
+                        // TODO: where do we get the rel_name ?
+                        CrudOperation::CreateRel(info.name().to_string(), "?".to_string()),
                         context,
                         transaction,
                         info,
@@ -1055,7 +1056,8 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                    // TODO: where do we get rel_name ?
+                    CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
                     context,
                     transaction,
                     info,
@@ -1097,7 +1099,8 @@ where
                     v = f(
                         v,
                         EventFacade::new(
-                            CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                            // TODO: where do we get rel_name ?
+                            CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
                             context,
                             transaction,
                             info,
@@ -1156,7 +1159,8 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                        // TODO: where do we get rel_name
+                        CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
                         context,
                         transaction,
                         info,
@@ -1578,7 +1582,8 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
+                    // TODO: where do we get rel_name ?
+                    CrudOperation::UpdateRel(info.name().to_string(), "?".to_string()),
                     context,
                     transaction,
                     info,
@@ -1682,7 +1687,8 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
+                        // TODO: where do we get rel_name?
+                        CrudOperation::UpdateRel(info.name().to_string(), "?".to_string()),
                         context,
                         transaction,
                         info,
