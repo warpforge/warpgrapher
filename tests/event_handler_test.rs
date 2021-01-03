@@ -7,11 +7,12 @@ use setup::AppRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
+use warpgrapher::juniper::BoxFuture;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
 
@@ -27,30 +28,47 @@ impl std::fmt::Display for TestError {
 }
 
 #[cfg(feature = "neo4j")]
-fn bmef(_v: Value, _ef: EventFacade<AppRequestCtx>) -> Result<Value, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn bmef(_v: Value, _ef: EventFacade<AppRequestCtx>) -> BoxFuture<Result<Value, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn bqef(_v_opt: Option<Value>, _ef: EventFacade<AppRequestCtx>) -> Result<Option<Value>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn bqef(
+    _v_opt: Option<Value>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Option<Value>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn anef(_v: Vec<Node<AppRequestCtx>>, _ef: EventFacade<AppRequestCtx>) -> Result<Vec<Node<AppRequestCtx>>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn anef(
+    _v: Vec<Node<AppRequestCtx>>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Vec<Node<AppRequestCtx>>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn aref(_v: Vec<Rel<AppRequestCtx>>, _ef: EventFacade<AppRequestCtx>) -> Result<Vec<Rel<AppRequestCtx>>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn aref(
+    _v: Vec<Rel<AppRequestCtx>>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Vec<Rel<AppRequestCtx>>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 

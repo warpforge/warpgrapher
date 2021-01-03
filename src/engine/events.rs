@@ -8,6 +8,7 @@ use crate::engine::objects::resolvers::visitors;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
+use crate::juniper::BoxFuture;
 use crate::Error;
 use std::collections::HashMap;
 
@@ -19,15 +20,19 @@ use std::collections::HashMap;
 ///
 /// ```rust
 /// # use warpgrapher::Error;
+/// # use warpgrapher::engine::events::EventFacade;
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn before_user_create(value: Value) -> Result<Value, Error> {
-///    // Normally work would be done here, resulting in some new value.
-///    Ok(value)
+/// fn before_user_create(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+///     Box::pin(async move {
+///         // Normally work would be done here, resulting in some new value.
+///         Ok(value)
+///     })
 /// }
 /// ```
 pub type BeforeMutationEventFunc<RequestCtx> =
-    fn(Value, EventFacade<RequestCtx>) -> Result<Value, Error>;
+    fn(Value, EventFacade<RequestCtx>) -> BoxFuture<Result<Value, Error>>;
 
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
@@ -39,16 +44,19 @@ pub type BeforeMutationEventFunc<RequestCtx> =
 /// # use warpgrapher::Error;
 /// # use warpgrapher::engine::events::{BeforeQueryEventFunc, EventFacade};
 /// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn before_user_read(value: Option<Value>, ef: EventFacade<()>) -> Result<Option<Value>, Error> {
-///    // Normally work would be done here, resulting in some new value.
-///    Ok(value)
+/// fn before_user_read(value: Option<Value>, ef: EventFacade<()>) -> BoxFuture<Result<Option<Value>, Error>> {
+///     Box::pin(async move {
+///        // Normally work would be done here, resulting in some new value.
+///        Ok(value)
+///     })
 /// }
 ///
 /// let f: Box<BeforeQueryEventFunc<()>> = Box::new(before_user_read);
 /// ```
 pub type BeforeQueryEventFunc<RequestCtx> =
-    fn(Option<Value>, EventFacade<RequestCtx>) -> Result<Option<Value>, Error>;
+    fn(Option<Value>, EventFacade<RequestCtx>) -> BoxFuture<Result<Option<Value>, Error>>;
 
 /// Type alias for a function called after an event affecting a node. The output of this function
 /// will be used as the input to the next after event function. If there are no additional after
@@ -63,14 +71,19 @@ pub type BeforeQueryEventFunc<RequestCtx> =
 /// # use warpgrapher::engine::events::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Node;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
-///    // Normally work would be done here, resulting in some new value.
-///    Ok(nodes)
+/// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+///    Box::pin(async move {
+///       // Normally work would be done here, resulting in some new value.
+///       Ok(nodes)
+///    })
 /// }
 /// ```
-pub type AfterNodeEventFunc<RequestCtx> =
-    fn(Vec<Node<RequestCtx>>, EventFacade<RequestCtx>) -> Result<Vec<Node<RequestCtx>>, Error>;
+pub type AfterNodeEventFunc<RequestCtx> = fn(
+    Vec<Node<RequestCtx>>,
+    EventFacade<RequestCtx>,
+) -> BoxFuture<Result<Vec<Node<RequestCtx>>, Error>>;
 
 /// Type alias for a function called after an event affecting a relationship. The output of this
 /// function will be used as the input to the next after event function. If there are no additional
@@ -85,14 +98,19 @@ pub type AfterNodeEventFunc<RequestCtx> =
 /// # use warpgrapher::engine::events::EventFacade;
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::engine::objects::Rel;
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn after_project_owner_create(rels: Vec<Rel<()>>, ef: EventFacade<()>) -> Result<Vec<Rel<()>>, Error> {
-///    // Normally work would be done here, resulting in some new value.
-///    Ok(rels)
+/// fn after_project_owner_create(rels: Vec<Rel<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Rel<()>>, Error>> {
+///    Box::pin(async move {
+///       // Normally work would be done here, resulting in some new value.
+///       Ok(rels)
+///    })
 /// }
 /// ```
-pub type AfterRelEventFunc<RequestCtx> =
-    fn(Vec<Rel<RequestCtx>>, EventFacade<RequestCtx>) -> Result<Vec<Rel<RequestCtx>>, Error>;
+pub type AfterRelEventFunc<RequestCtx> = fn(
+    Vec<Rel<RequestCtx>>,
+    EventFacade<RequestCtx>,
+) -> BoxFuture<Result<Vec<Rel<RequestCtx>>, Error>>;
 
 /// Collects event handlers for application during query processing.
 ///
@@ -102,10 +120,13 @@ pub type AfterRelEventFunc<RequestCtx> =
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::Error;
 /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+/// # use warpgrapher::juniper::BoxFuture;
 ///
-/// fn before_user_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-///    // Normally work would be done here, resulting in some new value.
-///    Ok(value)
+/// fn before_user_create(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+///    Box::pin(async move {
+///       // Normally work would be done here, resulting in some new value.
+///       Ok(value)
+///    })
 /// }
 ///
 /// let mut handlers = EventHandlerBag::<()>::new();
@@ -162,10 +183,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_user_create(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///    Box::pin(async move {
+    ///       // Normally work would be done here, resulting in some new value.
+    ///       Ok(value)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -193,10 +217,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_project_owner_create(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_project_owner_create(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///    Box::pin(async move {
+    ///       // Normally work would be done here, resulting in some new value.
+    ///       Ok(value)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -226,10 +253,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(nodes)
+    /// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(nodes)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -258,11 +288,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn after_project_owner_create(rels: Vec<Rel<()>>, ef: EventFacade<()>) ->
-    ///   Result<Vec<Rel<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(rels)
+    ///   BoxFuture<Result<Vec<Rel<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///      // Normally work would be done here, resulting in some new value.
+    ///      Ok(rels)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -290,10 +323,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_read(value_opt: Option<Value>, ef: EventFacade<()>) -> Result<Option<Value>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value_opt)
+    /// fn before_user_read(value_opt: Option<Value>, ef: EventFacade<()>) -> BoxFuture<Result<Option<Value>, Error>> {
+    ///    Box::pin(async move {
+    ///       // Normally work would be done here, resulting in some new value.
+    ///       Ok(value_opt)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -321,10 +357,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_project_owner_read(value_opt: Option<Value>, ef: EventFacade<()>) -> Result<Option<Value>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value_opt)
+    /// fn before_project_owner_read(value_opt: Option<Value>, ef: EventFacade<()>) -> BoxFuture<Result<Option<Value>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(value_opt)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -353,10 +392,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn after_user_read(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(nodes)
+    /// fn after_user_read(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(nodes)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -385,11 +427,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn after_project_owner_read(rels: Vec<Rel<()>>, ef: EventFacade<()>) ->
-    ///   Result<Vec<Rel<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(rels)
+    ///   BoxFuture<Result<Vec<Rel<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(rels)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -417,10 +462,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_update(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_user_update(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(value)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -449,10 +497,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::BeforeQueryEventFunc;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_project_owner_update(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_project_owner_update(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(value)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -482,10 +533,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn after_user_update(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(nodes)
+    /// fn after_user_update(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(nodes)
+    ///    })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -514,11 +568,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn after_project_owner_update(rels: Vec<Rel<()>>, ef: EventFacade<()>) ->
-    ///   Result<Vec<Rel<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(rels)
+    ///   BoxFuture<Result<Vec<Rel<()>>, Error>> {
+    ///     Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(rels)
+    ///     })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -547,10 +604,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_delete(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_user_delete(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(value)
+    ///     })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -578,10 +638,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_project_owner_delete(value: Value, ef: EventFacade<()>) -> Result<Value, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(value)
+    /// fn before_project_owner_delete(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(value)
+    ///     })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -611,10 +674,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn after_user_delete(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> Result<Vec<Node<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(nodes)
+    /// fn after_user_delete(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///     Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(nodes)
+    ///     })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -643,11 +709,14 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn after_project_owner_delete(rels: Vec<Rel<()>>, ef: EventFacade<()>) ->
-    ///   Result<Vec<Rel<()>>, Error> {
-    ///    // Normally work would be done here, resulting in some new value.
-    ///    Ok(rels)
+    ///   BoxFuture<Result<Vec<Rel<()>>, Error>> {
+    ///     Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(rels)
+    ///     })
     /// }
     ///
     /// let mut handlers = EventHandlerBag::<()>::new();
@@ -874,11 +943,13 @@ where
             partition_key_opt,
             &mut sg,
             self.transaction,
-        ).await?;
+        )
+        .await?;
 
-        let results =
-            self.transaction
-                .read_nodes(&node_var, query_fragment, partition_key_opt, &info).await;
+        let results = self
+            .transaction
+            .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
+            .await;
         results
     }
 }

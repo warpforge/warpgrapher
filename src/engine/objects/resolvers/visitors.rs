@@ -1,5 +1,7 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{Comparison, CrudOperation, NodeQueryVar, QueryFragment, RelQueryVar, Transaction};
+use crate::engine::database::{
+    Comparison, CrudOperation, NodeQueryVar, QueryFragment, RelQueryVar, Transaction,
+};
 use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
 use crate::engine::objects::{Node, Rel};
@@ -15,7 +17,7 @@ use std::convert::TryFrom;
 
 pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
     node_var: &'a NodeQueryVar,
-    input: Value,
+    mut input: Value,
     info: &'a Info,
     partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
@@ -28,12 +30,13 @@ where
 {
     Box::pin(async move {
         trace!(
-        "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
-        node_var,
-        input,
-        info.name()
-    );
+            "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+            node_var,
+            input,
+            info.name()
+        );
 
+        /*
         let input = if let Some(handlers) = context
             .event_handlers()
             .before_node_create(node_var.label()?)
@@ -42,6 +45,24 @@ where
         } else {
             input
         };
+        */
+        if let Some(handlers) = context
+            .event_handlers()
+            .before_node_create(node_var.label()?)
+        {
+            for f in handlers.iter() {
+                input = f(
+                    input,
+                    EventFacade::new(
+                        CrudOperation::CreateNode("?".to_string()),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+        }
 
         let itd = info.type_def()?;
 
@@ -76,8 +97,8 @@ where
                 },
             )?;
 
+            /*
             let node = transaction
-                //.create_node::<RequestCtx>(node_var, props, partition_key_opt, info)
                 .create_node(node_var, props, partition_key_opt, info)
                 .await
                 .and_then(|n| {
@@ -101,6 +122,34 @@ where
                         Ok(n)
                     }
                 })?;
+            */
+            let node = transaction
+                .create_node(node_var, props, partition_key_opt, info)
+                .await?;
+
+            let node = if let Some(handlers) = context
+                .event_handlers()
+                .after_node_create(node_var.label()?)
+            {
+                let mut v = vec![node];
+                for f in handlers.iter() {
+                    v = f(
+                        v,
+                        EventFacade::new(
+                            CrudOperation::CreateNode("?".to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
+                }
+                v.pop().ok_or_else(|| Error::ResponseItemNotFound {
+                    name: "Node from after_node_create handler".to_string(),
+                })?
+            } else {
+                node
+            };
 
             if !inputs.is_empty() {
                 let mut id_props = HashMap::new();
@@ -175,7 +224,7 @@ where
 
 pub(super) async fn visit_node_delete_input<T, RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
-    input: Value,
+    mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
@@ -196,12 +245,27 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        handlers.iter().try_fold(input, |v, f| {
+        /*
+        handlers.iter().try_fold(input, |v, f| async move {
             f(
                 v,
                 EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
-            )
+            ).await
         })?
+        */
+        for f in handlers.iter() {
+            input = f(
+                input,
+                EventFacade::new(
+                    CrudOperation::DeleteNode("?".to_string()),
+                    context,
+                    transaction,
+                    info,
+                ),
+            )
+            .await?
+        }
+        input
     } else {
         input
     };
@@ -263,16 +327,28 @@ where
 
         let itd = info.type_def()?;
 
-        let nodes = transaction
+        let mut nodes = transaction
             .read_nodes(node_var, query_fragment, partition_key_opt, info)
-            //.read_nodes::<RequestCtx>(node_var, query_fragment, partition_key_opt, info)
             .await?;
         if nodes.is_empty() {
             if let Some(handlers) = context
                 .event_handlers()
                 .after_node_delete(node_var.label()?)
             {
-                handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info)))?;
+                //handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info)))?;
+                let mut v = Vec::new();
+                for f in handlers.iter() {
+                    v = f(
+                        v,
+                        EventFacade::new(
+                            CrudOperation::DeleteNode("?".to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
+                }
             }
             return Ok(0);
         }
@@ -338,7 +414,19 @@ where
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),))?;
+            //handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),))?;
+            for f in handlers.iter() {
+                nodes = f(
+                    nodes,
+                    EventFacade::new(
+                        CrudOperation::DeleteNode("?".to_string()),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
         }
 
         result
@@ -483,7 +571,7 @@ where
 
 pub(super) async fn visit_node_update_input<T, RequestCtx>(
     node_var: &NodeQueryVar,
-    input: Value,
+    mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
@@ -505,12 +593,27 @@ where
         .event_handlers()
         .before_node_update(node_var.label()?)
     {
+        /*
         handlers.iter().try_fold(input, |v, f| {
             f(
                 v,
                 EventFacade::new(CrudOperation::UpdateNode("?".to_string()), context, transaction, info),
             )
         })?
+        */
+        for f in handlers.iter() {
+            input = f(
+                input,
+                EventFacade::new(
+                    CrudOperation::UpdateNode("?".to_string()),
+                    context,
+                    transaction,
+                    info,
+                ),
+            )
+            .await?;
+        }
+        input
     } else {
         input
     };
@@ -610,8 +713,8 @@ where
                 },
             )?;
 
+            /*
             let nodes = transaction
-                //.update_nodes::<RequestCtx>(
                 .update_nodes(
                     query_fragment,
                     node_var,
@@ -630,6 +733,28 @@ where
                         Ok(n)
                     }
                 })?;
+            */
+            let mut nodes = transaction
+                .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
+                .await?;
+            if let Some(handlers) = context
+                .event_handlers()
+                .after_node_update(node_var.label()?)
+            {
+                for f in handlers.iter() {
+                    nodes = f(
+                        nodes,
+                        EventFacade::new(
+                            CrudOperation::UpdateNode("?".to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
+                }
+            }
+
             if nodes.is_empty() {
                 return Ok(nodes);
             }
@@ -783,7 +908,7 @@ pub(super) async fn visit_rel_create_input<T, RequestCtx>(
     src_var: &NodeQueryVar,
     rel_name: &str,
     props_type_name: Option<&str>,
-    input: Value,
+    mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
@@ -801,12 +926,27 @@ where
 
     let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
+        /*
         handlers.iter().try_fold(input, |v, f| {
             f(
                 v,
                 EventFacade::new(CrudOperation::CreateRel("?".to_string(), "?".to_string()), context, transaction, info),
             )
         })?
+        */
+        for f in handlers.iter() {
+            input = f(
+                input,
+                EventFacade::new(
+                    CrudOperation::CreateRel("?".to_string(), "?".to_string()),
+                    context,
+                    transaction,
+                    info,
+                ),
+            )
+            .await?;
+        }
+        input
     } else {
         input
     };
@@ -947,7 +1087,7 @@ where
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
-        transaction
+        let mut rels = transaction
             .create_rels(
                 src_fragment,
                 dst_fragment,
@@ -956,24 +1096,22 @@ where
                 props_type_name,
                 partition_key_opt,
             )
-            .await
-            .and_then(|rels| {
-                if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| {
-                        f(
-                            v,
-                            EventFacade::new(
-                                CrudOperation::CreateRel("?".to_string(), "?".to_string()),
-                                context,
-                                transaction,
-                                info,
-                            ),
-                        )
-                    })
-                } else {
-                    Ok(rels)
-                }
-            })
+            .await?;
+        if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
+            for f in handlers.iter() {
+                rels = f(
+                    rels,
+                    EventFacade::new(
+                        CrudOperation::CreateRel("?".to_string(), "?".to_string()),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+        }
+        Ok(rels)
     } else {
         Err(Error::TypeNotExpected { details: None })
     }
@@ -983,7 +1121,7 @@ where
 pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
-    input: Value,
+    mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
@@ -999,12 +1137,27 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
+        /*
         handlers.iter().try_fold(input, |v, f| {
             f(
                 v,
                 EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
             )
         })?
+        */
+        for f in handlers.iter() {
+            input = f(
+                input,
+                EventFacade::new(
+                    CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                    context,
+                    transaction,
+                    info,
+                ),
+            )
+            .await?;
+        }
+        input
     } else {
         input
     };
@@ -1028,12 +1181,12 @@ where
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
-        let rels = transaction
+        let mut rels = transaction
             .read_rels(fragment, rel_var, None, partition_key_opt)
-            //.read_rels::<RequestCtx>(fragment, rel_var, None, partition_key_opt)
             .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
+                /*
                 handlers.iter().try_fold(Vec::new(), |v, f| {
                     f(
                         v,
@@ -1045,7 +1198,22 @@ where
                         ),
                     )
                 })?;
-            }
+                */
+                let mut v = Vec::new();
+                for f in handlers.iter() {
+                    v = f(
+                        v,
+                        EventFacade::new(
+                            CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
+                }
+                //v
+            };
             return Ok(0);
         }
 
@@ -1092,12 +1260,26 @@ where
             .await;
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
+            /*
             handlers.iter().try_fold(rels, |v, f| {
                 f(
                     v,
                     EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
                 )
             })?;
+            */
+            for f in handlers.iter() {
+                rels = f(
+                    rels,
+                    EventFacade::new(
+                        CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
         }
 
         result
@@ -1494,7 +1676,7 @@ pub(super) async fn visit_rel_update_input<T, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
-    input: Value,
+    mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
@@ -1511,12 +1693,27 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
+        /*
         handlers.iter().try_fold(input, |v, f| {
             f(
                 v,
                 EventFacade::new(CrudOperation::UpdateRel("?".to_string(), "?".to_string()), context, transaction, info),
             )
         })?
+        */
+        for f in handlers.iter() {
+            input = f(
+                input,
+                EventFacade::new(
+                    CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
+                    context,
+                    transaction,
+                    info,
+                ),
+            )
+            .await?;
+        }
+        input
     } else {
         input
     };
@@ -1598,6 +1795,7 @@ where
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+        /*
         let rels = transaction
             .update_rels(
                 query_fragment,
@@ -1624,6 +1822,30 @@ where
                     Ok(rels)
                 }
             })?;
+        */
+        let mut rels = transaction
+            .update_rels(
+                query_fragment,
+                rel_var,
+                props,
+                props_type_name,
+                partition_key_opt,
+            )
+            .await?;
+        if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
+            for f in handlers.iter() {
+                rels = f(
+                    rels,
+                    EventFacade::new(
+                        CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+        }
         if rels.is_empty() {
             return Ok(rels);
         }
