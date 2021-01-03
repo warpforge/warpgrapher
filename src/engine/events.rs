@@ -3,7 +3,10 @@
 //! include the before or after the creation of a new node.
 
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{CrudOperation, NodeQueryVar, SuffixGenerator, Transaction};
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::database::{NodeQueryVar, SuffixGenerator};
+use crate::engine::database::{CrudOperation, Transaction};
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::objects::resolvers::visitors;
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -737,6 +740,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_create(
         &self,
         type_name: &str,
@@ -744,6 +748,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_create(
         &self,
         rel_name: &str,
@@ -751,6 +756,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_create(
         &self,
         type_name: &str,
@@ -758,6 +764,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_create_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_create(
         &self,
         rel_name: &str,
@@ -765,6 +772,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_create_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_read(
         &self,
         type_name: &str,
@@ -772,6 +780,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_read_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_read(
         &self,
         rel_name: &str,
@@ -779,6 +788,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_read_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_read(
         &self,
         type_name: &str,
@@ -786,6 +796,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_read_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_read(
         &self,
         rel_name: &str,
@@ -793,6 +804,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_read_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_update(
         &self,
         type_name: &str,
@@ -800,6 +812,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_update(
         &self,
         rel_name: &str,
@@ -807,6 +820,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_update(
         &self,
         type_name: &str,
@@ -814,6 +828,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_update_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_update(
         &self,
         rel_name: &str,
@@ -821,6 +836,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_update_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_delete(
         &self,
         type_name: &str,
@@ -828,6 +844,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_delete(
         &self,
         rel_name: &str,
@@ -835,6 +852,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(rel_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_delete(
         &self,
         type_name: &str,
@@ -842,6 +860,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_delete_handlers.get(type_name)
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_delete(
         &self,
         rel_name: &str,
@@ -886,6 +905,7 @@ impl<'a, RequestCtx> EventFacade<'a, RequestCtx>
 where
     RequestCtx: RequestContext,
 {
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
         crud: CrudOperation,
         context: &'a GraphQLContext<RequestCtx>,
@@ -924,14 +944,15 @@ where
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_update(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    /// fn before_user_update(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let nodes_to_be_updated : Vec<Node<()>> = ef.read_nodes("User".to_string(), value, None).await?;
+    ///         let nodes_to_be_updated = ef.read_nodes("User", Some(value.clone()), None).await?;
     ///         // modify value before passing it forward ...
     ///         Ok(value)
     ///     })
     /// }
     /// ```
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub async fn read_nodes(
         &mut self,
         type_name: &str,

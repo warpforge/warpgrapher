@@ -11,6 +11,7 @@ use crate::engine::database::DatabasePool;
 use crate::engine::database::{
     CrudOperation, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
 };
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::events::EventFacade;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
