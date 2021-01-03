@@ -30,22 +30,12 @@ where
 {
     Box::pin(async move {
         trace!(
-            "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
-            node_var,
-            input,
-            info.name()
+        "visit_node_create_mutation_input called -- node_var: {:#?}, input: {:#?}, info.name: {}",
+        node_var,
+        input,
+        info.name()
         );
 
-        /*
-        let input = if let Some(handlers) = context
-            .event_handlers()
-            .before_node_create(node_var.label()?)
-        {
-            handlers.iter().try_fold(input, |v, f| f(v, EventFacade::new(CrudOperation::CreateNode("?".to_string()), context, transaction, info) ))?
-        } else {
-            input
-        };
-        */
         if let Some(handlers) = context
             .event_handlers()
             .before_node_create(node_var.label()?)
@@ -97,32 +87,6 @@ where
                 },
             )?;
 
-            /*
-            let node = transaction
-                .create_node(node_var, props, partition_key_opt, info)
-                .await
-                .and_then(|n| {
-                    if let Some(handlers) = context
-                        .event_handlers()
-                        .after_node_create(node_var.label()?)
-                    {
-                        handlers
-                            .iter()
-                            .try_fold(vec![n], |v, f| f(v, EventFacade::new(
-                                    CrudOperation::CreateNode("?".to_string()),
-                                    context,
-                                    transaction,
-                                    info,
-                                )))?
-                            .pop()
-                            .ok_or_else(|| Error::ResponseItemNotFound {
-                                name: "Node from after_node_create handler".to_string(),
-                            })
-                    } else {
-                        Ok(n)
-                    }
-                })?;
-            */
             let node = transaction
                 .create_node(node_var, props, partition_key_opt, info)
                 .await?;
@@ -245,14 +209,6 @@ where
         .event_handlers()
         .before_node_delete(node_var.label()?)
     {
-        /*
-        handlers.iter().try_fold(input, |v, f| async move {
-            f(
-                v,
-                EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),
-            ).await
-        })?
-        */
         for f in handlers.iter() {
             input = f(
                 input,
@@ -335,7 +291,6 @@ where
                 .event_handlers()
                 .after_node_delete(node_var.label()?)
             {
-                //handlers.iter().try_fold(Vec::new(), |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info)))?;
                 let mut v = Vec::new();
                 for f in handlers.iter() {
                     v = f(
@@ -414,7 +369,6 @@ where
             .event_handlers()
             .after_node_delete(node_var.label()?)
         {
-            //handlers.iter().try_fold(nodes, |v, f| f(v, EventFacade::new(CrudOperation::DeleteNode("?".to_string()), context, transaction, info),))?;
             for f in handlers.iter() {
                 nodes = f(
                     nodes,
@@ -501,8 +455,6 @@ where
     }
 }
 
-//pub(crate) fn visit_node_query_input<T: ?Sized, RequestCtx>(
-//    node_var: &NodeQueryVar,
 pub(crate) fn visit_node_query_input<'a, T: ?Sized, RequestCtx>(
     node_var: &'a NodeQueryVar,
     input: Option<Value>,
@@ -514,7 +466,6 @@ pub(crate) fn visit_node_query_input<'a, T: ?Sized, RequestCtx>(
 where
     T: 'a + Transaction<RequestCtx>,
     RequestCtx: RequestContext,
-    //T: 'a + Transaction,
 {
     Box::pin(async move {
         trace!(
@@ -593,14 +544,6 @@ where
         .event_handlers()
         .before_node_update(node_var.label()?)
     {
-        /*
-        handlers.iter().try_fold(input, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::UpdateNode("?".to_string()), context, transaction, info),
-            )
-        })?
-        */
         for f in handlers.iter() {
             input = f(
                 input,
@@ -713,27 +656,6 @@ where
                 },
             )?;
 
-            /*
-            let nodes = transaction
-                .update_nodes(
-                    query_fragment,
-                    node_var,
-                    props,
-                    partition_key_opt,
-                    info,
-                )
-                .await
-                .and_then(|n| {
-                    if let Some(handlers) = context
-                        .event_handlers()
-                        .after_node_update(node_var.label()?)
-                    {
-                        handlers.iter().try_fold(n, |v, f| f(v, EventFacade::new(CrudOperation::UpdateNode("?".to_string()), context, transaction, info)))
-                    } else {
-                        Ok(n)
-                    }
-                })?;
-            */
             let mut nodes = transaction
                 .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
                 .await?;
@@ -926,14 +848,6 @@ where
 
     let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
-        /*
-        handlers.iter().try_fold(input, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::CreateRel("?".to_string(), "?".to_string()), context, transaction, info),
-            )
-        })?
-        */
         for f in handlers.iter() {
             input = f(
                 input,
@@ -1137,14 +1051,6 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
-        /*
-        handlers.iter().try_fold(input, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
-            )
-        })?
-        */
         for f in handlers.iter() {
             input = f(
                 input,
@@ -1186,19 +1092,6 @@ where
             .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-                /*
-                handlers.iter().try_fold(Vec::new(), |v, f| {
-                    f(
-                        v,
-                        EventFacade::new(
-                            CrudOperation::DeleteRel("?".to_string(), "?".to_string()),
-                            context,
-                            transaction,
-                            info,
-                        ),
-                    )
-                })?;
-                */
                 let mut v = Vec::new();
                 for f in handlers.iter() {
                     v = f(
@@ -1212,7 +1105,6 @@ where
                     )
                     .await?;
                 }
-                //v
             };
             return Ok(0);
         }
@@ -1260,14 +1152,6 @@ where
             .await;
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
-            /*
-            handlers.iter().try_fold(rels, |v, f| {
-                f(
-                    v,
-                    EventFacade::new(CrudOperation::DeleteRel("?".to_string(), "?".to_string()), context, transaction, info),
-                )
-            })?;
-            */
             for f in handlers.iter() {
                 rels = f(
                     rels,
@@ -1334,7 +1218,6 @@ where
     }
 }
 
-//fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
 async fn visit_rel_dst_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
@@ -1464,7 +1347,6 @@ where
     }
 }
 
-//pub(super) fn visit_rel_query_input<T: ?Sized, RequestCtx>(
 pub(super) async fn visit_rel_query_input<T: ?Sized, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
@@ -1628,7 +1510,6 @@ where
     }
 }
 
-//fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
 async fn visit_rel_src_query_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
@@ -1693,14 +1574,6 @@ where
 
     let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
-        /*
-        handlers.iter().try_fold(input, |v, f| {
-            f(
-                v,
-                EventFacade::new(CrudOperation::UpdateRel("?".to_string(), "?".to_string()), context, transaction, info),
-            )
-        })?
-        */
         for f in handlers.iter() {
             input = f(
                 input,
@@ -1795,34 +1668,6 @@ where
 
         let rel_label =
             rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
-        /*
-        let rels = transaction
-            .update_rels(
-                query_fragment,
-                rel_var,
-                props,
-                props_type_name,
-                partition_key_opt,
-            )
-            .await
-            .and_then(|rels| {
-                if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
-                    handlers.iter().try_fold(rels, |v, f| {
-                        f(
-                            v,
-                            EventFacade::new(
-                                CrudOperation::UpdateRel("?".to_string(), "?".to_string()),
-                                context,
-                                transaction,
-                                info,
-                            ),
-                        )
-                    })
-                } else {
-                    Ok(rels)
-                }
-            })?;
-        */
         let mut rels = transaction
             .update_rels(
                 query_fragment,
