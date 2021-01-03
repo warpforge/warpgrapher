@@ -869,6 +869,9 @@ impl<RequestCtx: RequestContext> Default for EventHandlerBag<RequestCtx> {
     }
 }
 
+/// Provides a simplified interface to utility operations inside an event handler. 
+/// 
+/// [`EventFacade`]: ./struct.EventFacade.html
 pub struct EventFacade<'a, RequestCtx>
 where
     RequestCtx: RequestContext,
@@ -897,41 +900,51 @@ where
         }
     }
 
-    /*
-    pub fn context<'a>(&self) -> &'a GraphQLContext<RequestCtx> {
+    /// Returns the context of the GraphQL request which in turn contains the 
+    /// application-defined request context. 
+    pub fn context(&self) -> &'a GraphQLContext<RequestCtx> {
         self.context
     }
 
-    pub fn transaction<'a>(&self) -> &'a mut dyn Transaction<RequestCtx> {
+    /// Returns the database transaction under which the GraphQL request is being executed.
+    /// The transaction can be used to execute database queries. 
+    pub fn transaction(&mut self) -> &mut (dyn Transaction<RequestCtx> + 'a) {
         self.transaction
     }
-    */
 
-    //BoxFuture<'a, Result<QueryFragment, Error>>
-
+    /// Provides an abstracted database read operation using warpgrapher inputs. This is the
+    /// recommended way to read data in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases. 
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_update(value: Value, ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let nodes_to_be_updated : Vec<Node<()>> = ef.read_nodes("User".to_string(), value, None).await?;
+    ///         // modify value before passing it forward ...
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
     pub async fn read_nodes(
         &mut self,
         type_name: &str,
         input: Option<Value>,
+        partition_key_opt: Option<&Value>
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
-        let partition_key_opt = None;
 
         let mut info = self.info.clone();
         info.name = "Query".to_string();
 
         let mut sg = SuffixGenerator::new();
-
-        let p = info.type_def()?.property(type_name)?;
-        let itd = if info.name() == "Query" {
-            p.input_type_definition(&info)?
-        } else {
-            info.type_def_by_name("Query")?
-                .property(p.type_name())?
-                .input_type_definition(&info)?
-        };
-
         let node_var = NodeQueryVar::new(
-            Some(p.type_name().to_string()),
+            Some(type_name.to_string()),
             "node".to_string(),
             sg.suffix(),
         );
@@ -939,7 +952,7 @@ where
         let query_fragment = visitors::visit_node_query_input(
             &node_var,
             input,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
+            &Info::new(type_name.to_string(), info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,

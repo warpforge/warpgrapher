@@ -923,12 +923,12 @@ impl<'r> Resolver<'r> {
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-            "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
-            info.name(),
-            field_name,
-            rel_name,
-            self.partition_key_opt,
-            input_opt
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        info.name(),
+        field_name,
+        rel_name,
+        self.partition_key_opt,
+        input_opt
         );
 
         let p = info.type_def()?.property(field_name)?;
@@ -1050,21 +1050,6 @@ impl<'r> Resolver<'r> {
             executor.context().event_handlers().before_rel_read(
                 &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
             ) {
-            /*
-            handlers
-                .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| {
-                    f(
-                        v,
-                        EventFacade::new(
-                            CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
-                            executor.context(),
-                            transaction,
-                            info,
-                        ),
-                    )
-                })?
-            */
             let mut input_value_opt = input_opt.map(|i| i.value);
             for f in handlers.iter() {
                 input_value_opt = f(
