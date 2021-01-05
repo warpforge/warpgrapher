@@ -562,6 +562,10 @@ struct NodeCrud {
 
 impl NodeCrud {
 
+    fn new() -> Self {
+        
+    }
+
     fn create() -> Node {
 
     }
