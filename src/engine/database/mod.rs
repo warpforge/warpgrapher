@@ -231,7 +231,7 @@ impl TryFrom<Value> for Comparison {
 }
 
 #[async_trait]
-pub trait Transaction<RequestCtx: RequestContext>: Send {
+pub(crate) trait Transaction<RequestCtx: RequestContext>: Send {
     async fn begin(&mut self) -> Result<(), Error>;
 
     async fn create_node(
@@ -335,7 +335,7 @@ pub trait Transaction<RequestCtx: RequestContext>: Send {
 }
 
 #[derive(Clone, Debug)]
-pub struct QueryFragment {
+pub(crate) struct QueryFragment {
     match_fragment: String,
     where_fragment: String,
     params: HashMap<String, Value>,
@@ -372,7 +372,7 @@ impl QueryFragment {
 }
 
 #[derive(Clone, Debug)]
-pub struct NodeQueryVar {
+pub(crate) struct NodeQueryVar {
     base: String,
     suffix: String,
     label: Option<String>,
@@ -412,7 +412,7 @@ impl NodeQueryVar {
 }
 
 #[derive(Clone, Debug)]
-pub struct RelQueryVar {
+pub(crate) struct RelQueryVar {
     label: String,
     suffix: String,
     name: String,
@@ -459,7 +459,7 @@ impl RelQueryVar {
 }
 
 #[derive(Debug, Default)]
-pub struct SuffixGenerator {
+pub(crate) struct SuffixGenerator {
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     seed: i32,
 }

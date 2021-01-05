@@ -501,8 +501,6 @@ impl<'r> Resolver<'r> {
         )
         .await?;
 
-        // TODO: review this code block very closely
-
         let mut results = match transaction
             .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
             .await
@@ -1079,8 +1077,6 @@ impl<'r> Resolver<'r> {
             transaction,
         )
         .await?;
-
-        // TODO: review this code block very closely
 
         let mut results = transaction
             .read_rels(

@@ -1016,8 +1016,7 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        // TODO: where do we get the rel_name ?
-                        CrudOperation::CreateRel(info.name().to_string(), "?".to_string()),
+                        CrudOperation::CreateRel(info.name().to_string(), rel_var.label().to_string()),
                         context,
                         transaction,
                         info,
@@ -1056,8 +1055,7 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    // TODO: where do we get rel_name ?
-                    CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
+                    CrudOperation::DeleteRel(info.name().to_string(), rel_var.label().to_string()),
                     context,
                     transaction,
                     info,
@@ -1099,8 +1097,7 @@ where
                     v = f(
                         v,
                         EventFacade::new(
-                            // TODO: where do we get rel_name ?
-                            CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
+                            CrudOperation::DeleteRel(info.name().to_string(), rel_var.label().to_string()),
                             context,
                             transaction,
                             info,
@@ -1159,8 +1156,7 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        // TODO: where do we get rel_name
-                        CrudOperation::DeleteRel(info.name().to_string(), "?".to_string()),
+                        CrudOperation::DeleteRel(info.name().to_string(), rel_var.label().to_string()),
                         context,
                         transaction,
                         info,
@@ -1582,8 +1578,7 @@ where
             input = f(
                 input,
                 EventFacade::new(
-                    // TODO: where do we get rel_name ?
-                    CrudOperation::UpdateRel(info.name().to_string(), "?".to_string()),
+                    CrudOperation::UpdateRel(info.name().to_string(), rel_var.label().to_string()),
                     context,
                     transaction,
                     info,
@@ -1687,8 +1682,7 @@ where
                 rels = f(
                     rels,
                     EventFacade::new(
-                        // TODO: where do we get rel_name?
-                        CrudOperation::UpdateRel(info.name().to_string(), "?".to_string()),
+                        CrudOperation::UpdateRel(info.name().to_string(), rel_var.label().to_string()),
                         context,
                         transaction,
                         info,

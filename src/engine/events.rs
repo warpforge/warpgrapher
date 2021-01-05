@@ -17,7 +17,16 @@ use std::collections::HashMap;
 
 /// Type alias for a function called before a mutation event. The Value returned by this function
 /// will be used as the input to the next before event function, or to the base Warpgrapher
-/// resolver if there are no more before event functions.
+/// resolver if there are no more before event functions. 
+/// 
+/// The structure of `Value` depends on the type of CRUD operation (which can be accessed via the `op()` 
+/// method on `EventFacade`.) based on the list below:
+/// 
+/// CreateNode - `Type>CreateMutationInput`
+/// UpdateNode - `<Type>UpdateInput`
+/// DeleteNode - `<Type>DeleteInput`
+/// 
+/// You can refer to the generated GraphQL schema documentation for the data structures. 
 ///
 /// # Examples
 ///
@@ -40,7 +49,11 @@ pub type BeforeMutationEventFunc<RequestCtx> =
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
 /// if there are no more before event functions.
+/// 
+/// The structure of `Value` is `<Type>QueryInput`. 
 ///
+/// You can refer to the generated GraphQL schema documentation for the data structures. 
+/// 
 /// # Examples
 ///
 /// ```rust
@@ -895,10 +908,10 @@ pub struct EventFacade<'a, RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    pub crud: CrudOperation,
-    pub context: &'a GraphQLContext<RequestCtx>,
-    pub transaction: &'a mut dyn Transaction<RequestCtx>,
-    pub info: &'a Info,
+    op: CrudOperation,
+    context: &'a GraphQLContext<RequestCtx>,
+    transaction: &'a mut dyn Transaction<RequestCtx>,
+    info: &'a Info,
 }
 
 impl<'a, RequestCtx> EventFacade<'a, RequestCtx>
@@ -907,13 +920,13 @@ where
 {
     #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
-        crud: CrudOperation,
+        op: CrudOperation,
         context: &'a GraphQLContext<RequestCtx>,
         transaction: &'a mut dyn Transaction<RequestCtx>,
         info: &'a Info,
     ) -> Self {
         Self {
-            crud,
+            op,
             context,
             transaction,
             info,
@@ -922,19 +935,25 @@ where
 
     /// Returns the context of the GraphQL request which in turn contains the 
     /// application-defined request context. 
-    pub fn context(&self) -> &'a GraphQLContext<RequestCtx> {
-        self.context
+    pub fn op(&self) -> &CrudOperation {
+        &self.op
     }
 
-    /// Returns the database transaction under which the GraphQL request is being executed.
-    /// The transaction can be used to execute database queries. 
-    pub fn transaction(&mut self) -> &mut (dyn Transaction<RequestCtx> + 'a) {
-        self.transaction
+    /// Returns the context of the GraphQL request which in turn contains the 
+    /// application-defined request context. 
+    pub fn context(&self) -> &'a GraphQLContext<RequestCtx> {
+        self.context
     }
 
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases. 
+    /// 
+    /// # Arguments
+    /// 
+    /// * `type_name` - String reference represing name of node type (ex: "User"). 
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`). 
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it. 
     /// 
     /// # Examples
     /// 
@@ -944,9 +963,9 @@ where
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_update(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let nodes_to_be_updated = ef.read_nodes("User", Some(value.clone()), None).await?;
+    ///         let nodes_to_be_read = ef.read_nodes("User", Some(value.clone()), None).await?;
     ///         // modify value before passing it forward ...
     ///         Ok(value)
     ///     })
