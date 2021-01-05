@@ -476,3 +476,161 @@ impl SuffixGenerator {
         "_".to_string() + &self.seed.to_string()
     }
 }
+
+
+/*
+
+# create node
+node("Project")             -> NodeCrud
+    .create(json!({}))
+    .await;
+
+# read all nodes
+node("Project")
+    .all()                  -> NodeMatchedCrud
+    .read()
+    .await;
+
+# read matching nodes
+node("Project")
+    .matching(json!({}))
+    .read()
+    .await;
+
+# update all nodes
+node("Project")
+    .all()
+    .update(json!({}))
+    .await;
+
+# update matching nodes
+node("Project")
+    .matching(json!({}))
+    .update(json!({}))
+    .await;
+
+# delete matching node
+node("Project")
+    .matching(json!({}))
+    .delete()
+
+# create rel
+node("Project")
+    .matching(json!({}))
+    .rel("owner")
+    .create(json!({}))
+    .await
+
+
+*/
+
+struct WarpCrud<'a, Rctx: RequestContext> {
+    partition_key: Option<String>,
+    transaction: &'a mut dyn Transaction<Rctx>,
+    info: &'a Info,
+}
+
+impl<'a, Rctx: RequestContext> WarpCrud<'a, Rctx> {
+
+    fn new(
+        partition_key: Option<String>,
+        transaction: &'a mut dyn Transaction<Rctx>,
+        info: &'a Info,
+    ) -> Self {
+        Self {
+            partition_key,
+            transaction,
+            info
+        }
+    }
+
+    fn node(&self, type_name: &str) -> NodeCrud {
+        NodeCrud::new(
+            type_name, 
+            &self.partion_key, 
+            &self.transaction, 
+            &self.info
+        )
+    }
+
+}
+
+struct NodeCrud {
+    partion_key: Option<String>,
+    type_name: String,
+}
+
+impl NodeCrud {
+
+    fn create() -> Node {
+
+    }
+
+    fn matching() -> MatchedNodeCrud {
+
+    }
+    
+    fn all() -> MatchedNodeCrud {
+
+    }
+}
+
+struct MatchedNodeCrud {
+    partion_key: Option<String>,
+    type_name: String,
+    match_input: Option<Value>,
+    transaction: &'a mut dyn Transaction<Rctx>,
+    info: &'a Info,
+}
+
+impl MatchedNodeCrud {
+
+    /// # Examples
+    /// 
+    /// ```rust, no_run
+    /// let projects = crud
+    ///     .node("Project")
+    ///     .all()
+    ///     .read()
+    ///     .await;
+    /// ```
+    async fn read(&mut self) -> Vec<Node<Rctx> {
+        let mut info = self.info.clone();
+        info.name = "Query".to_string();
+
+        let mut sg = SuffixGenerator::new();
+        let node_var = NodeQueryVar::new(
+            Some(type_name.to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+
+        let query_fragment = visitors::visit_node_query_input(
+            &node_var,
+            input,
+            &Info::new(type_name.to_string(), info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+        )
+        .await?;
+
+        let results = self
+            .transaction
+            .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
+            .await;
+        results
+    }
+
+    fn update() -> Vec<Node> {
+
+    }
+
+    fn delete() -> int64 {
+
+    }
+
+    fn rel() -> RelCrud {
+
+    }
+}
