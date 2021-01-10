@@ -5,7 +5,7 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::database::{NodeQueryVar, SuffixGenerator};
-use crate::engine::database::{CrudOperation, Transaction};
+use crate::engine::database::{CrudOperation, Transaction, WarpCrud};
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::objects::resolvers::visitors;
 use crate::engine::objects::{Node, Rel};
@@ -930,6 +930,13 @@ where
     /// The transaction can be used to execute database queries. 
     pub fn transaction(&mut self) -> &mut (dyn Transaction<RequestCtx> + 'a) {
         self.transaction
+    }
+
+    pub fn crud(&mut self) -> WarpCrud<'_, RequestCtx> {
+        WarpCrud::<'_, RequestCtx>::new(
+            self.transaction,
+            self.info
+        )
     }
 
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the

@@ -525,29 +525,29 @@ node("Project")
 
 */
 
-struct WarpCrud<'a, Rctx: RequestContext> {
-    partition_key: Option<Value>,
+pub struct WarpCrud<'a, Rctx: RequestContext> {
+    //partition_key: Option<Value>,
     transaction: &'a mut dyn Transaction<Rctx>,
     info: &'a Info,
 }
 
 impl<'a, Rctx: RequestContext> WarpCrud<'a, Rctx> {
 
-    fn new(
-        partition_key: Option<Value>,
+    pub fn new(
+        //partition_key: Option<Value>,
         transaction: &'a mut dyn Transaction<Rctx>,
         info: &'a Info,
     ) -> Self {
         Self {
-            partition_key,
+            //partition_key,
             transaction,
             info
         }
     }
 
-    fn node(&self, type_name: &str) -> NodeCrud<'_, Rctx> {
+    pub fn node(&mut self, type_name: &str) -> NodeCrud<'_, Rctx> {
         NodeCrud::<'_, Rctx>::new(
-            self.partition_key, 
+            //self.partition_key, 
             self.transaction, 
             self.info,
             type_name.to_string(), 
@@ -556,8 +556,8 @@ impl<'a, Rctx: RequestContext> WarpCrud<'a, Rctx> {
 
 }
 
-struct NodeCrud<'a, Rctx: RequestContext> {
-    partition_key: Option<Value>,
+pub struct NodeCrud<'a, Rctx: RequestContext> {
+    //partition_key: Option<Value>,
     transaction: &'a mut dyn Transaction<Rctx>,
     info: &'a Info,
     type_name: String,
@@ -566,13 +566,13 @@ struct NodeCrud<'a, Rctx: RequestContext> {
 impl<'a, Rctx: RequestContext> NodeCrud<'a, Rctx> {
 
     fn new(
-        partition_key: Option<Value>,
+        //partition_key: Option<Value>,
         transaction: &'a mut dyn Transaction<Rctx>,
         info: &'a Info,
         type_name: String,
     ) -> Self {
         Self {
-            partition_key,
+            //partition_key,
             transaction,
             info,
             type_name
@@ -588,12 +588,12 @@ impl<'a, Rctx: RequestContext> NodeCrud<'a, Rctx> {
     ///     .read()
     ///     .await?;
     /// ```
-    fn matching(&self, match_input: Value) -> MatchedNodeCrud<'_, Rctx> {
+    fn matching(&mut self, match_input: Value) -> MatchedNodeCrud<'_, Rctx> {
         MatchedNodeCrud::<'_, Rctx>::new(
-            self.partition_key, 
+            //self.partition_key, 
             self.transaction, 
             self.info,
-            self.type_name,
+            self.type_name.clone(),
             Some(match_input)
         )
     }
@@ -607,16 +607,17 @@ impl<'a, Rctx: RequestContext> NodeCrud<'a, Rctx> {
     ///     .read()
     ///     .await?;
     /// ```
-    fn all(&self) -> MatchedNodeCrud<'_, Rctx> {
+    fn all(&mut self) -> MatchedNodeCrud<'_, Rctx> {
         MatchedNodeCrud::<'_, Rctx>::new(
-            self.partition_key, 
+            //self.partition_key, 
             self.transaction, 
             self.info,
-            self.type_name,
+            self.type_name.clone(),
             None
         )
     }
 
+    /*
     /// # Examples
     /// 
     /// ```rust, no_run
@@ -630,11 +631,12 @@ impl<'a, Rctx: RequestContext> NodeCrud<'a, Rctx> {
     async fn create(&mut self, input: Value) -> Result<Node<Rctx>, Error> {
         Err(Error)
     }
+    */
 
 }
 
-struct MatchedNodeCrud<'a, Rctx: RequestContext> {
-    partition_key: Option<Value>,
+pub struct MatchedNodeCrud<'a, Rctx: RequestContext> {
+    //partition_key: Option<Value>,
     transaction: &'a mut dyn Transaction<Rctx>,
     info: &'a Info,
     type_name: String,
@@ -644,14 +646,14 @@ struct MatchedNodeCrud<'a, Rctx: RequestContext> {
 impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
 
     fn new(
-        partition_key: Option<Value>,
+        //partition_key: Option<Value>,
         transaction: &'a mut dyn Transaction<Rctx>,
         info: &'a Info,
         type_name: String,
         match_input: Option<Value>,
     ) -> Self {
         Self {
-            partition_key,
+            //partition_key,
             transaction,
             info,
             type_name,
@@ -674,16 +676,17 @@ impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
 
         let mut sg = SuffixGenerator::new();
         let node_var = NodeQueryVar::new(
-            Some(self.type_name),
+            Some(self.type_name.clone()),
             "node".to_string(),
             sg.suffix(),
         );
 
         let query_fragment = visitors::visit_node_query_input(
             &node_var,
-            self.match_input,
-            &Info::new(self.type_name, info.type_defs()),
-            self.partition_key,
+            self.match_input.clone(),
+            &Info::new(self.type_name.clone(), info.type_defs()),
+            //self.partition_key,
+            None,
             &mut sg,
             self.transaction,
         )
@@ -694,7 +697,8 @@ impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
             .read_nodes(
                 &node_var, 
                 query_fragment, 
-                self.partition_key, 
+                //self.partition_key, 
+                None,
                 &info
             )
             .await;
