@@ -7,11 +7,12 @@ use setup::AppRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::events::EventHandlerBag;
+use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
+use warpgrapher::juniper::BoxFuture;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
 
@@ -27,30 +28,47 @@ impl std::fmt::Display for TestError {
 }
 
 #[cfg(feature = "neo4j")]
-fn bmef(_v: Value) -> Result<Value, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn bmef(_v: Value, _ef: EventFacade<AppRequestCtx>) -> BoxFuture<Result<Value, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn bqef(_v_opt: Option<Value>) -> Result<Option<Value>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn bqef(
+    _v_opt: Option<Value>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Option<Value>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn anef(_v: Vec<Node<AppRequestCtx>>) -> Result<Vec<Node<AppRequestCtx>>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn anef(
+    _v: Vec<Node<AppRequestCtx>>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Vec<Node<AppRequestCtx>>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
 #[cfg(feature = "neo4j")]
-fn aref(_v: Vec<Rel<AppRequestCtx>>) -> Result<Vec<Rel<AppRequestCtx>>, Error> {
-    Err(Error::UserDefinedError {
-        source: Box::new(TestError {}),
+fn aref(
+    _v: Vec<Rel<AppRequestCtx>>,
+    _ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Vec<Rel<AppRequestCtx>>, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
     })
 }
 
@@ -61,7 +79,7 @@ async fn test_before_node_create_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_create("Project".to_string(), bmef);
+    ehb.register_before_node_create(vec!["Project".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -85,7 +103,7 @@ async fn test_before_node_read_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_read("Project".to_string(), bqef);
+    ehb.register_before_node_read(vec!["Project".to_string()], bqef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -118,7 +136,7 @@ async fn test_before_node_update_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_update("Project".to_string(), bmef);
+    ehb.register_before_node_update(vec!["Project".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -157,7 +175,7 @@ async fn test_before_node_delete_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_delete("Project".to_string(), bmef);
+    ehb.register_before_node_delete(vec!["Project".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -194,7 +212,7 @@ async fn test_after_node_create_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_node_create("Project".to_string(), anef);
+    ehb.register_after_node_create(vec!["Project".to_string()], anef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -218,7 +236,7 @@ async fn test_after_node_read_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_node_read("Project".to_string(), anef);
+    ehb.register_after_node_read(vec!["Project".to_string()], anef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -251,7 +269,7 @@ async fn test_after_node_update_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_node_update("Project".to_string(), anef);
+    ehb.register_after_node_update(vec!["Project".to_string()], anef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -290,7 +308,7 @@ async fn test_after_node_delete_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_node_delete("Project".to_string(), anef);
+    ehb.register_after_node_delete(vec!["Project".to_string()], anef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -327,7 +345,7 @@ async fn test_before_rel_create_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_rel_create("ProjectIssuesRel".to_string(), bmef);
+    ehb.register_before_rel_create(vec!["ProjectIssuesRel".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -370,7 +388,7 @@ async fn test_before_rel_read_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_rel_read("ProjectIssuesRel".to_string(), bqef);
+    ehb.register_before_rel_read(vec!["ProjectIssuesRel".to_string()], bqef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -431,7 +449,7 @@ async fn test_before_rel_update_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_rel_update("ProjectIssuesRel".to_string(), bmef);
+    ehb.register_before_rel_update(vec!["ProjectIssuesRel".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -493,7 +511,7 @@ async fn test_before_rel_delete_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_before_rel_delete("ProjectIssuesRel".to_string(), bmef);
+    ehb.register_before_rel_delete(vec!["ProjectIssuesRel".to_string()], bmef);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -555,7 +573,7 @@ async fn test_after_rel_create_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_rel_create("ProjectIssuesRel".to_string(), aref);
+    ehb.register_after_rel_create(vec!["ProjectIssuesRel".to_string()], aref);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -598,7 +616,7 @@ async fn test_after_rel_read_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_rel_read("ProjectIssuesRel".to_string(), aref);
+    ehb.register_after_rel_read(vec!["ProjectIssuesRel".to_string()], aref);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -659,7 +677,7 @@ async fn test_after_rel_update_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_rel_update("ProjectIssuesRel".to_string(), aref);
+    ehb.register_after_rel_update(vec!["ProjectIssuesRel".to_string()], aref);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -721,7 +739,7 @@ async fn test_after_rel_delete_handler() {
     clear_db().await;
 
     let mut ehb = EventHandlerBag::new();
-    ehb.register_after_rel_delete("ProjectIssuesRel".to_string(), aref);
+    ehb.register_after_rel_delete(vec!["ProjectIssuesRel".to_string()], aref);
 
     let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 

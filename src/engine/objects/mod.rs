@@ -21,7 +21,7 @@ use std::convert::TryInto;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-mod resolvers;
+pub(crate) mod resolvers;
 
 #[derive(Clone, Debug)]
 struct Input<RequestCtx>
@@ -606,7 +606,6 @@ where
                         .resolve_scalar_field(info, field_name, &self.fields, executor)
                         .await
                 }
-
                 PropertyKind::ScalarComp => Err((Error::TypeNotExpected { details: None }).into()),
                 PropertyKind::Union => Err((Error::TypeNotExpected { details: None }).into()),
                 PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor).await,

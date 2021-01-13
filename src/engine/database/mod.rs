@@ -42,6 +42,20 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
+/// Represents the different types of Crud Operations along with the target of the
+/// operation (node typename and rel typename for rel ops). This enum is passed to 
+/// event handler functions.
+pub enum CrudOperation {
+    ReadNode(String),
+    ReadRel(String, String),
+    CreateNode(String),
+    CreateRel(String, String),
+    UpdateNode(String),
+    UpdateRel(String, String),
+    DeleteNode(String),
+    DeleteRel(String, String),
+}
+
 /// Contains a pool of database connections, or an enumeration variant indicating that there is no
 /// back-end database
 #[derive(Clone, Debug)]
@@ -217,10 +231,10 @@ impl TryFrom<Value> for Comparison {
 }
 
 #[async_trait]
-pub(crate) trait Transaction: Send {
+pub(crate) trait Transaction<RequestCtx: RequestContext>: Send {
     async fn begin(&mut self) -> Result<(), Error>;
 
-    async fn create_node<RequestCtx: RequestContext>(
+    async fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -228,7 +242,7 @@ pub(crate) trait Transaction: Send {
         info: &Info,
     ) -> Result<Node<RequestCtx>, Error>;
 
-    async fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels(
         &mut self,
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
@@ -238,7 +252,7 @@ pub(crate) trait Transaction: Send {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -252,7 +266,7 @@ pub(crate) trait Transaction: Send {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    async fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -260,7 +274,7 @@ pub(crate) trait Transaction: Send {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -275,7 +289,7 @@ pub(crate) trait Transaction: Send {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
-    async fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -283,7 +297,7 @@ pub(crate) trait Transaction: Send {
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
-    async fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -292,7 +306,7 @@ pub(crate) trait Transaction: Send {
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
-    async fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,

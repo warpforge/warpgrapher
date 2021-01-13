@@ -8,7 +8,11 @@ use crate::engine::database::neo4j::Neo4jTransaction;
 use crate::engine::database::Comparison;
 use crate::engine::database::DatabasePool;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction};
+use crate::engine::database::{
+    CrudOperation, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
+};
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::events::EventFacade;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -28,7 +32,7 @@ use visitors::{
 };
 
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-mod visitors;
+pub(crate) mod visitors;
 
 pub(super) struct Resolver<'r> {
     partition_key_opt: Option<&'r Value>,
@@ -213,7 +217,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Node<RequestCtx>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
@@ -325,7 +329,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let itd = info
@@ -442,7 +446,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 
@@ -469,9 +473,20 @@ impl<'r> Resolver<'r> {
             .event_handlers()
             .before_node_read(node_var.label()?)
         {
-            handlers
-                .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+            let mut input_opt_value = input_opt.map(|i| i.value);
+            for f in handlers.iter() {
+                input_opt_value = f(
+                    input_opt_value,
+                    EventFacade::new(
+                        CrudOperation::ReadNode(field_name.to_string()),
+                        executor.context(),
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+            input_opt_value
         } else {
             input_opt.map(|i| i.value)
         };
@@ -486,30 +501,50 @@ impl<'r> Resolver<'r> {
         )
         .await?;
 
-        let results = transaction
+        let mut results = match transaction
             .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
             .await
-            .and_then(|r| {
-                node_var.label().and_then(|label| {
-                    if let Some(handlers) =
-                        executor.context().event_handlers().after_node_read(label)
-                    {
-                        handlers.iter().try_fold(r, |v, f| f(v))
-                    } else {
-                        Ok(r)
-                    }
-                })
-            });
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            if results.is_ok() {
-                transaction.commit().await?;
-            } else {
+        {
+            Err(e) => {
                 transaction.rollback().await?;
+                return Err(e);
+            }
+            Ok(results) => results,
+        };
+        let label = match node_var.label() {
+            Err(e) => {
+                transaction.rollback().await?;
+                return Err(e);
+            }
+            Ok(results) => results,
+        };
+        if let Some(handlers) = executor.context().event_handlers().after_node_read(label) {
+            for f in handlers.iter() {
+                results = match f(
+                    results,
+                    EventFacade::new(
+                        CrudOperation::ReadNode(field_name.to_string()),
+                        executor.context(),
+                        transaction,
+                        info,
+                    ),
+                )
+                .await
+                {
+                    Err(e) => {
+                        transaction.rollback().await?;
+                        return Err(e);
+                    }
+                    Ok(results) => results,
+                }
             }
         }
 
-        results
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.commit().await?;
+        }
+
+        Ok(results)
     }
 
     pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
@@ -589,7 +624,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
@@ -703,7 +738,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 
@@ -817,7 +852,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<i32, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -893,7 +928,7 @@ impl<'r> Resolver<'r> {
         rel_name,
         self.partition_key_opt,
         input_opt
-    );
+        );
 
         let p = info.type_def()?.property(field_name)?;
 
@@ -986,7 +1021,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -1014,9 +1049,20 @@ impl<'r> Resolver<'r> {
             executor.context().event_handlers().before_rel_read(
                 &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
             ) {
-            handlers
-                .iter()
-                .try_fold(input_opt.map(|i| i.value), |v, f| f(v))?
+            let mut input_value_opt = input_opt.map(|i| i.value);
+            for f in handlers.iter() {
+                input_value_opt = f(
+                    input_value_opt,
+                    EventFacade::new(
+                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
+                        executor.context(),
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+            input_value_opt
         } else {
             input_opt.map(|i| i.value)
         };
@@ -1031,33 +1077,45 @@ impl<'r> Resolver<'r> {
             transaction,
         )
         .await?;
-        let results = transaction
+
+        let mut results = transaction
             .read_rels(
                 query_fragment,
                 &rel_var,
                 Some(p.type_name()),
                 self.partition_key_opt,
             )
-            .await
-            .and_then(|r| {
-                if let Some(handlers) = executor.context().event_handlers().after_rel_read(
-                    &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
-                ) {
-                    handlers.iter().try_fold(r, |v, f| f(v))
-                } else {
-                    Ok(r)
-                }
-            });
+            .await?;
 
-        if info.name() == "Mutation" || info.name() == "Query" {
-            if results.is_ok() {
-                transaction.commit().await?;
-            } else {
-                transaction.rollback().await?;
+        if let Some(handlers) = executor.context().event_handlers().after_rel_read(
+            &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+        ) {
+            for f in handlers.iter() {
+                results = match f(
+                    results,
+                    EventFacade::new(
+                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
+                        executor.context(),
+                        transaction,
+                        info,
+                    ),
+                )
+                .await
+                {
+                    Err(e) => {
+                        transaction.rollback().await?;
+                        return Err(e);
+                    }
+                    Ok(results) => results,
+                }
             }
         }
 
-        results
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.commit().await?;
+        }
+
+        Ok(results)
     }
 
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
@@ -1145,7 +1203,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Rel<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
@@ -1347,7 +1405,7 @@ impl<'r> Resolver<'r> {
     ) -> Result<Vec<Node<RequestCtx>>, Error>
     where
         RequestCtx: RequestContext,
-        T: Transaction,
+        T: Transaction<RequestCtx>,
     {
         let mut sg = SuffixGenerator::new();
 

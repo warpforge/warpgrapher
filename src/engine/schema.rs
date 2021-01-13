@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// [`Engine`]: ../struct.Engine.html
 #[derive(Clone, Debug, PartialEq)]
 pub struct Info {
-    name: String,
+    pub(crate) name: String,
     type_defs: Arc<HashMap<String, NodeType>>,
 }
 
@@ -286,7 +286,7 @@ fn generate_props(
     }
 
     // insert properties into hashmap
-    props.iter().for_each(|p| {
+    props.iter().filter(|p| !p.hidden()).for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(
@@ -339,7 +339,7 @@ fn generate_query_props(
             ),
         );
     }
-    for p in props.iter() {
+    for p in props.iter().filter(|p| !p.hidden()) {
         query_props.insert(
             p.name().to_string(),
             Property::new(
@@ -2058,6 +2058,7 @@ fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error
 
     // NumberQueryInput
     nthm.insert(fmt_int_query_input_name(), int_query_input());
+
     // FloatQueryInput
     nthm.insert(fmt_float_query_input_name(), float_query_input());
 

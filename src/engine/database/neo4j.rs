@@ -281,7 +281,7 @@ impl<'t> Neo4jTransaction<'t> {
 }
 
 #[async_trait]
-impl Transaction for Neo4jTransaction<'_> {
+impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_> {
     async fn begin(&mut self) -> Result<(), Error> {
         debug!("Neo4jTransaction::begin called");
 
@@ -293,7 +293,7 @@ impl Transaction for Neo4jTransaction<'_> {
         }
     }
 
-    async fn create_node<RequestCtx: RequestContext>(
+    async fn create_node(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -337,7 +337,7 @@ impl Transaction for Neo4jTransaction<'_> {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    async fn create_rels<RequestCtx: RequestContext>(
+    async fn create_rels(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -406,7 +406,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn node_read_by_ids_fragment(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -500,7 +500,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    async fn read_nodes<RequestCtx: RequestContext>(
+    async fn read_nodes(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -547,7 +547,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+    fn rel_read_by_ids_fragment(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -660,7 +660,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Ok(qf)
     }
 
-    async fn read_rels<RequestCtx: RequestContext>(
+    async fn read_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -705,7 +705,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    async fn update_nodes<RequestCtx: RequestContext>(
+    async fn update_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -758,7 +758,7 @@ impl Transaction for Neo4jTransaction<'_> {
         Neo4jTransaction::nodes(records, info)
     }
 
-    async fn update_rels<RequestCtx: RequestContext>(
+    async fn update_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
