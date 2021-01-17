@@ -3,21 +3,14 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Node Update - Warpgrapher Book (0.6.0)</title>
+        <title>Node Update - Warpgrapher Book (0.7.0)</title>
         
-        
-
-
-        <!-- Custom HTML head -->
-        
-
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        <link rel="icon" href="../favicon.svg">
         <link rel="shortcut icon" href="../favicon.png">
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
@@ -26,9 +19,8 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        
-        <link rel="stylesheet" href="../fonts/fonts.css">
-        
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="../highlight.css">
@@ -44,7 +36,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "../";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -88,8 +80,8 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="../warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="../api/node_update.html" class="active"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.5.</strong> Request Context</a></li></ol></li></ol>
+            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
+                <ol class="chapter"><li class="expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="../warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="expanded "><a href="../warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="expanded "><a href="../api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="../api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="../api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="../api/node_update.html" class="active"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="../engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">3.5.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -98,36 +90,37 @@
 
             <div class="page">
                 
-                <div id="menu-bar-hover-placeholder"></div>
-                <div id="menu-bar" class="menu-bar sticky bordered">
-                    <div class="left-buttons">
-                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                            <i class="fa fa-bars"></i>
-                        </button>
-                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                            <i class="fa fa-paint-brush"></i>
-                        </button>
-                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                        </ul>
-                        
-                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                            <i class="fa fa-search"></i>
-                        </button>
-                        
-                    </div>
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.6.0)</h1>
+                        <h1 class="menu-title">Warpgrapher Book (0.7.0)</h1>
 
-                    <div class="right-buttons">
-                        <a href="../print.html" title="Print this book" aria-label="Print this book">
-                            <i id="print-button" class="fa fa-print"></i>
-                        </a>
-                        
+                        <div class="right-buttons">
+                            <a href="../print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
                     </div>
                 </div>
 
@@ -166,10 +159,10 @@
 <pre><code>mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 name: &quot;Project 2&quot;
             },
-            $SET: {
+            SET: {
                 status: &quot;INACTIVE&quot;
             }
         }
@@ -182,7 +175,7 @@
 <pre><code>mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 owner: {
                     dst: {
                         User: {
@@ -191,7 +184,7 @@
                     }
                 }
             },
-            $SET: {
+            SET: {
                 status: &quot;INACTIVE&quot;
             }
         }
@@ -204,16 +197,16 @@
 <pre><code>mutation {
     ProjectUpdate(
         input: {
-            $MATCH: {
+            MATCH: {
                 id: &quot;&lt;ID&gt;&quot;
             },
-            $SET: {
+            SET: {
                 issues: [
                     {
-                        $ADD: {
+                        ADD: {
                             dst: {
                                 Feature: {
-                                    $NEW: {
+                                    NEW: {
                                         name: &quot;Add login page&quot;
                                     }
                                 }
@@ -221,10 +214,10 @@
                         }
                     },
                     {
-                        $ADD: {
+                        ADD: {
                             dst: {
                                 Bug: {
-                                    $NEW: {
+                                    NEW: {
                                         name: &quot;Fix auth bug&quot;
                                     }
                                 }
@@ -262,13 +255,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="../api/node_create.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="../api/node_create.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="../api/node_delete.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../api/node_delete.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -281,10 +274,10 @@
         
 
         
-
+        
         
         <script type="text/javascript">
-            window.playground_copyable = true;
+            window.playpen_copyable = true;
         </script>
         
 
