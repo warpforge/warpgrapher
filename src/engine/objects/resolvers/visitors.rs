@@ -15,7 +15,7 @@ use log::trace;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-pub(super) fn visit_node_create_mutation_input<'a, T, RequestCtx>(
+pub(crate) fn visit_node_create_mutation_input<'a, T: ?Sized, RequestCtx>(
     node_var: &'a NodeQueryVar,
     mut input: Value,
     info: &'a Info,
@@ -186,7 +186,7 @@ where
     })
 }
 
-pub(super) async fn visit_node_delete_input<T, RequestCtx: RequestContext>(
+pub(super) async fn visit_node_delete_input<T: ?Sized, RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     mut input: Value,
     info: &Info,
@@ -261,7 +261,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_delete_mutation_input<'a, T, RequestCtx>(
+fn visit_node_delete_mutation_input<'a, T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &'a NodeQueryVar,
     input: Option<Value>,
@@ -387,7 +387,7 @@ where
     })
 }
 
-async fn visit_node_input<T, RequestCtx>(
+async fn visit_node_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -520,7 +520,7 @@ where
     })
 }
 
-pub(super) async fn visit_node_update_input<T, RequestCtx>(
+pub(super) async fn visit_node_update_input<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     mut input: Value,
     info: &Info,
@@ -602,7 +602,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-fn visit_node_update_mutation_input<'a, T, RequestCtx>(
+fn visit_node_update_mutation_input<'a, T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &'a NodeQueryVar,
     input: Value,
@@ -738,7 +738,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_change_input<T, RequestCtx>(
+async fn visit_rel_change_input<T: ?Sized, RequestCtx>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
@@ -826,7 +826,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_create_input<T, RequestCtx>(
+pub(super) async fn visit_rel_create_input<T: ?Sized, RequestCtx>(
     src_var: &NodeQueryVar,
     rel_name: &str,
     props_type_name: Option<&str>,
@@ -957,7 +957,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_create_mutation_input<T, RequestCtx>(
+async fn visit_rel_create_mutation_input<T: ?Sized, RequestCtx>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -1033,7 +1033,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_delete_input<T, RequestCtx>(
+pub(super) async fn visit_rel_delete_input<T: ?Sized, RequestCtx>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     mut input: Value,
@@ -1177,7 +1177,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_dst_delete_mutation_input<T, RequestCtx>(
+async fn visit_rel_dst_delete_mutation_input<T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1264,7 +1264,7 @@ where
     }
 }
 
-async fn visit_rel_dst_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_dst_update_mutation_input<T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     input: Value,
     info: &Info,
@@ -1306,7 +1306,7 @@ where
     }
 }
 
-async fn visit_rel_nodes_mutation_input_union<T, RequestCtx>(
+async fn visit_rel_nodes_mutation_input_union<T: ?Sized, RequestCtx>(
     node_var: &NodeQueryVar,
     input: Value,
     info: &Info,
@@ -1425,7 +1425,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_src_delete_mutation_input<T, RequestCtx>(
+async fn visit_rel_src_delete_mutation_input<T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1470,7 +1470,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_src_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_src_update_mutation_input<T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
@@ -1557,7 +1557,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_update_input<T, RequestCtx>(
+pub(super) async fn visit_rel_update_input<T: ?Sized, RequestCtx>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,
@@ -1643,7 +1643,7 @@ where
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn visit_rel_update_mutation_input<T, RequestCtx>(
+async fn visit_rel_update_mutation_input<T: ?Sized, RequestCtx>(
     query_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     props_type_name: Option<&str>,

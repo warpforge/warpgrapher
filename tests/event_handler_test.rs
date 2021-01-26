@@ -73,6 +73,28 @@ fn aref(
 }
 
 #[cfg(feature = "neo4j")]
+fn event_facade_usage(
+    v: Vec<Node<AppRequestCtx>>,
+    mut ef: EventFacade<AppRequestCtx>,
+) -> BoxFuture<Result<Vec<Node<AppRequestCtx>>, Error>> {
+    Box::pin(async move {
+        println!("event_facade_usage >>>");
+
+        // read nodes using facade
+        let all_projects = ef.read_nodes("Project", None, None).await?;
+        assert_eq!(all_projects.len(), 1);
+        assert_eq!(all_projects.first().unwrap().fields().get("name").unwrap(), &Value::String("ORION".to_string()));
+
+        // create node (different type to avoid re-entrancy)
+        //let bug0 = ef.create_node("Bug", &json!({"name": "Fix stuff"}), None).await?;
+        //println!("bug0: {:#?}", bug0);
+
+        Ok(v)
+    })
+}
+
+
+#[cfg(feature = "neo4j")]
 #[tokio::test]
 async fn test_before_node_create_handler() {
     init();
@@ -792,4 +814,27 @@ async fn test_after_rel_delete_handler() {
         .unwrap();
 
     assert!(rd.is_null());
+}
+
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn test_event_handler_facade() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_after_node_create(vec!["Project".to_string()], event_facade_usage);
+
+    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    let _result = client
+        .create_node(
+            "Project",
+            "id name",
+            None,
+            &json!({"name": "ORION"})
+        )
+        .await
+        .unwrap();
 }

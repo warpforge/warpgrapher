@@ -7,7 +7,7 @@ pub mod neo4j;
 
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
-use crate::engine::objects::resolvers::visitors;
+//use crate::engine::objects::resolvers::visitors;
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -636,7 +636,6 @@ impl<'a, Rctx: RequestContext> NodeCrud<'a, Rctx> {
 }
 
 pub struct MatchedNodeCrud<'a, Rctx: RequestContext> {
-    //partition_key: Option<Value>,
     transaction: &'a mut dyn Transaction<Rctx>,
     info: &'a Info,
     type_name: String,
@@ -646,14 +645,12 @@ pub struct MatchedNodeCrud<'a, Rctx: RequestContext> {
 impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
 
     fn new(
-        //partition_key: Option<Value>,
         transaction: &'a mut dyn Transaction<Rctx>,
         info: &'a Info,
         type_name: String,
         match_input: Option<Value>,
     ) -> Self {
         Self {
-            //partition_key,
             transaction,
             info,
             type_name,
@@ -670,6 +667,7 @@ impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
     ///     .read()
     ///     .await;
     /// ```
+    /*
     async fn read(&mut self) -> Result<Vec<Node<Rctx>>, Error> {
         let mut info = self.info.clone();
         info.name = "Query".to_string();
@@ -685,7 +683,6 @@ impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
             &node_var,
             self.match_input.clone(),
             &Info::new(self.type_name.clone(), info.type_defs()),
-            //self.partition_key,
             None,
             &mut sg,
             self.transaction,
@@ -697,13 +694,13 @@ impl<'a, Rctx: RequestContext> MatchedNodeCrud<'a, Rctx> {
             .read_nodes(
                 &node_var, 
                 query_fragment, 
-                //self.partition_key, 
                 None,
                 &info
             )
             .await;
         results
     }
+    */
 
     fn update() -> Result<Vec<Node<Rctx>>, Error> {
         Ok(vec![])

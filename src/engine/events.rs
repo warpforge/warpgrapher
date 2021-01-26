@@ -967,8 +967,7 @@ where
         partition_key_opt: Option<&Value>
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
 
-        let mut info = self.info.clone();
-        info.name = "Query".to_string();
+        let info = Info::new("Query".to_string(), self.info.type_defs());
 
         let mut sg = SuffixGenerator::new();
         let node_var = NodeQueryVar::new(
@@ -993,4 +992,52 @@ where
             .await;
         results
     }
+
+    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    pub async fn create_node(
+        &mut self,
+        type_name: &str,
+        input: Value,
+        partition_key_opt: Option<&Value>
+    ) -> Result<Node<RequestCtx>, Error> {
+
+        let mut sg = SuffixGenerator::new();
+        let node_var = NodeQueryVar::new(
+            Some(type_name.to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+
+        let result = visitors::visit_node_create_mutation_input(
+            &node_var,
+            input,
+            &Info::new(type_name.to_string(), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context()
+        )
+        .await;
+       
+        result
+
+        /*
+        let results = self
+            .transaction
+            .create_node(&node_var, query_fragment, partition_key_opt, &info)
+            .await;
+        results
+        */
+
+    }
+
+    /*
+    pub async fn read_rels(
+        &mut self,
+        type_name: &str,
+        rel_name: &str,
+        input: Option<Value>,
+        partition_key_opt: Option<&Value>
+    ) -> Result<Vec<Rel>
+    */
 }
