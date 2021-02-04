@@ -466,7 +466,7 @@ fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
                 PropertyKind::Input,
                 fmt_rel_query_input_name(t, &r),
             )
-            .with_list(r.list()),
+            //.with_list(r.list()),
         );
     });
     Ok(NodeType::new(

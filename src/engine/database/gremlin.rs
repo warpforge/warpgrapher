@@ -611,6 +611,38 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             );
 
             if self.uuid && k == "id" {
+                match &c.operand {
+                    Value::String(s) => {
+                        let u = Value::Uuid(Uuid::parse_str(&s)?);
+                        params.insert(k + &param_suffix, u);
+                    },
+                    Value::Array(a) => {
+                        let mut au : Vec<Value> = vec![];
+                        for v in a.iter() {
+                            if let Value::String(s) = &v {
+                                let u = Value::Uuid(Uuid::parse_str(&s)?);
+                                au.push(u);
+                            } else {
+                                return Err(Error::TypeConversionFailed {
+                                    src: format!("{:#?}", c.operand),
+                                    dst: "String".to_string(),
+                                });
+                            }
+                        }
+                        params.insert(k + &param_suffix, Value::Array(au));
+                    },
+                    _ => {
+                        return Err(Error::TypeConversionFailed {
+                            src: format!("{:#?}", c.operand),
+                            dst: "String".to_string(),
+                        });
+                    }
+                }
+            } else {
+                params.insert(k + &param_suffix, c.operand);
+            }
+            /*
+            if self.uuid && k == "id" {
                 if let Value::String(s) = &c.operand {
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
                 } else {
@@ -622,6 +654,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             } else {
                 params.insert(k + &param_suffix, c.operand);
             }
+            */
         }
 
         if !rel_query_fragments.is_empty() {
@@ -765,9 +798,43 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                 + "("
                 + &k
                 + &param_suffix
-                + "))"),
+                + ")"
+                + ")"),
             );
 
+
+            if self.uuid && k == "id" {
+                match &c.operand {
+                    Value::String(s) => {
+                        let u = Value::Uuid(Uuid::parse_str(&s)?);
+                        params.insert(k + &param_suffix, u);
+                    },
+                    Value::Array(a) => {
+                        let mut au : Vec<Value> = vec![];
+                        for v in a.iter() {
+                            if let Value::String(s) = &v {
+                                let u = Value::Uuid(Uuid::parse_str(&s)?);
+                                au.push(u);
+                            } else {
+                                return Err(Error::TypeConversionFailed {
+                                    src: format!("{:#?}", c.operand),
+                                    dst: "String".to_string(),
+                                });
+                            }
+                        }
+                        params.insert(k + &param_suffix, Value::Array(au));
+                    },
+                    _ => {
+                        return Err(Error::TypeConversionFailed {
+                            src: format!("{:#?}", c.operand),
+                            dst: "String".to_string(),
+                        });
+                    }
+                }
+            } else {
+                params.insert(k + &param_suffix, c.operand);
+            }
+            /*
             if self.uuid && k == "id" {
                 if let Value::String(s) = c.operand {
                     params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
@@ -780,6 +847,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             } else {
                 params.insert(k + &param_suffix, c.operand);
             }
+            */
         }
 
         if src_fragment_opt.is_some() || dst_fragment_opt.is_some() {
