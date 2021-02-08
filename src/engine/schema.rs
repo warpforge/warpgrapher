@@ -2675,14 +2675,14 @@ mod tests {
         assert!(project_commits.kind == PropertyKind::Input);
         assert!(project_commits.type_name == "ProjectCommitsQueryInput");
         assert!(!project_commits.required);
-        assert!(project_commits.list);
+        assert!(!project_commits.list);
         assert!(project_commits.arguments.is_empty());
         let project_issues = project_query_input.props.get("issues").unwrap();
         assert!(project_issues.name == "issues");
         assert!(project_issues.kind == PropertyKind::Input);
         assert!(project_issues.type_name == "ProjectIssuesQueryInput");
         assert!(!project_issues.required);
-        assert!(project_issues.list);
+        assert!(!project_issues.list);
         assert!(project_issues.arguments.is_empty());
     }
 

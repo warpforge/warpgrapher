@@ -641,20 +641,6 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             } else {
                 params.insert(k + &param_suffix, c.operand);
             }
-            /*
-            if self.uuid && k == "id" {
-                if let Value::String(s) = &c.operand {
-                    params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
-                } else {
-                    return Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", c.operand),
-                        dst: "String".to_string(),
-                    });
-                }
-            } else {
-                params.insert(k + &param_suffix, c.operand);
-            }
-            */
         }
 
         if !rel_query_fragments.is_empty() {
@@ -834,20 +820,6 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             } else {
                 params.insert(k + &param_suffix, c.operand);
             }
-            /*
-            if self.uuid && k == "id" {
-                if let Value::String(s) = c.operand {
-                    params.insert(k + &param_suffix, Value::Uuid(Uuid::parse_str(&s)?));
-                } else {
-                    return Err(Error::TypeConversionFailed {
-                        src: format!("{:#?}", c.operand),
-                        dst: "String".to_string(),
-                    });
-                }
-            } else {
-                params.insert(k + &param_suffix, c.operand);
-            }
-            */
         }
 
         if src_fragment_opt.is_some() || dst_fragment_opt.is_some() {
