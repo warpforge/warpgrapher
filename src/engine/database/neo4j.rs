@@ -524,6 +524,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         let query = query_fragment.match_fragment().to_string()
             + &where_clause
             + "RETURN "
+            + "DISTINCT "
             + node_var.name()
             + "\n";
         let params = query_fragment.params();

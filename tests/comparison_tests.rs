@@ -446,20 +446,19 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
             name",
             None,
             Some(&json!({
-                "issues": [
+                "issues": 
                     {
                         "props": {
-                            "since": { "IN": ["5 BBY", "10 BBY"]}
+                            "since": { "IN": ["5 BBY", "10 BBY", "15 BBY"]}
                         }
                     }
-                ]
+                
             })),
         )
         .await
         .unwrap();
-    let _results_array = results.as_array().unwrap();
-    // TODO: FIX: this is returning STARDUST twice in the results array
-    //assert_eq!(results_array.len(), 1);
+    let results_array = results.as_array().unwrap();
+    assert_eq!(results_array.len(), 1);
 
     // query rel by rel comparison match
     let results = client
