@@ -18,7 +18,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.7.0", features = ["cosmos"] }
+warpgrapher = { version = "0.7.1", features = ["cosmos"] }
 ```
 
 Then set up environment variables to contact your Cosmos DB:
@@ -50,7 +50,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.7.0", features = ["gremlin"] }
+warpgrapher = { version = "0.7.1", features = ["gremlin"] }
 ```
 
 Then set up environment variables to contact your Gremlin-based DB:
@@ -100,7 +100,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.7.0", features = ["neo4j"] }
+warpgrapher = { version = "0.7.1", features = ["neo4j"] }
 ```
 
 Then set up environment variables to contact your Neo4J DB:

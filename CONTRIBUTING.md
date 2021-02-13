@@ -196,3 +196,22 @@ https://rust-lang.github.io/api-guidelines/
 If reviewing a PR, use the following as a review checklist:
 
 https://rust-lang.github.io/api-guidelines/checklist.html
+
+
+## Updating version prior to release
+
+```bash
+export OLD_VERSION=0.7.1
+export NEW_VERSION=0.7.1
+```
+
+```bash
+sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./src/lib.rs
+sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./book/book.toml
+find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERSION}/g"
+```
+
+```bash
+cd ./book
+./buid.sh
+```
