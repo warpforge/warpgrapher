@@ -1,5 +1,6 @@
 //! Contains types and functions for application specific extensions to the Warpgrapher framework.
 
+use crate::engine::config::Configuration;
 use crate::engine::context::RequestContext;
 use crate::engine::database::DatabaseEndpoint;
 
@@ -49,6 +50,13 @@ pub trait Extension<RequestCtx>: Debug + Send + Sync
 where
     RequestCtx: RequestContext,
 {
+    fn pre_build_hook(
+        &self,
+        _config: &mut Configuration
+    ) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+        Ok(())
+    }
+
     fn pre_request_hook(
         &self,
         _op_name: Option<String>,

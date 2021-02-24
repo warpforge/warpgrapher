@@ -2,6 +2,7 @@
 //! processing to which a client library or application might want to add business logic. Examples
 //! include the before or after the creation of a new node.
 
+use crate::engine::config::Configuration;
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
@@ -14,6 +15,18 @@ use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
 use crate::Error;
 use std::collections::HashMap;
+
+/// TODO: add docs
+pub type BeforeEngineBuildFunc = 
+    fn(&mut Configuration) -> Result<(), Error>;
+
+/// TODO: add docs
+pub type BeforeRequestFunc<R> = 
+    fn(R, &mut Option<serde_json::Value>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
+
+/// TODO: add docs
+pub type AfterRequestFunc<R> = 
+    fn(R, &mut serde_json::Value) -> BoxFuture<Result<R, Error>>;
 
 /// Type alias for a function called before a mutation event. The Value returned by this function
 /// will be used as the input to the next before event function, or to the base Warpgrapher
@@ -150,6 +163,9 @@ pub type AfterRelEventFunc<RequestCtx> = fn(
 /// ```
 #[derive(Clone)]
 pub struct EventHandlerBag<RequestCtx: RequestContext> {
+    before_engine_build_handlers: Vec<BeforeEngineBuildFunc>,
+    before_request_handlers: Vec<BeforeRequestFunc<RequestCtx>>,
+    after_request_handlers: Vec<AfterRequestFunc<RequestCtx>>,
     before_create_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_create_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_create_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
@@ -176,6 +192,9 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// ```
     pub fn new() -> EventHandlerBag<RequestCtx> {
         EventHandlerBag {
+            before_engine_build_handlers: vec![],
+            before_request_handlers: vec![],
+            after_request_handlers: vec![],
             before_create_handlers: HashMap::new(),
             after_node_create_handlers: HashMap::new(),
             after_rel_create_handlers: HashMap::new(),
@@ -189,6 +208,30 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
             after_node_delete_handlers: HashMap::new(),
             after_rel_delete_handlers: HashMap::new(),
         }
+    }
+
+    // TODO: docs
+    pub fn register_before_engine_build(
+        &mut self,
+        f: BeforeEngineBuildFunc
+    ) {
+        self.before_engine_build_handlers.push(f);
+    }
+    
+    // TODO: docs
+    pub fn register_before_request(
+        &mut self,
+        f: BeforeRequestFunc<RequestCtx>
+    ) {
+        self.before_request_handlers.push(f);
+    }
+    
+    // TODO: docs
+    pub fn register_after_request(
+        &mut self,
+        f: AfterRequestFunc<RequestCtx>
+    ) {
+        self.after_request_handlers.push(f);
     }
 
     /// Registers an event handler `f` to be called before a node of type `type_name` is created.
@@ -753,6 +796,24 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
+    pub(crate) fn before_engine_build(
+        &self
+    ) -> &Vec<BeforeEngineBuildFunc> {
+        &self.before_engine_build_handlers
+    }
+    
+    pub(crate) fn before_request(
+        &self
+    ) -> &Vec<BeforeRequestFunc<RequestCtx>> {
+        &self.before_request_handlers
+    }
+    
+    pub(crate) fn after_request(
+        &self
+    ) -> &Vec<AfterRequestFunc<RequestCtx>> {
+        &self.after_request_handlers
+    }
+
     pub(crate) fn before_node_create(
         &self,
         type_name: &str,
@@ -869,6 +930,9 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
 impl<RequestCtx: RequestContext> Default for EventHandlerBag<RequestCtx> {
     fn default() -> EventHandlerBag<RequestCtx> {
         EventHandlerBag {
+            before_engine_build_handlers: vec![],
+            before_request_handlers: vec![],
+            after_request_handlers: vec![],
             before_create_handlers: HashMap::new(),
             after_node_create_handlers: HashMap::new(),
             after_rel_create_handlers: HashMap::new(),
@@ -1018,7 +1082,6 @@ where
         let mut sg = SuffixGenerator::new();
         let node_var =
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
-
         let result = visit_node_create_mutation_input(
             &node_var,
             input,

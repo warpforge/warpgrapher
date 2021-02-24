@@ -245,10 +245,14 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build(self) -> Result<Engine<RequestCtx>, Error> {
+    pub fn build(mut self) -> Result<Engine<RequestCtx>, Error> {
         self.validate()?;
 
         let root_node = create_root_node(&self.config)?;
+
+        for event_handler in self.event_handlers.before_engine_build() {
+            event_handler(&mut self.config)?;
+        }
 
         let engine = Engine::<RequestCtx> {
             config: self.config,
@@ -448,44 +452,47 @@ where
     /// ```
     pub async fn execute(
         &self,
-        req: &GraphQLRequest,
-        metadata: &HashMap<String, String>,
+        query: String,
+        mut input: Option<serde_json::Value>,
+        metadata: HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
         debug!("Engine::execute called");
 
-        // run pre request plugin hooks
-        let req_ctx = self
-            .extensions
-            .iter()
-            .try_fold(RequestCtx::new(), |req_ctx, e| {
-                e.pre_request_hook(
-                    req.operation_name().map(|v| v.to_string()),
-                    req_ctx,
-                    &metadata,
-                    self.db_pool.clone(),
-                )
-            })?;
+        // create new request context
+        let mut rctx = RequestCtx::new();
 
+        // execute before_request handlers
+        for handler in self.event_handlers.before_request() {
+            rctx = handler(rctx, &mut input, metadata.clone()).await?;
+        }
+
+        // conver json input to juniper input
+        let input_value : Option<juniper::InputValue> = match input {
+            Some(input) => Some(serde_json::from_value::<juniper::InputValue>(input)?),
+            None => None,
+        };
+
+        // execute graphql query
         let gqlctx = GraphQLContext::<RequestCtx>::new(
             self.db_pool.clone(),
             self.resolvers.clone(),
             self.validators.clone(),
             self.event_handlers.clone(),
             self.extensions.clone(),
-            Some(req_ctx.clone()),
+            Some(rctx.clone()),
             self.version.clone(),
             metadata.clone(),
         );
-        // execute graphql query
+        let req = GraphQLRequest::new(query, None, input_value);
         let res = req.execute(&self.root_node, &gqlctx).await;
 
         // convert graphql response (json) to mutable serde_json::Value
-        let res_value = serde_json::to_value(&res)?;
-
-        // run post request plugin hooks
-        let ret_value = self.extensions.iter().try_fold(res_value, |res_value, e| {
-            e.post_request_hook(&req_ctx, res_value)
-        })?;
+        let mut ret_value = serde_json::to_value(&res)?;
+        
+        // execute before_request handlers
+        for handler in self.event_handlers.after_request() {
+            rctx = handler(rctx, &mut ret_value).await?;
+        }
 
         debug!("Engine::execute -- ret_value: {:#?}", ret_value);
         Ok(ret_value)

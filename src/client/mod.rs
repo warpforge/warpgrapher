@@ -3,10 +3,9 @@
 use crate::engine::context::RequestContext;
 use crate::{Engine, Error};
 use inflector::Inflector;
-use juniper::http::GraphQLRequest;
 use log::{debug, trace};
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde_json::{from_value, json, Value};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
@@ -193,8 +192,9 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
             Client::Local { engine, metadata } => {
                 engine
                     .execute(
-                        &from_value::<GraphQLRequest>(req_body)?,
-                        &metadata.clone().unwrap_or_default(),
+                        query.to_string(),
+                        input.map(|v| v.clone()),
+                        metadata.clone().unwrap_or_default(),
                     )
                     .await?
             }
