@@ -462,8 +462,9 @@ where
         let mut rctx = RequestCtx::new();
 
         // execute before_request handlers
+        let dbxt = self.db_pool.transaction().await?;
         for handler in self.event_handlers.before_request() {
-            rctx = handler(rctx, &mut input, metadata.clone()).await?;
+            rctx = handler(rctx, dbtx, &mut input, metadata.clone()).await?;
         }
 
         // conver json input to juniper input

@@ -22,7 +22,7 @@ pub type BeforeEngineBuildFunc =
 
 /// TODO: add docs
 pub type BeforeRequestFunc<R> = 
-    fn(R, &mut Option<serde_json::Value>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
+    fn(R, dbtx: DatabaseTransaction, &mut Option<serde_json::Value>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
 
 /// TODO: add docs
 pub type AfterRequestFunc<R> = 
