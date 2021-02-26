@@ -17,12 +17,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
         <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -124,9 +130,11 @@
                     <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                     </div>
                 </div>
@@ -155,9 +163,9 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#warpgrapher-config" id="warpgrapher-config">Warpgrapher Config</a></h1>
+                        <h1 id="warpgrapher-config"><a class="header" href="#warpgrapher-config">Warpgrapher Config</a></h1>
 <p>In the <a href="">Quickstart</a> we demonstrated how to initialize a <code>Config</code> from a configurationf file read from file at run time. A Warpgrapher <code>Config</code> can also be generated programatically. The resulting configs from all the examples below are equivalent. </p>
-<h3><a class="header" href="#text-config" id="text-config">Text Config</a></h3>
+<h3 id="text-config"><a class="header" href="#text-config">Text Config</a></h3>
 <pre><code class="language-yaml">version: 1
 model:
 
@@ -179,7 +187,7 @@ model:
         nodes: [User]
         list: true
 </code></pre>
-<h3><a class="header" href="#programmatic-config" id="programmatic-config">Programmatic Config</a></h3>
+<h3 id="programmatic-config"><a class="header" href="#programmatic-config">Programmatic Config</a></h3>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {

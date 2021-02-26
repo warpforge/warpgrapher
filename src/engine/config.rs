@@ -426,10 +426,10 @@ impl TryFrom<&str> for Endpoint {
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
+    /// Returns an [`Error`] variant [`YamlDeserializationFailed`] if the yaml-formatted
     /// string is improperly formatted.
     ///
-    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
+    /// [`YamlDeserializationFailed`]: ../../error/enum.Error.html#variant.YamlDeserializationFailed
     /// [`Error`]: ../../error/enum.Error.html
     ///
     /// # Examples
@@ -1321,10 +1321,10 @@ impl TryFrom<&str> for Type {
     ///
     /// # Errors
     ///
-    /// Returns an [`Error`] variant [`DeserializationFailed`] if the yaml-formatted
+    /// Returns an [`Error`] variant [`YamlDeserializationFailed`] if the yaml-formatted
     /// string is improperly formatted.
     ///
-    /// [`DeserializationFailed`]: ../../error/enum.Error.html#variant.DeserializationFailed
+    /// [`YamlDeserializationFailed`]: ../../error/enum.Error.html#variant.YamlDeserializationFailed
     /// [`Error`]: ../../error/enum.Error.html
     ///
     /// # Examples
@@ -1375,10 +1375,11 @@ pub enum TypeDef {
 /// Creates a combined [`Configuration`] data structure from multiple [`Configuration`] structs.
 /// All [`Configuration`] structs must be the same version.
 ///
-/// Returns a Result<Configuration, Error> with a single [`Configuration`] struct or a
-/// [`ConfigVersionMismatchError`] if the versions across all Configuration do not match.
+/// Returns a `Result<Configuration, Error>` with a single [`Configuration`] struct, or if the
+/// versions across all `Configuration`s do not match, a [`ConfigVersionMismatched`] error.
 ///
 /// [`Configuration`]: struct.Configuration.html
+/// [`ConfigVersionMismatched`]: ../enum.Error.html#variant.ConfigVersionMismatched
 ///
 ///
 /// # Examples

@@ -213,5 +213,5 @@ find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERS
 
 ```bash
 cd ./book
-./buid.sh
+./build.sh
 ```

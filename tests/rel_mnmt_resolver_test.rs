@@ -1,14 +1,14 @@
 mod setup;
 
 use serde_json::json;
-use setup::AppRequestCtx;
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_new_rel(mut client: Client<AppRequestCtx>) {
+async fn create_mnmt_new_rel<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -96,7 +96,7 @@ async fn create_mnmt_new_rel(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_rel_existing_node(mut client: Client<AppRequestCtx>) {
+async fn create_mnmt_rel_existing_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -213,7 +213,7 @@ async fn create_mnmt_rel_existing_node(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
+async fn read_mnmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -266,7 +266,7 @@ async fn read_mnmt_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_rel_by_src_props(mut client: Client<AppRequestCtx>) {
+async fn read_mnmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -328,7 +328,7 @@ async fn read_mnmt_rel_by_src_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
+async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -416,7 +416,7 @@ async fn read_mnmt_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -534,7 +534,7 @@ async fn update_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -600,7 +600,7 @@ async fn update_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -718,7 +718,7 @@ async fn update_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -814,7 +814,7 @@ async fn delete_mnmt_rel_by_rel_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -910,7 +910,7 @@ async fn delete_mnmt_rel_by_dst_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
@@ -1022,7 +1022,9 @@ async fn delete_mnmt_rel_by_src_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_rel_by_src_and_dst_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     let _p0 = client
         .create_node(
             "Project",

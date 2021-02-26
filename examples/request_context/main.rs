@@ -30,6 +30,7 @@ struct AppRequestContext {
 }
 
 impl RequestContext for AppRequestContext {
+    type DBEndpointType = Neo4jEndpoint;
     fn new() -> AppRequestContext {
         // generate random request id
         let request_id = "1234".to_string();

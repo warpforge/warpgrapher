@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
-    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
+    Operation, QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -11,13 +11,12 @@ use crate::engine::schema::NodeType;
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
-use bb8::Pool;
-use bb8::PooledConnection;
-use bb8_bolt::BoltConnectionManager;
 use bolt_client::{Metadata, Params};
 use bolt_proto::error::ConversionError;
 use bolt_proto::message::{Message, Record};
 use log::{debug, trace};
+use mobc::{Connection, Pool};
+use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
@@ -101,7 +100,7 @@ impl Neo4jEndpoint {
     ///     # Ok(())
     /// # }
     /// ```
-    pub fn from_env() -> Result<Neo4jEndpoint, Error> {
+    pub fn from_env() -> Result<Self, Error> {
         Ok(Neo4jEndpoint {
             host: env_string("WG_NEO4J_HOST")?,
             port: env_u16("WG_NEO4J_PORT")?,
@@ -113,7 +112,9 @@ impl Neo4jEndpoint {
 
 #[async_trait]
 impl DatabaseEndpoint for Neo4jEndpoint {
-    async fn pool(&self) -> Result<DatabasePool, Error> {
+    type PoolType = Neo4jDatabasePool;
+
+    async fn pool(&self) -> Result<Self::PoolType, Error> {
         let manager = BoltConnectionManager::new(
             self.host.to_string() + ":" + &self.port.to_string(),
             None,
@@ -124,27 +125,49 @@ impl DatabaseEndpoint for Neo4jEndpoint {
                 ("principal", &self.user),
                 ("credentials", &self.pass),
             ]),
-        )?;
+        )
+        .await?;
 
-        let pool = DatabasePool::Neo4j(
+        let pool = Neo4jDatabasePool::new(
             Pool::builder()
-                .max_size(num_cpus::get().try_into().unwrap_or(8))
-                .build(manager)
-                .await?,
+                .max_open(num_cpus::get().try_into().unwrap_or(8))
+                .build(manager),
         );
 
-        trace!("Neo4jEndpoint::pool -- pool: {:#?}", pool);
         Ok(pool)
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct Neo4jTransaction<'t> {
-    client: PooledConnection<'t, BoltConnectionManager>,
+#[derive(Clone)]
+pub struct Neo4jDatabasePool {
+    pool: Pool<BoltConnectionManager>,
 }
 
-impl<'t> Neo4jTransaction<'t> {
-    pub fn new(client: PooledConnection<'t, BoltConnectionManager>) -> Neo4jTransaction<'t> {
+impl Neo4jDatabasePool {
+    fn new(pool: Pool<BoltConnectionManager>) -> Self {
+        Neo4jDatabasePool { pool }
+    }
+}
+
+#[async_trait]
+impl DatabasePool for Neo4jDatabasePool {
+    type TransactionType = Neo4jTransaction;
+
+    async fn transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(Neo4jTransaction::new(self.pool.get().await?))
+    }
+
+    async fn client(&self) -> Result<DatabaseClient, Error> {
+        Ok(DatabaseClient::Neo4j(Box::new(self.pool.get().await?)))
+    }
+}
+
+pub struct Neo4jTransaction {
+    client: Connection<BoltConnectionManager>,
+}
+
+impl Neo4jTransaction {
+    pub fn new(client: Connection<BoltConnectionManager>) -> Neo4jTransaction {
         Neo4jTransaction { client }
     }
 
@@ -281,7 +304,7 @@ impl<'t> Neo4jTransaction<'t> {
 }
 
 #[async_trait]
-impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_> {
+impl Transaction for Neo4jTransaction {
     async fn begin(&mut self) -> Result<(), Error> {
         debug!("Neo4jTransaction::begin called");
 
@@ -293,7 +316,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         }
     }
 
-    async fn create_node(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -337,7 +360,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    async fn create_rels(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -406,7 +429,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    fn node_read_by_ids_fragment(
+    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -500,7 +523,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Ok(qf)
     }
 
-    async fn read_nodes(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -548,7 +571,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::nodes(records, info)
     }
 
-    fn rel_read_by_ids_fragment(
+    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -661,7 +684,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Ok(qf)
     }
 
-    async fn read_rels(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -706,7 +729,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    async fn update_nodes(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -759,7 +782,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for Neo4jTransaction<'_
         Neo4jTransaction::nodes(records, info)
     }
 
-    async fn update_rels(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -974,10 +997,7 @@ impl From<Value> for bolt_proto::value::Value {
     }
 }
 
-impl<RequestCtx> TryFrom<bolt_proto::value::Value> for Node<RequestCtx>
-where
-    RequestCtx: RequestContext,
-{
+impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Value> for Node<RequestCtx> {
     type Error = crate::Error;
 
     fn try_from(value: bolt_proto::value::Value) -> Result<Self, Error> {

@@ -2,15 +2,15 @@
 mod setup;
 
 use serde_json::json;
-use setup::AppRequestCtx;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
 /// Passes if a node is created with an SNMT rel to a new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
+async fn create_node_with_rel_to_new<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     // create new Project with rel to new KanbanBoard
     let results0 = client
         .create_node(
@@ -116,7 +116,9 @@ async fn create_node_with_rel_to_new(mut client: Client<AppRequestCtx>) {
 /// Passes if a node is created with an SNMT rel to existing node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
+async fn create_node_with_rel_to_existing<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create new ScrumBoard
     let results0 = client
         .create_node(
@@ -210,7 +212,9 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
 /// the relationships associate correctly
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx>) {
+async fn read_multiple_nodes_with_multiple_rels<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create multiple nodes with multiple rels
     let results0 = client
         .create_node(
@@ -346,7 +350,9 @@ async fn read_multiple_nodes_with_multiple_rels(mut client: Client<AppRequestCtx
 /// Passes if nodes matching props on a relationship are returned
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel(mut client: Client<AppRequestCtx>) {
+async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create nodes with rel with props
     let results0 = client
         .create_node(
@@ -485,7 +491,9 @@ async fn read_node_with_matching_props_on_rel(mut client: Client<AppRequestCtx>)
 /// with matching props
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppRequestCtx>) {
+async fn read_node_with_matching_props_on_rel_dst_node<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create nodes with rel with props
     let _results0 = client
         .create_node(
@@ -581,7 +589,9 @@ async fn read_node_with_matching_props_on_rel_dst_node(mut client: Client<AppReq
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_new_node(mut client: Client<AppRequestCtx>) {
+async fn update_existing_node_with_rel_to_new_node<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create project node
     let _results0 = client
         .create_node(
@@ -676,7 +686,9 @@ async fn update_existing_node_with_rel_to_new_node(mut client: Client<AppRequest
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRequestCtx>) {
+async fn update_existing_node_with_rel_to_existing_node<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create project node
     let _results0 = client
         .create_node(
@@ -770,7 +782,9 @@ async fn update_existing_node_with_rel_to_existing_node(mut client: Client<AppRe
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client<AppRequestCtx>) {
+async fn delete_node_with_matching_props_on_rel_dst_node<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     // create project nodes
     let _results0 = client
         .create_node(
@@ -826,7 +840,7 @@ async fn delete_node_with_matching_props_on_rel_dst_node(mut client: Client<AppR
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node(mut client: Client<AppRequestCtx>) {
+async fn delete_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     // create project nodes
     let _results0 = client
         .create_node(

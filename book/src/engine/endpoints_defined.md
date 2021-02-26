@@ -46,7 +46,7 @@ use warpgrapher::value::Value;
 
 // resolver that returns a Scalar (String)
 fn resolve_getappname(
-  context: ResolverFacade<(), ()>
+  context: ResolverFacade<()>
 ) -> ExecutionResult {
 
   facade.resolve_scalar("MyAppName")
@@ -54,7 +54,7 @@ fn resolve_getappname(
 
 // resolver that returns a Node (Team)
 fn resolve_getlargestteam(
-  facade: ResolverFacade<(), ()>
+  facade: ResolverFacade<()>
 ) -> ExecutionResult {
 
   // query database to get team ...
@@ -73,11 +73,11 @@ fn resolve_getlargestteam(
 ```rust
 use warpgrapher::Engine;
 
-let mut resolvers = Resolvers<(), ()>::new();
+let mut resolvers = Resolvers<()>::new();
 resolvers.insert("GetAppName".to_string, Box::new(resolve_getappname));
 resolvers.insert("GetLargestTeam".to_string, Box::new(resolve_getlargestteam));
 
-let engine = Engine<(), ()>::new(config, db)
+let engine = Engine<()>::new(config, db)
     .with_resolvers(resolvers)
     .build();
 ```

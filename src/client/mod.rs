@@ -26,10 +26,7 @@ use std::str::FromStr;
 /// let client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
 /// ```
 #[derive(Clone, Debug)]
-pub enum Client<RequestCtx>
-where
-    RequestCtx: RequestContext,
-{
+pub enum Client<RequestCtx: RequestContext> {
     Http {
         endpoint: String,
         headers: HeaderMap,
@@ -40,10 +37,7 @@ where
     },
 }
 
-impl<RequestCtx> Client<RequestCtx>
-where
-    RequestCtx: RequestContext,
-{
+impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// Takes the URL of a Warpgrapher service endpoint and returns a new ['Client'] initialized to
     /// query that endpoint.  The type parameters are only relevant for a local instance of the
     /// Warpgrapher engine, not for a remote HTTP client, so pass () for both type parameters, as
@@ -62,7 +56,7 @@ where
     pub fn new_with_http(
         endpoint: &str,
         headers_opt: Option<HashMap<&str, &str>>,
-    ) -> Result<Client<()>, Error> {
+    ) -> Result<Client<RequestCtx>, Error> {
         trace!("Client::new_with_http called -- endpoint: {}", endpoint);
 
         let mut header_map = HeaderMap::new();
@@ -76,7 +70,7 @@ where
             }
         }
 
-        Ok(Client::Http {
+        Ok(Client::<RequestCtx>::Http {
             endpoint: endpoint.to_string(),
             headers: header_map,
         })
@@ -90,12 +84,17 @@ where
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// # use warpgrapher::{Client, Configuration, DatabasePool, Engine};
+    /// ```rust,no_run
+    /// # use tokio::main;
+    /// # use warpgrapher::{Client, Configuration, Engine};
+    /// # use warpgrapher::engine::database::DatabaseEndpoint;
+    /// # use warpgrapher::engine::database::no_database::NoDatabaseEndpoint;
     ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let c = Configuration::new(1, Vec::new(), Vec::new());
-    /// let engine = Engine::new(c, DatabasePool::NoDatabase).build()?;
+    /// let endpoint = NoDatabaseEndpoint {};
+    /// let engine = Engine::new(c, endpoint.pool().await?).build()?;
     ///
     /// let mut client = Client::<()>::new_with_engine(engine, None);
     /// # Ok(())
@@ -106,7 +105,7 @@ where
         metadata: Option<HashMap<String, String>>,
     ) -> Client<RequestCtx> {
         trace!("Client::new_with_engine called");
-        Client::Local {
+        Client::<RequestCtx>::Local {
             engine: Box::new(engine),
             metadata,
         }
@@ -135,11 +134,11 @@ where
     /// # Errors
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -242,11 +241,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -311,11 +310,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -394,11 +393,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -472,11 +471,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -566,11 +565,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -631,11 +630,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -703,11 +702,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///
@@ -775,11 +774,11 @@ where
     /// Returns an [`Error`] of the following kinds:
     ///
     /// * [`ClientRequestFailed`] - if the HTTP response is a non-OK
-    /// * [`ClientRequestUnexepctedPayload`] - if the JSON response body is not a valid GraphQL
+    /// * [`PayloadNotFound`] - if the JSON response body is not a valid GraphQL
     /// response
     ///
     /// [`ClientRequestFailed`]: ../enum.Error.html#variant.ClientRequestFailed
-    /// [`ClientRequestUnexpectedPayload`]: ../enum.Error.html#variant.ClientRequestUnexpectedPayload
+    /// [`PayloadNotFound`]: ../enum.Error.html#variant.PayloadNotFound
     ///
     /// # Examples
     ///

@@ -7,17 +7,17 @@ When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relation
 #### 1. Mark a properties as dynamic by setting the resolver field
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:11:20}}
+{{#include ../../../examples/dynamic_props/main.rs:13:21}}
 ```
 
 #### 2. Define custom logic that resolve the prop value
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:22:30}}
+{{#include ../../../examples/dynamic_props/main.rs:34:41}}
 ```
 
 #### 3. Add prop resolver when building `Engine`
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:44:52}}
+{{#include ../../../examples/dynamic_props/main.rs:55:66}}
 ```

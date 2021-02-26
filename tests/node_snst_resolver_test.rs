@@ -1,14 +1,14 @@
 mod setup;
 
 use serde_json::json;
-use setup::AppRequestCtx;
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_snst_new_node(mut client: Client<AppRequestCtx>) {
+async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -97,7 +97,9 @@ async fn create_snst_new_node(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
+async fn create_node_with_rel_to_existing<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     let _u0 = client
         .create_node(
             "User",
@@ -190,7 +192,9 @@ async fn create_node_with_rel_to_existing(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
+async fn read_multiple_snst_node_with_rel<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     let _u0 = client
         .create_node(
             "User",
@@ -346,7 +350,7 @@ async fn read_multiple_snst_node_with_rel(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
+async fn read_snst_node_by_rel_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -429,7 +433,7 @@ async fn read_snst_node_by_rel_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
+async fn read_snst_node_by_dst_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -514,7 +518,7 @@ async fn read_snst_node_by_dst_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
+async fn update_snst_node_with_new_rel<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -624,7 +628,9 @@ async fn update_snst_node_with_new_rel(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
+async fn update_snst_node_with_existing_rel<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     let _u0 = client
         .create_node(
             "User",
@@ -742,7 +748,7 @@ async fn update_snst_node_with_existing_rel(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
+async fn delete_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -851,7 +857,7 @@ async fn delete_snst_rel_by_dst_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
+async fn delete_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -958,7 +964,7 @@ async fn delete_snst_rel_by_rel_props(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_snst_node_by_dst_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1066,7 +1072,7 @@ async fn delete_snst_node_by_dst_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
+async fn delete_snst_node_by_rel_prop<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",
@@ -1172,7 +1178,7 @@ async fn delete_snst_node_by_rel_prop(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn detach_snst_rel_by_dst_delete(mut client: Client<AppRequestCtx>) {
+async fn detach_snst_rel_by_dst_delete<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _u0 = client
         .create_node(
             "User",

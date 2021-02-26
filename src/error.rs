@@ -124,22 +124,24 @@ pub enum Error {
     /// the Warpgrapher project.
     LabelNotFound,
 
+    /// Returned if a Neo4J pool cannot return a client transaction. The source error contains
+    /// additional information.
+    #[cfg(feature = "neo4j")]
+    Neo4jPoolFailed {
+        source: mobc::Error<mobc_boltrs::Error>,
+    },
+
+    /// Returned if a Neo4J pool cannot be built, such as if the host, port, or authentication
+    /// credentials are incorrect. The source error contains additional information.
+    #[cfg(feature = "neo4j")]
+    Neo4jPoolNotBuilt {
+        source: mobc_boltrs::Error,
+    },
+
     /// Returned if a Neo4J query fails to execute correctly
     #[cfg(feature = "neo4j")]
     Neo4jQueryFailed {
         message: bolt_proto::message::Message,
-    },
-
-    // Returned if a bb8 connection cannnot be obtained form the pool
-    #[cfg(feature = "neo4j")]
-    Neo4jPoolError {
-        source: bb8::RunError<bb8_bolt::Error>,
-    },
-
-    /// Returned if a bb8 connection pool cannot be built correctly
-    #[cfg(feature = "neo4j")]
-    Neo4jPoolNotBuilt {
-        source: bb8_bolt::Error,
     },
 
     /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
@@ -353,20 +355,12 @@ impl Display for Error {
                 write!(f, "Failed to deserialize JSON into struct: {}", source)
             }
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolNotBuilt { source } => {
-                write!(
-                    f,
-                    "Could not build database connection pool for Neo4J. Source error: {}.",
-                    source
-                )
+            Error::Neo4jPoolFailed { source } => {
+                write!(f, "Could not get Neo4J transaction from pool: {}", source)
             }
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolError { source } => {
-                write!(
-                    f,
-                    "Failed to get connection from Neo4j Pool. Source error: {}",
-                    source
-                )
+            Error::Neo4jPoolNotBuilt { source } => {
+                write!(f, "Could not build Neo4j connection pool: {}", source)
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message } => {
@@ -500,9 +494,9 @@ impl std::error::Error for Error {
             Error::JsonDeserializationFailed { source } => Some(source),
             Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolNotBuilt { source } => Some(source),
+            Error::Neo4jPoolFailed { source } => Some(source),
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolError { source } => Some(source),
+            Error::Neo4jPoolNotBuilt { source } => Some(source),
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
@@ -536,13 +530,6 @@ impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
 }
 
 #[cfg(feature = "neo4j")]
-impl From<bb8_bolt::Error> for Error {
-    fn from(e: bb8_bolt::Error) -> Self {
-        Error::Neo4jPoolNotBuilt { source: e }
-    }
-}
-
-#[cfg(feature = "neo4j")]
 impl From<bolt_client::error::Error> for Error {
     fn from(e: bolt_client::error::Error) -> Self {
         Error::BoltClientFailed { source: e }
@@ -565,6 +552,20 @@ impl From<GremlinError> for Error {
         Error::GremlinActionFailed {
             source: Box::new(e),
         }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<mobc::Error<mobc_boltrs::Error>> for Error {
+    fn from(e: mobc::Error<mobc_boltrs::Error>) -> Self {
+        Error::Neo4jPoolFailed { source: e }
+    }
+}
+
+#[cfg(feature = "neo4j")]
+impl From<mobc_boltrs::Error> for Error {
+    fn from(e: mobc_boltrs::Error) -> Self {
+        Error::Neo4jPoolNotBuilt { source: e }
     }
 }
 
@@ -616,13 +617,6 @@ impl From<std::num::TryFromIntError> for Error {
 impl From<std::sync::mpsc::RecvError> for Error {
     fn from(e: std::sync::mpsc::RecvError) -> Self {
         Error::ThreadCommunicationFailed { source: e }
-    }
-}
-
-#[cfg(feature = "neo4j")]
-impl From<bb8::RunError<bb8_bolt::Error>> for Error {
-    fn from(e: bb8::RunError<bb8_bolt::Error>) -> Self {
-        Error::Neo4jPoolError { source: e }
     }
 }
 
