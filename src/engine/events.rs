@@ -5,7 +5,7 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
-use crate::engine::objects::resolvers::visitors::visit_node_query_input;
+use crate::engine::objects::resolvers::visitors::{visit_node_query_input, visit_node_create_mutation_input};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -980,5 +980,58 @@ where
             .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
             .await;
         results
+    }
+
+    /// Provides an abstracted database create operation using warpgrapher inputs. This is the
+    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node to create.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let new_node = ef.create_node("Team", Some(value.clone()), None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn create_node(
+        &mut self,
+        type_name: &str,
+        input: Value,
+        partition_key_opt: Option<&Value>
+    ) -> Result<Node<RequestCtx>, Error> {
+
+        let mut sg = SuffixGenerator::new();
+        let node_var = NodeQueryVar::new(
+            Some(type_name.to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+
+        let result = visit_node_create_mutation_input(
+            &node_var,
+            input,
+            &Info::new(type_name.to_string(), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context()
+        )
+        .await;
+       
+        result
     }
 }
