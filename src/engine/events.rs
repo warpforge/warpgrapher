@@ -15,6 +15,7 @@ use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
 use crate::Error;
 use std::collections::HashMap;
+use std::convert::TryInto;
 
 /// TODO: add docs
 pub type BeforeEngineBuildFunc = 
@@ -22,7 +23,7 @@ pub type BeforeEngineBuildFunc =
 
 /// TODO: add docs
 pub type BeforeRequestFunc<R> = 
-    fn(R, dbtx: DatabaseTransaction, &mut Option<serde_json::Value>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
+    fn(R, EventFacade<R>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
 
 /// TODO: add docs
 pub type AfterRequestFunc<R> = 
@@ -1034,7 +1035,8 @@ where
         let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
             input,
-            &Info::new(type_name.to_string(), info.type_defs()),
+            &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
+            //&Info::new(type_name.to_string(), info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1076,7 +1078,8 @@ where
     pub async fn create_node(
         &mut self,
         type_name: &str,
-        input: Value,
+        //input: Value,
+        input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Node<RequestCtx>, Error> {
         let mut sg = SuffixGenerator::new();
@@ -1084,7 +1087,7 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_create_mutation_input(
             &node_var,
-            input,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
             &Info::new(type_name.to_string(), self.info.type_defs()),
             partition_key_opt,
             &mut sg,

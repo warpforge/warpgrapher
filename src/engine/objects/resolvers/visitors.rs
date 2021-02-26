@@ -526,7 +526,7 @@ pub(super) async fn visit_node_update_input<RequestCtx: RequestContext>(
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::UpdateNode(info.name().to_string()),
+                    CrudOperation::UpdateNode(node_var.label()?.to_string()),
                     context,
                     transaction,
                     info,
@@ -641,7 +641,7 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
                     nodes = f(
                         nodes,
                         EventFacade::new(
-                            CrudOperation::UpdateNode(info.name().to_string()),
+                            CrudOperation::UpdateNode(node_var.label()?.to_string()),
                             context,
                             transaction,
                             info,

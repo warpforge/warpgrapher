@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
-use std::slice::Iter;
+use std::slice::{Iter};
 
 const LATEST_CONFIG_VERSION: i32 = 2;
 
@@ -50,7 +50,7 @@ pub struct Configuration {
     ///
     /// [`Type`]: struct.Type.html
     #[serde(default)]
-    model: Vec<Type>,
+    pub model: Vec<Type>,
 
     /// A vector of [`Endpoint`] structures, each defining a custom root endpoint in the graphql
     /// schema
@@ -1264,6 +1264,10 @@ impl Type {
     /// ```
     pub fn props(&self) -> Iter<Property> {
         self.props.iter()
+    }
+
+    pub fn mut_props(&mut self) -> &mut Vec<Property> {
+        &mut self.props
     }
 
     /// Returns a slice of the [`Property`] structs defining properties on this node type.

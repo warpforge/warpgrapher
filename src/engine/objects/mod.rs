@@ -17,7 +17,7 @@ pub use juniper::{GraphQLType, GraphQLTypeAsync, GraphQLValue, GraphQLValueAsync
 use log::{error, trace};
 use resolvers::Resolver;
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryInto, TryFrom};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -191,6 +191,14 @@ where
             fields,
             _rctx: PhantomData,
         }
+    }
+
+    /// Attempts to deserialize a `Node` into a struct.
+    pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        let m = Value::Map(self.fields().clone());
+        let v = serde_json::Value::try_from(m).unwrap();
+        let t : T = serde_json::from_value(v).unwrap();
+        Ok(t)
     }
 
     /// Returns the fields of a [`Node`].

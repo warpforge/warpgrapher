@@ -1,26 +1,24 @@
 //! This module provides the Warpgrapher engine, with supporting modules for configuration,
 //! GraphQL schema generation, resolvers, and interface to the database.
-
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::DatabaseEndpoint;
-use events::EventHandlerBag;
-use extensions::Extensions;
+use database::{DatabaseEndpoint, DatabasePool, CrudOperation, Transaction};
+use events::{EventHandlerBag, EventFacade};
 use juniper::http::GraphQLRequest;
 use log::debug;
 use resolvers::Resolvers;
-use schema::{create_root_node, RootRef};
+use schema::{create_root_node, Info, RootRef, NodeType};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::option::Option;
+use std::sync::Arc;
 use validators::Validators;
 
 pub mod config;
 pub mod context;
 pub mod database;
 pub mod events;
-pub mod extensions;
 pub mod objects;
 pub mod resolvers;
 pub mod schema;
@@ -51,7 +49,6 @@ where
     config: Configuration,
     db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     event_handlers: EventHandlerBag<RequestCtx>,
-    extensions: Extensions<RequestCtx>,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     version: Option<String>,
@@ -140,34 +137,6 @@ where
         self
     }
 
-    /// Adds extensions to engine
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
-    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
-    /// # use warpgrapher::engine::extensions::Extensions;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let extensions = Extensions::<()>::new();
-    ///
-    /// let config = Configuration::default();
-    ///
-    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
-    ///     .with_extensions(extensions)
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn with_extensions(
-        mut self,
-        extensions: Extensions<RequestCtx>,
-    ) -> EngineBuilder<RequestCtx> {
-        self.extensions = extensions;
-        self
-    }
-
     /// Sets the version of the app
     ///
     /// # Examples
@@ -248,11 +217,11 @@ where
     pub fn build(mut self) -> Result<Engine<RequestCtx>, Error> {
         self.validate()?;
 
-        let root_node = create_root_node(&self.config)?;
-
         for event_handler in self.event_handlers.before_engine_build() {
             event_handler(&mut self.config)?;
         }
+        
+        let root_node = create_root_node(&mut self.config)?;
 
         let engine = Engine::<RequestCtx> {
             config: self.config,
@@ -260,7 +229,6 @@ where
             resolvers: self.resolvers,
             validators: self.validators,
             event_handlers: self.event_handlers,
-            extensions: self.extensions,
             version: self.version,
             root_node,
         };
@@ -366,7 +334,6 @@ where
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     event_handlers: EventHandlerBag<RequestCtx>,
-    extensions: Extensions<RequestCtx>,
     version: Option<String>,
     root_node: RootRef<RequestCtx>,
 }
@@ -408,7 +375,6 @@ where
             resolvers: HashMap::new(),
             validators: HashMap::new(),
             event_handlers: EventHandlerBag::new(),
-            extensions: vec![],
             version: None,
         }
     }
@@ -453,7 +419,7 @@ where
     pub async fn execute(
         &self,
         query: String,
-        mut input: Option<serde_json::Value>,
+        input: Option<serde_json::Value>,
         metadata: HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
         debug!("Engine::execute called");
@@ -462,12 +428,32 @@ where
         let mut rctx = RequestCtx::new();
 
         // execute before_request handlers
-        let dbxt = self.db_pool.transaction().await?;
-        for handler in self.event_handlers.before_request() {
-            rctx = handler(rctx, dbtx, &mut input, metadata.clone()).await?;
+        let before_request_handlers = self.event_handlers.before_request();
+        if before_request_handlers.len() > 0 {
+            let mut dbtx = self.db_pool.transaction().await?;
+            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let info = Info::new("".to_string(), Arc::new(gql_schema));
+            let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
+                self.db_pool.clone(),
+                self.resolvers.clone(),
+                self.validators.clone(),
+                self.event_handlers.clone(),
+                Some(rctx.clone()),
+                self.version.clone(),
+                metadata.clone(),
+            );
+            for handler in before_request_handlers {
+                rctx = handler(
+                    rctx, 
+                    EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
+                    metadata.clone()
+                ).await?;
+            }
+            dbtx.commit().await?;
+            std::mem::drop(dbtx);
         }
 
-        // conver json input to juniper input
+        // convert serde_json input to juniper input
         let input_value : Option<juniper::InputValue> = match input {
             Some(input) => Some(serde_json::from_value::<juniper::InputValue>(input)?),
             None => None,
@@ -479,7 +465,6 @@ where
             self.resolvers.clone(),
             self.validators.clone(),
             self.event_handlers.clone(),
-            self.extensions.clone(),
             Some(rctx.clone()),
             self.version.clone(),
             metadata.clone(),
@@ -490,7 +475,7 @@ where
         // convert graphql response (json) to mutable serde_json::Value
         let mut ret_value = serde_json::to_value(&res)?;
         
-        // execute before_request handlers
+        // execute after_request handlers
         for handler in self.event_handlers.after_request() {
             rctx = handler(rctx, &mut ret_value).await?;
         }
