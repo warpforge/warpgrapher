@@ -5,7 +5,9 @@
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
-use crate::engine::objects::resolvers::visitors::{visit_node_query_input, visit_node_create_mutation_input};
+use crate::engine::objects::resolvers::visitors::{
+    visit_node_create_mutation_input, visit_node_query_input,
+};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -1002,7 +1004,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let new_node = ef.create_node("Team", Some(value.clone()), None).await?;
+    ///         let new_node = ef.create_node("Team", value.clone(), None).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1011,15 +1013,11 @@ where
         &mut self,
         type_name: &str,
         input: Value,
-        partition_key_opt: Option<&Value>
+        partition_key_opt: Option<&Value>,
     ) -> Result<Node<RequestCtx>, Error> {
-
         let mut sg = SuffixGenerator::new();
-        let node_var = NodeQueryVar::new(
-            Some(type_name.to_string()),
-            "node".to_string(),
-            sg.suffix(),
-        );
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
 
         let result = visit_node_create_mutation_input(
             &node_var,
@@ -1028,10 +1026,9 @@ where
             partition_key_opt,
             &mut sg,
             self.transaction,
-            self.context()
+            self.context(),
         )
         .await;
-       
         result
     }
 }
