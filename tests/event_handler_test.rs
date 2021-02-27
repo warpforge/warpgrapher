@@ -3,7 +3,7 @@ mod setup;
 #[cfg(feature = "neo4j")]
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::AppRequestCtx;
+use setup::Neo4jRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
@@ -12,6 +12,7 @@ use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
+#[cfg(feature = "neo4j")]
 use warpgrapher::juniper::BoxFuture;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
@@ -28,7 +29,7 @@ impl std::fmt::Display for TestError {
 }
 
 #[cfg(feature = "neo4j")]
-fn bmef(_v: Value, _ef: EventFacade<AppRequestCtx>) -> BoxFuture<Result<Value, Error>> {
+fn bmef(_v: Value, _ef: EventFacade<Neo4jRequestCtx>) -> BoxFuture<Result<Value, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -39,7 +40,7 @@ fn bmef(_v: Value, _ef: EventFacade<AppRequestCtx>) -> BoxFuture<Result<Value, E
 #[cfg(feature = "neo4j")]
 fn bqef(
     _v_opt: Option<Value>,
-    _ef: EventFacade<AppRequestCtx>,
+    _ef: EventFacade<Neo4jRequestCtx>,
 ) -> BoxFuture<Result<Option<Value>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
@@ -50,9 +51,9 @@ fn bqef(
 
 #[cfg(feature = "neo4j")]
 fn anef(
-    _v: Vec<Node<AppRequestCtx>>,
-    _ef: EventFacade<AppRequestCtx>,
-) -> BoxFuture<Result<Vec<Node<AppRequestCtx>>, Error>> {
+    _v: Vec<Node<Neo4jRequestCtx>>,
+    _ef: EventFacade<Neo4jRequestCtx>,
+) -> BoxFuture<Result<Vec<Node<Neo4jRequestCtx>>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -62,9 +63,9 @@ fn anef(
 
 #[cfg(feature = "neo4j")]
 fn aref(
-    _v: Vec<Rel<AppRequestCtx>>,
-    _ef: EventFacade<AppRequestCtx>,
-) -> BoxFuture<Result<Vec<Rel<AppRequestCtx>>, Error>> {
+    _v: Vec<Rel<Neo4jRequestCtx>>,
+    _ef: EventFacade<Neo4jRequestCtx>,
+) -> BoxFuture<Result<Vec<Rel<Neo4jRequestCtx>>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),

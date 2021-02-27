@@ -2,14 +2,14 @@ mod setup;
 
 use log::trace;
 use serde_json::json;
-use setup::AppRequestCtx;
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
 /// Passes if warpgrapher can create a node with a relationship to another new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_new_nodes(mut client: Client<AppRequestCtx>) {
+async fn create_mnmt_new_nodes<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -157,7 +157,7 @@ async fn create_mnmt_new_nodes(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can create a node with a relationship to an existing node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn create_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
+async fn create_mnmt_existing_nodes<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let b0 = client
         .create_node(
             "Bug",
@@ -259,7 +259,7 @@ async fn create_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_rel_props(mut client: Client<AppRequestCtx>) {
+async fn read_mnmt_by_rel_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -321,7 +321,7 @@ async fn read_mnmt_by_rel_props(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can query for a relationship by the properties of a destination node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnmt_by_dst_props(mut client: Client<AppRequestCtx>) {
+async fn read_mnmt_by_dst_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -395,7 +395,7 @@ async fn read_mnmt_by_dst_props(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can update a node to add a relationship to a new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_new_node(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_new_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -463,7 +463,7 @@ async fn update_mnmt_new_node(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can update a node to add a relationship to an existing node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_existing_nodes<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let b0 = client
         .create_node(
             "Bug",
@@ -543,7 +543,7 @@ async fn update_mnmt_existing_nodes(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can update a relationship
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mnmt_relationship(mut client: Client<AppRequestCtx>) {
+async fn update_mnmt_relationship<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -655,7 +655,9 @@ async fn update_mnmt_relationship(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher only updates the correct matching relationship
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_only_correct_mnmt_relationship(mut client: Client<AppRequestCtx>) {
+async fn update_only_correct_mnmt_relationship<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     client
         .create_node(
             "Project",
@@ -738,7 +740,7 @@ async fn update_only_correct_mnmt_relationship(mut client: Client<AppRequestCtx>
 /// Passes if warpgrapher can update a node to delete a relationship
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mnmt_relationship(mut client: Client<AppRequestCtx>) {
+async fn delete_mnmt_relationship<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -832,7 +834,9 @@ async fn delete_mnmt_relationship(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can delete a node based on matching a property on a rel.
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node_by_mnmt_rel_property(mut client: Client<AppRequestCtx>) {
+async fn delete_node_by_mnmt_rel_property<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
     let p0 = client
         .create_node(
             "Project",
@@ -886,7 +890,7 @@ async fn delete_node_by_mnmt_rel_property(mut client: Client<AppRequestCtx>) {
 /// Passes if warpgrapher can delete a node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_node(mut client: Client<AppRequestCtx>) {
+async fn delete_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     client
         .create_node(
             "Project",

@@ -3,11 +3,11 @@
 //! include the before or after the creation of a new node.
 
 use crate::engine::context::{GraphQLContext, RequestContext};
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{NodeQueryVar, SuffixGenerator};
 use crate::engine::database::{CrudOperation, Transaction};
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::objects::resolvers::visitors;
+use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
+use crate::engine::objects::resolvers::visitors::{
+    visit_node_create_mutation_input, visit_node_query_input,
+};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -17,16 +17,16 @@ use std::collections::HashMap;
 
 /// Type alias for a function called before a mutation event. The Value returned by this function
 /// will be used as the input to the next before event function, or to the base Warpgrapher
-/// resolver if there are no more before event functions. 
-/// 
-/// The structure of `Value` depends on the type of CRUD operation (which can be accessed via the `op()` 
+/// resolver if there are no more before event functions.
+///
+/// The structure of `Value` depends on the type of CRUD operation (which can be accessed via the `op()`
 /// method on `EventFacade`.) based on the list below:
-/// 
+///
 /// CreateNode - `Type>CreateMutationInput`
 /// UpdateNode - `<Type>UpdateInput`
 /// DeleteNode - `<Type>DeleteInput`
-/// 
-/// You can refer to the generated GraphQL schema documentation for the data structures. 
+///
+/// You can refer to the generated GraphQL schema documentation for the data structures.
 ///
 /// # Examples
 ///
@@ -49,11 +49,11 @@ pub type BeforeMutationEventFunc<RequestCtx> =
 /// Type alias for a function called before an event. The Value returned by this function will be
 /// used as the input to the next before event function, or to the base Warpgrapher CRUD resolver
 /// if there are no more before event functions.
-/// 
-/// The structure of `Value` is `<Type>QueryInput`. 
 ///
-/// You can refer to the generated GraphQL schema documentation for the data structures. 
-/// 
+/// The structure of `Value` is `<Type>QueryInput`.
+///
+/// You can refer to the generated GraphQL schema documentation for the data structures.
+///
 /// # Examples
 ///
 /// ```rust
@@ -753,7 +753,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_create(
         &self,
         type_name: &str,
@@ -761,7 +760,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_create(
         &self,
         rel_name: &str,
@@ -769,7 +767,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_create_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_create(
         &self,
         type_name: &str,
@@ -777,7 +774,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_create_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_create(
         &self,
         rel_name: &str,
@@ -785,7 +781,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_create_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_read(
         &self,
         type_name: &str,
@@ -793,7 +788,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_read_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_read(
         &self,
         rel_name: &str,
@@ -801,7 +795,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_read_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_read(
         &self,
         type_name: &str,
@@ -809,7 +802,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_read_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_read(
         &self,
         rel_name: &str,
@@ -817,7 +809,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_read_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_update(
         &self,
         type_name: &str,
@@ -825,7 +816,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_update(
         &self,
         rel_name: &str,
@@ -833,7 +823,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_update_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_update(
         &self,
         type_name: &str,
@@ -841,7 +830,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_update_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_update(
         &self,
         rel_name: &str,
@@ -849,7 +837,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_rel_update_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_node_delete(
         &self,
         type_name: &str,
@@ -857,7 +844,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn before_rel_delete(
         &self,
         rel_name: &str,
@@ -865,7 +851,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_delete_handlers.get(rel_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_node_delete(
         &self,
         type_name: &str,
@@ -873,7 +858,6 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_delete_handlers.get(type_name)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn after_rel_delete(
         &self,
         rel_name: &str,
@@ -901,8 +885,8 @@ impl<RequestCtx: RequestContext> Default for EventHandlerBag<RequestCtx> {
     }
 }
 
-/// Provides a simplified interface to utility operations inside an event handler. 
-/// 
+/// Provides a simplified interface to utility operations inside an event handler.
+///
 /// [`EventFacade`]: ./struct.EventFacade.html
 pub struct EventFacade<'a, RequestCtx>
 where
@@ -910,7 +894,7 @@ where
 {
     op: CrudOperation,
     context: &'a GraphQLContext<RequestCtx>,
-    transaction: &'a mut dyn Transaction<RequestCtx>,
+    transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     info: &'a Info,
 }
 
@@ -918,11 +902,10 @@ impl<'a, RequestCtx> EventFacade<'a, RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
         op: CrudOperation,
         context: &'a GraphQLContext<RequestCtx>,
-        transaction: &'a mut dyn Transaction<RequestCtx>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
         info: &'a Info,
     ) -> Self {
         Self {
@@ -933,30 +916,30 @@ where
         }
     }
 
-    /// Returns the context of the GraphQL request which in turn contains the 
-    /// application-defined request context. 
+    /// Returns the context of the GraphQL request which in turn contains the
+    /// application-defined request context.
     pub fn op(&self) -> &CrudOperation {
         &self.op
     }
 
-    /// Returns the context of the GraphQL request which in turn contains the 
-    /// application-defined request context. 
+    /// Returns the context of the GraphQL request which in turn contains the
+    /// application-defined request context.
     pub fn context(&self) -> &'a GraphQLContext<RequestCtx> {
         self.context
     }
 
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
-    /// are portable across different databases. 
-    /// 
+    /// are portable across different databases.
+    ///
     /// # Arguments
-    /// 
-    /// * `type_name` - String reference represing name of node type (ex: "User"). 
-    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`). 
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it. 
-    /// 
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust, no_run
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
@@ -971,25 +954,20 @@ where
     ///     })
     /// }
     /// ```
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub async fn read_nodes(
         &mut self,
         type_name: &str,
         input: Option<Value>,
-        partition_key_opt: Option<&Value>
+        partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
-
         let mut info = self.info.clone();
         info.name = "Query".to_string();
 
         let mut sg = SuffixGenerator::new();
-        let node_var = NodeQueryVar::new(
-            Some(type_name.to_string()),
-            "node".to_string(),
-            sg.suffix(),
-        );
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
 
-        let query_fragment = visitors::visit_node_query_input(
+        let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
             input,
             &Info::new(type_name.to_string(), info.type_defs()),
@@ -1004,5 +982,53 @@ where
             .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
             .await;
         results
+    }
+
+    /// Provides an abstracted database create operation using warpgrapher inputs. This is the
+    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node to create.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let new_node = ef.create_node("Team", value.clone(), None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn create_node(
+        &mut self,
+        type_name: &str,
+        input: Value,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Node<RequestCtx>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+
+        let result = visit_node_create_mutation_input(
+            &node_var,
+            input,
+            &Info::new(type_name.to_string(), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+        result
     }
 }

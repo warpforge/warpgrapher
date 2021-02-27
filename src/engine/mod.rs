@@ -4,7 +4,7 @@
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::DatabasePool;
+use database::DatabaseEndpoint;
 use events::EventHandlerBag;
 use extensions::Extensions;
 use juniper::http::GraphQLRequest;
@@ -32,23 +32,24 @@ pub mod value;
 /// # Examples
 ///
 /// ```rust
-/// # use warpgrapher::{Configuration, DatabasePool, Engine};
+/// # use warpgrapher::{Configuration, Engine};
+/// # use warpgrapher::engine::database::no_database::NoDatabasePool;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// let config = Configuration::default();
-/// let engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
 ///
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct EngineBuilder<RequestCtx = ()>
 where
     RequestCtx: RequestContext,
 {
     config: Configuration,
-    db_pool: DatabasePool,
+    db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     event_handlers: EventHandlerBag<RequestCtx>,
     extensions: Extensions<RequestCtx>,
     resolvers: Resolvers<RequestCtx>,
@@ -65,7 +66,8 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::{Configuration, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::resolvers::Resolvers;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -73,7 +75,7 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
     ///     .with_resolvers(resolvers)
     ///     .build()?;
     /// # Ok(())
@@ -89,7 +91,8 @@ where
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::{Configuration, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::validators::Validators;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -97,7 +100,7 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
     ///     .with_validators(validators)
     ///     .build()?;
     /// # Ok(())
@@ -114,6 +117,7 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::events::EventHandlerBag;
     /// # use warpgrapher::engine::extensions::Extensions;
     ///
@@ -122,7 +126,7 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
     ///     .with_event_handlers(event_handlers)
     ///     .build()?;
     /// # Ok(())
@@ -142,6 +146,7 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -149,7 +154,7 @@ where
     ///
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
     ///     .with_extensions(extensions)
     ///     .build()?;
     /// # Ok(())
@@ -169,11 +174,12 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase)
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
     ///     .with_version("1.0.0".to_string())
     ///     .build()?;
     /// # Ok(())
@@ -230,11 +236,12 @@ where
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::new(1, Vec::new(), Vec::new());
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
     /// # Ok(())
     /// # }
     /// ```
@@ -318,7 +325,6 @@ impl Debug for EngineBuilder {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("EngineBuilder")
             .field("config", &self.config)
-            .field("db_pool", &self.db_pool)
             .field("version", &self.version)
             .finish()
     }
@@ -337,11 +343,12 @@ impl Debug for EngineBuilder {
 ///
 /// ```rust
 /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+/// # use warpgrapher::engine::database::no_database::NoDatabasePool;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = Configuration::default();
 ///
-/// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
+/// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -351,7 +358,7 @@ where
     RequestCtx: RequestContext,
 {
     config: Configuration,
-    db_pool: DatabasePool,
+    db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     event_handlers: EventHandlerBag<RequestCtx>,
@@ -370,23 +377,27 @@ where
     /// back-end graph storage engine.
     ///
     /// [`Configuration`]: ./config/struct.Configuration.html
-    /// [`DatabasePool`]: ./database/enum.DatabasePool.html
+    /// [`DatabasePool`]: ./database/trait.DatabasePool.html
     /// [`EngineBuilder`]: ./struct.EngineBuilder.html
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
     ///
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
     /// # Ok(())
     /// # }
     /// ```
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(config: Configuration, database_pool: DatabasePool) -> EngineBuilder<RequestCtx> {
+    pub fn new(
+        config: Configuration,
+        database_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
+    ) -> EngineBuilder<RequestCtx> {
         EngineBuilder::<RequestCtx> {
             config,
             db_pool: database_pool,
@@ -410,13 +421,15 @@ where
     /// Returns an [`Error`] variant [`SerializationFailed`] if the engine response cannot be
     /// serialized successfully.
     ///
-    /// [`ExtensionFailed`]: ../error/enum.Error.html#variant.ExtensionFailed
     /// [`Error`]: ../error/enum.Error.html
+    /// [`ExtensionFailed`]: ../error/enum.Error.html#variant.ExtensionFailed
+    /// [`SerializationFailed`]: ../error/enum.Error.html#variant.SerializationFailed
     ///
     /// # Examples
     ///
     /// ```rust,no_run
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
+    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::juniper::http::GraphQLRequest;
     /// # use serde_json::{from_value, json};
     /// # use std::collections::HashMap;
@@ -424,7 +437,7 @@ where
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let config = Configuration::default();
-    /// let mut engine = Engine::<()>::new(config, DatabasePool::NoDatabase).build()?;
+    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
     ///
     /// let metadata: HashMap<String, String> = HashMap::new();
     /// let req_body = json!({"query": "query { name }"});
@@ -495,7 +508,6 @@ where
     fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
         f.debug_struct("Engine")
             .field("config", &self.config)
-            .field("db_pool", &self.db_pool)
             .field("version", &self.version)
             .finish()
     }
@@ -507,7 +519,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::EngineBuilder;
-    use crate::engine::database::DatabasePool;
+    use crate::engine::database::no_database::NoDatabasePool;
     use crate::engine::resolvers::{ResolverFacade, Resolvers};
     use crate::engine::validators::Validators;
     use crate::engine::value::Value;
@@ -524,7 +536,7 @@ mod tests {
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase,
+            NoDatabasePool {},
         )
         .build()
         .unwrap();
@@ -543,7 +555,7 @@ mod tests {
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .build()
         .is_ok());
@@ -561,7 +573,7 @@ mod tests {
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_validators(validators)
         .build()
@@ -577,7 +589,7 @@ mod tests {
                 .expect("Couldn't read config")
                 .try_into()
                 .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_validators(validators)
         .build()
@@ -595,7 +607,7 @@ mod tests {
                 .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_validators(validators)
         .build()
@@ -613,7 +625,7 @@ mod tests {
                     .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .build()
         .is_ok());
@@ -627,7 +639,7 @@ mod tests {
                     .expect("Couldn't read config")
             )
             .expect("Couldn't convert config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .build()
         .is_err());
@@ -643,7 +655,7 @@ mod tests {
                     .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_resolvers(resolvers)
         .build()
@@ -665,7 +677,7 @@ mod tests {
                 .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_resolvers(resolvers)
         .build()
@@ -681,7 +693,7 @@ mod tests {
                 File::open("tests/fixtures/minimal.yml").expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .with_resolvers(resolvers)
         .build()
@@ -698,7 +710,7 @@ mod tests {
                 .expect("Couldn't read config")
             )
             .expect("Couldn't convert to config"),
-            DatabasePool::NoDatabase
+            NoDatabasePool {}
         )
         .build()
         .is_err());
@@ -708,6 +720,7 @@ mod tests {
         Box::pin(async move { executor.resolve_scalar(1) })
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn my_validator(_value: &Value) -> Result<(), Error> {
         Ok(())
     }

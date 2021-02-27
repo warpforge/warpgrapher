@@ -1,11 +1,11 @@
 mod setup;
 
 use serde_json::json;
-use setup::AppRequestCtx;
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
-async fn create_test_fixtures(client: &mut Client<AppRequestCtx>) {
+async fn create_test_fixtures<RequestCtx: RequestContext>(client: &mut Client<RequestCtx>) {
     client
         .create_node("Project", "id", None, &json!({"name": "STARDUST"}))
         .await
@@ -58,7 +58,7 @@ async fn create_test_fixtures(client: &mut Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     // EQ
@@ -284,7 +284,7 @@ async fn test_read_node_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_create_node_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     // create node with nested rels to 2 rels
@@ -331,7 +331,7 @@ async fn test_create_node_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_update_node_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     // update node to create nested rels to 2 rels using comparisons
@@ -384,7 +384,7 @@ async fn test_update_node_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_delete_node_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_delete_node_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     // delete nodes
@@ -397,7 +397,7 @@ async fn test_delete_node_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     let _results = client
@@ -446,13 +446,12 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
             name",
             None,
             Some(&json!({
-                "issues": 
+                "issues":
                     {
                         "props": {
                             "since": { "IN": ["5 BBY", "10 BBY", "15 BBY"]}
                         }
                     }
-                
             })),
         )
         .await
@@ -493,7 +492,7 @@ async fn test_read_rel_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     let _results = client
@@ -598,7 +597,7 @@ async fn test_update_rel_comparison(mut client: Client<AppRequestCtx>) {
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn test_delete_rel_comparison(mut client: Client<AppRequestCtx>) {
+async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     create_test_fixtures(&mut client).await;
 
     // create rels

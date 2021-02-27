@@ -3,12 +3,20 @@
 
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
+#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::database::{DatabaseClient, DatabasePool};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
 use crate::Error;
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+use gremlin_client::GremlinClient;
 use inflector::Inflector;
+#[cfg(feature = "neo4j")]
+use mobc::Connection;
+#[cfg(feature = "neo4j")]
+use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
@@ -83,13 +91,13 @@ where
     ///
     /// # Errors
     ///
-    /// Returns an [`Error]` variant [`InputNotFound`] if no input field was passed
+    /// Returns an [`Error]` variant [`InputItemNotFound`] if no input field was passed
     /// to the query, [`TypeConversionFailed`] if unable to convert a [`Value`]
-    /// to a serde_json Value, and [`JsonDeserializationFaild`] if unable to parse the
+    /// to a serde_json Value, and [`JsonDeserializationFailed`] if unable to parse the
     /// input data into a struct of type T.
     ///
     /// [`Error`]: ../../error/enum.Error.html
-    /// [`InputNotFound`]: ../../error/enum.Error.html#variant.InputNotFound
+    /// [`InputItemNotFound`]: ../../error/enum.Error.html#variant.InputItemNotFound
     /// [`TypeConversionFailed`]: ../../error/enum.Error.html#variant.TypeConversionFailed
     /// [`JsonDeserializationFailed`]: ../../error/enum.Error.html#variant.JsonDeserializationFailed
     /// [`Value`]: ../value/enum.Value.html
@@ -143,29 +151,32 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
-    /// # use tokio::runtime::Runtime;
+    /// # use warpgrapher::engine::context::RequestContext;
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
-    ///     let mut rt = Runtime::new().unwrap();
-    ///     rt.block_on(async {
+    /// # #[derive(Clone, Debug)]
+    /// # struct AppCtx {}
     ///
-    ///         let neo4j_client = facade.db_into_neo4j().await.unwrap();
-
-    ///         // use client
+    /// # impl RequestContext for AppCtx {
+    /// #    type DBEndpointType = Neo4jEndpoint;
+    /// #    fn new() -> Self {AppCtx {}}
+    /// # }
     ///
-    ///     });
+    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
+    ///     let neo4j_client = facade.db_into_neo4j().await?;
+    ///     // use client
+    ///
     ///     facade.resolve_null()
     /// }
     /// ```
     #[cfg(feature = "neo4j")]
-    pub async fn db_into_neo4j(
-        &self,
-    ) -> Result<bb8::PooledConnection<'_, bb8_bolt::BoltConnectionManager>, Error> {
-        let pool: &bb8::Pool<bb8_bolt::BoltConnectionManager> =
-            self.executor().context().pool().neo4j()?;
-        let client = pool.get().await?;
-        Ok(client)
+    pub async fn db_into_neo4j(&self) -> Result<Box<Connection<BoltConnectionManager>>, Error> {
+        if let DatabaseClient::Neo4j(client) = self.executor().context().pool().client().await? {
+            Ok(client)
+        } else {
+            Err(Error::DatabaseNotFound)
+        }
     }
 
     /// Returns a cosmos database client from the pool
@@ -181,11 +192,21 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use warpgrapher::engine::context::RequestContext;
+    /// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
+    /// # #[derive(Clone, Debug)]
+    /// # struct AppCtx {}
     ///
-    ///     let cosmos_client = facade.db_into_cosmos()?;
+    /// # impl RequestContext for AppCtx {
+    /// #    type DBEndpointType = CosmosEndpoint;
+    /// #    fn new() -> Self {AppCtx {}}
+    /// # }
+    ///
+    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
+    ///
+    ///     let cosmos_client = facade.db_into_cosmos().await?;
     ///     
     ///     // use client
     ///
@@ -193,9 +214,12 @@ where
     /// }
     /// ```
     #[cfg(feature = "cosmos")]
-    pub fn db_into_cosmos(&self) -> Result<&gremlin_client::GremlinClient, Error> {
-        let pool: &gremlin_client::GremlinClient = self.executor().context().pool().cosmos()?;
-        Ok(pool)
+    pub async fn db_into_cosmos(&self) -> Result<Box<GremlinClient>, Error> {
+        if let DatabaseClient::Gremlin(client) = self.executor().context().pool().client().await? {
+            Ok(client)
+        } else {
+            Err(Error::DatabaseNotFound)
+        }
     }
 
     /// Returns a gremlin database client from the pool
@@ -211,11 +235,21 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use warpgrapher::engine::context::RequestContext;
+    /// # use warpgrapher::engine::database::gremlin::GremlinEndpoint;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     ///
-    /// fn custom_resolve(facade: ResolverFacade<()>) -> ExecutionResult {
+    /// # #[derive(Clone, Debug)]
+    /// # struct AppCtx {}
     ///
-    ///     let gremlin_client = facade.db_into_gremlin()?;
+    /// # impl RequestContext for AppCtx {
+    /// #    type DBEndpointType = GremlinEndpoint;
+    /// #    fn new() -> Self {AppCtx {}}
+    /// # }
+    ///
+    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
+    ///
+    ///     let gremlin_client = facade.db_into_gremlin().await?;
     ///     
     ///     // use client
     ///
@@ -223,9 +257,12 @@ where
     /// }
     /// ```
     #[cfg(feature = "gremlin")]
-    pub fn db_into_gremlin(&self) -> Result<&gremlin_client::GremlinClient, Error> {
-        let pool: &gremlin_client::GremlinClient = self.executor().context().pool().gremlin()?;
-        Ok(pool)
+    pub async fn db_into_gremlin(&self) -> Result<Box<GremlinClient>, Error> {
+        if let DatabaseClient::Gremlin(client) = self.executor().context().pool().client().await? {
+            Ok(client)
+        } else {
+            Err(Error::DatabaseNotFound)
+        }
     }
 
     /// Returns the arguments provided to the resolver in the GraphQL query

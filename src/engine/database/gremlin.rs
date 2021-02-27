@@ -4,8 +4,8 @@ use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
-    QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
+    Operation, QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
@@ -101,8 +101,10 @@ impl CosmosEndpoint {
 #[cfg(feature = "cosmos")]
 #[async_trait]
 impl DatabaseEndpoint for CosmosEndpoint {
-    async fn pool(&self) -> Result<DatabasePool, Error> {
-        Ok(DatabasePool::Cosmos(GremlinClient::connect(
+    type PoolType = CosmosPool;
+
+    async fn pool(&self) -> Result<Self::PoolType, Error> {
+        Ok(CosmosPool::new(GremlinClient::connect(
             ConnectionOptions::builder()
                 .host(&self.host)
                 .port(self.port)
@@ -113,6 +115,32 @@ impl DatabaseEndpoint for CosmosEndpoint {
                 .credentials(&self.user, &self.pass)
                 .build(),
         )?))
+    }
+}
+
+#[cfg(feature = "cosmos")]
+#[derive(Clone, Debug)]
+pub struct CosmosPool {
+    pool: GremlinClient,
+}
+
+#[cfg(feature = "cosmos")]
+impl CosmosPool {
+    fn new(pool: GremlinClient) -> Self {
+        CosmosPool { pool }
+    }
+}
+
+#[cfg(feature = "cosmos")]
+#[async_trait]
+impl DatabasePool for CosmosPool {
+    type TransactionType = GremlinTransaction;
+    async fn transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(GremlinTransaction::new(self.pool.clone(), true, false))
+    }
+
+    async fn client(&self) -> Result<DatabaseClient, Error> {
+        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
     }
 }
 
@@ -199,7 +227,8 @@ impl GremlinEndpoint {
 #[cfg(feature = "gremlin")]
 #[async_trait]
 impl DatabaseEndpoint for GremlinEndpoint {
-    async fn pool(&self) -> Result<DatabasePool, Error> {
+    type PoolType = GremlinPool;
+    async fn pool(&self) -> Result<Self::PoolType, Error> {
         let mut options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
@@ -215,22 +244,49 @@ impl DatabaseEndpoint for GremlinEndpoint {
             });
         }
         let options = options_builder.build();
-        Ok(DatabasePool::Gremlin((
+        Ok(GremlinPool::new(
             GremlinClient::connect(options)?,
             self.uuid,
-        )))
+        ))
+    }
+}
+
+#[cfg(feature = "gremlin")]
+#[derive(Clone, Debug)]
+pub struct GremlinPool {
+    pool: GremlinClient,
+    uuid: bool,
+}
+
+#[cfg(feature = "gremlin")]
+impl GremlinPool {
+    fn new(pool: GremlinClient, uuid: bool) -> Self {
+        GremlinPool { pool, uuid }
+    }
+}
+
+#[cfg(feature = "gremlin")]
+#[async_trait]
+impl DatabasePool for GremlinPool {
+    type TransactionType = GremlinTransaction;
+    async fn transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(GremlinTransaction::new(self.pool.clone(), false, self.uuid))
+    }
+
+    async fn client(&self) -> Result<DatabaseClient, Error> {
+        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
     }
 }
 
 #[derive(Debug)]
-pub(crate) struct GremlinTransaction {
+pub struct GremlinTransaction {
     client: GremlinClient,
     partition: bool,
     uuid: bool,
 }
 
 impl GremlinTransaction {
-    pub fn new(client: GremlinClient, partition: bool, uuid: bool) -> GremlinTransaction {
+    pub fn new(client: GremlinClient, partition: bool, uuid: bool) -> Self {
         GremlinTransaction {
             client,
             partition,
@@ -431,12 +487,12 @@ impl GremlinTransaction {
 }
 
 #[async_trait]
-impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction {
+impl Transaction for GremlinTransaction {
     async fn begin(&mut self) -> Result<(), Error> {
         Ok(())
     }
 
-    async fn create_node(
+    async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
@@ -482,7 +538,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    async fn create_rels(
+    async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
@@ -542,7 +598,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    fn node_read_by_ids_fragment(
+    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         nodes: &[Node<RequestCtx>],
@@ -615,9 +671,9 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                     Value::String(s) => {
                         let u = Value::Uuid(Uuid::parse_str(&s)?);
                         params.insert(k + &param_suffix, u);
-                    },
+                    }
                     Value::Array(a) => {
-                        let mut au : Vec<Value> = vec![];
+                        let mut au: Vec<Value> = vec![];
                         for v in a.iter() {
                             if let Value::String(s) = &v {
                                 let u = Value::Uuid(Uuid::parse_str(&s)?);
@@ -630,7 +686,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                             }
                         }
                         params.insert(k + &param_suffix, Value::Array(au));
-                    },
+                    }
                     _ => {
                         return Err(Error::TypeConversionFailed {
                             src: format!("{:#?}", c.operand),
@@ -682,7 +738,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         Ok(qf)
     }
 
-    async fn read_nodes(
+    async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         _node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
@@ -722,7 +778,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::nodes(results, info)
     }
 
-    fn rel_read_by_ids_fragment(
+    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
         &mut self,
         rel_var: &RelQueryVar,
         rels: &[Rel<RequestCtx>],
@@ -788,15 +844,14 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                 + ")"),
             );
 
-
             if self.uuid && k == "id" {
                 match &c.operand {
                     Value::String(s) => {
                         let u = Value::Uuid(Uuid::parse_str(&s)?);
                         params.insert(k + &param_suffix, u);
-                    },
+                    }
                     Value::Array(a) => {
-                        let mut au : Vec<Value> = vec![];
+                        let mut au: Vec<Value> = vec![];
                         for v in a.iter() {
                             if let Value::String(s) = &v {
                                 let u = Value::Uuid(Uuid::parse_str(&s)?);
@@ -809,7 +864,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
                             }
                         }
                         params.insert(k + &param_suffix, Value::Array(au));
-                    },
+                    }
                     _ => {
                         return Err(Error::TypeConversionFailed {
                             src: format!("{:#?}", c.operand),
@@ -856,7 +911,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    async fn read_rels(
+    async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
@@ -897,7 +952,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    async fn update_nodes(
+    async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
@@ -936,7 +991,7 @@ impl<RequestCtx: RequestContext> Transaction<RequestCtx> for GremlinTransaction 
         GremlinTransaction::nodes(results, info)
     }
 
-    async fn update_rels(
+    async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,

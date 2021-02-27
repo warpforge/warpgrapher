@@ -17,12 +17,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
         <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -124,9 +130,11 @@
                     <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                     </div>
                 </div>
@@ -155,42 +163,43 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#dynamic-props" id="dynamic-props">Dynamic Props</a></h1>
+                        <h1 id="dynamic-props"><a class="header" href="#dynamic-props">Dynamic Props</a></h1>
 <p>When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties &quot;dynamic properties&quot;, and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. </p>
-<h2><a class="header" href="#usage" id="usage">Usage</a></h2>
-<h4><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field" id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">
-static CONFIG: &amp;str = &quot;
-version: 1
-model:
-  - name: User
-    props:
-      - name: email
-        type: String
-endpoints:
-  - name: EchoRequest
+<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
+<h4 id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field"><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
+<pre><code class="language-rust no_run noplayground">version: 1
+model: 
+ - name: Project
+   props: 
+    - name: name
+      type: String 
+    - name: points
+      type: Int
+      resolver: resolve_project_points
 </code></pre>
-<h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">    input: null
-    output: 
-      type: String
-&quot;;
+<h4 id="2-define-custom-logic-that-resolve-the-prop-value"><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
+<pre><code class="language-rust no_run noplayground">fn resolve_project_points(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
+    Box::pin(async move {
+        // compute value
+        let points = 5;
 
-#[derive(Clone, Debug)]
-struct AppRequestContext {
-    request_id: String,
-}
-</code></pre>
-<h4><a class="header" href="#3-add-prop-resolver-when-building-engine" id="3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
-<pre><code class="language-rust no_run noplayground">        facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
+        facade.resolve_scalar(points)
     })
 }
+</code></pre>
+<h4 id="3-add-prop-resolver-when-building-engine"><a class="header" href="#3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
+<pre><code class="language-rust no_run noplayground">    // define resolvers
+    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+    resolvers.insert(
+        &quot;resolve_project_points&quot;.to_string(),
+        Box::new(resolve_project_points),
+    );
 
-#[tokio::main]
-async fn main() {
-    // parse warpgrapher config
-    let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
-
+    // create warpgrapher engine
+    let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
+        .with_resolvers(resolvers)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
 </code></pre>
 
                     </main>

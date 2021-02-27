@@ -167,7 +167,6 @@ impl Property {
         self.arguments.values()
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn input_type_definition<'i>(&self, info: &'i Info) -> Result<&'i NodeType, Error> {
         self.arguments
             .get("input")
@@ -207,7 +206,6 @@ impl Property {
         &self.type_name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn validator(&self) -> Option<&String> {
         self.validator.as_ref()
     }
@@ -465,8 +463,7 @@ fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
                 r.name().to_string(),
                 PropertyKind::Input,
                 fmt_rel_query_input_name(t, &r),
-            )
-            //.with_list(r.list()),
+            ), //.with_list(r.list()),
         );
     });
     Ok(NodeType::new(

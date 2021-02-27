@@ -7,7 +7,7 @@ Warpgrapher includes built-in static endpoints that provide useful information o
 If the `Engine` is built with an explicit version:
 
 ```rust
-let mut server: Engine<(), ()> = Engine::new(config, db)
+let mut server: Engine<()> = Engine::new(config, db)
     .with_version("0.1.0".to_string())
     .build();
 ```

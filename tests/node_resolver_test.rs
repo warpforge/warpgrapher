@@ -4,18 +4,18 @@ use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "neo4j")]
 use setup::neo4j_test_client;
-use setup::AppRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{bolt_client, clear_db, init};
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 use warpgrapher::client::Client;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
 
 /// Passes if the create mutation and the read query both succeed.
 #[wg_test]
 #[allow(dead_code)]
-async fn create_single_node(mut client: Client<AppRequestCtx>) {
+async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -63,7 +63,7 @@ async fn create_single_node(mut client: Client<AppRequestCtx>) {
 /// Passes if the create mutation and the read query both succeed.
 #[wg_test]
 #[allow(dead_code)]
-async fn read_query(mut client: Client<AppRequestCtx>) {
+async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -111,7 +111,7 @@ async fn read_query(mut client: Client<AppRequestCtx>) {
 /// present on the Neo4J model object.
 #[wg_test]
 #[allow(dead_code)]
-async fn handle_missing_properties(mut client: Client<AppRequestCtx>) {
+async fn handle_missing_properties<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -149,7 +149,7 @@ async fn handle_missing_properties(mut client: Client<AppRequestCtx>) {
 /// Passes if the update mutation succeeds with a target node selected by attribute
 #[wg_test]
 #[allow(dead_code)]
-async fn update_mutation(mut client: Client<AppRequestCtx>) {
+async fn update_mutation<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -226,7 +226,7 @@ async fn update_mutation(mut client: Client<AppRequestCtx>) {
 /// Passes if the update mutation succeeds with a null match, meaning update all nodes
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn update_mutation_null_query(mut client: Client<AppRequestCtx>) {
+async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -296,7 +296,7 @@ async fn update_mutation_null_query(mut client: Client<AppRequestCtx>) {
 /// Passes if the delete mutation succeeds with a target node selected by attribute
 #[wg_test]
 #[allow(dead_code)]
-async fn delete_mutation(mut client: Client<AppRequestCtx>) {
+async fn delete_mutation<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -361,7 +361,7 @@ async fn delete_mutation(mut client: Client<AppRequestCtx>) {
 /// Passes if the update mutation succeeds with a null match, meaning delete all nodes
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
-async fn delete_mutation_null_query(mut client: Client<AppRequestCtx>) {
+async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let p0 = client
         .create_node(
             "Project",
@@ -427,7 +427,7 @@ async fn error_on_node_missing_id_neo4j() {
     init();
     clear_db().await;
 
-    let mut graph = bolt_client().await;
+    let mut graph = bolt_client().await.expect("Could not get database client.");
     graph
         .run_with_metadata("CREATE (n:Project { name: 'Project One' })", None, None)
         .await
@@ -447,7 +447,7 @@ async fn error_on_node_missing_id_neo4j() {
 /// to that node.  There is no GraphSON variant of this test, because GraphSON
 /// data stores automatically assign a UUID id.
 #[allow(dead_code)]
-async fn error_on_node_missing_id(mut client: Client<AppRequestCtx>) {
+async fn error_on_node_missing_id<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let projects = client
         .read_node(
             "Project",

@@ -17,12 +17,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
         <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -124,9 +130,11 @@
                     <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                     </div>
                 </div>
@@ -155,9 +163,9 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#quickstart" id="quickstart">Quickstart</a></h1>
+                        <h1 id="quickstart"><a class="header" href="#quickstart">Quickstart</a></h1>
 <p>This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. The back-end graph database in this example is Neo4J. </p>
-<h2><a class="header" href="#source" id="source">Source</a></h2>
+<h2 id="source"><a class="header" href="#source">Source</a></h2>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
 warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;neo4j&quot;] }
@@ -166,6 +174,7 @@ warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;neo4j&quot;] }
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::juniper::http::GraphQLRequest;
@@ -180,6 +189,16 @@ model:
         type: String
 &quot;;
 
+#[derive(Clone, Debug)]
+struct AppRequestContext {}
+
+impl RequestContext for AppRequestContext {
+    type DBEndpointType = Neo4jEndpoint;
+    fn new() -&gt; AppRequestContext {
+        AppRequestContext {}
+    }
+}
+
 #[tokio::main]
 async fn main() {
     // parse warpgrapher config
@@ -193,7 +212,7 @@ async fn main() {
         .expect(&quot;Failed to create neo4j database pool&quot;);
 
     // create warpgrapher engine
-    let engine: Engine&lt;()&gt; = Engine::new(config, db)
+    let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
         .build()
         .expect(&quot;Failed to build engine&quot;);
 
@@ -219,7 +238,7 @@ async fn main() {
     println!(&quot;result: {:#?}&quot;, result);
 }
 </code></pre>
-<h2><a class="header" href="#database" id="database">Database</a></h2>
+<h2 id="database"><a class="header" href="#database">Database</a></h2>
 <p>Configure database settings:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
 export WG_NEO4J_PORT=7687
@@ -229,7 +248,7 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 <p>Start a 4.1 Neo4j database:</p>
 <pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_NEO4J_USER}/${WG_NEO4J_PASS}&quot; neo4j:4.1
 </code></pre>
-<h2><a class="header" href="#run" id="run">Run</a></h2>
+<h2 id="run"><a class="header" href="#run">Run</a></h2>
 <pre><code class="language-bash">cargo run
 </code></pre>
 

@@ -1,17 +1,9 @@
-use super::{Input, Node, Rel};
+use super::{Input, Node};
 use crate::engine::context::{GraphQLContext, RequestContext};
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use crate::engine::database::gremlin::GremlinTransaction;
-#[cfg(feature = "neo4j")]
-use crate::engine::database::neo4j::Neo4jTransaction;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::Comparison;
-use crate::engine::database::DatabasePool;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+use crate::engine::database::{Comparison, DatabasePool};
 use crate::engine::database::{
     CrudOperation, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
 };
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use crate::engine::events::EventFacade;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
@@ -19,19 +11,16 @@ use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input,
 };
 
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 pub(crate) mod visitors;
 
 pub(super) struct Resolver<'r> {
@@ -154,88 +143,24 @@ impl<'r> Resolver<'r> {
             input
         );
 
-        let p = info.type_def()?.property(field_name)?;
-
-        let result: Node<RequestCtx> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_node_create_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_node_create_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_node_create_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        trace!(
-            "Resolver::resolve_node_create_mutation -- result: {:#?}",
-            result
-        );
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &result,
-            )
-            .await
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) async fn resolve_node_create_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Node<RequestCtx>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
             "node".to_string(),
             sg.suffix(),
         );
-        let results = visit_node_create_mutation_input::<T, RequestCtx>(
+        let results = visit_node_create_mutation_input::<RequestCtx>(
             &node_var,
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
@@ -245,8 +170,18 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
-        results
+        trace!(
+            "Resolver::resolve_node_create_mutation -- result: {:#?}",
+            results
+        );
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results?,
+            )
+            .await
     }
 
     #[allow(unused_variables)]
@@ -268,85 +203,23 @@ impl<'r> Resolver<'r> {
             input
         );
 
-        let results: i32 = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_node_delete_mutation_with_transaction(
-                    field_name,
-                    label,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_node_delete_mutation_with_transaction(
-                    field_name,
-                    label,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_node_delete_mutation_with_transaction(
-                    field_name,
-                    label,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        trace!(
-            "Resolver::resolve_node_delete_mutation -- results: {:#?}",
-            results
-        );
-
-        executor.resolve_with_ctx(&(), &results)
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) async fn resolve_node_delete_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        label: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<i32, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
         let itd = info
             .type_def()?
             .property(field_name)?
             .input_type_definition(info)?;
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
 
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
-        let results = visit_node_delete_input::<T, RequestCtx>(
+        let results = visit_node_delete_input::<RequestCtx>(
             &node_var,
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
@@ -356,8 +229,14 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
-        results
+        trace!(
+            "Resolver::resolve_node_delete_mutation -- results: {:#?}",
+            results
+        );
+
+        executor.resolve_with_ctx(&(), &results?)
     }
 
     pub(super) async fn resolve_node_read_query<RequestCtx: RequestContext>(
@@ -373,45 +252,104 @@ impl<'r> Resolver<'r> {
             field_name,
             input_opt
         );
-        let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_node_read_query_with_transaction(
-                    field_name,
-                    info,
-                    input_opt,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
+        let mut sg = SuffixGenerator::new();
+
+        let p = info.type_def()?.property(field_name)?;
+        let itd = if info.name() == "Query" {
+            p.input_type_definition(info)?
+        } else {
+            info.type_def_by_name("Query")?
+                .property(p.type_name())?
+                .input_type_definition(&info)?
+        };
+        let node_var = NodeQueryVar::new(
+            Some(p.type_name().to_string()),
+            "node".to_string(),
+            sg.suffix(),
+        );
+
+        let mut transaction = executor.context().pool().transaction().await?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin().await?;
+        }
+
+        let input_value_opt = if let Some(handlers) = executor
+            .context()
+            .event_handlers()
+            .before_node_read(node_var.label()?)
+        {
+            let mut input_opt_value = input_opt.map(|i| i.value);
+            for f in handlers.iter() {
+                input_opt_value = f(
+                    input_opt_value,
+                    EventFacade::new(
+                        CrudOperation::ReadNode(field_name.to_string()),
+                        executor.context(),
+                        &mut transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+            input_opt_value
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
+        let query_fragment = visit_node_query_input::<RequestCtx>(
+            &node_var,
+            input_value_opt,
+            &Info::new(itd.type_name().to_owned(), info.type_defs()),
+            self.partition_key_opt,
+            &mut sg,
+            &mut transaction,
+        )
+        .await?;
+
+        let mut results = match transaction
+            .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+            .await
+        {
+            Err(e) => {
+                transaction.rollback().await?;
+                return Err(e.into());
+            }
+            Ok(results) => results,
+        };
+        let label = match node_var.label() {
+            Err(e) => {
+                transaction.rollback().await?;
+                return Err(e.into());
+            }
+            Ok(results) => results,
+        };
+        if let Some(handlers) = executor.context().event_handlers().after_node_read(label) {
+            for f in handlers.iter() {
+                results = match f(
+                    results,
+                    EventFacade::new(
+                        CrudOperation::ReadNode(field_name.to_string()),
+                        executor.context(),
+                        &mut transaction,
+                        info,
+                    ),
                 )
                 .await
+                {
+                    Err(e) => {
+                        transaction.rollback().await?;
+                        return Err(e.into());
+                    }
+                    Ok(results) => results,
+                }
             }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_node_read_query_with_transaction(
-                    field_name,
-                    info,
-                    input_opt,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_node_read_query_with_transaction(
-                    field_name,
-                    info,
-                    input_opt,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
+        }
+
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.commit().await?;
+        }
+        std::mem::drop(transaction);
 
         trace!(
             "Resolver::resolve_node_read_query -- results: {:#?}",
@@ -435,118 +373,6 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) async fn resolve_node_read_query_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        info: &Info,
-        input_opt: Option<Input<RequestCtx>>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Vec<Node<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
-        let mut sg = SuffixGenerator::new();
-
-        let p = info.type_def()?.property(field_name)?;
-        let itd = if info.name() == "Query" {
-            p.input_type_definition(info)?
-        } else {
-            info.type_def_by_name("Query")?
-                .property(p.type_name())?
-                .input_type_definition(&info)?
-        };
-        let node_var = NodeQueryVar::new(
-            Some(p.type_name().to_string()),
-            "node".to_string(),
-            sg.suffix(),
-        );
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.begin().await?;
-        }
-
-        let input_value_opt = if let Some(handlers) = executor
-            .context()
-            .event_handlers()
-            .before_node_read(node_var.label()?)
-        {
-            let mut input_opt_value = input_opt.map(|i| i.value);
-            for f in handlers.iter() {
-                input_opt_value = f(
-                    input_opt_value,
-                    EventFacade::new(
-                        CrudOperation::ReadNode(field_name.to_string()),
-                        executor.context(),
-                        transaction,
-                        info,
-                    ),
-                )
-                .await?;
-            }
-            input_opt_value
-        } else {
-            input_opt.map(|i| i.value)
-        };
-
-        let query_fragment = visit_node_query_input(
-            &node_var,
-            input_value_opt,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
-            &mut sg,
-            transaction,
-        )
-        .await?;
-
-        let mut results = match transaction
-            .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-            .await
-        {
-            Err(e) => {
-                transaction.rollback().await?;
-                return Err(e);
-            }
-            Ok(results) => results,
-        };
-        let label = match node_var.label() {
-            Err(e) => {
-                transaction.rollback().await?;
-                return Err(e);
-            }
-            Ok(results) => results,
-        };
-        if let Some(handlers) = executor.context().event_handlers().after_node_read(label) {
-            for f in handlers.iter() {
-                results = match f(
-                    results,
-                    EventFacade::new(
-                        CrudOperation::ReadNode(field_name.to_string()),
-                        executor.context(),
-                        transaction,
-                        info,
-                    ),
-                )
-                .await
-                {
-                    Err(e) => {
-                        transaction.rollback().await?;
-                        return Err(e);
-                    }
-                    Ok(results) => results,
-                }
-            }
-        }
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.commit().await?;
-        }
-
-        Ok(results)
-    }
-
     pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -560,78 +386,13 @@ impl<'r> Resolver<'r> {
             field_name,
             input
         );
-        let p = info.type_def()?.property(field_name)?;
-
-        let results: Vec<Node<RequestCtx>> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_node_update_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_node_update_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_node_update_mutation_with_transaction(
-                    field_name,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        trace!(
-            "Resolver::resolve_node_update_mutation result: {:#?}",
-            results
-        );
-
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
-            .await
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) async fn resolve_node_update_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Vec<Node<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
         let p = info.type_def()?.property(field_name)?;
         let itd = p.input_type_definition(info)?;
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
-        let result = visit_node_update_input::<T, RequestCtx>(
+        let results = visit_node_update_input::<RequestCtx>(
             &NodeQueryVar::new(
                 Some(p.type_name().to_string()),
                 "node".to_string(),
@@ -641,17 +402,29 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
 
-        if result.is_ok() {
+        if results.is_ok() {
             transaction.commit().await?;
         } else {
             transaction.rollback().await?;
         }
-        result
+        std::mem::drop(transaction);
+
+        trace!(
+            "Resolver::resolve_node_update_mutation result: {:#?}",
+            results
+        );
+
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results?,
+            )
+            .await
     }
 
     pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
@@ -670,76 +443,7 @@ impl<'r> Resolver<'r> {
         src_label,
         rel_name, input
     );
-        let p = info.type_def()?.property(field_name)?;
 
-        let results: Vec<Rel<RequestCtx>> = match &executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_rel_create_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_rel_create_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_rel_create_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
-            .await
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn resolve_rel_create_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        src_label: &str,
-        rel_name: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
 
         let td = info.type_def()?;
@@ -749,8 +453,9 @@ impl<'r> Resolver<'r> {
         let src_var =
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
-        let result = visit_rel_create_input::<T, RequestCtx>(
+        let results = visit_rel_create_input::<RequestCtx>(
             &src_var,
             rel_name,
             // The conversion from Error to None using ok() is actually okay here,
@@ -761,18 +466,24 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
 
-        if result.is_ok() {
+        if results.is_ok() {
             transaction.commit().await?;
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
-        result
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results?,
+            )
+            .await
     }
 
     pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
@@ -791,69 +502,6 @@ impl<'r> Resolver<'r> {
         src_label, rel_name, input
     );
 
-        let results: i32 = match executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_rel_delete_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_rel_delete_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_rel_delete_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        executor.resolve_with_ctx(&(), &results)
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn resolve_rel_delete_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        src_label: &str,
-        rel_name: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<i32, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
@@ -866,16 +514,17 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
 
-        let results = visit_rel_delete_input::<T, RequestCtx>(
+        let results = visit_rel_delete_input::<RequestCtx>(
             None,
             &rel_var,
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
@@ -885,8 +534,9 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
-        results
+        executor.resolve_with_ctx(&(), &results?)
     }
 
     pub(super) async fn resolve_rel_props<RequestCtx: RequestContext>(
@@ -930,48 +580,99 @@ impl<'r> Resolver<'r> {
         input_opt
         );
 
-        let p = info.type_def()?.property(field_name)?;
+        let mut sg = SuffixGenerator::new();
+        let td = info.type_def()?;
+        let p = td.property(field_name)?;
+        let itd = p.input_type_definition(info)?;
+        let rtd = info.type_def_by_name(&p.type_name())?;
+        let src_prop = rtd.property("src")?;
 
-        let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_rel_read_query_with_transaction(
-                    field_name,
-                    rel_name,
-                    info,
-                    input_opt,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
+        let dst_suffix = sg.suffix();
+        let rel_suffix = sg.suffix();
+
+        let src_var = NodeQueryVar::new(
+            Some(src_prop.type_name().to_string()),
+            "src".to_string(),
+            sg.suffix(),
+        );
+        let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
+        let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
+
+        let mut transaction = executor.context().pool().transaction().await?;
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.begin().await?;
+        }
+
+        let input_value_opt = if let Some(handlers) =
+            executor.context().event_handlers().before_rel_read(
+                &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+            ) {
+            let mut input_value_opt = input_opt.map(|i| i.value);
+            for f in handlers.iter() {
+                input_value_opt = f(
+                    input_value_opt,
+                    EventFacade::new(
+                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
+                        executor.context(),
+                        &mut transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+            input_value_opt
+        } else {
+            input_opt.map(|i| i.value)
+        };
+
+        let query_fragment = visit_rel_query_input::<RequestCtx>(
+            None,
+            &rel_var,
+            input_value_opt,
+            &Info::new(itd.type_name().to_owned(), info.type_defs()),
+            self.partition_key_opt,
+            &mut sg,
+            &mut transaction,
+        )
+        .await?;
+
+        let mut results = transaction
+            .read_rels(
+                query_fragment,
+                &rel_var,
+                Some(p.type_name()),
+                self.partition_key_opt,
+            )
+            .await?;
+
+        if let Some(handlers) = executor.context().event_handlers().after_rel_read(
+            &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+        ) {
+            for f in handlers.iter() {
+                results = match f(
+                    results,
+                    EventFacade::new(
+                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
+                        executor.context(),
+                        &mut transaction,
+                        info,
+                    ),
                 )
                 .await
+                {
+                    Err(e) => {
+                        transaction.rollback().await?;
+                        return Err(e.into());
+                    }
+                    Ok(results) => results,
+                }
             }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_rel_read_query_with_transaction(
-                    field_name,
-                    rel_name,
-                    info,
-                    input_opt,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_rel_read_query_with_transaction(
-                    field_name,
-                    rel_name,
-                    info,
-                    input_opt,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
+        }
+
+        if info.name() == "Mutation" || info.name() == "Query" {
+            transaction.commit().await?;
+        }
+        std::mem::drop(transaction);
 
         if p.list() {
             executor
@@ -1008,116 +709,6 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn resolve_rel_read_query_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        rel_name: &str,
-        info: &Info,
-        input_opt: Option<Input<RequestCtx>>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
-        let mut sg = SuffixGenerator::new();
-        let td = info.type_def()?;
-        let p = td.property(field_name)?;
-        let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(&p.type_name())?;
-        let src_prop = rtd.property("src")?;
-
-        let dst_suffix = sg.suffix();
-        let rel_suffix = sg.suffix();
-
-        let src_var = NodeQueryVar::new(
-            Some(src_prop.type_name().to_string()),
-            "src".to_string(),
-            sg.suffix(),
-        );
-        let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
-        let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.begin().await?;
-        }
-
-        let input_value_opt = if let Some(handlers) =
-            executor.context().event_handlers().before_rel_read(
-                &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
-            ) {
-            let mut input_value_opt = input_opt.map(|i| i.value);
-            for f in handlers.iter() {
-                input_value_opt = f(
-                    input_value_opt,
-                    EventFacade::new(
-                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
-                        executor.context(),
-                        transaction,
-                        info,
-                    ),
-                )
-                .await?;
-            }
-            input_value_opt
-        } else {
-            input_opt.map(|i| i.value)
-        };
-
-        let query_fragment = visit_rel_query_input(
-            None,
-            &rel_var,
-            input_value_opt,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
-            &mut sg,
-            transaction,
-        )
-        .await?;
-
-        let mut results = transaction
-            .read_rels(
-                query_fragment,
-                &rel_var,
-                Some(p.type_name()),
-                self.partition_key_opt,
-            )
-            .await?;
-
-        if let Some(handlers) = executor.context().event_handlers().after_rel_read(
-            &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
-        ) {
-            for f in handlers.iter() {
-                results = match f(
-                    results,
-                    EventFacade::new(
-                        CrudOperation::ReadRel(field_name.to_string(), rel_name.to_string()),
-                        executor.context(),
-                        transaction,
-                        info,
-                    ),
-                )
-                .await
-                {
-                    Err(e) => {
-                        transaction.rollback().await?;
-                        return Err(e);
-                    }
-                    Ok(results) => results,
-                }
-            }
-        }
-
-        if info.name() == "Mutation" || info.name() == "Query" {
-            transaction.commit().await?;
-        }
-
-        Ok(results)
-    }
-
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -1135,76 +726,6 @@ impl<'r> Resolver<'r> {
         input
     );
 
-        let p = info.type_def()?.property(field_name)?;
-
-        let results: Vec<Rel<RequestCtx>> = match executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_rel_update_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_rel_update_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                    executor,
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_rel_update_mutation_with_transaction(
-                    field_name,
-                    src_label,
-                    rel_name,
-                    info,
-                    input,
-                    &mut Neo4jTransaction::new(c),
-                    executor,
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
-
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                &results,
-            )
-            .await
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    #[allow(clippy::too_many_arguments)]
-    pub(super) async fn resolve_rel_update_mutation_with_transaction<RequestCtx, T>(
-        &mut self,
-        field_name: &str,
-        src_label: &str,
-        rel_name: &str,
-        info: &Info,
-        input: Input<RequestCtx>,
-        transaction: &mut T,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
         let mut sg = SuffixGenerator::new();
         let td = info.type_def()?;
         let p = td.property(field_name)?;
@@ -1218,8 +739,9 @@ impl<'r> Resolver<'r> {
             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
         );
 
+        let mut transaction = executor.context().pool().transaction().await?;
         transaction.begin().await?;
-        let results = visit_rel_update_input::<T, RequestCtx>(
+        let results = visit_rel_update_input::<RequestCtx>(
             None,
             &rel_var,
             props_prop.map(|_| p.type_name()).ok(),
@@ -1227,7 +749,7 @@ impl<'r> Resolver<'r> {
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
             &mut sg,
-            transaction,
+            &mut transaction,
             executor.context(),
         )
         .await;
@@ -1237,8 +759,14 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
-        results
+        executor
+            .resolve_async(
+                &Info::new(p.type_name().to_owned(), info.type_defs()),
+                &results?,
+            )
+            .await
     }
 
     pub(super) async fn resolve_scalar_field<RequestCtx: RequestContext>(
@@ -1331,44 +859,26 @@ impl<'r> Resolver<'r> {
             dst_id
         );
 
-        let results: Vec<Node<RequestCtx>> = match executor.context().pool() {
-            #[cfg(feature = "cosmos")]
-            DatabasePool::Cosmos(c) => {
-                self.resolve_union_field_with_transaction(
-                    info,
-                    dst_label,
-                    field_name,
-                    dst_id,
-                    &mut GremlinTransaction::new(c.clone(), true, false),
-                )
-                .await
-            }
-            #[cfg(feature = "gremlin")]
-            DatabasePool::Gremlin((c, uuid)) => {
-                self.resolve_union_field_with_transaction(
-                    info,
-                    dst_label,
-                    field_name,
-                    dst_id,
-                    &mut GremlinTransaction::new(c.clone(), false, *uuid),
-                )
-                .await
-            }
-            #[cfg(feature = "neo4j")]
-            DatabasePool::Neo4j(p) => {
-                let c = p.get().await?;
-                self.resolve_union_field_with_transaction(
-                    info,
-                    dst_label,
-                    field_name,
-                    dst_id,
-                    &mut Neo4jTransaction::new(c),
-                )
-                .await
-            }
-            DatabasePool::NoDatabase => Err(Error::DatabaseNotFound),
-        }?;
+        let mut sg = SuffixGenerator::new();
+        let mut transaction = executor.context().pool().transaction().await?;
 
+        let results = match field_name {
+            "dst" => {
+                let node_var =
+                    NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
+                let mut props = HashMap::new();
+                props.insert("id".to_string(), Comparison::default(dst_id.clone()));
+                let query_fragment =
+                    transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
+                transaction
+                    .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+                    .await
+            }
+            _ => Err(Error::SchemaItemNotFound {
+                name: info.name().to_string() + "::" + field_name,
+            }),
+        }?;
+        std::mem::drop(transaction);
         executor
             .resolve_async(
                 &Info::new(dst_label.to_string(), info.type_defs()),
@@ -1392,38 +902,5 @@ impl<'r> Resolver<'r> {
                 dst,
             )
             .await
-    }
-
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-    pub(super) async fn resolve_union_field_with_transaction<RequestCtx, T>(
-        &mut self,
-        info: &Info,
-        dst_label: &str,
-        field_name: &str,
-        dst_id: &Value,
-        transaction: &mut T,
-    ) -> Result<Vec<Node<RequestCtx>>, Error>
-    where
-        RequestCtx: RequestContext,
-        T: Transaction<RequestCtx>,
-    {
-        let mut sg = SuffixGenerator::new();
-
-        match field_name {
-            "dst" => {
-                let node_var =
-                    NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
-                let mut props = HashMap::new();
-                props.insert("id".to_string(), Comparison::default(dst_id.clone()));
-                let query_fragment =
-                    transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
-                transaction
-                    .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-                    .await
-            }
-            _ => Err(Error::SchemaItemNotFound {
-                name: info.name().to_string() + "::" + field_name,
-            }),
-        }
     }
 }

@@ -4,6 +4,7 @@
 pub mod gremlin;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
+pub mod no_database;
 
 use crate::engine::context::RequestContext;
 use crate::engine::objects::{Node, Rel};
@@ -11,12 +12,12 @@ use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
 use async_trait::async_trait;
-#[cfg(feature = "neo4j")]
-use bb8::Pool;
-#[cfg(feature = "neo4j")]
-use bb8_bolt::BoltConnectionManager;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
 use gremlin_client::GremlinClient;
+#[cfg(feature = "neo4j")]
+use mobc::Connection;
+#[cfg(feature = "neo4j")]
+use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
@@ -42,82 +43,30 @@ fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
 
-/// Represents the different types of Crud Operations along with the target of the
-/// operation (node typename and rel typename for rel ops). This enum is passed to 
-/// event handler functions.
-pub enum CrudOperation {
-    ReadNode(String),
-    ReadRel(String, String),
-    CreateNode(String),
-    CreateRel(String, String),
-    UpdateNode(String),
-    UpdateRel(String, String),
-    DeleteNode(String),
-    DeleteRel(String, String),
-}
+/// Contains a database client
+pub enum DatabaseClient {
+    /// Cosmos database client
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    Gremlin(Box<GremlinClient>),
 
-/// Contains a pool of database connections, or an enumeration variant indicating that there is no
-/// back-end database
-#[derive(Clone, Debug)]
-pub enum DatabasePool {
-    /// Contians a pool of Neo4J database clients
+    /// Neo4J database client
     #[cfg(feature = "neo4j")]
-    Neo4j(Pool<BoltConnectionManager>),
+    Neo4j(Box<Connection<BoltConnectionManager>>),
 
-    /// Contains a pool of Cosmos DB database clients
-    #[cfg(feature = "cosmos")]
-    Cosmos(GremlinClient),
-
-    /// Contains a pool of Gremlin-based DB database clients, and a boolean indicating whether the
-    /// back-end database stores identifiers using a UUID type (true) or a UUID in a String type
-    /// (false).
-    #[cfg(feature = "gremlin")]
-    Gremlin((GremlinClient, bool)),
-
-    /// Used to serve the schema without a database backend
+    /// No database has been configured for use
     NoDatabase,
-}
-
-impl DatabasePool {
-    #[cfg(feature = "neo4j")]
-    pub fn neo4j(&self) -> Result<&bb8::Pool<bb8_bolt::BoltConnectionManager>, Error> {
-        match self {
-            DatabasePool::Neo4j(pool) => Ok(pool),
-            _ => Err(Error::DatabaseNotFound {}),
-        }
-    }
-
-    #[cfg(feature = "cosmos")]
-    pub fn cosmos(&self) -> Result<&GremlinClient, Error> {
-        match self {
-            DatabasePool::Cosmos(pool) => Ok(pool),
-            _ => Err(Error::DatabaseNotFound {}),
-        }
-    }
-
-    #[cfg(feature = "gremlin")]
-    pub fn gremlin(&self) -> Result<&GremlinClient, Error> {
-        match self {
-            DatabasePool::Gremlin((pool, _)) => Ok(pool),
-            _ => Err(Error::DatabaseNotFound {}),
-        }
-    }
-}
-
-impl Default for DatabasePool {
-    fn default() -> Self {
-        DatabasePool::NoDatabase
-    }
 }
 
 /// Trait for a database endpoint. Structs that implement this trait typically take in a connection
 /// string and produce a database pool of clients connected to the database
 #[async_trait]
 pub trait DatabaseEndpoint {
+    type PoolType: DatabasePool;
+
     /// Returns a [`DatabasePool`] to the database for which this DatabaseEndpoint has connection
     /// information
     ///
-    /// [`DatabasePool`]: ./enum.DatabasePool.html
+    /// [`DatabasePool`]: ./trait.DatabasePool.html
     ///
     /// # Errors
     ///
@@ -146,7 +95,196 @@ pub trait DatabaseEndpoint {
     /// # Ok(())
     /// # }
     /// ```
-    async fn pool(&self) -> Result<DatabasePool, Error>;
+    async fn pool(&self) -> Result<Self::PoolType, Error>;
+}
+
+/// Trait for a database pool. Structs that implement this trait are created by a database endpoint
+/// and provide a way to get a transaction from the pool.
+#[async_trait]
+pub trait DatabasePool: Clone + Sync + Send {
+    type TransactionType: Transaction;
+
+    /// Returns a [`Transaction`] for the database for which this DatabasePool has connections
+    ///
+    /// [`Transaction`]: ./trait.DatabasePool.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if the transaction cannot be created. The specific [`Error`] variant
+    /// depends on the database back-end.
+    ///
+    /// [`Error`]: ../../enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use tokio::main;
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let endpoint = Neo4jEndpoint::from_env()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let pool = endpoint.pool().await?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let transaction = pool.transaction().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn transaction(&self) -> Result<Self::TransactionType, Error>;
+
+    /// Returns a [`DatabaseClient`] for the database for which this DatabasePool has connections
+    ///
+    /// [`DatabaseClient`]: ./enum.DatabaseClient.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if the client cannot be obtained from the pool. The specific [`Error`]
+    /// variant depends on the database back-end.
+    ///
+    /// [`Error`]: ../../enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use tokio::main;
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let endpoint = Neo4jEndpoint::from_env()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let pool = endpoint.pool().await?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let client = pool.client().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn client(&self) -> Result<DatabaseClient, Error>;
+}
+
+#[async_trait]
+pub trait Transaction: Send + Sync {
+    async fn begin(&mut self) -> Result<(), Error>;
+
+    async fn create_node<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        props: HashMap<String, Value>,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
+    ) -> Result<Node<RequestCtx>, Error>;
+
+    async fn create_rels<RequestCtx: RequestContext>(
+        &mut self,
+        src_query_fragment: QueryFragment,
+        dst_query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
+
+    fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        nodes: &[Node<RequestCtx>],
+    ) -> Result<QueryFragment, Error>;
+
+    fn node_read_fragment(
+        &mut self,
+        rel_query_fragments: Vec<QueryFragment>,
+        node_var: &NodeQueryVar,
+        props: HashMap<String, Comparison>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<QueryFragment, Error>;
+
+    async fn read_nodes<RequestCtx: RequestContext>(
+        &mut self,
+        node_var: &NodeQueryVar,
+        query_fragment: QueryFragment,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
+    ) -> Result<Vec<Node<RequestCtx>>, Error>;
+
+    fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
+        &mut self,
+        rel_var: &RelQueryVar,
+        rels: &[Rel<RequestCtx>],
+    ) -> Result<QueryFragment, Error>;
+
+    fn rel_read_fragment(
+        &mut self,
+        src_fragment_opt: Option<QueryFragment>,
+        dst_fragment_opt: Option<QueryFragment>,
+        rel_var: &RelQueryVar,
+        props: HashMap<String, Comparison>,
+        sg: &mut SuffixGenerator,
+    ) -> Result<QueryFragment, Error>;
+
+    async fn read_rels<RequestCtx: RequestContext>(
+        &mut self,
+        query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
+
+    async fn update_nodes<RequestCtx: RequestContext>(
+        &mut self,
+        query_fragment: QueryFragment,
+        node_var: &NodeQueryVar,
+        props: HashMap<String, Value>,
+        partition_key_opt: Option<&Value>,
+        info: &Info,
+    ) -> Result<Vec<Node<RequestCtx>>, Error>;
+
+    async fn update_rels<RequestCtx: RequestContext>(
+        &mut self,
+        query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
+        props: HashMap<String, Value>,
+        props_type_name: Option<&str>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
+
+    async fn delete_nodes(
+        &mut self,
+        query_fragment: QueryFragment,
+        node_var: &NodeQueryVar,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error>;
+
+    async fn delete_rels(
+        &mut self,
+        query_fragment: QueryFragment,
+        rel_var: &RelQueryVar,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error>;
+
+    async fn commit(&mut self) -> Result<(), Error>;
+
+    async fn rollback(&mut self) -> Result<(), Error>;
+}
+
+/// Represents the different types of Crud Operations along with the target of the
+/// operation (node typename and rel typename for rel ops). This enum is passed to
+/// event handler functions.
+pub enum CrudOperation {
+    ReadNode(String),
+    ReadRel(String, String),
+    CreateNode(String),
+    CreateRel(String, String),
+    UpdateNode(String),
+    UpdateRel(String, String),
+    DeleteNode(String),
+    DeleteRel(String, String),
 }
 
 /// Represents the different type of comparison match operations
@@ -230,112 +368,8 @@ impl TryFrom<Value> for Comparison {
     }
 }
 
-#[async_trait]
-pub(crate) trait Transaction<RequestCtx: RequestContext>: Send {
-    async fn begin(&mut self) -> Result<(), Error>;
-
-    async fn create_node(
-        &mut self,
-        node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Node<RequestCtx>, Error>;
-
-    async fn create_rels(
-        &mut self,
-        src_query_fragment: QueryFragment,
-        dst_query_fragment: QueryFragment,
-        rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
-
-    fn node_read_by_ids_fragment(
-        &mut self,
-        node_var: &NodeQueryVar,
-        nodes: &[Node<RequestCtx>],
-    ) -> Result<QueryFragment, Error>;
-
-    fn node_read_fragment(
-        &mut self,
-        rel_query_fragments: Vec<QueryFragment>,
-        node_var: &NodeQueryVar,
-        props: HashMap<String, Comparison>,
-        sg: &mut SuffixGenerator,
-    ) -> Result<QueryFragment, Error>;
-
-    async fn read_nodes(
-        &mut self,
-        node_var: &NodeQueryVar,
-        query_fragment: QueryFragment,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Vec<Node<RequestCtx>>, Error>;
-
-    fn rel_read_by_ids_fragment(
-        &mut self,
-        rel_var: &RelQueryVar,
-        rels: &[Rel<RequestCtx>],
-    ) -> Result<QueryFragment, Error>;
-
-    fn rel_read_fragment(
-        &mut self,
-        src_fragment_opt: Option<QueryFragment>,
-        dst_fragment_opt: Option<QueryFragment>,
-        rel_var: &RelQueryVar,
-        props: HashMap<String, Comparison>,
-        sg: &mut SuffixGenerator,
-    ) -> Result<QueryFragment, Error>;
-
-    async fn read_rels(
-        &mut self,
-        query_fragment: QueryFragment,
-        rel_var: &RelQueryVar,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
-
-    async fn update_nodes(
-        &mut self,
-        query_fragment: QueryFragment,
-        node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
-        info: &Info,
-    ) -> Result<Vec<Node<RequestCtx>>, Error>;
-
-    async fn update_rels(
-        &mut self,
-        query_fragment: QueryFragment,
-        rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
-
-    async fn delete_nodes(
-        &mut self,
-        query_fragment: QueryFragment,
-        node_var: &NodeQueryVar,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<i32, Error>;
-
-    async fn delete_rels(
-        &mut self,
-        query_fragment: QueryFragment,
-        rel_var: &RelQueryVar,
-        partition_key_opt: Option<&Value>,
-    ) -> Result<i32, Error>;
-
-    async fn commit(&mut self) -> Result<(), Error>;
-
-    async fn rollback(&mut self) -> Result<(), Error>;
-}
-
 #[derive(Clone, Debug)]
-pub(crate) struct QueryFragment {
+pub struct QueryFragment {
     match_fragment: String,
     where_fragment: String,
     params: HashMap<String, Value>,
@@ -372,7 +406,7 @@ impl QueryFragment {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct NodeQueryVar {
+pub struct NodeQueryVar {
     base: String,
     suffix: String,
     label: Option<String>,
@@ -380,7 +414,6 @@ pub(crate) struct NodeQueryVar {
 }
 
 impl NodeQueryVar {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(label: Option<String>, base: String, suffix: String) -> NodeQueryVar {
         NodeQueryVar {
             base: base.clone(),
@@ -390,17 +423,14 @@ impl NodeQueryVar {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn base(&self) -> &str {
         &self.base
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn label(&self) -> Result<&str, Error> {
         self.label.as_deref().ok_or(Error::LabelNotFound)
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn suffix(&self) -> &str {
         &self.suffix
     }
@@ -412,7 +442,7 @@ impl NodeQueryVar {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct RelQueryVar {
+pub struct RelQueryVar {
     label: String,
     suffix: String,
     name: String,
@@ -421,7 +451,6 @@ pub(crate) struct RelQueryVar {
 }
 
 impl RelQueryVar {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
         label: String,
         suffix: String,
@@ -437,7 +466,6 @@ impl RelQueryVar {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn label(&self) -> &str {
         &self.label
     }
@@ -447,30 +475,25 @@ impl RelQueryVar {
         &self.name
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn src(&self) -> &NodeQueryVar {
         &self.src
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn dst(&self) -> &NodeQueryVar {
         &self.dst
     }
 }
 
 #[derive(Debug, Default)]
-pub(crate) struct SuffixGenerator {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+pub struct SuffixGenerator {
     seed: i32,
 }
 
 impl SuffixGenerator {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new() -> SuffixGenerator {
         SuffixGenerator { seed: -1 }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
         "_".to_string() + &self.seed.to_string()

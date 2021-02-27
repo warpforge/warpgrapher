@@ -17,12 +17,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
         <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -124,9 +130,11 @@
                     <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                     </div>
                 </div>
@@ -155,14 +163,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#static-endpoints" id="static-endpoints">Static Endpoints</a></h1>
+                        <h1 id="static-endpoints"><a class="header" href="#static-endpoints">Static Endpoints</a></h1>
 <p>Warpgrapher includes built-in static endpoints that provide useful information or functionality. Built-in static endpoints names are preceded by <code>_</code>.</p>
-<h2><a class="header" href="#version" id="version">Version</a></h2>
+<h2 id="version"><a class="header" href="#version">Version</a></h2>
 <p>If the <code>Engine</code> is built with an explicit version:</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>let mut server: Engine&lt;(), ()&gt; = Engine::new(config, db)
+</span>let mut server: Engine&lt;()&gt; = Engine::new(config, db)
     .with_version(&quot;0.1.0&quot;.to_string())
     .build();
 <span class="boring">}

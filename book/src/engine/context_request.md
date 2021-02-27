@@ -23,7 +23,7 @@ The RequestContext is specified in the second type paramter of `Engine`.
 #### 3. Access Context inside resolver
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:43:47}}
+{{#include ../../../examples/request_context/main.rs:41:47}}
 ```
 
 ### Full Example

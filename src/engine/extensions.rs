@@ -1,7 +1,7 @@
 //! Contains types and functions for application specific extensions to the Warpgrapher framework.
 
 use crate::engine::context::RequestContext;
-use crate::engine::database::DatabasePool;
+use crate::engine::database::DatabaseEndpoint;
 
 use std::collections::hash_map::HashMap;
 use std::fmt::Debug;
@@ -17,7 +17,7 @@ use std::sync::Arc;
 /// # use std::collections::HashMap;
 /// # use std::marker::PhantomData;
 /// # use warpgrapher::engine::context::RequestContext;
-/// # use warpgrapher::engine::database::DatabasePool;
+/// # use warpgrapher::engine::database::DatabaseEndpoint;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
@@ -38,7 +38,7 @@ use std::sync::Arc;
 ///         _op_name: Option<String>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
-///         _db_pool: DatabasePool
+///         _db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
 ///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
 ///        Ok(request_ctx)
@@ -54,7 +54,7 @@ where
         _op_name: Option<String>,
         request_ctx: RequestCtx,
         _headers: &HashMap<String, String>,
-        _db_pool: DatabasePool,
+        _db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
         Ok(request_ctx)
     }
@@ -77,7 +77,7 @@ where
 /// # use std::marker::PhantomData;
 /// # use std::sync::Arc;
 /// # use warpgrapher::engine::context::RequestContext;
-/// # use warpgrapher::engine::database::DatabasePool;
+/// # use warpgrapher::engine::database::DatabaseEndpoint;
 /// # use warpgrapher::engine::extensions::{Extension, Extensions};
 ///
 /// #[derive(Clone, Debug)]
@@ -99,7 +99,7 @@ where
 ///         _op_name: Option<String>,
 ///         request_ctx: RequestCtx,
 ///         _headers: &HashMap<String, String>,
-///         _db_pool: DatabasePool
+///         _db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
 ///     ) -> Result<RequestCtx, Box<dyn std::error::Error + Sync + Send>> {
 ///        // Set values in request context, or take some other action
 ///        Ok(request_ctx)

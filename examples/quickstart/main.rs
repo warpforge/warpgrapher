@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::juniper::http::GraphQLRequest;
@@ -15,6 +16,16 @@ model:
         type: String
 ";
 
+#[derive(Clone, Debug)]
+struct AppRequestContext {}
+
+impl RequestContext for AppRequestContext {
+    type DBEndpointType = Neo4jEndpoint;
+    fn new() -> AppRequestContext {
+        AppRequestContext {}
+    }
+}
+
 #[tokio::main]
 async fn main() {
     // parse warpgrapher config
@@ -28,7 +39,7 @@ async fn main() {
         .expect("Failed to create neo4j database pool");
 
     // create warpgrapher engine
-    let engine: Engine<()> = Engine::new(config, db)
+    let engine: Engine<AppRequestContext> = Engine::new(config, db)
         .build()
         .expect("Failed to build engine");
 

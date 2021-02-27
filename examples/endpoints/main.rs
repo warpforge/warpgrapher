@@ -2,6 +2,7 @@ use maplit::hashmap;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
+use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
@@ -27,8 +28,18 @@ endpoints:
       type: Issue
 ";
 
+#[derive(Clone, Debug)]
+struct AppRequestContext {}
+
+impl RequestContext for AppRequestContext {
+    type DBEndpointType = Neo4jEndpoint;
+    fn new() -> AppRequestContext {
+        AppRequestContext {}
+    }
+}
+
 // endpoint returning a list of `Issue` nodes
-fn resolve_top_issue(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+fn resolve_top_issue(facade: ResolverFacade<AppRequestContext>) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         let top_issue = facade.create_node(
             "Issue",
@@ -55,11 +66,11 @@ async fn main() {
         .expect("Failed to create neo4j database pool");
 
     // define resolvers
-    let mut resolvers = Resolvers::<()>::new();
+    let mut resolvers = Resolvers::<AppRequestContext>::new();
     resolvers.insert("TopIssue".to_string(), Box::new(resolve_top_issue));
 
     // create warpgrapher engine
-    let engine: Engine<()> = Engine::new(config, db)
+    let engine: Engine<AppRequestContext> = Engine::new(config, db)
         .with_resolvers(resolvers)
         .build()
         .expect("Failed to build engine");

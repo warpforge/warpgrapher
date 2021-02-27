@@ -17,12 +17,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        
         <link rel="icon" href="../favicon.svg">
+        
+        
         <link rel="shortcut icon" href="../favicon.png">
+        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
+        
         <link rel="stylesheet" href="../css/print.css" media="print">
+        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -124,9 +130,11 @@
                     <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
 
                     <div class="right-buttons">
+                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
+                        
                         
                     </div>
                 </div>
@@ -155,13 +163,13 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#node-read" id="node-read">Node Read</a></h1>
+                        <h1 id="node-read"><a class="header" href="#node-read">Node Read</a></h1>
 <ul>
 <li><a href="#read-all-nodes">Read All Nodes</a></li>
 <li><a href="#read-nodes-with-matching-props">Read nodes with matching props</a></li>
 <li><a href="#return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></li>
 </ul>
-<h3><a class="header" href="#return-all-nodes" id="return-all-nodes">Return all nodes</a></h3>
+<h3 id="return-all-nodes"><a class="header" href="#return-all-nodes">Return all nodes</a></h3>
 <p>To return all <code>Project</code> nodes:</p>
 <pre><code>query {
     Project {
@@ -171,7 +179,7 @@
     }
 }
 </code></pre>
-<h3><a class="header" href="#return-nodes-with-matching-props" id="return-nodes-with-matching-props">Return nodes with matching props</a></h3>
+<h3 id="return-nodes-with-matching-props"><a class="header" href="#return-nodes-with-matching-props">Return nodes with matching props</a></h3>
 <p>To return all <code>Project</code> nodes with <code>status == &quot;ACTIVE&quot;</code>:</p>
 <pre><code>query {
     Project(
@@ -185,7 +193,7 @@
     }
 }
 </code></pre>
-<h3><a class="header" href="#return-nodes-with-relationships-to-other-nodes-with-matching-props" id="return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></h3>
+<h3 id="return-nodes-with-relationships-to-other-nodes-with-matching-props"><a class="header" href="#return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></h3>
 <p>To returns all <code>Project</code> nodes containing an <code>owner</code> relationship to a <code>User</code> node with <code>name=&quot;Halsey&quot;</code>:</p>
 <pre><code>query {
     Project(
