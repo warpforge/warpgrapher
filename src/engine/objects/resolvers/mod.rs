@@ -170,6 +170,7 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
         trace!(
             "Resolver::resolve_node_create_mutation -- result: {:#?}",
@@ -228,6 +229,7 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
         trace!(
             "Resolver::resolve_node_delete_mutation -- results: {:#?}",
@@ -347,6 +349,7 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.commit().await?;
         }
+        std::mem::drop(transaction);
 
         trace!(
             "Resolver::resolve_node_read_query -- results: {:#?}",
@@ -409,6 +412,8 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
+
         trace!(
             "Resolver::resolve_node_update_mutation result: {:#?}",
             results
@@ -471,6 +476,7 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
         executor
             .resolve_async(
@@ -528,6 +534,7 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
         executor.resolve_with_ctx(&(), &results?)
     }
@@ -665,6 +672,7 @@ impl<'r> Resolver<'r> {
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.commit().await?;
         }
+        std::mem::drop(transaction);
 
         if p.list() {
             executor
@@ -751,6 +759,7 @@ impl<'r> Resolver<'r> {
         } else {
             transaction.rollback().await?;
         }
+        std::mem::drop(transaction);
 
         executor
             .resolve_async(
@@ -869,6 +878,7 @@ impl<'r> Resolver<'r> {
                 name: info.name().to_string() + "::" + field_name,
             }),
         }?;
+        std::mem::drop(transaction);
         executor
             .resolve_async(
                 &Info::new(dst_label.to_string(), info.type_defs()),

@@ -931,7 +931,6 @@ impl Transaction for Neo4jTransaction {
 
     async fn commit(&mut self) -> Result<(), Error> {
         debug!("transaction::commit called");
-
         Ok(self.client.commit().await.map(|_| ())?)
     }
 

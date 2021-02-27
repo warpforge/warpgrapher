@@ -11,6 +11,7 @@
 **/*.rs.bk
 tarpaulin-report.html
 /warpgrapher_macros/target
+workspace.code-workspace
 
 # Libraries should not commit
 # https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control-but-not-libraries
