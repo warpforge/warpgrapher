@@ -16,7 +16,7 @@ use log::trace;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-pub(super) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
+pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
     node_var: &'a NodeQueryVar,
     mut input: Value,
     info: &'a Info,
