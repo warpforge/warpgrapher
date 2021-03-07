@@ -182,7 +182,7 @@ impl<RequestCtx> Node<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    pub(crate) fn new(
+    pub fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
     ) -> Node<RequestCtx> {
@@ -215,7 +215,7 @@ where
         &self.fields
     }
 
-    pub(crate) fn id(&self) -> Result<&Value, Error> {
+    pub fn id(&self) -> Result<&Value, Error> {
         trace!("Node::id called");
         self.fields
             .get(&"id".to_string())

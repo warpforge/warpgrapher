@@ -193,7 +193,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
                 engine
                     .execute(
                         query.to_string(),
-                        input.map(|v| v.clone()),
+                        input.map(|v| serde_json::json!({"input": v.clone()})),
                         metadata.clone().unwrap_or_default(),
                     )
                     .await?
