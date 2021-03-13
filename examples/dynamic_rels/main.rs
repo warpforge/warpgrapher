@@ -87,23 +87,22 @@ async fn main() {
 
     // create new project
     let query = "
-    mutation {
-        ProjectCreate(input: {
-            name: \"Project1\"
-        }) {
-            id
-            top_contributor {
-                dst {
-                    ... on User {
-                        id
-                        name
+        mutation {
+            ProjectCreate(input: {
+                name: \"Project1\"
+            }) {
+                id
+                top_contributor {
+                    dst {
+                        ... on User {
+                            id
+                            name
+                        }
                     }
                 }
             }
         }
-    }
-    "
-    .to_string();
+    ".to_string();
     let metadata = HashMap::new();
     let result = engine.execute(query, None, metadata).await.unwrap();
 

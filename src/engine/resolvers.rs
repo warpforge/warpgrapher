@@ -4,8 +4,8 @@
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{DatabaseClient, DatabasePool, DatabaseEndpoint};
-use crate::engine::database::{NodeQueryVar, SuffixGenerator, Transaction};
+use crate::engine::database::{DatabaseClient};
+use crate::engine::database::{NodeQueryVar, SuffixGenerator, Transaction, DatabasePool, DatabaseEndpoint};
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input

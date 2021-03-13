@@ -77,14 +77,13 @@ async fn main() {
 
     // create new project
     let query = "
-    query {
-        TopIssue {
-            name
-            points
+        query {
+            TopIssue {
+                name
+                points
+            }
         }
-    }
-    "
-    .to_string();
+    ".to_string();
     let metadata = HashMap::new();
     let result = engine.execute(query, None, metadata).await.unwrap();
 
