@@ -116,7 +116,6 @@ where
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
     /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::events::EventHandlerBag;
-    /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let event_handlers = EventHandlerBag::<()>::new();
@@ -409,10 +408,10 @@ where
     /// let config = Configuration::default();
     /// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
     ///
+    /// let query = "query { name }".to_string();
     /// let metadata: HashMap<String, String> = HashMap::new();
-    /// let req_body = json!({"query": "query { name }"});
     ///
-    /// let result = engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata).await?;
+    /// let result = engine.execute(query, None, metadata).await?;
     /// # Ok(())
     /// # }
     /// ```
@@ -476,8 +475,28 @@ where
         let mut ret_value = serde_json::to_value(&res)?;
         
         // execute after_request handlers
-        for handler in self.event_handlers.after_request() {
-            rctx = handler(rctx, &mut ret_value).await?;
+        let after_request_handlers = self.event_handlers.after_request();
+        if after_request_handlers.len() > 0 {
+            let mut dbtx = self.db_pool.transaction().await?;
+            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let info = Info::new("".to_string(), Arc::new(gql_schema));
+            let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
+                self.db_pool.clone(),
+                self.resolvers.clone(),
+                self.validators.clone(),
+                self.event_handlers.clone(),
+                Some(rctx.clone()),
+                self.version.clone(),
+                metadata.clone(),
+            );
+            for handler in self.event_handlers.after_request() {
+                ret_value = handler(
+                    EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
+                    ret_value,
+                ).await?;
+            }
+            dbtx.commit().await?;
+            std::mem::drop(dbtx);
         }
 
         debug!("Engine::execute -- ret_value: {:#?}", ret_value);

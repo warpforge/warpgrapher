@@ -44,8 +44,8 @@ async fn main() {
         .expect("Failed to build engine");
 
     // execute graphql mutation to create new user
-    let request = GraphQLRequest::new(
-        "mutation {
+    let query = "
+        mutation {
             UserCreate(input: {
                 email: \"a@b.com\"
             }) {
@@ -53,13 +53,9 @@ async fn main() {
                 email
             }
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    ".to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // display result
     println!("result: {:#?}", result);

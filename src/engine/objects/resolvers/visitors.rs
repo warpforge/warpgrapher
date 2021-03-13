@@ -183,7 +183,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
     })
 }
 
-pub(super) async fn visit_node_delete_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     mut input: Value,
     info: &Info,
@@ -502,7 +502,7 @@ pub(crate) fn visit_node_query_input<'a, RequestCtx: RequestContext>(
     })
 }
 
-pub(super) async fn visit_node_update_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_node_update_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     mut input: Value,
     info: &Info,

@@ -1,5 +1,6 @@
 use crate::Error;
 use juniper::{DefaultScalarValue, FromInputValue, InputValue};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use uuid::Uuid;

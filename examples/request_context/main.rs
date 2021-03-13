@@ -69,17 +69,13 @@ async fn main() {
         .expect("Failed to build engine");
 
     // execute query on `GetEnvironment` endpoint
-    let request = GraphQLRequest::new(
-        "query {
+    let query = "
+        query {
             EchoRequest
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    ".to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // verify result
     println!("result: {:#?}", result);

@@ -49,7 +49,7 @@ fn resolve_project_top_contributor(
             Value::from(Uuid::new_v4().to_hyphenated().to_string()),
         );
         top_contributor_props.insert("name".to_string(), Value::from("user0".to_string()));
-        let top_contributor = facade.create_node("User", top_contributor_props);
+        let top_contributor = facade.node("User", top_contributor_props);
 
         // create dynamic rel
         let rel_id = "1234567890".to_string();
@@ -86,29 +86,26 @@ async fn main() {
         .expect("Failed to build engine");
 
     // create new project
-    let request = GraphQLRequest::new(
-        "mutation {
-            ProjectCreate(input: {
-                name: \"Project1\"
-            }) {
-                id
-                top_contributor {
-                    dst {
-                        ... on User {
-                            id
-                            name
-                        }
+    let query = "
+    mutation {
+        ProjectCreate(input: {
+            name: \"Project1\"
+        }) {
+            id
+            top_contributor {
+                dst {
+                    ... on User {
+                        id
+                        name
                     }
                 }
             }
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    }
+    "
+    .to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // verify result
     println!("result: {:#?}", result);

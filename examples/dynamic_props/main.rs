@@ -66,22 +66,19 @@ async fn main() {
         .expect("Failed to build engine");
 
     // create new project
-    let request = GraphQLRequest::new(
-        "mutation {
-            ProjectCreate(input: {
-                name: \"Project1\"
-            }) {
-                id
-                points
-            }
+    let query = "
+    mutation {
+        ProjectCreate(input: {
+            name: \"Project1\"
+        }) {
+            id
+            points
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    }
+    "
+    .to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // verify result
     assert_eq!(

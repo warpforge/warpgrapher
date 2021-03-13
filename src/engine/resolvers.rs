@@ -4,8 +4,12 @@
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{DatabaseClient, DatabasePool};
+use crate::engine::database::{DatabaseClient, DatabasePool, DatabaseEndpoint};
+use crate::engine::database::{NodeQueryVar, SuffixGenerator, Transaction};
 use crate::engine::objects::{Node, NodeRef, Rel};
+use crate::engine::objects::resolvers::visitors::{
+    visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input
+};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
@@ -18,7 +22,7 @@ use mobc::Connection;
 #[cfg(feature = "neo4j")]
 use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 pub use juniper::{Arguments, ExecutionResult, Executor, FieldError, FromInputValue};
 
@@ -62,6 +66,8 @@ where
     parent: Object<'a, RequestCtx>,
     partition_key_opt: Option<&'a Value>,
     executor: &'a Executor<'a, 'a, GraphQLContext<RequestCtx>>,
+    transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
+
 }
 
 impl<'a, RequestCtx> ResolverFacade<'a, RequestCtx>
@@ -75,6 +81,7 @@ where
         parent: Object<'a, RequestCtx>,
         partition_key_opt: Option<&'a Value>,
         executor: &'a Executor<GraphQLContext<RequestCtx>>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Self {
         ResolverFacade {
             field_name,
@@ -83,6 +90,7 @@ where
             parent,
             partition_key_opt,
             executor,
+            transaction,
         }
     }
 
@@ -303,14 +311,190 @@ where
     ///         let mut props = HashMap::new();
     ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
     ///
-    ///         let n = facade.create_node(typename, props);
+    ///         let n = facade.node(typename, props);
     ///
     ///         facade.resolve_node(&n).await
     ///     })
     /// }
     /// ```
-    pub fn create_node(&self, typename: &str, props: HashMap<String, Value>) -> Node<RequestCtx> {
+    pub fn node(&self, typename: &str, props: HashMap<String, Value>) -> Node<RequestCtx> {
         Node::new(typename.to_string(), props)
+    }
+
+    /// Provides an abstracted database read operation using warpgrapher inputs. This is the
+    /// recommended way to read data in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let nodes_to_be_read = ef.read_nodes("User", Some(value.clone()), None).await?;
+    ///         // modify value before passing it forward ...
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn read_nodes(
+        &mut self,
+        type_name: &str,
+        input: Option<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
+        let mut info = self.info.clone();
+        info.name = "Query".to_string();
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let query_fragment = visit_node_query_input::<RequestCtx>(
+            &node_var,
+            input,
+            &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+        )
+        .await?;
+        let results = self
+            .transaction
+            .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
+            .await;
+        results
+    }
+
+    /// Provides an abstracted database create operation using warpgrapher inputs. This is the
+    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node to create.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let new_node = ef.create_node("Team", value.clone(), None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn create_node(
+        &mut self,
+        type_name: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Node<RequestCtx>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let result = visit_node_create_mutation_input(
+            &node_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            &Info::new(type_name.to_string(), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.executor.context(),
+        )
+        .await;
+        result
+    }
+    
+    /// Provides an abstracted database updated operation using warpgrapher inputs. This is the
+    /// recommended way to update nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node update operation.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let result = ef.update_node(
+    ///             "Team", 
+    ///             serde_json::json!({
+    ///                 "MATCH": {"id": {"EQ": "123456"}},
+    ///                 "SET": {"name": "NewTeamName"}           
+    ///             }), 
+    ///             None
+    ///         ).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn update_node(
+        &mut self,
+        type_name: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let result = visit_node_update_input(
+            &node_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            &Info::new(format!("{}UpdateInput", type_name.to_string()), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.executor.context(),
+        )
+        .await;
+        result
+    }
+    
+    pub async fn delete_node(
+        &mut self,
+        type_name: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let result = visit_node_update_input(
+            &node_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            &Info::new(format!("{}DeleteInput", type_name.to_string()), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.executor.context(),
+        )
+        .await;
+        result
     }
 
     /// Creates a [`Rel`], with a id, properties, and destination node id and label. The src node
@@ -395,7 +579,7 @@ where
     ///         let typename = "User";
     ///         let mut props = HashMap::new();
     ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
-    ///         let n = facade.create_node(typename, props);
+    ///         let n = facade.node(typename, props);
     ///
     ///         let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
     ///         let mut rel_props = HashMap::new();
@@ -598,7 +782,7 @@ where
     ///         hm.insert("age".to_string(), Value::Int64(21));
     ///
     ///         // return node
-    ///         facade.resolve_node(&facade.create_node("User", hm)).await
+    ///         facade.resolve_node(&facade.node("User", hm)).await
     ///     })
     /// }
     /// ```

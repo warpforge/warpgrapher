@@ -7,7 +7,7 @@ use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
 use crate::engine::objects::resolvers::visitors::{
-    visit_node_create_mutation_input, visit_node_query_input,
+    visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input, visit_node_delete_input
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -17,17 +17,87 @@ use crate::Error;
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-/// TODO: add docs
+/// Type alias for a function called before the engine is built and enable modifications to
+/// the configuration. A common use case is adding common properties to all types in the model.
+///
+/// # Examples
+///
+/// ```rust
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::config::{Configuration, Property};
+///
+/// fn before_engine_build_func(config: &mut Configuration) -> Result<(), Error> {
+///     for t in config.model.iter_mut() {
+///         let mut_props: &mut Vec<Property> = t.mut_props();
+///         mut_props.push(Property::new(
+///             "global_prop".to_string(),
+///             false,
+///             "String".to_string(),
+///             false,
+///             false,
+///             None,
+///             None
+///         ));
+///     }
+///     Ok(())
+/// }
+/// ```
 pub type BeforeEngineBuildFunc = 
     fn(&mut Configuration) -> Result<(), Error>;
 
-/// TODO: add docs
+/// Type alias for a function called before request execution allowing modifications
+/// to the request context. Common use case includes pulling auth tokens from the
+/// metadata and inserting user information into the request context. 
+///
+/// # Examples
+///
+/// ```rust
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::events::EventFacade;
+/// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
+/// # use std::collections::HashMap;
+/// type Rctx = ();
+///
+/// fn before_request(
+///     mut rctx: Rctx, 
+///     mut ef: EventFacade<Rctx>,
+///     metadata: HashMap<String, String>
+/// ) -> BoxFuture<Result<Rctx, warpgrapher::Error>> {
+///     Box::pin(async move {
+///         // modify request context 
+///         Ok(rctx)
+///     })
+/// }
+/// ```
 pub type BeforeRequestFunc<R> = 
     fn(R, EventFacade<R>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
 
-/// TODO: add docs
+/// Type alias for a function called after request execution allowing modifications
+/// to the output value.
+///
+/// # Examples
+///
+/// ```rust
+/// # use warpgrapher::Error;
+/// # use warpgrapher::engine::events::EventFacade;
+/// # use warpgrapher::engine::value::Value;
+/// # use warpgrapher::juniper::BoxFuture;
+/// type Rctx = ();
+///
+/// fn after_request(
+///     rctx: Rctx, 
+///     output: serde_json::Value,
+/// ) -> BoxFuture<'static, Result<serde_json::Value, warpgrapher::Error>> {
+///     Box::pin(async move {
+///         // modify output
+///         Ok(output)
+///     })
+/// }
+/// ```
 pub type AfterRequestFunc<R> = 
-    fn(R, &mut serde_json::Value) -> BoxFuture<Result<R, Error>>;
+    fn(EventFacade<R>, serde_json::Value) -> BoxFuture<Result<serde_json::Value, Error>>;
+// TODO: add facade
 
 /// Type alias for a function called before a mutation event. The Value returned by this function
 /// will be used as the input to the next before event function, or to the base Warpgrapher
@@ -211,7 +281,24 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    // TODO: docs
+    /// Registers an event handler `f` to be called before the engine is built
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::engine::config::Configuration;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_engine_build(config: &mut Configuration) -> Result<(), Error> {
+    ///     Ok(())
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_engine_build(before_engine_build);
+    /// ```
     pub fn register_before_engine_build(
         &mut self,
         f: BeforeEngineBuildFunc
@@ -1078,7 +1165,6 @@ where
     pub async fn create_node(
         &mut self,
         type_name: &str,
-        //input: Value,
         input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Node<RequestCtx>, Error> {
@@ -1097,4 +1183,49 @@ where
         .await;
         result
     }
+
+    pub async fn update_node(
+        &mut self,
+        type_name: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let result = visit_node_update_input(
+            &node_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            &Info::new(format!("{}UpdateInput", type_name.to_string()), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+        result
+    }
+    
+    pub async fn delete_node(
+        &mut self,
+        type_name: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error> {
+        let mut sg = SuffixGenerator::new();
+        let node_var =
+            NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
+        let result = visit_node_delete_input(
+            &node_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            &Info::new(format!("{}DeleteInput", type_name.to_string()), self.info.type_defs()),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+        result
+    }
+
 }

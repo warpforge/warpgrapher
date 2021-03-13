@@ -2,9 +2,9 @@ mod extension;
 
 #[cfg(feature = "neo4j")]
 use bolt_proto::Message;
-#[cfg(feature = "neo4j")]
-use extension::MetadataExtension;
-use extension::{Metadata, MetadataExtensionCtx};
+//#[cfg(feature = "neo4j")]
+//use extension::MetadataExtension;
+use extension::{Metadata};
 #[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
@@ -44,8 +44,8 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::database::{DatabaseClient, DatabasePool};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::EventHandlerBag;
-#[cfg(feature = "neo4j")]
-use warpgrapher::engine::extensions::Extensions;
+//#[cfg(feature = "neo4j")]
+//use warpgrapher::engine::extensions::Extensions;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::resolvers::ExecutionResult;
 #[cfg(feature = "neo4j")]
@@ -203,14 +203,14 @@ pub(crate) async fn neo4j_test_client_with_events(
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    let metadata_extension: MetadataExtension<Neo4jRequestCtx> = MetadataExtension::new();
-    let extensions: Extensions<Neo4jRequestCtx> = vec![Arc::new(metadata_extension)];
+    //let metadata_extension: MetadataExtension<Neo4jRequestCtx> = MetadataExtension::new();
+    //let extensions: Extensions<Neo4jRequestCtx> = vec![Arc::new(metadata_extension)];
 
     let engine = Engine::<Neo4jRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
         .with_resolvers(resolvers.clone())
         .with_validators(validators.clone())
-        .with_extensions(extensions.clone())
+        //.with_extensions(extensions.clone())
         .with_event_handlers(ehb)
         .build()
         .expect("Could not create warpgrapher engine");
@@ -347,12 +347,14 @@ impl RequestContext for Neo4jRequestCtx {
     }
 }
 
+/*
 #[cfg(feature = "neo4j")]
 impl MetadataExtensionCtx for Neo4jRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
 }
+*/
 
 #[cfg(feature = "cosmos")]
 #[derive(Clone, Debug)]
@@ -373,12 +375,14 @@ impl RequestContext for CosmosRequestCtx {
     }
 }
 
+/*
 #[cfg(feature = "cosmos")]
 impl MetadataExtensionCtx for CosmosRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
 }
+*/
 
 #[cfg(feature = "gremlin")]
 #[derive(Clone, Debug)]
@@ -399,12 +403,14 @@ impl RequestContext for GremlinRequestCtx {
     }
 }
 
+/*
 #[cfg(feature = "gremlin")]
 impl MetadataExtensionCtx for GremlinRequestCtx {
     fn set_metadata(&mut self, metadata: Metadata) {
         self.metadata = metadata
     }
 }
+*/
 
 #[allow(dead_code)]
 fn name_validator(value: &Value) -> Result<(), Error> {
@@ -490,7 +496,7 @@ pub(crate) fn global_top_dev(
         trace!("global_top_dev called");
         let mut hm = HashMap::new();
         hm.insert("name".to_string(), Value::String("Joe".to_string()));
-        facade.resolve_node(&facade.create_node("User", hm)).await
+        facade.resolve_node(&facade.node("User", hm)).await
     })
 }
 

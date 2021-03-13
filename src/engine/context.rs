@@ -53,7 +53,6 @@ use std::fmt::Formatter;
 ///     resolvers,
 ///     validators,
 ///     EventHandlerBag::<AppCtx>::new(),
-///     vec![],
 ///     Some(AppCtx::new()),
 ///     None,
 ///     HashMap::new()
@@ -137,7 +136,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -205,7 +203,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -294,7 +291,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -353,7 +349,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -408,7 +403,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -462,7 +456,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -522,7 +515,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppRequestCtx>::new(),
-    ///     vec![],
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -613,7 +605,6 @@ mod tests {
             resolvers,
             validators,
             EventHandlerBag::new(),
-            vec![],
             Some(()),
             None,
             HashMap::<String, String>::new(),

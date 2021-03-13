@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::DatabaseEndpoint;
-use warpgrapher::engine::extensions::Extension;
+//use warpgrapher::engine::extensions::Extension;
 
 /// Additional information about a request
 #[derive(Clone, Debug)]
@@ -12,6 +12,7 @@ pub struct Metadata {
     pub(crate) src_useragent: String,
 }
 
+/*
 /// Trait that must be implemented by app's request context struct
 pub trait MetadataExtensionCtx {
     fn set_metadata(&mut self, metadata: Metadata);
@@ -57,3 +58,4 @@ where
         Ok(req_ctx)
     }
 }
+*/

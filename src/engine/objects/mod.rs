@@ -162,7 +162,7 @@ impl<RequestCtx> GraphQLValueAsync for Input<RequestCtx> where RequestCtx: Reque
 ///         let mut props = HashMap::new();
 ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
 ///
-///         let n = facade.create_node(typename, props);
+///         let n = facade.node(typename, props);
 ///
 ///         facade.resolve_node(&n).await
 ///     })
@@ -224,7 +224,7 @@ where
             })
     }
 
-    pub(crate) fn type_name(&self) -> &String {
+    pub fn type_name(&self) -> &String {
         &self.concrete_typename
     }
 
