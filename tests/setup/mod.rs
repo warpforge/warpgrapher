@@ -1,10 +1,5 @@
-mod extension;
-
 #[cfg(feature = "neo4j")]
 use bolt_proto::Message;
-//#[cfg(feature = "neo4j")]
-//use extension::MetadataExtension;
-use extension::{Metadata};
 #[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
@@ -28,7 +23,6 @@ use std::io::BufReader;
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 #[cfg(feature = "neo4j")]
-//use std::sync::Arc;
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
@@ -44,8 +38,6 @@ use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::database::{DatabaseClient, DatabasePool};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::EventHandlerBag;
-//#[cfg(feature = "neo4j")]
-//use warpgrapher::engine::extensions::Extensions;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::resolvers::ExecutionResult;
 #[cfg(feature = "neo4j")]
@@ -326,6 +318,13 @@ pub(crate) async fn clear_db() {
 
     #[cfg(feature = "neo4j")]
     clear_neo4j_db().await;
+}
+
+#[cfg(feature = "neo4j")]
+#[derive(Clone, Debug)]
+pub struct Metadata {
+    pub(crate) src_ip: String,
+    pub(crate) src_useragent: String,
 }
 
 #[cfg(feature = "neo4j")]
