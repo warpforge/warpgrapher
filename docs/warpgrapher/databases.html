@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Databases - Warpgrapher Book (0.7.1)</title>
+        <title>Databases - Warpgrapher Book (0.8.0)</title>
         
         
 
@@ -17,18 +17,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        
         <link rel="icon" href="../favicon.svg">
-        
-        
         <link rel="shortcut icon" href="../favicon.png">
-        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
-        
         <link rel="stylesheet" href="../css/print.css" media="print">
-        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -127,14 +121,12 @@
                         
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.8.0)</h1>
 
                     <div class="right-buttons">
-                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        
                         
                     </div>
                 </div>
@@ -163,7 +155,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="databases"><a class="header" href="#databases">Databases</a></h1>
+                        <h1><a class="header" href="#databases" id="databases">Databases</a></h1>
 <p>Warppgrapher supports using either of two database back-ends for graph data:</p>
 <ol>
 <li>Azure Cosmos DB</li>
@@ -173,11 +165,11 @@
 <p>Using each of the databases requires correctly selecting a crate feature and 
 setting up appropriate environment variables to allow Warpgrapher to connect 
 with the database.</p>
-<h2 id="azure-cosmos-db"><a class="header" href="#azure-cosmos-db">Azure Cosmos DB</a></h2>
+<h2><a class="header" href="#azure-cosmos-db" id="azure-cosmos-db">Azure Cosmos DB</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;cosmos&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;cosmos&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -194,11 +186,11 @@ for details. The workaround proposed in the article helps, but even idempotent q
 guarantee atomicity.  Warpgrapher does not use idempotent queries with automated retries to overcome
 this shortcoming of Cosmos DB, so note that if using Cosmos, there is a risk that a failed query 
 could leave partially applied results behind.</p>
-<h2 id="gremlin-based-database"><a class="header" href="#gremlin-based-database">Gremlin-Based Database</a></h2>
+<h2><a class="header" href="#gremlin-based-database" id="gremlin-based-database">Gremlin-Based Database</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -227,10 +219,10 @@ docker run -i --net=host --rm gremlin-console:latest
 <pre><code>:remote connect tinkerpop.server conf/remote.yaml
 :remote console
 </code></pre>
-<h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
+<h2><a class="header" href="#neo4j" id="neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1

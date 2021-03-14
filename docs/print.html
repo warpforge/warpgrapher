@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Warpgrapher Book (0.7.1)</title>
+        <title>Warpgrapher Book (0.8.0)</title>
         
         <meta name="robots" content="noindex" />
         
@@ -19,18 +19,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        
         <link rel="icon" href="favicon.svg">
-        
-        
         <link rel="shortcut icon" href="favicon.png">
-        
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
         <link rel="stylesheet" href="css/chrome.css">
-        
         <link rel="stylesheet" href="css/print.css" media="print">
-        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
@@ -129,14 +123,12 @@
                         
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.8.0)</h1>
 
                     <div class="right-buttons">
-                        
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        
                         
                     </div>
                 </div>
@@ -165,7 +157,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="warpgrapher"><a class="header" href="#warpgrapher">Warpgrapher</a></h1>
+                        <h1><a class="header" href="#warpgrapher" id="warpgrapher">Warpgrapher</a></h1>
 <p>Warpgrapher is framework for developing graph-based API services. Describe the 
 data model for which you want to run a web service. Wargrapher automatically 
 generates a GraphQL schema from the data model, as well as a set of resolvers 
@@ -179,12 +171,12 @@ GraphQL configuration and invoke your custom resolvers when appropriate.</p>
 <li>Patch versions represent fixes and features.</li>
 <li>There are no deprecation warnings between releases.</li>
 </ol>
-<h1 id="quickstart"><a class="header" href="#quickstart">Quickstart</a></h1>
+<h1><a class="header" href="#quickstart" id="quickstart">Quickstart</a></h1>
 <p>This guide will walk you through creating a brand new project using the Warpgrapher engine served over HTTP using actix-web. The back-end graph database in this example is Neo4J. </p>
-<h2 id="source"><a class="header" href="#source">Source</a></h2>
+<h2><a class="header" href="#source" id="source">Source</a></h2>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p><code>src/main.rs</code></p>
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
@@ -193,7 +185,6 @@ use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
-use warpgrapher::juniper::http::GraphQLRequest;
 use warpgrapher::Engine;
 
 static CONFIG: &amp;str = &quot;
@@ -233,8 +224,8 @@ async fn main() {
         .expect(&quot;Failed to build engine&quot;);
 
     // execute graphql mutation to create new user
-    let request = GraphQLRequest::new(
-        &quot;mutation {
+    let query = &quot;
+        mutation {
             UserCreate(input: {
                 email: \&quot;a@b.com\&quot;
             }) {
@@ -242,19 +233,15 @@ async fn main() {
                 email
             }
         }
-        &quot;
-        .to_string(),
-        None,
-        None,
-    );
+    &quot;.to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&amp;request, &amp;metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // display result
     println!(&quot;result: {:#?}&quot;, result);
 }
 </code></pre>
-<h2 id="database"><a class="header" href="#database">Database</a></h2>
+<h2><a class="header" href="#database" id="database">Database</a></h2>
 <p>Configure database settings:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
 export WG_NEO4J_PORT=7687
@@ -264,10 +251,10 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 <p>Start a 4.1 Neo4j database:</p>
 <pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_NEO4J_USER}/${WG_NEO4J_PASS}&quot; neo4j:4.1
 </code></pre>
-<h2 id="run"><a class="header" href="#run">Run</a></h2>
+<h2><a class="header" href="#run" id="run">Run</a></h2>
 <pre><code class="language-bash">cargo run
 </code></pre>
-<h1 id="databases"><a class="header" href="#databases">Databases</a></h1>
+<h1><a class="header" href="#databases" id="databases">Databases</a></h1>
 <p>Warppgrapher supports using either of two database back-ends for graph data:</p>
 <ol>
 <li>Azure Cosmos DB</li>
@@ -277,11 +264,11 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 <p>Using each of the databases requires correctly selecting a crate feature and 
 setting up appropriate environment variables to allow Warpgrapher to connect 
 with the database.</p>
-<h2 id="azure-cosmos-db"><a class="header" href="#azure-cosmos-db">Azure Cosmos DB</a></h2>
+<h2><a class="header" href="#azure-cosmos-db" id="azure-cosmos-db">Azure Cosmos DB</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;cosmos&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;cosmos&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -298,11 +285,11 @@ for details. The workaround proposed in the article helps, but even idempotent q
 guarantee atomicity.  Warpgrapher does not use idempotent queries with automated retries to overcome
 this shortcoming of Cosmos DB, so note that if using Cosmos, there is a risk that a failed query 
 could leave partially applied results behind.</p>
-<h2 id="gremlin-based-database"><a class="header" href="#gremlin-based-database">Gremlin-Based Database</a></h2>
+<h2><a class="header" href="#gremlin-based-database" id="gremlin-based-database">Gremlin-Based Database</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -331,10 +318,10 @@ docker run -i --net=host --rm gremlin-console:latest
 <pre><code>:remote connect tinkerpop.server conf/remote.yaml
 :remote console
 </code></pre>
-<h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
+<h2><a class="header" href="#neo4j" id="neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.7.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.8.0&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
@@ -345,9 +332,9 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 <p>If you do not already have a Neo4J database running, you can run one using Docker:</p>
 <pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_NEO4J_USER}:${WG_NEO4J_PASS}&quot; neo4j:4.1
 </code></pre>
-<h1 id="warpgrapher-config"><a class="header" href="#warpgrapher-config">Warpgrapher Config</a></h1>
+<h1><a class="header" href="#warpgrapher-config" id="warpgrapher-config">Warpgrapher Config</a></h1>
 <p>In the <a href="warpgrapher/">Quickstart</a> we demonstrated how to initialize a <code>Config</code> from a configurationf file read from file at run time. A Warpgrapher <code>Config</code> can also be generated programatically. The resulting configs from all the examples below are equivalent. </p>
-<h3 id="text-config"><a class="header" href="#text-config">Text Config</a></h3>
+<h3><a class="header" href="#text-config" id="text-config">Text Config</a></h3>
 <pre><code class="language-yaml">version: 1
 model:
 
@@ -369,7 +356,7 @@ model:
         nodes: [User]
         list: true
 </code></pre>
-<h3 id="programmatic-config"><a class="header" href="#programmatic-config">Programmatic Config</a></h3>
+<h3><a class="header" href="#programmatic-config" id="programmatic-config">Programmatic Config</a></h3>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -428,17 +415,17 @@ let config = Config::new(
 );
 <span class="boring">}
 </span></code></pre></pre>
-<h1 id="warpgrapher-crud-api"><a class="header" href="#warpgrapher-crud-api">Warpgrapher CRUD API</a></h1>
+<h1><a class="header" href="#warpgrapher-crud-api" id="warpgrapher-crud-api">Warpgrapher CRUD API</a></h1>
 <p>One of the primary features of Warpgrapher is the auto-generation of CRUD operations for all Types. This includes basic and advanced queries that support nested operations and graph traversals. </p>
 <p>Warpgrapher automatically creates a set of CRUD (Create, Read, Update, Delete) operations for each Type and each rel in a Type. This page describes the format of those automatically generated GraphQL operations. </p>
 <p>For for more details on general GraphQL syntax, see: https://graphql.org/learn/.</p>
-<h1 id="node-read"><a class="header" href="#node-read">Node Read</a></h1>
+<h1><a class="header" href="#node-read" id="node-read">Node Read</a></h1>
 <ul>
 <li><a href="api/node_read.html#read-all-nodes">Read All Nodes</a></li>
 <li><a href="api/node_read.html#read-nodes-with-matching-props">Read nodes with matching props</a></li>
 <li><a href="api/node_read.html#return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></li>
 </ul>
-<h3 id="return-all-nodes"><a class="header" href="#return-all-nodes">Return all nodes</a></h3>
+<h3><a class="header" href="#return-all-nodes" id="return-all-nodes">Return all nodes</a></h3>
 <p>To return all <code>Project</code> nodes:</p>
 <pre><code>query {
     Project {
@@ -448,7 +435,7 @@ let config = Config::new(
     }
 }
 </code></pre>
-<h3 id="return-nodes-with-matching-props"><a class="header" href="#return-nodes-with-matching-props">Return nodes with matching props</a></h3>
+<h3><a class="header" href="#return-nodes-with-matching-props" id="return-nodes-with-matching-props">Return nodes with matching props</a></h3>
 <p>To return all <code>Project</code> nodes with <code>status == &quot;ACTIVE&quot;</code>:</p>
 <pre><code>query {
     Project(
@@ -462,7 +449,7 @@ let config = Config::new(
     }
 }
 </code></pre>
-<h3 id="return-nodes-with-relationships-to-other-nodes-with-matching-props"><a class="header" href="#return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></h3>
+<h3><a class="header" href="#return-nodes-with-relationships-to-other-nodes-with-matching-props" id="return-nodes-with-relationships-to-other-nodes-with-matching-props">Return nodes with relationships to other nodes with matching props</a></h3>
 <p>To returns all <code>Project</code> nodes containing an <code>owner</code> relationship to a <code>User</code> node with <code>name=&quot;Halsey&quot;</code>:</p>
 <pre><code>query {
     Project(
@@ -479,13 +466,13 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h1 id="node-create"><a class="header" href="#node-create">Node Create</a></h1>
+<h1><a class="header" href="#node-create" id="node-create">Node Create</a></h1>
 <ul>
 <li><a href="api/node_create.html#create-node-with-no-relationships">Create node with no relationships</a></li>
 <li><a href="api/node_create.html#create-node-with-relationship-to-a-new-node">Create node with relationship to a NEW node</a></li>
 <li><a href="api/node_create.html#create-node-with-relationship-to-an-existing-node">Create node with relationship to an EXISTING node</a></li>
 </ul>
-<h3 id="create-node-with-no-relationships"><a class="header" href="#create-node-with-no-relationships">Create node with no relationships</a></h3>
+<h3><a class="header" href="#create-node-with-no-relationships" id="create-node-with-no-relationships">Create node with no relationships</a></h3>
 <p>To create a new <code>Project</code> node by itself:</p>
 <pre><code>mutation {
     ProjectCreate(
@@ -510,7 +497,7 @@ let config = Config::new(
   }
 }
 </code></pre>
-<h3 id="create-node-with-relationship-to-a-new-node"><a class="header" href="#create-node-with-relationship-to-a-new-node">Create node with relationship to a <code>NEW</code> node</a></h3>
+<h3><a class="header" href="#create-node-with-relationship-to-a-new-node" id="create-node-with-relationship-to-a-new-node">Create node with relationship to a <code>NEW</code> node</a></h3>
 <p>To create a new <code>Project</code> node with an <code>owner</code> relationship to a new <code>User</code> node:</p>
 <pre><code>mutation {
     ProjectCreate(
@@ -531,7 +518,7 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h3 id="create-node-with-relationship-to-an-existing-node"><a class="header" href="#create-node-with-relationship-to-an-existing-node">Create node with relationship to an <code>EXISTING</code> node</a></h3>
+<h3><a class="header" href="#create-node-with-relationship-to-an-existing-node" id="create-node-with-relationship-to-an-existing-node">Create node with relationship to an <code>EXISTING</code> node</a></h3>
 <p>To create a new <code>Project</code> node with an <code>owner</code> relationship to an existing <code>User</code> node:</p>
 <pre><code>mutation {
     ProjectCreate(
@@ -552,13 +539,13 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h1 id="node-update"><a class="header" href="#node-update">Node Update</a></h1>
+<h1><a class="header" href="#node-update" id="node-update">Node Update</a></h1>
 <ul>
 <li><a href="api/node_update.html#update-props-on-node-with-matching-props">Update props on node with matching props</a></li>
 <li><a href="api/node_update.html#update-props-on-node-with-a-relationship-to-a-node-containing-matching-props">Update props on node with a relationship to a node containing matching props</a></li>
 <li><a href="api/node_update.html#update-node-to-add-multi-node-relationships">Update node to add (multi-node) relationships</a></li>
 </ul>
-<h3 id="update-props-on-node-with-matching-props"><a class="header" href="#update-props-on-node-with-matching-props">Update props on node with matching props</a></h3>
+<h3><a class="header" href="#update-props-on-node-with-matching-props" id="update-props-on-node-with-matching-props">Update props on node with matching props</a></h3>
 <p>To update the <code>status</code> of the <code>Project</code> node with <code>name == &quot;Project 2&quot;</code>:</p>
 <pre><code>mutation {
     ProjectUpdate(
@@ -574,7 +561,7 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h3 id="update-props-on-node-with-a-relationship-to-a-node-containing-matching-props"><a class="header" href="#update-props-on-node-with-a-relationship-to-a-node-containing-matching-props">Update props on node with a relationship to a node containing matching props</a></h3>
+<h3><a class="header" href="#update-props-on-node-with-a-relationship-to-a-node-containing-matching-props" id="update-props-on-node-with-a-relationship-to-a-node-containing-matching-props">Update props on node with a relationship to a node containing matching props</a></h3>
 <p>To update the status of any <code>Project</code> nodes containing an <code>owner</code> relationship to the <code>User</code> with <code>name  == &quot;Smith&quot;</code>:</p>
 <pre><code>mutation {
     ProjectUpdate(
@@ -596,7 +583,7 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h3 id="update-node-to-add-multi-node-relationships"><a class="header" href="#update-node-to-add-multi-node-relationships">Update node to add <code>(multi-node)</code> relationships</a></h3>
+<h3><a class="header" href="#update-node-to-add-multi-node-relationships" id="update-node-to-add-multi-node-relationships">Update node to add <code>(multi-node)</code> relationships</a></h3>
 <p>To update a specific <code>Project</code> node to add several <code>issue</code> relationships to new <code>Feature</code> and <code>Bug</code> nodes, call <code>ProjectUpdate</code> with:</p>
 <pre><code>mutation {
     ProjectUpdate(
@@ -635,11 +622,11 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h1 id="node-delete"><a class="header" href="#node-delete">Node Delete</a></h1>
+<h1><a class="header" href="#node-delete" id="node-delete">Node Delete</a></h1>
 <ul>
 <li><a href="api/node_delete.html#delete-node-with-matching-props">Delete node with matching props</a></li>
 </ul>
-<h3 id="delete-node-with-matching-props"><a class="header" href="#delete-node-with-matching-props">Delete node with matching props</a></h3>
+<h3><a class="header" href="#delete-node-with-matching-props" id="delete-node-with-matching-props">Delete node with matching props</a></h3>
 <p>To delete <code>Project</code> nodes with status &quot;INACTIVE&quot;, call <code>ProjectDelete</code> with: </p>
 <pre><code>mutation {
     ProjectDelete(
@@ -654,13 +641,13 @@ let config = Config::new(
     { ... }
 }
 </code></pre>
-<h1 id="relationship-read"><a class="header" href="#relationship-read">Relationship Read</a></h1>
+<h1><a class="header" href="#relationship-read" id="relationship-read">Relationship Read</a></h1>
 <ul>
 <li><a href="api/rel_read.html#find-relationships-by-src-node">Find relationships by src node</a></li>
 <li><a href="api/rel_read.html#find-relationships-by-dst-node">Find relationships by dst node</a></li>
 <li><a href="api/rel_read.html#find-relationships-by-rel-props">Find relationships by rel props</a></li>
 </ul>
-<h3 id="find-relationships-by-src-node"><a class="header" href="#find-relationships-by-src-node">Find relationships by src node</a></h3>
+<h3><a class="header" href="#find-relationships-by-src-node" id="find-relationships-by-src-node">Find relationships by src node</a></h3>
 <pre><code>query {
     ProjectIssues(input: {
         src: {
@@ -674,7 +661,7 @@ let config = Config::new(
     }
 }
 </code></pre>
-<h3 id="find-relationships-by-dst-node"><a class="header" href="#find-relationships-by-dst-node">Find relationships by dst node</a></h3>
+<h3><a class="header" href="#find-relationships-by-dst-node" id="find-relationships-by-dst-node">Find relationships by dst node</a></h3>
 <pre><code>query {
     ProjectIssues(input: {
         dst: {
@@ -686,7 +673,7 @@ let config = Config::new(
     {...}
 }
 </code></pre>
-<h3 id="find-relationships-by-rel-props"><a class="header" href="#find-relationships-by-rel-props">Find relationships by rel props</a></h3>
+<h3><a class="header" href="#find-relationships-by-rel-props" id="find-relationships-by-rel-props">Find relationships by rel props</a></h3>
 <pre><code>query {
     ProjectOwner(input: {
         props: {
@@ -696,12 +683,12 @@ let config = Config::new(
     {...}
 }
 </code></pre>
-<h1 id="relationship-create"><a class="header" href="#relationship-create">Relationship Create</a></h1>
+<h1><a class="header" href="#relationship-create" id="relationship-create">Relationship Create</a></h1>
 <ul>
 <li><a href="api/rel_create.html#create-relationship-between-pair-of-existing-nodes">Create relationship between pair of existing nodes</a></li>
 <li><a href="api/rel_create.html#create-relationship-from-existing-node-to-new-node">Create relationship from existing node to new node</a></li>
 </ul>
-<h3 id="create-relationship-between-pair-of-existing-nodes"><a class="header" href="#create-relationship-between-pair-of-existing-nodes">Create relationship between pair of existing nodes</a></h3>
+<h3><a class="header" href="#create-relationship-between-pair-of-existing-nodes" id="create-relationship-between-pair-of-existing-nodes">Create relationship between pair of existing nodes</a></h3>
 <pre><code>mutation {
     ProjectOwnerCreate(input: {
         MATCH: {
@@ -720,7 +707,7 @@ let config = Config::new(
     {...}
 }
 </code></pre>
-<h3 id="create-relationship-between-from-existing-node-to-new-node"><a class="header" href="#create-relationship-between-from-existing-node-to-new-node">Create relationship between from existing node to new node</a></h3>
+<h3><a class="header" href="#create-relationship-between-from-existing-node-to-new-node" id="create-relationship-between-from-existing-node-to-new-node">Create relationship between from existing node to new node</a></h3>
 <pre><code>mutation {
     ProjectOwnerCreate(input: {
         MATCH: {
@@ -739,11 +726,11 @@ let config = Config::new(
     {...}
 }
 </code></pre>
-<h1 id="relationship-update"><a class="header" href="#relationship-update">Relationship Update</a></h1>
+<h1><a class="header" href="#relationship-update" id="relationship-update">Relationship Update</a></h1>
 <ul>
 <li><a href="api/rel_update.html#update-relationship-props">Update relationship props</a></li>
 </ul>
-<h3 id="update-relationships-props"><a class="header" href="#update-relationships-props">Update relationships props</a></h3>
+<h3><a class="header" href="#update-relationships-props" id="update-relationships-props">Update relationships props</a></h3>
 <pre><code>mutation {
     ProjectOwnerUpdate(input: {
         MATCH: {
@@ -757,11 +744,11 @@ let config = Config::new(
     }
 }
 </code></pre>
-<h1 id="relationship-delete"><a class="header" href="#relationship-delete">Relationship Delete</a></h1>
+<h1><a class="header" href="#relationship-delete" id="relationship-delete">Relationship Delete</a></h1>
 <ul>
 <li><a href="api/rel_delete.html#delete-relationships">Delete relationships</a></li>
 </ul>
-<h3 id="delete-relationships"><a class="header" href="#delete-relationships">Delete relationships</a></h3>
+<h3><a class="header" href="#delete-relationships" id="delete-relationships">Delete relationships</a></h3>
 <pre><code>mutation {
     ProjectOwnerDelete(input: {
         MATCH: {
@@ -781,10 +768,10 @@ let config = Config::new(
     }
 }
 </code></pre>
-<h1 id="engine-features"><a class="header" href="#engine-features">Engine Features</a></h1>
-<h1 id="static-endpoints"><a class="header" href="#static-endpoints">Static Endpoints</a></h1>
+<h1><a class="header" href="#engine-features" id="engine-features">Engine Features</a></h1>
+<h1><a class="header" href="#static-endpoints" id="static-endpoints">Static Endpoints</a></h1>
 <p>Warpgrapher includes built-in static endpoints that provide useful information or functionality. Built-in static endpoints names are preceded by <code>_</code>.</p>
-<h2 id="version"><a class="header" href="#version">Version</a></h2>
+<h2><a class="header" href="#version" id="version">Version</a></h2>
 <p>If the <code>Engine</code> is built with an explicit version:</p>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
@@ -812,10 +799,10 @@ let config = Config::new(
   }
 }
 </code></pre>
-<h1 id="defined-endpoints"><a class="header" href="#defined-endpoints">Defined Endpoints</a></h1>
+<h1><a class="header" href="#defined-endpoints" id="defined-endpoints">Defined Endpoints</a></h1>
 <p>In addition to the CRUD endpoints auto-generated for each type, Warpgrapher provides the ability to define additional endpoints. </p>
-<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
-<h4 id="1-add-endpoints-to-config"><a class="header" href="#1-add-endpoints-to-config">1. Add Endpoints to Config</a></h4>
+<h2><a class="header" href="#usage" id="usage">Usage</a></h2>
+<h4><a class="header" href="#1-add-endpoints-to-config" id="1-add-endpoints-to-config">1. Add Endpoints to Config</a></h4>
 <p>The following config specified no types in the <code>model</code> section (so no CRUD endpoints will be generated), but defines several endpoints of varying inputs and outputs. </p>
 <pre><code class="language-yaml">version: 1
 model:
@@ -844,7 +831,7 @@ endpoints:
     output:
       type: Team
 </code></pre>
-<h4 id="2-implement-endpoint-resolver-logic"><a class="header" href="#2-implement-endpoint-resolver-logic">2. Implement endpoint resolver logic</a></h4>
+<h4><a class="header" href="#2-implement-endpoint-resolver-logic" id="2-implement-endpoint-resolver-logic">2. Implement endpoint resolver logic</a></h4>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -876,7 +863,7 @@ fn resolve_getlargestteam(
 }
 <span class="boring">}
 </span></code></pre></pre>
-<h4 id="3-add-resolvers-when-building-engine"><a class="header" href="#3-add-resolvers-when-building-engine">3. Add resolvers when building <code>Engine</code></a></h4>
+<h4><a class="header" href="#3-add-resolvers-when-building-engine" id="3-add-resolvers-when-building-engine">3. Add resolvers when building <code>Engine</code></a></h4>
 <pre><pre class="playground"><code class="language-rust">
 <span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -891,7 +878,7 @@ let engine = Engine&lt;()&gt;::new(config, db)
     .build();
 <span class="boring">}
 </span></code></pre></pre>
-<h4 id="4-call-defined-endpoints"><a class="header" href="#4-call-defined-endpoints">4. Call Defined Endpoints</a></h4>
+<h4><a class="header" href="#4-call-defined-endpoints" id="4-call-defined-endpoints">4. Call Defined Endpoints</a></h4>
 <pre><code>query {
   GetAppName
 }
@@ -920,12 +907,11 @@ let engine = Engine&lt;()&gt;::new(config, db)
   }
 }
 </code></pre>
-<h1 id="dynamic-props"><a class="header" href="#dynamic-props">Dynamic Props</a></h1>
+<h1><a class="header" href="#dynamic-props" id="dynamic-props">Dynamic Props</a></h1>
 <p>When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties &quot;dynamic properties&quot;, and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. </p>
-<h2 id="usage-1"><a class="header" href="#usage-1">Usage</a></h2>
-<h4 id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field"><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">version: 1
-model: 
+<h2><a class="header" href="#usage-1" id="usage-1">Usage</a></h2>
+<h4><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field" id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
+<pre><code class="language-rust no_run noplayground">model: 
  - name: Project
    props: 
     - name: name
@@ -933,20 +919,20 @@ model:
     - name: points
       type: Int
       resolver: resolve_project_points
+&quot;;
 </code></pre>
-<h4 id="2-define-custom-logic-that-resolve-the-prop-value"><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">fn resolve_project_points(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
-    Box::pin(async move {
+<h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
+<pre><code class="language-rust no_run noplayground">    Box::pin(async move {
         // compute value
         let points = 5;
 
         facade.resolve_scalar(points)
     })
 }
+
 </code></pre>
-<h4 id="3-add-prop-resolver-when-building-engine"><a class="header" href="#3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
-<pre><code class="language-rust no_run noplayground">    // define resolvers
-    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<h4><a class="header" href="#3-add-prop-resolver-when-building-engine" id="3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
+<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_points&quot;.to_string(),
         Box::new(resolve_project_points),
@@ -957,13 +943,13 @@ model:
         .with_resolvers(resolvers)
         .build()
         .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
-<h1 id="dynamic-relationships"><a class="header" href="#dynamic-relationships">Dynamic Relationships</a></h1>
+<h1><a class="header" href="#dynamic-relationships" id="dynamic-relationships">Dynamic Relationships</a></h1>
 <p>Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. </p>
-<h2 id="usage-2"><a class="header" href="#usage-2">Usage</a></h2>
-<h4 id="1-mark-rel-as-dynamic-by-setting-the-resolver-field"><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">version: 1
-model: 
+<h2><a class="header" href="#usage-2" id="usage-2">Usage</a></h2>
+<h4><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field" id="1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
+<pre><code class="language-rust no_run noplayground">model: 
  - name: User
    props:
     - name: name
@@ -976,10 +962,10 @@ model:
      - name: top_contributor
        nodes: [User]
        resolver: resolve_project_top_contributor
+&quot;;
 </code></pre>
-<h4 id="2-define-custom-logic-that-resolve-the-prop-value-1"><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value-1">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">fn resolve_project_top_contributor(
-    facade: ResolverFacade&lt;AppRequestContext&gt;,
+<h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value-1" id="2-define-custom-logic-that-resolve-the-prop-value-1">2. Define custom logic that resolve the prop value</a></h4>
+<pre><code class="language-rust no_run noplayground">    facade: ResolverFacade&lt;AppRequestContext&gt;,
 ) -&gt; BoxFuture&lt;ExecutionResult&gt; {
     Box::pin(async move {
         // create dynamic dst node
@@ -989,7 +975,7 @@ model:
             Value::from(Uuid::new_v4().to_hyphenated().to_string()),
         );
         top_contributor_props.insert(&quot;name&quot;.to_string(), Value::from(&quot;user0&quot;.to_string()));
-        let top_contributor = facade.create_node(&quot;User&quot;, top_contributor_props);
+        let top_contributor = facade.node(&quot;User&quot;, top_contributor_props);
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
@@ -999,10 +985,10 @@ model:
         facade.resolve_rel(&amp;top_contributor_rel).await
     })
 }
+
 </code></pre>
-<h4 id="3-add-the-custom-relationship-resolver-to-the-engine"><a class="header" href="#3-add-the-custom-relationship-resolver-to-the-engine">3. Add the custom relationship resolver to the engine</a></h4>
-<pre><code class="language-rust no_run noplayground">    // define resolvers
-    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<h4><a class="header" href="#3-add-the-custom-relationship-resolver-to-the-engine" id="3-add-the-custom-relationship-resolver-to-the-engine">3. Add the custom relationship resolver to the engine</a></h4>
+<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -1013,14 +999,14 @@ model:
         .with_resolvers(resolvers)
         .build()
         .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
-<h1 id="request-context"><a class="header" href="#request-context">Request Context</a></h1>
+<h1><a class="header" href="#request-context" id="request-context">Request Context</a></h1>
 <p>The Request Context feature enables the creation of <strong>mutable state through the lifecycle of a request</strong>.</p>
-<h3 id="usage-3"><a class="header" href="#usage-3">Usage</a></h3>
-<h4 id="1-define-requestcontext-struct"><a class="header" href="#1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
+<h3><a class="header" href="#usage-3" id="usage-3">Usage</a></h3>
+<h4><a class="header" href="#1-define-requestcontext-struct" id="1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
 <p>Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code>, and Warpgrapher <code>RequestContext</code>. </p>
-<pre><code class="language-rust no_run noplayground">struct AppRequestContext {
-    request_id: String,
+<pre><code class="language-rust no_run noplayground">    request_id: String,
 }
 
 impl RequestContext for AppRequestContext {
@@ -1033,25 +1019,26 @@ impl RequestContext for AppRequestContext {
 }
 
 fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
+    Box::pin(async move {
 </code></pre>
-<h4 id="2-create-engine-with-requestcontext-type-parameter"><a class="header" href="#2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>
+<h4><a class="header" href="#2-create-engine-with-requestcontext-type-parameter" id="2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>
 <p>The RequestContext is specified in the second type paramter of <code>Engine</code>. </p>
-<pre><code class="language-rust no_run noplayground">    let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
-        .with_resolvers(resolvers)
+<pre><code class="language-rust no_run noplayground">        .with_resolvers(resolvers)
         .build()
         .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
-<h4 id="3-access-context-inside-resolver"><a class="header" href="#3-access-context-inside-resolver">3. Access Context inside resolver</a></h4>
-<pre><code class="language-rust no_run noplayground">fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
-    Box::pin(async move {
+<h4><a class="header" href="#3-access-context-inside-resolver" id="3-access-context-inside-resolver">3. Access Context inside resolver</a></h4>
+<pre><code class="language-rust no_run noplayground">    Box::pin(async move {
         let request_context = facade.request_context().unwrap();
         let request_id = request_context.request_id.clone();
         facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
     })
 }
+
 </code></pre>
-<h3 id="full-example"><a class="header" href="#full-example">Full Example</a></h3>
-<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.7.1/examples/request_context/main.rs">Github</a>.</p>
+<h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
+<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.8.0/examples/request_context/main.rs">Github</a>.</p>
 
                     </main>
 
