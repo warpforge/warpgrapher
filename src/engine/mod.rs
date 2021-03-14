@@ -1,26 +1,24 @@
 //! This module provides the Warpgrapher engine, with supporting modules for configuration,
 //! GraphQL schema generation, resolvers, and interface to the database.
-
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::DatabaseEndpoint;
-use events::EventHandlerBag;
-use extensions::Extensions;
+use database::{DatabaseEndpoint, DatabasePool, CrudOperation, Transaction};
+use events::{EventHandlerBag, EventFacade};
 use juniper::http::GraphQLRequest;
 use log::debug;
 use resolvers::Resolvers;
-use schema::{create_root_node, RootRef};
+use schema::{create_root_node, Info, RootRef, NodeType};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::option::Option;
+use std::sync::Arc;
 use validators::Validators;
 
 pub mod config;
 pub mod context;
 pub mod database;
 pub mod events;
-pub mod extensions;
 pub mod objects;
 pub mod resolvers;
 pub mod schema;
@@ -51,7 +49,6 @@ where
     config: Configuration,
     db_pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     event_handlers: EventHandlerBag<RequestCtx>,
-    extensions: Extensions<RequestCtx>,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     version: Option<String>,
@@ -119,7 +116,6 @@ where
     /// # use warpgrapher::{Configuration, DatabasePool, Engine};
     /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
     /// # use warpgrapher::engine::events::EventHandlerBag;
-    /// # use warpgrapher::engine::extensions::Extensions;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let event_handlers = EventHandlerBag::<()>::new();
@@ -137,34 +133,6 @@ where
         event_handlers: EventHandlerBag<RequestCtx>,
     ) -> EngineBuilder<RequestCtx> {
         self.event_handlers = event_handlers;
-        self
-    }
-
-    /// Adds extensions to engine
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use warpgrapher::{Configuration, DatabasePool, Engine};
-    /// # use warpgrapher::engine::database::no_database::NoDatabasePool;
-    /// # use warpgrapher::engine::extensions::Extensions;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let extensions = Extensions::<()>::new();
-    ///
-    /// let config = Configuration::default();
-    ///
-    /// let mut engine = Engine::<()>::new(config, NoDatabasePool {})
-    ///     .with_extensions(extensions)
-    ///     .build()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn with_extensions(
-        mut self,
-        extensions: Extensions<RequestCtx>,
-    ) -> EngineBuilder<RequestCtx> {
-        self.extensions = extensions;
         self
     }
 
@@ -245,9 +213,13 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn build(self) -> Result<Engine<RequestCtx>, Error> {
+    pub fn build(mut self) -> Result<Engine<RequestCtx>, Error> {
         self.validate()?;
 
+        for event_handler in self.event_handlers.before_engine_build() {
+            event_handler(&mut self.config)?;
+        }
+        
         let root_node = create_root_node(&self.config)?;
 
         let engine = Engine::<RequestCtx> {
@@ -256,7 +228,6 @@ where
             resolvers: self.resolvers,
             validators: self.validators,
             event_handlers: self.event_handlers,
-            extensions: self.extensions,
             version: self.version,
             root_node,
         };
@@ -362,7 +333,6 @@ where
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     event_handlers: EventHandlerBag<RequestCtx>,
-    extensions: Extensions<RequestCtx>,
     version: Option<String>,
     root_node: RootRef<RequestCtx>,
 }
@@ -404,7 +374,6 @@ where
             resolvers: HashMap::new(),
             validators: HashMap::new(),
             event_handlers: EventHandlerBag::new(),
-            extensions: vec![],
             version: None,
         }
     }
@@ -439,53 +408,96 @@ where
     /// let config = Configuration::default();
     /// let mut engine = Engine::<()>::new(config, NoDatabasePool {}).build()?;
     ///
+    /// let query = "query { name }".to_string();
     /// let metadata: HashMap<String, String> = HashMap::new();
-    /// let req_body = json!({"query": "query { name }"});
     ///
-    /// let result = engine.execute(&from_value::<GraphQLRequest>(req_body)?, &metadata).await?;
+    /// let result = engine.execute(query, None, metadata).await?;
     /// # Ok(())
     /// # }
     /// ```
     pub async fn execute(
         &self,
-        req: &GraphQLRequest,
-        metadata: &HashMap<String, String>,
+        query: String,
+        input: Option<serde_json::Value>,
+        metadata: HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
         debug!("Engine::execute called");
 
-        // run pre request plugin hooks
-        let req_ctx = self
-            .extensions
-            .iter()
-            .try_fold(RequestCtx::new(), |req_ctx, e| {
-                e.pre_request_hook(
-                    req.operation_name().map(|v| v.to_string()),
-                    req_ctx,
-                    &metadata,
-                    self.db_pool.clone(),
-                )
-            })?;
+        // create new request context
+        let mut rctx = RequestCtx::new();
 
+        // execute before_request handlers
+        let before_request_handlers = self.event_handlers.before_request();
+        if !before_request_handlers.is_empty() {
+            let mut dbtx = self.db_pool.transaction().await?;
+            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let info = Info::new("".to_string(), Arc::new(gql_schema));
+            let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
+                self.db_pool.clone(),
+                self.resolvers.clone(),
+                self.validators.clone(),
+                self.event_handlers.clone(),
+                Some(rctx.clone()),
+                self.version.clone(),
+                metadata.clone(),
+            );
+            for handler in before_request_handlers {
+                rctx = handler(
+                    rctx, 
+                    EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
+                    metadata.clone()
+                ).await?;
+            }
+            dbtx.commit().await?;
+            std::mem::drop(dbtx);
+        }
+
+        // convert serde_json input to juniper input
+        let input_value : Option<juniper::InputValue> = match input {
+            Some(input) => Some(serde_json::from_value::<juniper::InputValue>(input)?),
+            None => None,
+        };
+
+        // execute graphql query
         let gqlctx = GraphQLContext::<RequestCtx>::new(
             self.db_pool.clone(),
             self.resolvers.clone(),
             self.validators.clone(),
             self.event_handlers.clone(),
-            self.extensions.clone(),
-            Some(req_ctx.clone()),
+            Some(rctx.clone()),
             self.version.clone(),
             metadata.clone(),
         );
-        // execute graphql query
+        let req = GraphQLRequest::new(query, None, input_value);
         let res = req.execute(&self.root_node, &gqlctx).await;
 
         // convert graphql response (json) to mutable serde_json::Value
-        let res_value = serde_json::to_value(&res)?;
-
-        // run post request plugin hooks
-        let ret_value = self.extensions.iter().try_fold(res_value, |res_value, e| {
-            e.post_request_hook(&req_ctx, res_value)
-        })?;
+        let mut ret_value = serde_json::to_value(&res)?;
+        
+        // execute after_request handlers
+        let after_request_handlers = self.event_handlers.after_request();
+        if !after_request_handlers.is_empty() {
+            let mut dbtx = self.db_pool.transaction().await?;
+            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let info = Info::new("".to_string(), Arc::new(gql_schema));
+            let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
+                self.db_pool.clone(),
+                self.resolvers.clone(),
+                self.validators.clone(),
+                self.event_handlers.clone(),
+                Some(rctx.clone()),
+                self.version.clone(),
+                metadata.clone(),
+            );
+            for handler in self.event_handlers.after_request() {
+                ret_value = handler(
+                    EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
+                    ret_value,
+                ).await?;
+            }
+            dbtx.commit().await?;
+            std::mem::drop(dbtx);
+        }
 
         debug!("Engine::execute -- ret_value: {:#?}", ret_value);
         Ok(ret_value)

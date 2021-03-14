@@ -4,7 +4,6 @@ use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
-use warpgrapher::juniper::http::GraphQLRequest;
 use warpgrapher::Engine;
 
 static CONFIG: &str = "
@@ -44,8 +43,8 @@ async fn main() {
         .expect("Failed to build engine");
 
     // execute graphql mutation to create new user
-    let request = GraphQLRequest::new(
-        "mutation {
+    let query = "
+        mutation {
             UserCreate(input: {
                 email: \"a@b.com\"
             }) {
@@ -53,13 +52,9 @@ async fn main() {
                 email
             }
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    ".to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // display result
     println!("result: {:#?}", result);

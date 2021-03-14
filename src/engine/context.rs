@@ -3,7 +3,6 @@
 use crate::engine::database::no_database::NoDatabaseEndpoint;
 use crate::engine::database::DatabaseEndpoint;
 use crate::engine::events::EventHandlerBag;
-use crate::engine::extensions::{Extension, Extensions};
 use crate::engine::resolvers::{ResolverFunc, Resolvers};
 use crate::engine::validators::Validators;
 use crate::Error;
@@ -11,8 +10,6 @@ use juniper::Context;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::slice::Iter;
-use std::sync::Arc;
 
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the database in to the resolvers.
@@ -56,7 +53,6 @@ use std::sync::Arc;
 ///     resolvers,
 ///     validators,
 ///     EventHandlerBag::<AppCtx>::new(),
-///     vec![],
 ///     Some(AppCtx::new()),
 ///     None,
 ///     HashMap::new()
@@ -69,7 +65,6 @@ pub struct GraphQLContext<RequestCtx: RequestContext> {
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     event_handlers: EventHandlerBag<RequestCtx>,
-    extensions: Extensions<RequestCtx>,
     request_ctx: Option<RequestCtx>,
     version: Option<String>,
     metadata: HashMap<String, String>,
@@ -141,7 +136,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -155,7 +149,6 @@ where
         resolvers: Resolvers<RequestCtx>,
         validators: Validators,
         event_handlers: EventHandlerBag<RequestCtx>,
-        extensions: Extensions<RequestCtx>,
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
         metadata: HashMap<String, String>,
@@ -165,7 +158,6 @@ where
             resolvers,
             validators,
             event_handlers,
-            extensions,
             request_ctx,
             version,
             metadata,
@@ -211,7 +203,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -300,7 +291,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -359,7 +349,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -414,7 +403,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     None,
     ///     HashMap::new()
@@ -468,7 +456,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
     ///     Some(AppCtx::new()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -481,61 +468,6 @@ where
     /// ```
     pub fn version(&self) -> Option<&String> {
         self.version.as_ref()
-    }
-
-    /// Returns an iterator over the registered extensions, each offering potentially a pre-request
-    /// and a post-request hook
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     vec![],
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let extensions = gqlctx.extensions();
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn extensions(&self) -> Iter<Arc<dyn Extension<RequestCtx>>> {
-        self.extensions.iter()
     }
 
     /// Returns the request-specific context
@@ -583,7 +515,6 @@ where
     ///     resolvers,
     ///     validators,
     ///     EventHandlerBag::<AppRequestCtx>::new(),
-    ///     vec![],
     ///     Some(AppRequestCtx::new()),
     ///     Some("0.0.0".to_string()),
     ///     HashMap::new()
@@ -611,7 +542,6 @@ where
 {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         f.debug_struct("GraphQLContext")
-            .field("extensions", &self.extensions)
             .field("request_ctx", &self.request_ctx)
             .field("version", &self.version)
             .finish()
@@ -675,7 +605,6 @@ mod tests {
             resolvers,
             validators,
             EventHandlerBag::new(),
-            vec![],
             Some(()),
             None,
             HashMap::<String, String>::new(),

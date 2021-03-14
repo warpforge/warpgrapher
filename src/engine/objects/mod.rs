@@ -17,7 +17,7 @@ pub use juniper::{GraphQLType, GraphQLTypeAsync, GraphQLValue, GraphQLValueAsync
 use log::{error, trace};
 use resolvers::Resolver;
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryInto, TryFrom};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -162,7 +162,7 @@ impl<RequestCtx> GraphQLValueAsync for Input<RequestCtx> where RequestCtx: Reque
 ///         let mut props = HashMap::new();
 ///         props.insert("role".to_string(), Value::String("Admin".to_string()));
 ///
-///         let n = facade.create_node(typename, props);
+///         let n = facade.node(typename, props);
 ///
 ///         facade.resolve_node(&n).await
 ///     })
@@ -182,7 +182,7 @@ impl<RequestCtx> Node<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    pub(crate) fn new(
+    pub fn new(
         concrete_typename: String,
         fields: HashMap<String, Value>,
     ) -> Node<RequestCtx> {
@@ -191,6 +191,33 @@ where
             fields,
             _rctx: PhantomData,
         }
+    }
+
+    /// Attempts to deserialize a `Node` into a struct.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use serde::Deserialize;
+    /// # use warpgrapher::engine::objects::Node;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Team {
+    ///     name: String
+    /// }
+    /// 
+    /// fn handle_node(n: Node<()>) {
+    /// 
+    ///     // succeeds if the fields of `n` can be deserialized into `Team`
+    ///     let team: Team = n.deser().unwrap(); 
+    ///     
+    /// }
+    /// ```
+    pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        let m = Value::Map(self.fields().clone());
+        let v = serde_json::Value::try_from(m)?;
+        let t : T = serde_json::from_value(v)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e} )?;
+        Ok(t)
     }
 
     /// Returns the fields of a [`Node`].
@@ -207,7 +234,7 @@ where
         &self.fields
     }
 
-    pub(crate) fn id(&self) -> Result<&Value, Error> {
+    pub fn id(&self) -> Result<&Value, Error> {
         trace!("Node::id called");
         self.fields
             .get(&"id".to_string())
@@ -216,7 +243,7 @@ where
             })
     }
 
-    pub(crate) fn type_name(&self) -> &String {
+    pub fn type_name(&self) -> &String {
         &self.concrete_typename
     }
 

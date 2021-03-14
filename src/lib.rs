@@ -24,6 +24,7 @@ pub use client::Client;
 pub use engine::config::Configuration;
 pub use engine::database::DatabasePool;
 pub use engine::Engine;
+pub use engine::value::Value;
 pub use error::Error;
 
 pub mod client;

@@ -2045,7 +2045,7 @@ fn float_input(name: &str) -> Property {
 
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
-fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
+pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
     let mut nthm = HashMap::new();
     let mut mutation_props = HashMap::new();
     let mut query_props = HashMap::new();

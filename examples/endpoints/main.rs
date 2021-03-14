@@ -7,7 +7,6 @@ use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
-use warpgrapher::juniper::http::GraphQLRequest;
 use warpgrapher::juniper::BoxFuture;
 use warpgrapher::Engine;
 
@@ -41,7 +40,7 @@ impl RequestContext for AppRequestContext {
 // endpoint returning a list of `Issue` nodes
 fn resolve_top_issue(facade: ResolverFacade<AppRequestContext>) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
-        let top_issue = facade.create_node(
+        let top_issue = facade.node(
             "Issue",
             hashmap! {
                 "name".to_string() => Value::from("Learn more rust".to_string()),
@@ -76,20 +75,16 @@ async fn main() {
         .expect("Failed to build engine");
 
     // create new project
-    let request = GraphQLRequest::new(
-        "query {
+    let query = "
+        query {
             TopIssue {
                 name
                 points
             }
         }
-        "
-        .to_string(),
-        None,
-        None,
-    );
+    ".to_string();
     let metadata = HashMap::new();
-    let result = engine.execute(&request, &metadata).await.unwrap();
+    let result = engine.execute(query, None, metadata).await.unwrap();
 
     // verify result
     println!("result: {:#?}", result);

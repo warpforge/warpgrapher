@@ -54,15 +54,21 @@ impl<'r> Resolver<'r> {
         let func = executor.context().resolver(field_name)?;
 
         // results
-        func(ResolverFacade::new(
+        let mut transaction = executor.context().pool().transaction().await?;
+        let result = func(ResolverFacade::new(
             field_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             executor,
+            &mut transaction,
         ))
-        .await
+        .await;
+        transaction.commit().await?;
+        std::mem::drop(transaction);
+
+        result
     }
 
     pub(super) async fn resolve_custom_field<RequestCtx: RequestContext>(
@@ -86,15 +92,21 @@ impl<'r> Resolver<'r> {
 
         let func = &executor.context().resolver(resolver_name)?;
 
-        func(ResolverFacade::new(
+        let mut transaction = executor.context().pool().transaction().await?;
+        let result = func(ResolverFacade::new(
             field_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             &executor,
+            &mut transaction,
         ))
-        .await
+        .await;
+        transaction.commit().await?;
+        std::mem::drop(transaction);
+
+        result
     }
 
     pub(super) async fn resolve_custom_rel<RequestCtx: RequestContext>(
@@ -118,15 +130,21 @@ impl<'r> Resolver<'r> {
 
         let func = &executor.context().resolver(resolver_name)?;
 
-        func(ResolverFacade::new(
+        let mut transaction = executor.context().pool().transaction().await?;
+        let result = func(ResolverFacade::new(
             rel_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             executor,
+            &mut transaction,
         ))
-        .await
+        .await;
+        transaction.commit().await?;
+        std::mem::drop(transaction);
+
+        result
     }
 
     pub(super) async fn resolve_node_create_mutation<RequestCtx: RequestContext>(

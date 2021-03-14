@@ -92,7 +92,7 @@ pub enum Error {
     },
 
     /// Returned if a registered extension function returns an error
-    ExtensionFailed {
+    EventError {
         source: Box<dyn std::error::Error + Sync + Send>,
     },
 
@@ -324,8 +324,8 @@ impl Display for Error {
                     source
                 )
             }
-            Error::ExtensionFailed { source } => {
-                write!(f, "Extension returned an error: {}", source)
+            Error::EventError { source } => {
+                write!(f, "Event handler returned an error: {}", source)
             }
             #[cfg(any(feature = "cosmos", feature = "gremlin"))]
             Error::GremlinActionFailed { source } => {
@@ -485,7 +485,7 @@ impl std::error::Error for Error {
             Error::EnvironmentVariableNotFound { name: _ } => None,
             Error::EnvironmentVariableBoolNotParsed { source } => Some(source),
             Error::EnvironmentVariableIntNotParsed { source } => Some(source),
-            Error::ExtensionFailed { source } => Some(source.as_ref()),
+            Error::EventError { source } => Some(source.as_ref()),
             #[cfg(any(feature = "cosmos", feature = "gremlin"))]
             Error::GremlinActionFailed { source } => Some(source),
             Error::InputItemNotFound { name: _ } => None,
@@ -525,7 +525,7 @@ impl std::error::Error for Error {
 
 impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
     fn from(e: Box<dyn std::error::Error + Sync + Send>) -> Self {
-        Error::ExtensionFailed { source: e }
+        Error::EventError { source: e }
     }
 }
 

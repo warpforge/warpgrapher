@@ -276,6 +276,7 @@ pub trait Transaction: Send + Sync {
 /// Represents the different types of Crud Operations along with the target of the
 /// operation (node typename and rel typename for rel ops). This enum is passed to
 /// event handler functions.
+#[derive(Clone, Debug)]
 pub enum CrudOperation {
     ReadNode(String),
     ReadRel(String, String),
@@ -285,6 +286,7 @@ pub enum CrudOperation {
     UpdateRel(String, String),
     DeleteNode(String),
     DeleteRel(String, String),
+    None
 }
 
 /// Represents the different type of comparison match operations
