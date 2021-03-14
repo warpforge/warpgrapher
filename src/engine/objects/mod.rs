@@ -214,8 +214,9 @@ where
     /// ```
     pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let m = Value::Map(self.fields().clone());
-        let v = serde_json::Value::try_from(m).unwrap();
-        let t : T = serde_json::from_value(v).unwrap();
+        let v = serde_json::Value::try_from(m)?;
+        let t : T = serde_json::from_value(v)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e} )?;
         Ok(t)
     }
 
