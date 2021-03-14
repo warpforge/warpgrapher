@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Dynamic Relationships - Warpgrapher Book (0.7.1)</title>
+        <title>Dynamic Relationships - Warpgrapher Book (0.8.0)</title>
         
         
 
@@ -17,18 +17,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        
         <link rel="icon" href="../favicon.svg">
-        
-        
         <link rel="shortcut icon" href="../favicon.png">
-        
         <link rel="stylesheet" href="../css/variables.css">
         <link rel="stylesheet" href="../css/general.css">
         <link rel="stylesheet" href="../css/chrome.css">
-        
         <link rel="stylesheet" href="../css/print.css" media="print">
-        
 
         <!-- Fonts -->
         <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
@@ -127,14 +121,12 @@
                         
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.7.1)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.8.0)</h1>
 
                     <div class="right-buttons">
-                        
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        
                         
                     </div>
                 </div>
@@ -163,12 +155,11 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="dynamic-relationships"><a class="header" href="#dynamic-relationships">Dynamic Relationships</a></h1>
+                        <h1><a class="header" href="#dynamic-relationships" id="dynamic-relationships">Dynamic Relationships</a></h1>
 <p>Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. </p>
-<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
-<h4 id="1-mark-rel-as-dynamic-by-setting-the-resolver-field"><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
-<pre><code class="language-rust no_run noplayground">version: 1
-model: 
+<h2><a class="header" href="#usage" id="usage">Usage</a></h2>
+<h4><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field" id="1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
+<pre><code class="language-rust no_run noplayground">model: 
  - name: User
    props:
     - name: name
@@ -181,10 +172,10 @@ model:
      - name: top_contributor
        nodes: [User]
        resolver: resolve_project_top_contributor
+&quot;;
 </code></pre>
-<h4 id="2-define-custom-logic-that-resolve-the-prop-value"><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><code class="language-rust no_run noplayground">fn resolve_project_top_contributor(
-    facade: ResolverFacade&lt;AppRequestContext&gt;,
+<h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
+<pre><code class="language-rust no_run noplayground">    facade: ResolverFacade&lt;AppRequestContext&gt;,
 ) -&gt; BoxFuture&lt;ExecutionResult&gt; {
     Box::pin(async move {
         // create dynamic dst node
@@ -194,7 +185,7 @@ model:
             Value::from(Uuid::new_v4().to_hyphenated().to_string()),
         );
         top_contributor_props.insert(&quot;name&quot;.to_string(), Value::from(&quot;user0&quot;.to_string()));
-        let top_contributor = facade.create_node(&quot;User&quot;, top_contributor_props);
+        let top_contributor = facade.node(&quot;User&quot;, top_contributor_props);
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
@@ -204,10 +195,10 @@ model:
         facade.resolve_rel(&amp;top_contributor_rel).await
     })
 }
+
 </code></pre>
-<h4 id="3-add-the-custom-relationship-resolver-to-the-engine"><a class="header" href="#3-add-the-custom-relationship-resolver-to-the-engine">3. Add the custom relationship resolver to the engine</a></h4>
-<pre><code class="language-rust no_run noplayground">    // define resolvers
-    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<h4><a class="header" href="#3-add-the-custom-relationship-resolver-to-the-engine" id="3-add-the-custom-relationship-resolver-to-the-engine">3. Add the custom relationship resolver to the engine</a></h4>
+<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -218,6 +209,7 @@ model:
         .with_resolvers(resolvers)
         .build()
         .expect(&quot;Failed to build engine&quot;);
+
 </code></pre>
 
                     </main>
