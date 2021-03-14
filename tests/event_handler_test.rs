@@ -6,6 +6,7 @@ use serde_json::json;
 use setup::Neo4jRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
+use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 #[cfg(feature = "neo4j")]
@@ -16,6 +17,7 @@ use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
+type Rctx = Neo4jRequestCtx;
 
 #[derive(Debug)]
 struct TestError {}
@@ -26,6 +28,26 @@ impl std::fmt::Display for TestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#?}", self)
     }
+}
+
+
+#[cfg(feature = "neo4j")]
+fn breqf(_r: Rctx, _ef: EventFacade<Rctx>, _meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
+    })
+}
+
+
+#[cfg(feature = "neo4j")]
+fn areqf(_ef: EventFacade<Rctx>, _output: serde_json::Value) -> BoxFuture<Result<serde_json::Value, Error>> {
+    Box::pin(async move {
+        Err(Error::UserDefinedError {
+            source: Box::new(TestError {}),
+        })
+    })
 }
 
 #[cfg(feature = "neo4j")]
@@ -71,6 +93,58 @@ fn aref(
             source: Box::new(TestError {}),
         })
     })
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn test_before_request_handler() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_before_request(breqf);
+
+    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    let result = client
+        .create_node(
+            "Project",
+            "id name description status",
+            Some("1234"),
+            &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+        )
+        .await;
+
+    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {}
+    else {
+        panic!("Unexpected error");
+    }
+}
+
+#[cfg(feature = "neo4j")]
+#[tokio::test]
+async fn test_after_request_handler() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_after_request(areqf);
+
+    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    let result = client
+        .create_node(
+            "Project",
+            "id name description status",
+            Some("1234"),
+            &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+        )
+        .await;
+
+    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {}
+    else {
+        panic!("Unexpected error");
+    }
 }
 
 #[cfg(feature = "neo4j")]

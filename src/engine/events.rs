@@ -86,7 +86,7 @@ pub type BeforeRequestFunc<R> =
 /// type Rctx = ();
 ///
 /// fn after_request(
-///     rctx: Rctx, 
+///     mut ef: EventFacade<Rctx>,
 ///     output: serde_json::Value,
 /// ) -> BoxFuture<'static, Result<serde_json::Value, warpgrapher::Error>> {
 ///     Box::pin(async move {
@@ -306,7 +306,33 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_engine_build_handlers.push(f);
     }
     
-    // TODO: docs
+    /// Registers an event handler `f` to be called before a request is executed.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::engine::config::Configuration;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    /// type Rctx = ();
+    ///
+    /// fn before_request(
+    ///     mut rctx: Rctx, 
+    ///     mut ef: EventFacade<Rctx>,
+    ///     metadata: HashMap<String, String>
+    /// ) -> BoxFuture<Result<Rctx, warpgrapher::Error>> {
+    ///     Box::pin(async move {
+    ///         // modify request context 
+    ///         Ok(rctx)
+    ///     })
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_before_request(before_request);
+    /// ```
     pub fn register_before_request(
         &mut self,
         f: BeforeRequestFunc<RequestCtx>
@@ -314,7 +340,31 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.before_request_handlers.push(f);
     }
     
-    // TODO: docs
+    /// Registers an event handler `f` to be called after a request is executed.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::engine::config::Configuration;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    /// type Rctx = ();
+    ///
+    /// fn after_request(
+    ///     mut ef: EventFacade<Rctx>,
+    ///     output: serde_json::Value,
+    /// ) -> BoxFuture<'static, Result<serde_json::Value, warpgrapher::Error>> {
+    ///     Box::pin(async move {
+    ///         // modify output
+    ///         Ok(output)
+    ///     })
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_request(after_request);
+    /// ```
     pub fn register_after_request(
         &mut self,
         f: AfterRequestFunc<RequestCtx>
@@ -1100,7 +1150,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let nodes_to_be_read = ef.read_nodes("User", Some(value.clone()), None).await?;
+    ///         let nodes_to_be_read = ef.read_nodes("User", value.clone(), None).await?;
     ///         // modify value before passing it forward ...
     ///         Ok(value)
     ///     })
@@ -1109,7 +1159,7 @@ where
     pub async fn read_nodes(
         &mut self,
         type_name: &str,
-        input: Option<Value>,
+        input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut info = self.info.clone();
@@ -1121,9 +1171,8 @@ where
 
         let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
-            input,
+            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?),
             &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
-            //&Info::new(type_name.to_string(), info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1184,6 +1233,38 @@ where
         result
     }
 
+    /// Provides an abstracted database update operation using warpgrapher inputs. This is the
+    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node to update.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let new_node = ef.update_node(
+    ///             "User", 
+    ///             json!({
+    ///                 "MATCH": {"name": {"EQ": "alice"}},
+    ///                 "SET": {"name": "eve"}
+    ///             }), 
+    ///             None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
     pub async fn update_node(
         &mut self,
         type_name: &str,
@@ -1206,6 +1287,37 @@ where
         result
     }
     
+    /// Provides an abstracted database delete operation using warpgrapher inputs. This is the
+    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - `Value` describing the node to update.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let new_node = ef.delete_node(
+    ///             "User", 
+    ///             json!({
+    ///                 "MATCH": {"name": {"EQ": "alice"}}
+    ///             }),
+    ///             None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
     pub async fn delete_node(
         &mut self,
         type_name: &str,

@@ -194,6 +194,24 @@ where
     }
 
     /// Attempts to deserialize a `Node` into a struct.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use serde::Deserialize;
+    /// # use warpgrapher::engine::objects::Node;
+    ///
+    /// #[derive(Deserialize)]
+    /// struct Team {
+    ///     name: String
+    /// }
+    /// 
+    /// fn handle_node(n: Node<()>) {
+    /// 
+    ///     // succeeds if the fields of `n` can be deserialized into `Team`
+    ///     let team: Team = n.deser().unwrap(); 
+    ///     
+    /// }
+    /// ```
     pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let m = Value::Map(self.fields().clone());
         let v = serde_json::Value::try_from(m).unwrap();

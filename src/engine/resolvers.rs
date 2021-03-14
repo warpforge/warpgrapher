@@ -321,7 +321,7 @@ where
         Node::new(typename.to_string(), props)
     }
 
-    /// Provides an abstracted database read operation using warpgrapher inputs. This is the
+    /// Provides an abstracted database node read operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
     ///
@@ -334,23 +334,25 @@ where
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use serde_json::json;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let nodes_to_be_read = ef.read_nodes("User", Some(value.clone()), None).await?;
-    ///         // modify value before passing it forward ...
-    ///         Ok(value)
+    ///         let result = facade.read_nodes("User", json!({"name": "alice"}), None)
+    ///             .await?;
+    ///         let alice = result.first().unwrap();
+    ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
     pub async fn read_nodes(
         &mut self,
         type_name: &str,
-        input: Option<Value>,
+        input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut info = self.info.clone();
@@ -360,7 +362,7 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
-            input,
+            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?),
             &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
             partition_key_opt,
             &mut sg,
@@ -374,28 +376,29 @@ where
         results
     }
 
-    /// Provides an abstracted database create operation using warpgrapher inputs. This is the
-    /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
+    /// Provides an abstracted database node create operation using warpgrapher inputs. This is the
+    /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
     ///
     /// # Arguments
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
-    /// * `input` - `Value` describing the node to create.
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
     /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
     ///
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use serde_json::json;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let new_node = ef.create_node("Team", value.clone(), None).await?;
-    ///         Ok(value)
+    ///         let alice = facade.create_node("User", json!({"name": "alice"}), None).await?;
+    ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
@@ -421,35 +424,43 @@ where
         result
     }
     
-    /// Provides an abstracted database updated operation using warpgrapher inputs. This is the
-    /// recommended way to update nodes in a database-agnostic way that ensures the event handlers
+    /// Provides an abstracted database node update operation using warpgrapher inputs. This is the
+    /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
     ///
     /// # Arguments
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
-    /// * `input` - `Value` describing the node update operation.
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
     /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
     ///
     /// # Examples
     ///
     /// ```rust, no_run
+    /// # use serde_json::json;
     /// # use warpgrapher::Error;
-    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
-    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let result = ef.update_node(
-    ///             "Team", 
-    ///             serde_json::json!({
-    ///                 "MATCH": {"id": {"EQ": "123456"}},
-    ///                 "SET": {"name": "NewTeamName"}           
+    ///         let result = facade.update_node(
+    ///             "User", 
+    ///             json!({
+    ///                 "MATCH": {
+    ///                     "name": {
+    ///                         "EQ":"alice"
+    ///                     }
+    ///                 },
+    ///                 "SET": {
+    ///                     "age": 20
+    ///                 }
     ///             }), 
     ///             None
     ///         ).await?;
-    ///         Ok(value)
+    ///         let alice = result.first().unwrap();
+    ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
@@ -475,6 +486,42 @@ where
         result
     }
     
+    /// Provides an abstracted database node delete operation using warpgrapher inputs. This is the
+    /// recommended way to read data in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `type_name` - String reference represing name of node type (ex: "User").
+    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         facade.delete_node(
+    ///             "User", 
+    ///             json!({
+    ///                 "MATCH": {
+    ///                     "name": {
+    ///                         "EQ":"alice"
+    ///                     }
+    ///                 }
+    ///             }), 
+    ///             None
+    ///         ).await?;
+    ///         facade.resolve_null()
+    ///     })
+    /// }
+    /// ```
     pub async fn delete_node(
         &mut self,
         type_name: &str,

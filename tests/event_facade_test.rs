@@ -3,13 +3,11 @@ mod setup;
 #[cfg(feature = "neo4j")]
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::Neo4jRequestCtx;
-#[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-#[cfg(feature = "neo4j")]
-use warpgrapher::engine::objects::{Node, Rel};
+//#[cfg(feature = "neo4j")]
+//use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "neo4j")]
@@ -18,6 +16,7 @@ use warpgrapher::juniper::BoxFuture;
 use warpgrapher::Error;
 use warpgrapher::Client;
 use std::collections::HashMap;
+#[cfg(feature = "neo4j")]
 type Rctx = setup::Neo4jRequestCtx;
 
 // convenience function that will trigger event handler
@@ -33,7 +32,7 @@ async fn read_projects(client: &mut Client<Rctx>) -> Result<serde_json::Value, E
 }
 
 #[cfg(feature = "neo4j")]
-fn mock_handler(r: Rctx, mut ef: EventFacade<Rctx>, meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
+fn mock_handler(r: Rctx, mut ef: EventFacade<Rctx>, _meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
     Box::pin(async move {
 
         // create node
@@ -73,7 +72,7 @@ fn mock_handler(r: Rctx, mut ef: EventFacade<Rctx>, meta: HashMap<String, String
         // read nodes
         let projects = ef.read_nodes(
             "Project",
-            None,
+            json!({}),
             None,
         ).await?;
         assert_eq!(projects.len(), 2);
@@ -103,7 +102,7 @@ fn mock_handler(r: Rctx, mut ef: EventFacade<Rctx>, meta: HashMap<String, String
         // read nodes
         let projects = ef.read_nodes(
             "Project",
-            None,
+            json!({}),
             None,
         ).await?;
         assert_eq!(projects.len(), 1);
@@ -124,65 +123,5 @@ async fn test_event_facade_ops() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(mock_handler);
     let mut client = neo4j_test_client_with_events("./tests/fixtures/config.yml", ehb).await;
-    let result = read_projects(&mut client).await;
+    let _result = read_projects(&mut client).await;
 }
-
-/*
-#[cfg(feature = "neo4j")]
-fn event_handler_with_create_node(r: Rctx, ef: EventFacade<Neo4jRequestCtx>, meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
-    Box::pin(async move {
-
-        ef.create_node("Project", json!({"name": "Project00"}), None).await?;
-        
-        Ok(r)
-    })
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn test_event_facade_create_node() {
-    init();
-    clear_db().await;
-    let mut ehb = EventHandlerBag::new();
-    ehb.register_before_request(event_handler_with_create_node);
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
-    
-    // verify new `Project` has been created
-
-
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn test_event_facade_update_node() {
-    init();
-    clear_db().await;
-    let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_create(vec!["Project".to_string()], bmef);
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
-    
-    // create new `Project`
-
-    // event handler should update `Project`
-
-    // verify that `Project` was updated
-
-}
-
-#[cfg(feature = "neo4j")]
-#[tokio::test]
-async fn test_event_facade_delete_node() {
-    init();
-    clear_db().await;
-    let mut ehb = EventHandlerBag::new();
-    ehb.register_before_node_create(vec!["Project".to_string()], bmef);
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
-    
-    // create new `Project`
-
-    // event handler should delete `Project`
-
-    // verify that `Project` was deleted
-
-}
-*/

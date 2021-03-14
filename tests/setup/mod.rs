@@ -28,7 +28,7 @@ use std::io::BufReader;
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
 #[cfg(feature = "neo4j")]
-use std::sync::Arc;
+//use std::sync::Arc;
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;

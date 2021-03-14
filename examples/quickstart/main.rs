@@ -4,7 +4,6 @@ use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
-use warpgrapher::juniper::http::GraphQLRequest;
 use warpgrapher::Engine;
 
 static CONFIG: &str = "

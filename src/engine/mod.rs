@@ -220,7 +220,7 @@ where
             event_handler(&mut self.config)?;
         }
         
-        let root_node = create_root_node(&mut self.config)?;
+        let root_node = create_root_node(&self.config)?;
 
         let engine = Engine::<RequestCtx> {
             config: self.config,
@@ -428,7 +428,7 @@ where
 
         // execute before_request handlers
         let before_request_handlers = self.event_handlers.before_request();
-        if before_request_handlers.len() > 0 {
+        if !before_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
             let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
             let info = Info::new("".to_string(), Arc::new(gql_schema));
@@ -476,7 +476,7 @@ where
         
         // execute after_request handlers
         let after_request_handlers = self.event_handlers.after_request();
-        if after_request_handlers.len() > 0 {
+        if !after_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
             let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
             let info = Info::new("".to_string(), Arc::new(gql_schema));
@@ -732,7 +732,7 @@ mod tests {
         Box::pin(async move { executor.resolve_scalar(1) })
     }
 
-    #[allow(clippy::unnecessary_wraps)]
+    //#[allow(clippy::unnecessary_wraps)]
     fn my_validator(_value: &Value) -> Result<(), Error> {
         Ok(())
     }

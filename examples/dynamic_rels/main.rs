@@ -7,7 +7,6 @@ use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
-use warpgrapher::juniper::http::GraphQLRequest;
 use warpgrapher::juniper::BoxFuture;
 use warpgrapher::Engine;
 
