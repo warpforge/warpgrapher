@@ -732,7 +732,7 @@ mod tests {
         Box::pin(async move { executor.resolve_scalar(1) })
     }
 
-    //#[allow(clippy::unnecessary_wraps)]
+    #[allow(clippy::unnecessary_wraps)]
     fn my_validator(_value: &Value) -> Result<(), Error> {
         Ok(())
     }
