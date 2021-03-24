@@ -4,12 +4,14 @@
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::{DatabaseClient};
-use crate::engine::database::{NodeQueryVar, SuffixGenerator, Transaction, DatabasePool, DatabaseEndpoint};
-use crate::engine::objects::{Node, NodeRef, Rel};
-use crate::engine::objects::resolvers::visitors::{
-    visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input
+use crate::engine::database::DatabaseClient;
+use crate::engine::database::{
+    DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator, Transaction,
 };
+use crate::engine::objects::resolvers::visitors::{
+    visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input,
+};
+use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
@@ -362,8 +364,14 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
-            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?),
-            &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
+            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?),
+            &Info::new(
+                format!("{}QueryInput", type_name.to_string()),
+                info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -413,7 +421,10 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_create_mutation_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
             &Info::new(type_name.to_string(), self.info.type_defs()),
             partition_key_opt,
             &mut sg,
@@ -423,7 +434,7 @@ where
         .await;
         result
     }
-    
+
     /// Provides an abstracted database node update operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
@@ -446,7 +457,7 @@ where
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
     ///         let result = facade.update_node(
-    ///             "User", 
+    ///             "User",
     ///             json!({
     ///                 "MATCH": {
     ///                     "name": {
@@ -456,7 +467,7 @@ where
     ///                 "SET": {
     ///                     "age": 20
     ///                 }
-    ///             }), 
+    ///             }),
     ///             None
     ///         ).await?;
     ///         let alice = result.first().unwrap();
@@ -475,8 +486,14 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_update_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
-            &Info::new(format!("{}UpdateInput", type_name.to_string()), self.info.type_defs()),
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!("{}UpdateInput", type_name.to_string()),
+                self.info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -485,7 +502,7 @@ where
         .await;
         result
     }
-    
+
     /// Provides an abstracted database node delete operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
@@ -508,14 +525,14 @@ where
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
     ///         facade.delete_node(
-    ///             "User", 
+    ///             "User",
     ///             json!({
     ///                 "MATCH": {
     ///                     "name": {
     ///                         "EQ":"alice"
     ///                     }
     ///                 }
-    ///             }), 
+    ///             }),
     ///             None
     ///         ).await?;
     ///         facade.resolve_null()
@@ -533,8 +550,14 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_update_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
-            &Info::new(format!("{}DeleteInput", type_name.to_string()), self.info.type_defs()),
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!("{}DeleteInput", type_name.to_string()),
+                self.info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,

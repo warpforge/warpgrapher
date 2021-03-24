@@ -286,7 +286,7 @@ pub enum CrudOperation {
     UpdateRel(String, String),
     DeleteNode(String),
     DeleteRel(String, String),
-    None
+    None,
 }
 
 /// Represents the different type of comparison match operations

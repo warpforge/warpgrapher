@@ -3,12 +3,12 @@
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::{DatabaseEndpoint, DatabasePool, CrudOperation, Transaction};
-use events::{EventHandlerBag, EventFacade};
+use database::{CrudOperation, DatabaseEndpoint, DatabasePool, Transaction};
+use events::{EventFacade, EventHandlerBag};
 use juniper::http::GraphQLRequest;
 use log::debug;
 use resolvers::Resolvers;
-use schema::{create_root_node, Info, RootRef, NodeType};
+use schema::{create_root_node, Info, NodeType, RootRef};
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Formatter};
 use std::option::Option;
@@ -219,7 +219,7 @@ where
         for event_handler in self.event_handlers.before_engine_build() {
             event_handler(&mut self.config)?;
         }
-        
+
         let root_node = create_root_node(&self.config)?;
 
         let engine = Engine::<RequestCtx> {
@@ -430,7 +430,8 @@ where
         let before_request_handlers = self.event_handlers.before_request();
         if !before_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
-            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let gql_schema: HashMap<String, NodeType> =
+                crate::engine::schema::generate_schema(&self.config)?;
             let info = Info::new("".to_string(), Arc::new(gql_schema));
             let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
                 self.db_pool.clone(),
@@ -443,17 +444,18 @@ where
             );
             for handler in before_request_handlers {
                 rctx = handler(
-                    rctx, 
+                    rctx,
                     EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
-                    metadata.clone()
-                ).await?;
+                    metadata.clone(),
+                )
+                .await?;
             }
             dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 
         // convert serde_json input to juniper input
-        let input_value : Option<juniper::InputValue> = match input {
+        let input_value: Option<juniper::InputValue> = match input {
             Some(input) => Some(serde_json::from_value::<juniper::InputValue>(input)?),
             None => None,
         };
@@ -473,12 +475,13 @@ where
 
         // convert graphql response (json) to mutable serde_json::Value
         let mut ret_value = serde_json::to_value(&res)?;
-        
+
         // execute after_request handlers
         let after_request_handlers = self.event_handlers.after_request();
         if !after_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
-            let gql_schema: HashMap<String, NodeType> = crate::engine::schema::generate_schema(&self.config)?;
+            let gql_schema: HashMap<String, NodeType> =
+                crate::engine::schema::generate_schema(&self.config)?;
             let info = Info::new("".to_string(), Arc::new(gql_schema));
             let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
                 self.db_pool.clone(),
@@ -493,7 +496,8 @@ where
                 ret_value = handler(
                     EventFacade::new(CrudOperation::None, &gqlctx_tmp, &mut dbtx, &info),
                     ret_value,
-                ).await?;
+                )
+                .await?;
             }
             dbtx.commit().await?;
             std::mem::drop(dbtx);

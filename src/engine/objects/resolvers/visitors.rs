@@ -41,7 +41,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                 input = f(
                     input,
                     EventFacade::new(
-                        CrudOperation::CreateNode(info.name().to_string()),
+                        CrudOperation::CreateNode(node_var.label()?.to_string()),
                         context,
                         transaction,
                         info,
@@ -97,7 +97,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                     v = f(
                         v,
                         EventFacade::new(
-                            CrudOperation::CreateNode(info.name().to_string()),
+                            CrudOperation::CreateNode(node_var.label()?.to_string()),
                             context,
                             transaction,
                             info,
@@ -207,7 +207,7 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::DeleteNode(info.name().to_string()),
+                    CrudOperation::DeleteNode(node_var.label()?.to_string()),
                     context,
                     transaction,
                     info,
@@ -286,7 +286,7 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
                     v = f(
                         v,
                         EventFacade::new(
-                            CrudOperation::DeleteNode(info.name().to_string()),
+                            CrudOperation::DeleteNode(node_var.label()?.to_string()),
                             context,
                             transaction,
                             info,
@@ -363,7 +363,7 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
                 nodes = f(
                     nodes,
                     EventFacade::new(
-                        CrudOperation::DeleteNode(info.name().to_string()),
+                        CrudOperation::DeleteNode(node_var.label()?.to_string()),
                         context,
                         transaction,
                         info,
@@ -818,7 +818,7 @@ pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::CreateRel(info.name().to_string(), rel_name.to_string()),
+                    CrudOperation::CreateRel(src_var.label()?.to_string(), rel_name.to_string()),
                     context,
                     transaction,
                     info,
@@ -979,7 +979,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                     rels,
                     EventFacade::new(
                         CrudOperation::CreateRel(
-                            info.name().to_string(),
+                            rel_var.src().label()?.to_string(),
                             rel_var.label().to_string(),
                         ),
                         context,
@@ -1016,7 +1016,10 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::DeleteRel(info.name().to_string(), rel_var.label().to_string()),
+                    CrudOperation::DeleteRel(
+                        rel_var.src().label()?.to_string(),
+                        rel_var.label().to_string(),
+                    ),
                     context,
                     transaction,
                     info,
@@ -1059,7 +1062,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
                         v,
                         EventFacade::new(
                             CrudOperation::DeleteRel(
-                                info.name().to_string(),
+                                rel_var.src().label()?.to_string(),
                                 rel_var.label().to_string(),
                             ),
                             context,
@@ -1121,7 +1124,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
                     rels,
                     EventFacade::new(
                         CrudOperation::DeleteRel(
-                            info.name().to_string(),
+                            rel_var.src().label()?.to_string(),
                             rel_var.label().to_string(),
                         ),
                         context,
@@ -1509,7 +1512,10 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
             input = f(
                 input,
                 EventFacade::new(
-                    CrudOperation::UpdateRel(info.name().to_string(), rel_var.label().to_string()),
+                    CrudOperation::UpdateRel(
+                        rel_var.src().label()?.to_string(),
+                        rel_var.label().to_string(),
+                    ),
                     context,
                     transaction,
                     info,
@@ -1610,7 +1616,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
                     rels,
                     EventFacade::new(
                         CrudOperation::UpdateRel(
-                            info.name().to_string(),
+                            rel_var.src().label()?.to_string(),
                             rel_var.label().to_string(),
                         ),
                         context,
