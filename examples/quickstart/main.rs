@@ -52,7 +52,8 @@ async fn main() {
                 email
             }
         }
-    ".to_string();
+    "
+    .to_string();
     let metadata = HashMap::new();
     let result = engine.execute(query, None, metadata).await.unwrap();
 

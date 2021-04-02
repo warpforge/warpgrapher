@@ -17,7 +17,7 @@ pub use juniper::{GraphQLType, GraphQLTypeAsync, GraphQLValue, GraphQLValueAsync
 use log::{error, trace};
 use resolvers::Resolver;
 use std::collections::HashMap;
-use std::convert::{TryInto, TryFrom};
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -182,10 +182,7 @@ impl<RequestCtx> Node<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    pub fn new(
-        concrete_typename: String,
-        fields: HashMap<String, Value>,
-    ) -> Node<RequestCtx> {
+    pub fn new(concrete_typename: String, fields: HashMap<String, Value>) -> Node<RequestCtx> {
         Node {
             concrete_typename,
             fields,
@@ -204,19 +201,19 @@ where
     /// struct Team {
     ///     name: String
     /// }
-    /// 
+    ///
     /// fn handle_node(n: Node<()>) {
-    /// 
+    ///
     ///     // succeeds if the fields of `n` can be deserialized into `Team`
-    ///     let team: Team = n.deser().unwrap(); 
+    ///     let team: Team = n.deser().unwrap();
     ///     
     /// }
     /// ```
     pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
         let m = Value::Map(self.fields().clone());
         let v = serde_json::Value::try_from(m)?;
-        let t : T = serde_json::from_value(v)
-            .map_err(|e| Error::JsonDeserializationFailed { source: e} )?;
+        let t: T = serde_json::from_value(v)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
         Ok(t)
     }
 

@@ -30,9 +30,12 @@ impl std::fmt::Display for TestError {
     }
 }
 
-
 #[cfg(feature = "neo4j")]
-fn breqf(_r: Rctx, _ef: EventFacade<Rctx>, _meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
+fn breqf(
+    _r: Rctx,
+    _ef: EventFacade<Rctx>,
+    _meta: HashMap<String, String>,
+) -> BoxFuture<Result<Rctx, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -40,9 +43,11 @@ fn breqf(_r: Rctx, _ef: EventFacade<Rctx>, _meta: HashMap<String, String>) -> Bo
     })
 }
 
-
 #[cfg(feature = "neo4j")]
-fn areqf(_ef: EventFacade<Rctx>, _output: serde_json::Value) -> BoxFuture<Result<serde_json::Value, Error>> {
+fn areqf(
+    _ef: EventFacade<Rctx>,
+    _output: serde_json::Value,
+) -> BoxFuture<Result<serde_json::Value, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -115,8 +120,8 @@ async fn test_before_request_handler() {
         )
         .await;
 
-    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {}
-    else {
+    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {
+    } else {
         panic!("Unexpected error");
     }
 }
@@ -141,8 +146,8 @@ async fn test_after_request_handler() {
         )
         .await;
 
-    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {}
-    else {
+    if let Error::UserDefinedError { source: _ } = result.err().unwrap() {
+    } else {
         panic!("Unexpected error");
     }
 }

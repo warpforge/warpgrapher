@@ -8,109 +8,149 @@ use setup::{clear_db, init, neo4j_test_client_with_events};
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 //#[cfg(feature = "neo4j")]
 //use warpgrapher::engine::objects::{Node, Rel};
+use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "neo4j")]
 use warpgrapher::juniper::BoxFuture;
+use warpgrapher::Client;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
-use warpgrapher::Client;
-use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 type Rctx = setup::Neo4jRequestCtx;
 
 // convenience function that will trigger event handler
-async fn read_projects(client: &mut Client<Rctx>) -> Result<serde_json::Value, Error>{
+async fn read_projects(client: &mut Client<Rctx>) -> Result<serde_json::Value, Error> {
     client
-        .read_node(
-            "Project",
-            "id name description status",
-            None,
-            None,
-        )
+        .read_node("Project", "id name description status", None, None)
         .await
 }
 
 #[cfg(feature = "neo4j")]
-fn mock_handler(r: Rctx, mut ef: EventFacade<Rctx>, _meta: HashMap<String, String>) -> BoxFuture<Result<Rctx, Error>> {
+fn mock_handler(
+    r: Rctx,
+    mut ef: EventFacade<Rctx>,
+    _meta: HashMap<String, String>,
+) -> BoxFuture<Result<Rctx, Error>> {
     Box::pin(async move {
+        // create node
+        let project = ef
+            .create_node(
+                "Project",
+                json!({"name": "Project00", "description": "lasers"}),
+                None,
+            )
+            .await?;
+        assert_eq!(project.type_name(), "Project");
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project00".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("lasers".to_string())
+        );
 
         // create node
-        let project = ef.create_node(
-            "Project", 
-            json!({"name": "Project00", "description": "lasers"}), 
-            None
-        ).await?;
+        let project = ef
+            .create_node(
+                "Project",
+                json!({"name": "Project01", "description": "shields"}),
+                None,
+            )
+            .await?;
         assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project00".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("lasers".to_string()));
-        
-        // create node
-        let project = ef.create_node(
-            "Project", 
-            json!({"name": "Project01", "description": "shields"}), 
-            None
-        ).await?;
-        assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project01".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("shields".to_string()));
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project01".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("shields".to_string())
+        );
 
         // update node
-        let projects = ef.update_node(
-            "Project", 
-            json!({
-                "MATCH": {"name": {"EQ": "Project00"}},
-                "SET": {"description": "sharks"}
-            }),
-            None
-        ).await?;
+        let projects = ef
+            .update_node(
+                "Project",
+                json!({
+                    "MATCH": {"name": {"EQ": "Project00"}},
+                    "SET": {"description": "sharks"}
+                }),
+                None,
+            )
+            .await?;
         let project = projects.first().unwrap();
         assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project00".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("sharks".to_string()));
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project00".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("sharks".to_string())
+        );
 
         // read nodes
-        let projects = ef.read_nodes(
-            "Project",
-            json!({}),
-            None,
-        ).await?;
+        let projects = ef.read_nodes("Project", json!({}), None).await?;
         assert_eq!(projects.len(), 2);
-        let project = projects.iter().find(|n| n.fields().get("name").unwrap() == &Value::String("Project00".to_string())).unwrap();
+        let project = projects
+            .iter()
+            .find(|n| n.fields().get("name").unwrap() == &Value::String("Project00".to_string()))
+            .unwrap();
         assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project00".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("sharks".to_string()));
-        let project = projects.iter().find(|n| n.fields().get("name").unwrap() == &Value::String("Project01".to_string())).unwrap();
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project00".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("sharks".to_string())
+        );
+        let project = projects
+            .iter()
+            .find(|n| n.fields().get("name").unwrap() == &Value::String("Project01".to_string()))
+            .unwrap();
         assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project01".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("shields".to_string()));
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project01".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("shields".to_string())
+        );
 
         // delete node
-        let dr = ef.delete_node(
-            "Project",
-            json!({
-                "MATCH": {
-                    "name": {
-                        "EQ": "Project00"
+        let dr = ef
+            .delete_node(
+                "Project",
+                json!({
+                    "MATCH": {
+                        "name": {
+                            "EQ": "Project00"
+                        }
                     }
-                }
-            }),
-            None
-        ).await?;
+                }),
+                None,
+            )
+            .await?;
         assert_eq!(dr, 1);
 
         // read nodes
-        let projects = ef.read_nodes(
-            "Project",
-            json!({}),
-            None,
-        ).await?;
+        let projects = ef.read_nodes("Project", json!({}), None).await?;
         assert_eq!(projects.len(), 1);
         let project = projects.first().unwrap();
         assert_eq!(project.type_name(), "Project");
-        assert_eq!(project.fields().get("name").unwrap(), &Value::String("Project01".to_string()));
-        assert_eq!(project.fields().get("description").unwrap(), &Value::String("shields".to_string()));
-        
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("Project01".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("shields".to_string())
+        );
+
         Ok(r)
     })
 }

@@ -7,7 +7,8 @@ use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator};
 use crate::engine::objects::resolvers::visitors::{
-    visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input, visit_node_delete_input
+    visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
+    visit_node_update_input,
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -42,12 +43,11 @@ use std::convert::TryInto;
 ///     Ok(())
 /// }
 /// ```
-pub type BeforeEngineBuildFunc = 
-    fn(&mut Configuration) -> Result<(), Error>;
+pub type BeforeEngineBuildFunc = fn(&mut Configuration) -> Result<(), Error>;
 
 /// Type alias for a function called before request execution allowing modifications
 /// to the request context. Common use case includes pulling auth tokens from the
-/// metadata and inserting user information into the request context. 
+/// metadata and inserting user information into the request context.
 ///
 /// # Examples
 ///
@@ -60,17 +60,17 @@ pub type BeforeEngineBuildFunc =
 /// type Rctx = ();
 ///
 /// fn before_request(
-///     mut rctx: Rctx, 
+///     mut rctx: Rctx,
 ///     mut ef: EventFacade<Rctx>,
 ///     metadata: HashMap<String, String>
 /// ) -> BoxFuture<Result<Rctx, warpgrapher::Error>> {
 ///     Box::pin(async move {
-///         // modify request context 
+///         // modify request context
 ///         Ok(rctx)
 ///     })
 /// }
 /// ```
-pub type BeforeRequestFunc<R> = 
+pub type BeforeRequestFunc<R> =
     fn(R, EventFacade<R>, HashMap<String, String>) -> BoxFuture<Result<R, Error>>;
 
 /// Type alias for a function called after request execution allowing modifications
@@ -95,7 +95,7 @@ pub type BeforeRequestFunc<R> =
 ///     })
 /// }
 /// ```
-pub type AfterRequestFunc<R> = 
+pub type AfterRequestFunc<R> =
     fn(EventFacade<R>, serde_json::Value) -> BoxFuture<Result<serde_json::Value, Error>>;
 // TODO: add facade
 
@@ -299,13 +299,10 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_engine_build(before_engine_build);
     /// ```
-    pub fn register_before_engine_build(
-        &mut self,
-        f: BeforeEngineBuildFunc
-    ) {
+    pub fn register_before_engine_build(&mut self, f: BeforeEngineBuildFunc) {
         self.before_engine_build_handlers.push(f);
     }
-    
+
     /// Registers an event handler `f` to be called before a request is executed.
     ///
     /// # Examples
@@ -320,12 +317,12 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// type Rctx = ();
     ///
     /// fn before_request(
-    ///     mut rctx: Rctx, 
+    ///     mut rctx: Rctx,
     ///     mut ef: EventFacade<Rctx>,
     ///     metadata: HashMap<String, String>
     /// ) -> BoxFuture<Result<Rctx, warpgrapher::Error>> {
     ///     Box::pin(async move {
-    ///         // modify request context 
+    ///         // modify request context
     ///         Ok(rctx)
     ///     })
     /// }
@@ -333,13 +330,10 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_before_request(before_request);
     /// ```
-    pub fn register_before_request(
-        &mut self,
-        f: BeforeRequestFunc<RequestCtx>
-    ) {
+    pub fn register_before_request(&mut self, f: BeforeRequestFunc<RequestCtx>) {
         self.before_request_handlers.push(f);
     }
-    
+
     /// Registers an event handler `f` to be called after a request is executed.
     ///
     /// # Examples
@@ -365,10 +359,7 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
     /// let mut handlers = EventHandlerBag::<()>::new();
     /// handlers.register_after_request(after_request);
     /// ```
-    pub fn register_after_request(
-        &mut self,
-        f: AfterRequestFunc<RequestCtx>
-    ) {
+    pub fn register_after_request(&mut self, f: AfterRequestFunc<RequestCtx>) {
         self.after_request_handlers.push(f);
     }
 
@@ -934,21 +925,15 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    pub(crate) fn before_engine_build(
-        &self
-    ) -> &Vec<BeforeEngineBuildFunc> {
+    pub(crate) fn before_engine_build(&self) -> &Vec<BeforeEngineBuildFunc> {
         &self.before_engine_build_handlers
     }
-    
-    pub(crate) fn before_request(
-        &self
-    ) -> &Vec<BeforeRequestFunc<RequestCtx>> {
+
+    pub(crate) fn before_request(&self) -> &Vec<BeforeRequestFunc<RequestCtx>> {
         &self.before_request_handlers
     }
-    
-    pub(crate) fn after_request(
-        &self
-    ) -> &Vec<AfterRequestFunc<RequestCtx>> {
+
+    pub(crate) fn after_request(&self) -> &Vec<AfterRequestFunc<RequestCtx>> {
         &self.after_request_handlers
     }
 
@@ -1171,8 +1156,14 @@ where
 
         let query_fragment = visit_node_query_input::<RequestCtx>(
             &node_var,
-            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?),
-            &Info::new(format!("{}QueryInput", type_name.to_string()), info.type_defs()),
+            Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?),
+            &Info::new(
+                format!("{}QueryInput", type_name.to_string()),
+                info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1222,7 +1213,10 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_create_mutation_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
             &Info::new(type_name.to_string(), self.info.type_defs()),
             partition_key_opt,
             &mut sg,
@@ -1255,11 +1249,11 @@ where
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
     ///         let new_node = ef.update_node(
-    ///             "User", 
+    ///             "User",
     ///             json!({
     ///                 "MATCH": {"name": {"EQ": "alice"}},
     ///                 "SET": {"name": "eve"}
-    ///             }), 
+    ///             }),
     ///             None).await?;
     ///         Ok(value)
     ///     })
@@ -1276,8 +1270,14 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_update_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
-            &Info::new(format!("{}UpdateInput", type_name.to_string()), self.info.type_defs()),
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!("{}UpdateInput", type_name.to_string()),
+                self.info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1286,7 +1286,7 @@ where
         .await;
         result
     }
-    
+
     /// Provides an abstracted database delete operation using warpgrapher inputs. This is the
     /// recommended way to create nodes in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
@@ -1309,7 +1309,7 @@ where
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
     ///         let new_node = ef.delete_node(
-    ///             "User", 
+    ///             "User",
     ///             json!({
     ///                 "MATCH": {"name": {"EQ": "alice"}}
     ///             }),
@@ -1329,8 +1329,14 @@ where
             NodeQueryVar::new(Some(type_name.to_string()), "node".to_string(), sg.suffix());
         let result = visit_node_delete_input(
             &node_var,
-            input.try_into().map_err(|_e| Error::TypeConversionFailed { src: "".to_string(), dst: "".to_string()})?,
-            &Info::new(format!("{}DeleteInput", type_name.to_string()), self.info.type_defs()),
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!("{}DeleteInput", type_name.to_string()),
+                self.info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1339,5 +1345,4 @@ where
         .await;
         result
     }
-
 }

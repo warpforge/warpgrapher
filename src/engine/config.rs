@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
-use std::slice::{Iter};
+use std::slice::Iter;
 
 const LATEST_CONFIG_VERSION: i32 = 2;
 
