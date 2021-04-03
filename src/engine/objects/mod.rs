@@ -210,7 +210,16 @@ where
     /// }
     /// ```
     pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
+        /*
         let m = Value::Map(self.fields().clone());
+        let v = serde_json::Value::try_from(m)?;
+        let t: T = serde_json::from_value(v)
+            .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
+        Ok(t)
+        */
+        let mut fields = self.fields().clone();
+        fields.insert("__label".to_string(), Value::String(self.concrete_typename.clone()));
+        let m = Value::Map(fields);
         let v = serde_json::Value::try_from(m)?;
         let t: T = serde_json::from_value(v)
             .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
@@ -673,7 +682,7 @@ where
 /// Represents a reference to a [`Node`] object as either an [`Identifier`]
 /// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
-pub(crate) enum NodeRef<RequestCtx: RequestContext> {
+pub enum NodeRef<RequestCtx: RequestContext> {
     Identifier { id: Value, label: String },
     Node(Node<RequestCtx>),
 }
@@ -738,8 +747,20 @@ where
         }
     }
 
-    pub(crate) fn id(&self) -> &Value {
+    pub fn id(&self) -> &Value {
         &self.id
+    }
+
+    pub fn dst(&self) -> &NodeRef<RequestCtx> {
+        &self.dst_ref
+    }
+    
+    pub fn src(&self) -> &NodeRef<RequestCtx> {
+        &self.src_ref
+    }
+
+    pub fn props(&self) -> &Option<Node<RequestCtx>> {
+        &self.props
     }
 }
 

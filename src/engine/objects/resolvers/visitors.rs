@@ -1301,7 +1301,7 @@ async fn visit_rel_nodes_mutation_input_union<RequestCtx: RequestContext>(
     }
 }
 
-pub(super) async fn visit_rel_query_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
