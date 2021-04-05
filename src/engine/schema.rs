@@ -871,7 +871,7 @@ fn generate_node_delete_endpoint(t: &Type) -> Property {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelObject
 fn fmt_rel_object_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "Rel"
@@ -941,7 +941,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsObject
 fn fmt_rel_props_object_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "Props"
@@ -969,7 +969,7 @@ fn generate_rel_props_object(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesUnion
 fn fmt_rel_nodes_union_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "NodesUnion"
@@ -995,7 +995,7 @@ fn generate_rel_nodes_union(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelQueryInput
 fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "QueryInput"
@@ -1060,7 +1060,7 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateMutationInput
 fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "CreateMutationInput"
@@ -1111,7 +1111,7 @@ fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
 fn fmt_rel_change_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "ChangeInput"
@@ -1163,7 +1163,7 @@ fn generate_rel_change_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateMutationInput
 fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "UpdateMutationInput"
@@ -1222,7 +1222,7 @@ fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcUpdateMutationInput
 fn fmt_rel_src_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "SrcUpdateMutationInput"
@@ -1259,7 +1259,7 @@ fn generate_rel_src_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstUpdateMutationInput
 fn fmt_rel_dst_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "DstUpdateMutationInput"
@@ -1298,7 +1298,7 @@ fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
 fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "PropsInput"
@@ -1326,7 +1326,7 @@ fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsQueryInput
 fn fmt_rel_props_query_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "PropsQueryInput"
@@ -1354,7 +1354,7 @@ fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
 fn fmt_rel_src_query_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "SrcQueryInput"
@@ -1387,7 +1387,7 @@ fn generate_rel_src_query_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDstQueryInput
 fn fmt_rel_dst_query_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "DstQueryInput"
@@ -1423,7 +1423,7 @@ fn generate_rel_dst_query_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesMutationInputUnion
 fn fmt_rel_nodes_mutation_input_union_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "NodesMutationInputUnion"
@@ -1462,7 +1462,7 @@ fn generate_rel_nodes_mutation_input_union(t: &Type, r: &Relationship) -> NodeTy
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateInput
 fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "CreateInput"
@@ -1506,7 +1506,7 @@ fn generate_rel_create_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateInput
 fn fmt_rel_update_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "UpdateInput"
@@ -1550,7 +1550,7 @@ fn generate_rel_update_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
 fn fmt_rel_delete_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "DeleteInput"
@@ -1603,7 +1603,7 @@ fn generate_rel_delete_input(t: &Type, r: &Relationship) -> NodeType {
 /// Takes a WG type and returns the name of the corresponding GqlRelSrcDeleteMutationInput
 fn fmt_rel_src_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "SrcDeleteMutationInput"
@@ -1640,7 +1640,7 @@ fn generate_rel_src_delete_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 /// Takes a WG type and returns the name of the corresponding GqlNodeDeleteInput
 fn fmt_rel_dst_delete_mutation_input_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "DstDeleteMutationInput"
@@ -1679,7 +1679,7 @@ fn generate_rel_dst_delete_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelReadEndpoint
 fn fmt_rel_read_endpoint_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
 }
@@ -1724,7 +1724,7 @@ fn generate_rel_read_endpoint(t: &Type, r: &Relationship) -> Property {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateEndpoint
 fn fmt_rel_create_endpoint_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "Create"
@@ -1771,7 +1771,7 @@ fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelUpdateEndpoint
 fn fmt_rel_update_endpoint_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "Update"
@@ -1818,7 +1818,7 @@ fn generate_rel_update_endpoint(t: &Type, r: &Relationship) -> Property {
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelDeleteEndpoint
 fn fmt_rel_delete_endpoint_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
-        + &((&r.name().to_string().to_title_case())
+        + &*((&r.name().to_string().to_title_case())
             .split_whitespace()
             .collect::<String>())
         + "Delete"

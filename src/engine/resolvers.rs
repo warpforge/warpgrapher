@@ -894,7 +894,7 @@ where
     /// ```
     pub async fn resolve_rel(&self, rel: &Rel<RequestCtx>) -> ExecutionResult {
         let rel_name = self.info.name().to_string()
-            + &((&self.field_name.to_string().to_title_case())
+            + &*((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>())
             + "Rel";
@@ -942,7 +942,7 @@ where
     /// ```
     pub async fn resolve_rel_list(&self, rels: Vec<&Rel<RequestCtx>>) -> ExecutionResult {
         let object_name = self.info.name().to_string()
-            + &((&self.field_name.to_string().to_title_case())
+            + &*((&self.field_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>())
             + "Rel";

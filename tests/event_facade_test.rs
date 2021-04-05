@@ -6,13 +6,14 @@ use serde_json::json;
 use setup::{clear_db, init, neo4j_test_client_with_events};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-//#[cfg(feature = "neo4j")]
 //use warpgrapher::engine::objects::{Node, Rel};
+#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "neo4j")]
 use warpgrapher::juniper::BoxFuture;
+#[cfg(feature = "neo4j")]
 use warpgrapher::Client;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
@@ -20,6 +21,7 @@ use warpgrapher::Error;
 type Rctx = setup::Neo4jRequestCtx;
 
 // convenience function that will trigger event handler
+#[cfg(feature = "neo4j")]
 async fn read_projects(client: &mut Client<Rctx>) -> Result<serde_json::Value, Error> {
     client
         .read_node("Project", "id name description status", None, None)

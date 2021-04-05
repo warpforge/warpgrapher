@@ -116,7 +116,7 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 
     async fn pool(&self) -> Result<Self::PoolType, Error> {
         let manager = BoltConnectionManager::new(
-            self.host.to_string() + ":" + &self.port.to_string(),
+            self.host.to_string() + ":" + &*self.port.to_string(),
             None,
             [4, 0, 0, 0],
             HashMap::from_iter(vec![
@@ -493,18 +493,18 @@ impl Transaction for Neo4jTransaction {
                 where_fragment.push_str(
                     &(node_var.name().to_string()
                         + "."
-                        + &k
+                        + &*k
                         + " "
-                        + &neo4j_comparison_operator(&c.operation)
+                        + &*neo4j_comparison_operator(&c.operation)
                         + " "
                         + "$param"
-                        + &param_suffix
+                        + &*param_suffix
                         + "."
-                        + &k),
+                        + &*k),
                 );
                 value_props.insert(k, c.operand);
             });
-            params.insert("param".to_string() + &param_suffix, value_props.into());
+            params.insert("param".to_string() + &*param_suffix, value_props.into());
         }
 
         rel_query_fragments.into_iter().for_each(|rqf| {
@@ -539,13 +539,13 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
         let query = query_fragment.match_fragment().to_string()
-            + &where_clause
+            + &*where_clause
             + "RETURN "
             + "DISTINCT "
             + node_var.name()
@@ -652,7 +652,7 @@ impl Transaction for Neo4jTransaction {
                 + ")\n"),
         );
 
-        let param_var = "param".to_string() + &sg.suffix();
+        let param_var = "param".to_string() + &*sg.suffix();
         if !props.is_empty() {
             let mut value_props: HashMap<String, Value> = HashMap::new();
             props.into_iter().enumerate().for_each(|(i, (k, c))| {
@@ -665,14 +665,14 @@ impl Transaction for Neo4jTransaction {
                 where_fragment.push_str(
                     &(rel_var.name().to_string()
                         + "."
-                        + &k
+                        + &*k
                         + " "
-                        + &neo4j_comparison_operator(&c.operation)
+                        + &*neo4j_comparison_operator(&c.operation)
                         + " "
                         + "$"
-                        + &param_var
+                        + &*param_var
                         + "."
-                        + &k),
+                        + &*k),
                 );
                 value_props.insert(k, c.operand);
             });
@@ -696,12 +696,12 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
-        let mut query = query_fragment.match_fragment().to_string() + &where_clause + "\n";
+        let mut query = query_fragment.match_fragment().to_string() + &*where_clause + "\n";
         query = Neo4jTransaction::add_rel_return(
             query,
             rel_var.src().name(),
@@ -747,13 +747,13 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
         let query = query_fragment.match_fragment().to_string()
-            + &where_clause
+            + &*where_clause
             + "SET "
             + node_var.name()
             + " += $props\n"
@@ -795,13 +795,13 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
         let query = query_fragment.match_fragment().to_string()
-            + &where_clause
+            + &*where_clause
             + "SET "
             + rel_var.name()
             + " += $props\n";
@@ -849,13 +849,13 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
         let query = query_fragment.match_fragment().to_string()
-            + &where_clause
+            + &*where_clause
             + "DETACH DELETE "
             + node_var.name()
             + "\n"
@@ -896,13 +896,13 @@ impl Transaction for Neo4jTransaction {
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
-            "WHERE ".to_string() + &where_fragment + "\n"
+            "WHERE ".to_string() + &*where_fragment + "\n"
         } else {
             String::new()
         };
 
         let query = query_fragment.match_fragment().to_string()
-            + &where_clause
+            + &*where_clause
             + "DELETE "
             + rel_var.name()
             + "\n"

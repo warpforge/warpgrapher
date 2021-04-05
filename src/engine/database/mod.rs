@@ -290,6 +290,7 @@ pub enum CrudOperation {
 }
 
 /// Represents the different type of comparison match operations
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug)]
 pub enum Operation {
     EQ,
@@ -421,7 +422,7 @@ impl NodeQueryVar {
             base: base.clone(),
             suffix: suffix.clone(),
             label,
-            name: base + &suffix,
+            name: base + &*suffix,
         }
     }
 
@@ -462,7 +463,7 @@ impl RelQueryVar {
         RelQueryVar {
             label,
             suffix: suffix.clone(),
-            name: "rel".to_string() + &suffix,
+            name: "rel".to_string() + &*suffix,
             src,
             dst,
         }
@@ -498,6 +499,6 @@ impl SuffixGenerator {
 
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
-        "_".to_string() + &self.seed.to_string()
+        "_".to_string() + &*self.seed.to_string()
     }
 }
