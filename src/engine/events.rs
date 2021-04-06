@@ -1370,7 +1370,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let rels: Vec<Rel()> = ef.read_rels(
+    ///         let rels: Vec<Rel<()>> = ef.read_rels(
     ///             "User",
     ///             "teams",
     ///             json!({
