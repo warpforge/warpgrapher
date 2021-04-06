@@ -311,21 +311,21 @@ impl GremlinTransaction {
                                 let suffix = sg.suffix();
                                 inner_q.push_str(
                                     &(".property(list, '".to_string()
-                                        + &k
+                                        + &*k
                                         + "', "
-                                        + &k
-                                        + &suffix
+                                        + &*k
+                                        + &*suffix
                                         + ")"),
                                 );
-                                inner_p.insert(k.to_string() + &suffix, val);
+                                inner_p.insert(k.to_string() + &*suffix, val);
                                 (inner_q, inner_p)
                             })
                     } else {
                         let suffix = sg.suffix();
                         outer_q.push_str(
-                            &(".property('".to_string() + &k + "', " + &k + &suffix + ")"),
+                            &(".property('".to_string() + &*k + "', " + &*k + &*suffix + ")"),
                         );
-                        outer_p.insert(k + &suffix, v);
+                        outer_p.insert(k + &*suffix, v);
                         (outer_q, outer_p)
                     }
                 });
@@ -656,13 +656,13 @@ impl Transaction for GremlinTransaction {
                 &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
-                + &k
+                + &*k
                 + if k=="id" { "" } else { "'" }  // omit quotes if key is id because it's a "system" property
                 + ", " 
-                + &gremlin_comparison_operator(&c)
+                + &*gremlin_comparison_operator(&c)
                 + "("
-                + &k
-                + &param_suffix
+                + &*k
+                + &*param_suffix
                 + "))"),
             );
 
@@ -670,7 +670,7 @@ impl Transaction for GremlinTransaction {
                 match &c.operand {
                     Value::String(s) => {
                         let u = Value::Uuid(Uuid::parse_str(&s)?);
-                        params.insert(k + &param_suffix, u);
+                        params.insert(k + &*param_suffix, u);
                     }
                     Value::Array(a) => {
                         let mut au: Vec<Value> = vec![];
@@ -685,7 +685,7 @@ impl Transaction for GremlinTransaction {
                                 });
                             }
                         }
-                        params.insert(k + &param_suffix, Value::Array(au));
+                        params.insert(k + &*param_suffix, Value::Array(au));
                     }
                     _ => {
                         return Err(Error::TypeConversionFailed {
@@ -695,7 +695,7 @@ impl Transaction for GremlinTransaction {
                     }
                 }
             } else {
-                params.insert(k + &param_suffix, c.operand);
+                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -833,13 +833,13 @@ impl Transaction for GremlinTransaction {
                 &(".has".to_string()
                 + "("
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
-                + &k
+                + &*k
                 + if k=="id" { "" } else { "'" }  // ommit quotes if key is id because it's a "system" property
                 + ", " 
-                + &gremlin_comparison_operator(&c)
+                + &*gremlin_comparison_operator(&c)
                 + "("
-                + &k
-                + &param_suffix
+                + &*k
+                + &*param_suffix
                 + ")"
                 + ")"),
             );
@@ -848,7 +848,7 @@ impl Transaction for GremlinTransaction {
                 match &c.operand {
                     Value::String(s) => {
                         let u = Value::Uuid(Uuid::parse_str(&s)?);
-                        params.insert(k + &param_suffix, u);
+                        params.insert(k + &*param_suffix, u);
                     }
                     Value::Array(a) => {
                         let mut au: Vec<Value> = vec![];
@@ -863,7 +863,7 @@ impl Transaction for GremlinTransaction {
                                 });
                             }
                         }
-                        params.insert(k + &param_suffix, Value::Array(au));
+                        params.insert(k + &*param_suffix, Value::Array(au));
                     }
                     _ => {
                         return Err(Error::TypeConversionFailed {
@@ -873,7 +873,7 @@ impl Transaction for GremlinTransaction {
                     }
                 }
             } else {
-                params.insert(k + &param_suffix, c.operand);
+                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -1260,13 +1260,12 @@ impl TryFrom<VertexProperty> for Value {
     type Error = Error;
 
     fn try_from(vp: VertexProperty) -> Result<Value, Error> {
-        Ok(vp
-            .take::<GValue>()
+        vp.take::<GValue>()
             .map_err(|_e| Error::TypeConversionFailed {
                 src: "VertexProperty".to_string(),
                 dst: "Value".to_string(),
             })?
-            .try_into()?)
+            .try_into()
     }
 }
 

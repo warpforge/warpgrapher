@@ -433,7 +433,7 @@ async fn visit_node_input<RequestCtx: RequestContext>(
             )
             .await?),
             _ => Err(Error::SchemaItemNotFound {
-                name: info.name().to_string() + "::" + &k,
+                name: info.name().to_string() + "::" + &*k,
             }),
         }
     } else {
@@ -812,7 +812,7 @@ pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
         src_var, rel_name, input, info.name()
     );
 
-    let rel_label = src_var.label()?.to_string() + &rel_name.to_string().to_title_case() + "Rel";
+    let rel_label = src_var.label()?.to_string() + &*rel_name.to_string().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_create(&rel_label) {
         for f in handlers.iter() {
             input = f(
@@ -962,7 +962,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
         };
 
         let rel_label =
-            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+            rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
             .create_rels(
                 src_fragment,
@@ -1010,7 +1010,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
     trace!("visit_rel_delete_input called -- src_query_opt: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
     src_query_opt, rel_var, input, info.name());
 
-    let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+    let rel_label = rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_delete(&rel_label) {
         for f in handlers.iter() {
             input = f(
@@ -1050,7 +1050,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
         .await?;
 
         let rel_label =
-            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+            rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
             .read_rels(fragment, rel_var, None, partition_key_opt)
             .await?;
@@ -1506,7 +1506,7 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
          "visit_rel_update_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
          src_fragment_opt, rel_var, props_type_name, input, info.name());
 
-    let rel_label = rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+    let rel_label = rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
         for f in handlers.iter() {
             input = f(
@@ -1600,7 +1600,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
         };
 
         let rel_label =
-            rel_var.src().label()?.to_string() + &rel_var.label().to_title_case() + "Rel";
+            rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
             .update_rels(
                 query_fragment,

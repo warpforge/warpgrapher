@@ -6,6 +6,7 @@ use serde_json::json;
 use setup::Neo4jRequestCtx;
 #[cfg(feature = "neo4j")]
 use setup::{clear_db, init, neo4j_test_client_with_events};
+#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
@@ -17,6 +18,7 @@ use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
 #[cfg(feature = "neo4j")]
 use warpgrapher::Error;
+#[cfg(feature = "neo4j")]
 type Rctx = Neo4jRequestCtx;
 
 #[derive(Debug)]

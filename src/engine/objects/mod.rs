@@ -76,7 +76,7 @@ where
                 "Input::meta expected type '{}' that was not found in GraphQL schema",
                 info.name().to_string()
             );
-            panic!(e)
+            panic!("{}", e)
         });
 
         let mut props = nt.props().collect::<Vec<&Property>>();
@@ -392,7 +392,9 @@ where
                                 &Info::new(type_name.to_string(), info.type_defs()),
                             ))
                         }
-                        (_, _, _) => panic!(Error::TypeNotExpected { details: None }),
+                        (_, _, _) => {
+                            panic!("{}", Error::TypeNotExpected { details: None })
+                        }
                     }
                 })
             })
@@ -423,7 +425,7 @@ where
         trace!("Node::meta called -- info.name: {}", info.name());
         let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
             error!("Node::meta panicking on type: {}", info.name().to_string());
-            panic!(e)
+            panic!("{}", e)
         });
 
         match nt.type_kind() {
@@ -451,7 +453,7 @@ where
                     "Node::concrete_type_name panicking on type: {}",
                     info.name()
                 );
-                panic!(e)
+                panic!("{}", e)
             })
             .type_name()
             .to_string();
@@ -773,7 +775,7 @@ where
 
         let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
             error!("Rel::meta panicking on type: {}", info.name().to_string());
-            panic!(e)
+            panic!("{}", e)
         });
 
         let mut props = nt.props().collect::<Vec<&Property>>();
@@ -827,7 +829,7 @@ where
             .type_def_by_name(&info.name())
             .unwrap_or_else(|e| {
                 error!("Rel::concrete_type_name panicking on type: {}", info.name());
-                panic!(e)
+                panic!("{}", e)
             })
             .type_name()
             .to_owned();
