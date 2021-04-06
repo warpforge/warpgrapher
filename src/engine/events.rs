@@ -1404,7 +1404,7 @@ where
         let rel_var = RelQueryVar::new(rel_label.to_string(), rel_suffix, src_var, dst_var);
         let info = Info::new(
             src_node_label.to_string()
-                + &((&rel_label.to_string().to_title_case())
+                + &*((&rel_label.to_string().to_title_case())
                     .split_whitespace()
                     .collect::<String>())
                 + "QueryInput",
