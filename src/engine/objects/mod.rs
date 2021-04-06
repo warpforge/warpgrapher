@@ -210,13 +210,6 @@ where
     /// }
     /// ```
     pub fn deser<T: serde::de::DeserializeOwned>(&self) -> Result<T, Error> {
-        /*
-        let m = Value::Map(self.fields().clone());
-        let v = serde_json::Value::try_from(m)?;
-        let t: T = serde_json::from_value(v)
-            .map_err(|e| Error::JsonDeserializationFailed { source: e })?;
-        Ok(t)
-        */
         let mut fields = self.fields().clone();
         fields.insert("__label".to_string(), Value::String(self.concrete_typename.clone()));
         let m = Value::Map(fields);
