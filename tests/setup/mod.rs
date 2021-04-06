@@ -22,7 +22,6 @@ use std::fs::File;
 use std::io::BufReader;
 #[cfg(feature = "neo4j")]
 use std::iter::FromIterator;
-#[cfg(feature = "neo4j")]
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
@@ -320,7 +319,6 @@ pub(crate) async fn clear_db() {
     clear_neo4j_db().await;
 }
 
-#[cfg(feature = "neo4j")]
 #[derive(Clone, Debug)]
 pub struct Metadata {
     pub(crate) src_ip: String,

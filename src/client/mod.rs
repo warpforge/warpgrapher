@@ -358,7 +358,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         let query = Client::<()>::fmt_create_rel_query(type_name, rel_name, shape);
         let input = json!({"MATCH": match_input, "CREATE": create_input});
         let result_field = type_name.to_string()
-            + &((&rel_name.to_string().to_title_case())
+            + &*((&rel_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>())
             + "Create";
@@ -533,7 +533,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
             Some(&value)
         };
         let result_field = type_name.to_string()
-            + &((&rel_name.to_string().to_title_case())
+            + &*((&rel_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>())
             + "Delete";
@@ -669,7 +669,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
         let query = Client::<()>::fmt_read_rel_query(type_name, rel_name, shape);
         let result_field = type_name.to_string()
-            + &((&rel_name.to_string().to_title_case())
+            + &*((&rel_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>());
         self.graphql(&query, partition_key, input, Some(&result_field))
@@ -820,7 +820,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         let query = Client::<()>::fmt_update_rel_query(type_name, rel_name, shape);
         let input = json!({"MATCH": match_input, "SET": update_input});
         let result_field = type_name.to_string()
-            + &((&rel_name.to_string().to_title_case())
+            + &*((&rel_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>())
             + "Update";

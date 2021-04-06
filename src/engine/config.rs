@@ -1884,7 +1884,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1898,7 +1898,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1907,7 +1907,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1916,7 +1916,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1925,7 +1925,7 @@ mod tests {
         config_vec.push(valid_config_2);
 
         let composed_config: Configuration = match compose(config_vec) {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -1937,7 +1937,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1952,7 +1952,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1967,7 +1967,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -1985,7 +1985,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -1999,7 +1999,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -2019,7 +2019,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2035,7 +2035,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2051,7 +2051,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2071,7 +2071,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2087,7 +2087,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2103,7 +2103,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2123,7 +2123,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2139,7 +2139,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2155,7 +2155,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2175,7 +2175,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2191,7 +2191,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2207,7 +2207,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2227,7 +2227,7 @@ mod tests {
         .expect("Coudln't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2243,7 +2243,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2259,7 +2259,7 @@ mod tests {
         .expect("Couldn't open file")
         .try_into()
         {
-            Err(e) => panic!(e),
+            Err(e) => panic!("{}", e),
             Ok(wgc) => wgc,
         };
 
@@ -2293,7 +2293,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -2302,7 +2302,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -2311,7 +2311,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 
@@ -2320,7 +2320,7 @@ mod tests {
                 .expect("Couldn't open file")
                 .try_into()
             {
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
                 Ok(wgc) => wgc,
             };
 

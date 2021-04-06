@@ -623,7 +623,7 @@ impl<'r> Resolver<'r> {
 
         let input_value_opt = if let Some(handlers) =
             executor.context().event_handlers().before_rel_read(
-                &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+                &(src_prop.type_name().to_string() + &*rel_var.label().to_title_case() + "Rel"),
             ) {
             let mut input_value_opt = input_opt.map(|i| i.value);
             for f in handlers.iter() {
@@ -664,7 +664,7 @@ impl<'r> Resolver<'r> {
             .await?;
 
         if let Some(handlers) = executor.context().event_handlers().after_rel_read(
-            &(src_prop.type_name().to_string() + &rel_var.label().to_title_case() + "Rel"),
+            &(src_prop.type_name().to_string() + &*rel_var.label().to_title_case() + "Rel"),
         ) {
             for f in handlers.iter() {
                 results = match f(

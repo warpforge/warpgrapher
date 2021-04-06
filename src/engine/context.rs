@@ -60,6 +60,7 @@ use std::fmt::Formatter;
 /// # Ok(())
 /// # }
 /// ```
+#[allow(clippy::upper_case_acronyms)]
 pub struct GraphQLContext<RequestCtx: RequestContext> {
     pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
     resolvers: Resolvers<RequestCtx>,
