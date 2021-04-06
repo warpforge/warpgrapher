@@ -1370,7 +1370,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let rels: Vec<Rel()> = ef.readl_rels(
+    ///         let rels: Vec<Rel()> = ef.read_rels(
     ///             "User",
     ///             "teams",
     ///             json!({
@@ -1389,8 +1389,8 @@ where
         partition_key_opt: Option<&Value>
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let input_value_opt = Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
-            src: "".to_string(),
-            dst: "".to_string(),
+            src: "TryInto<Value>".to_string(),
+            dst: "Value".to_string(),
         })?);
         let mut sg = SuffixGenerator::new();
         let rel_suffix = sg.suffix();
