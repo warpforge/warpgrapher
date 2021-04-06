@@ -291,6 +291,7 @@ pub enum CrudOperation {
 
 /// Represents the different type of comparison match operations
 #[derive(Clone, Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Operation {
     EQ,
     CONTAINS,
