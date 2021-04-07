@@ -209,6 +209,7 @@ export NEW_VERSION=0.8.1
 sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" Cargo.toml
 sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./src/lib.rs
 sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./book/book.toml
+sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./book/src/*/*.md
 find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERSION}/g"
 ```
 
