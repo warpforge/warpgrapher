@@ -499,6 +499,6 @@ impl SuffixGenerator {
 
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
-        "_".to_string() + &*self.seed.to_string()
+        self.seed.to_string()
     }
 }

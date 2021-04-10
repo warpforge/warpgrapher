@@ -5,12 +5,12 @@
 //! operations on that data. If you need more more sophisticated endpoints, you
 //! can supply your own custom resolvers. Warpgrapher will automatically
 //! generate the GraphQL configuration and invoke your custom resolvers when
-//! appropriate.
+//! appropriate. 
 //!
 //! * [Cargo Crate](https://crates.io/crates/warpgrapher)
 //! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.8.1")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.8.2")]
 
 #[cfg(feature = "neo4j")]
 pub use bolt_client;
