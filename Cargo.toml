@@ -8,7 +8,7 @@ repository = "https://github.com/warpforge/warpgrapher"
 readme = "README.md"
 keywords = ["graphql", "neo4j"]
 categories = ["web-programming"]
-version = "0.8.1"
+version = "0.8.2"
 edition = "2018"
 
 [features]
@@ -28,7 +28,7 @@ maplit = "1.0.2"
 reqwest = { version = "0.11.2", features = ["json"] }
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
-serde_yaml = "0.8.17"
+serde_yaml = "0.8.27"
 uuid = { version = "0.8.2", features = ["v4"] }
 
 # Optional dependencies
