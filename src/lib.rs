@@ -5,7 +5,7 @@
 //! operations on that data. If you need more more sophisticated endpoints, you
 //! can supply your own custom resolvers. Warpgrapher will automatically
 //! generate the GraphQL configuration and invoke your custom resolvers when
-//! appropriate.
+//! appropriate. 
 //!
 //! * [Cargo Crate](https://crates.io/crates/warpgrapher)
 //! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
