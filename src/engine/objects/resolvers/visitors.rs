@@ -85,7 +85,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
             )?;
 
             let node = transaction
-                .create_node(node_var, props, partition_key_opt, info)
+                .create_node(node_var, props, partition_key_opt, info, sg)
                 .await?;
 
             let node = if let Some(handlers) = context
@@ -631,7 +631,7 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
             )?;
 
             let mut nodes = transaction
-                .update_nodes(query_fragment, node_var, props, partition_key_opt, info)
+                .update_nodes(query_fragment, node_var, props, partition_key_opt, info, sg)
                 .await?;
             if let Some(handlers) = context
                 .event_handlers()
@@ -971,6 +971,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                 props,
                 props_type_name,
                 partition_key_opt,
+                sg,
             )
             .await?;
         if let Some(handlers) = context.event_handlers().after_rel_create(&rel_label) {
@@ -1608,6 +1609,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
                 props,
                 props_type_name,
                 partition_key_opt,
+                sg,
             )
             .await?;
         if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {

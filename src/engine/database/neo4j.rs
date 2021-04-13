@@ -322,6 +322,7 @@ impl Transaction for Neo4jTransaction {
         props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error> {
         trace!(
             "Neo4jTransaction::create_node called -- node_var: {:#?}, props: {:#?}",
@@ -368,6 +369,7 @@ impl Transaction for Neo4jTransaction {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::create_rels called -- src_query: {:#?}, dst_query: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt);
@@ -736,6 +738,7 @@ impl Transaction for Neo4jTransaction {
         props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!(
             "Neo4jTransaction::update_nodes called: query_fragment: {:#?}, node_var: {:#?}, props: {:#?}, info.name: {}",
@@ -789,6 +792,7 @@ impl Transaction for Neo4jTransaction {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("Neo4jTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         query_fragment, rel_var, props, props_type_name, partition_key_opt);

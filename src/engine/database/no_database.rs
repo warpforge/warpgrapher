@@ -54,6 +54,7 @@ impl Transaction for NoTransaction {
         _props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         _info: &Info,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -66,6 +67,7 @@ impl Transaction for NoTransaction {
         _props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -134,6 +136,7 @@ impl Transaction for NoTransaction {
         _props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         _info: &Info,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -145,6 +148,7 @@ impl Transaction for NoTransaction {
         _props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
+        _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }

@@ -179,8 +179,10 @@ pub trait Transaction: Send + Sync {
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
+        sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error>;
 
+    #[allow(clippy::too_many_arguments)]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_query_fragment: QueryFragment,
@@ -189,6 +191,7 @@ pub trait Transaction: Send + Sync {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
@@ -243,6 +246,7 @@ pub trait Transaction: Send + Sync {
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
+        sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
     async fn update_rels<RequestCtx: RequestContext>(
@@ -252,6 +256,7 @@ pub trait Transaction: Send + Sync {
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     async fn delete_nodes(
@@ -499,6 +504,6 @@ impl SuffixGenerator {
 
     pub(crate) fn suffix(&mut self) -> String {
         self.seed += 1;
-        self.seed.to_string()
+        "_".to_string() + &*self.seed.to_string()
     }
 }

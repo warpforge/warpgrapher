@@ -1,5 +1,6 @@
 mod setup;
 
+use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "cosmos")]
 use setup::cosmos_test_client;
@@ -56,7 +57,7 @@ async fn scalar_lists_test<RequestCtx: RequestContext>(mut client: Client<Reques
             Some("1234"),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
-                "bool_list": [true, false, true, false],
+                "bool_list": [true, false],
                 "int_list": [0, 1, 2, 3],
                 "float_list": [0.0, 1.1, 2.2, 3.3]
             }),
@@ -75,8 +76,6 @@ async fn scalar_lists_test<RequestCtx: RequestContext>(mut client: Client<Reques
     assert!(bools.is_array());
     assert_eq!(bools.get(0).unwrap().as_bool().unwrap(), true);
     assert_eq!(bools.get(1).unwrap().as_bool().unwrap(), false);
-    assert_eq!(bools.get(2).unwrap().as_bool().unwrap(), true);
-    assert_eq!(bools.get(3).unwrap().as_bool().unwrap(), false);
 
     let ints = result.get("int_list").unwrap();
     assert!(ints.is_array());
@@ -87,10 +86,10 @@ async fn scalar_lists_test<RequestCtx: RequestContext>(mut client: Client<Reques
 
     let floats = result.get("float_list").unwrap();
     assert!(floats.is_array());
-    assert_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0_f64);
-    assert_eq!(floats.get(1).unwrap().as_f64().unwrap(), 1.1_f64);
-    assert_eq!(floats.get(2).unwrap().as_f64().unwrap(), 2.2_f64);
-    assert_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3_f64);
+    assert_approx_eq!(floats.get(0).unwrap().as_f64().unwrap(), 0.0_f64);
+    assert_approx_eq!(floats.get(1).unwrap().as_f64().unwrap(), 1.1_f64);
+    assert_approx_eq!(floats.get(2).unwrap().as_f64().unwrap(), 2.2_f64);
+    assert_approx_eq!(floats.get(3).unwrap().as_f64().unwrap(), 3.3_f64);
 }
 
 #[cfg(feature = "cosmos")]
