@@ -31,9 +31,11 @@ pub enum Value {
 impl Value {
     pub(crate) fn to_property_value(&self) -> Result<String, Error> {
         match self {
-            Value::Array(_) => Err(Error::TypeNotExpected {
-                details: Some("Expected scalar, not an array.".to_string()),
-            }),
+            Value::Array(a) => Ok(a
+                .iter()
+                .map(|v| v.to_property_value())
+                .collect::<Result<Vec<String>, Error>>()?
+                .join(", ")),
             Value::Bool(bool) => Ok(bool.to_string()),
             Value::Float64(f) => Ok(f.to_string() + "f"),
             Value::Int64(i) => Ok(i.to_string()),

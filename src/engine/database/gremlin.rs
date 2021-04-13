@@ -860,41 +860,42 @@ impl Transaction for GremlinTransaction {
                 + ", " 
                 + &*gremlin_comparison_operator(&c)
                 + "("
-                + &*k
-                + &*param_suffix
+                + &*(if self.use_bindings { k.clone() + &*param_suffix } else { c.operand.to_property_value()? })
                 + "))"),
             );
 
-            if self.uuid && k == "id" {
-                match &c.operand {
-                    Value::String(s) => {
-                        let u = Value::Uuid(Uuid::parse_str(&s)?);
-                        params.insert(k + &*param_suffix, u);
-                    }
-                    Value::Array(a) => {
-                        let mut au: Vec<Value> = vec![];
-                        for v in a.iter() {
-                            if let Value::String(s) = &v {
-                                let u = Value::Uuid(Uuid::parse_str(&s)?);
-                                au.push(u);
-                            } else {
-                                return Err(Error::TypeConversionFailed {
-                                    src: format!("{:#?}", c.operand),
-                                    dst: "String".to_string(),
-                                });
-                            }
+            if self.use_bindings {
+                if self.uuid && k == "id" {
+                    match &c.operand {
+                        Value::String(s) => {
+                            let u = Value::Uuid(Uuid::parse_str(&s)?);
+                            params.insert(k + &*param_suffix, u);
                         }
-                        params.insert(k + &*param_suffix, Value::Array(au));
+                        Value::Array(a) => {
+                            let mut au: Vec<Value> = vec![];
+                            for v in a.iter() {
+                                if let Value::String(s) = &v {
+                                    let u = Value::Uuid(Uuid::parse_str(&s)?);
+                                    au.push(u);
+                                } else {
+                                    return Err(Error::TypeConversionFailed {
+                                        src: format!("{:#?}", c.operand),
+                                        dst: "String".to_string(),
+                                    });
+                                }
+                            }
+                            params.insert(k + &*param_suffix, Value::Array(au));
+                        }
+                        _ => {
+                            return Err(Error::TypeConversionFailed {
+                                src: format!("{:#?}", c.operand),
+                                dst: "String".to_string(),
+                            });
+                        }
                     }
-                    _ => {
-                        return Err(Error::TypeConversionFailed {
-                            src: format!("{:#?}", c.operand),
-                            dst: "String".to_string(),
-                        });
-                    }
+                } else {
+                    params.insert(k + &*param_suffix, c.operand);
                 }
-            } else {
-                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -1037,42 +1038,42 @@ impl Transaction for GremlinTransaction {
                 + ", " 
                 + &*gremlin_comparison_operator(&c)
                 + "("
-                + &*k
-                + &*param_suffix
+                + &*(if self.use_bindings {k.clone() + &*param_suffix}  else {c.operand.to_property_value()?})
                 + ")"
                 + ")"),
             );
-
-            if self.uuid && k == "id" {
-                match &c.operand {
-                    Value::String(s) => {
-                        let u = Value::Uuid(Uuid::parse_str(&s)?);
-                        params.insert(k + &*param_suffix, u);
-                    }
-                    Value::Array(a) => {
-                        let mut au: Vec<Value> = vec![];
-                        for v in a.iter() {
-                            if let Value::String(s) = &v {
-                                let u = Value::Uuid(Uuid::parse_str(&s)?);
-                                au.push(u);
-                            } else {
-                                return Err(Error::TypeConversionFailed {
-                                    src: format!("{:#?}", c.operand),
-                                    dst: "String".to_string(),
-                                });
-                            }
+            if self.use_bindings {
+                if self.uuid && k == "id" {
+                    match &c.operand {
+                        Value::String(s) => {
+                            let u = Value::Uuid(Uuid::parse_str(&s)?);
+                            params.insert(k + &*param_suffix, u);
                         }
-                        params.insert(k + &*param_suffix, Value::Array(au));
+                        Value::Array(a) => {
+                            let mut au: Vec<Value> = vec![];
+                            for v in a.iter() {
+                                if let Value::String(s) = &v {
+                                    let u = Value::Uuid(Uuid::parse_str(&s)?);
+                                    au.push(u);
+                                } else {
+                                    return Err(Error::TypeConversionFailed {
+                                        src: format!("{:#?}", c.operand),
+                                        dst: "String".to_string(),
+                                    });
+                                }
+                            }
+                            params.insert(k + &*param_suffix, Value::Array(au));
+                        }
+                        _ => {
+                            return Err(Error::TypeConversionFailed {
+                                src: format!("{:#?}", c.operand),
+                                dst: "String".to_string(),
+                            });
+                        }
                     }
-                    _ => {
-                        return Err(Error::TypeConversionFailed {
-                            src: format!("{:#?}", c.operand),
-                            dst: "String".to_string(),
-                        });
-                    }
+                } else {
+                    params.insert(k + &*param_suffix, c.operand);
                 }
-            } else {
-                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -1648,23 +1649,6 @@ mod tests {
 
         assert_eq!(".property(single, 'my_prop', 'String one')", q);
         assert!(p.is_empty());
-    }
-
-    #[test]
-    fn test_array_without_bindings() {
-        let s1 = Value::String("String one".to_string());
-        let a1 = Value::Array(vec![s1]);
-        let a2 = Value::Array(vec![a1]);
-
-        assert!(GremlinTransaction::add_properties(
-            String::new(),
-            hashmap! {"my_prop".to_string() => a2},
-            HashMap::new(),
-            true,
-            false,
-            &mut SuffixGenerator::new(),
-        )
-        .is_err());
     }
 
     #[test]
