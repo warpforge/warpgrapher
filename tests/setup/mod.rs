@@ -28,7 +28,7 @@ use warpgrapher::engine::database::env_bool;
 #[cfg(feature = "cosmos")]
 use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 #[cfg(feature = "gremlin")]
-use warpgrapher::engine::database::gremlin::GremlinEndpoint;
+use warpgrapher::engine::database::gremlin::{GremlinEndpoint, NeptuneEndpoint};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
@@ -400,6 +400,24 @@ impl RequestContext for GremlinRequestCtx {
     }
 }
 
+#[cfg(feature = "gremlin")]
+#[derive(Clone, Debug)]
+pub struct NeptuneRequestCtx {
+    metadata: Metadata,
+}
+
+#[cfg(feature = "gremlin")]
+impl RequestContext for NeptuneRequestCtx {
+    type DBEndpointType = NeptuneEndpoint;
+    fn new() -> NeptuneRequestCtx {
+        NeptuneRequestCtx {
+            metadata: Metadata {
+                src_ip: "".to_string(),
+                src_useragent: "".to_string(),
+            },
+        }
+    }
+}
 /*
 #[cfg(feature = "gremlin")]
 impl MetadataExtensionCtx for GremlinRequestCtx {

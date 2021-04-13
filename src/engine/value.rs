@@ -28,6 +28,30 @@ pub enum Value {
     Uuid(Uuid),
 }
 
+impl Value {
+    pub(crate) fn to_property_value(&self) -> Result<String, Error> {
+        match self {
+            Value::Array(_) => Err(Error::TypeNotExpected {
+                details: Some("Expected scalar, not an array.".to_string()),
+            }),
+            Value::Bool(bool) => Ok(bool.to_string()),
+            Value::Float64(f) => Ok(f.to_string() + "f"),
+            Value::Int64(i) => Ok(i.to_string()),
+            Value::Map(_) => Err(Error::TypeNotExpected {
+                details: Some("Expected scalar, not a map.".to_string()),
+            }),
+            Value::Null => Ok("''".to_string()),
+            Value::String(s) => Ok("'".to_string() + &*Value::sanitize(s) + "'"),
+            Value::UInt64(u) => Ok(u.to_string()),
+            Value::Uuid(uuid) => Ok(format!("'{}'", uuid)),
+        }
+    }
+
+    fn sanitize(s: &str) -> String {
+        s.replace("\\", "\\\\").replace("'", "\\'")
+    }
+}
+
 impl From<bool> for Value {
     fn from(v: bool) -> Self {
         Value::Bool(v)

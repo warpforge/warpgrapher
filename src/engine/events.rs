@@ -5,10 +5,12 @@
 use crate::engine::config::Configuration;
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
-use crate::engine::database::{DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator};
+use crate::engine::database::{
+    DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator,
+};
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
-    visit_node_update_input, visit_rel_query_input
+    visit_node_update_input, visit_rel_query_input,
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -1383,10 +1385,10 @@ where
     /// ```
     pub async fn read_rels(
         &mut self,
-        src_node_label: &str, 
-        rel_label: &str, 
+        src_node_label: &str,
+        rel_label: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>
+        partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let input_value_opt = Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
             src: "TryInto<Value>".to_string(),
@@ -1421,7 +1423,8 @@ where
         )
         .await?;
 
-        let results = self.transaction
+        let results = self
+            .transaction
             .read_rels(
                 query_fragment,
                 &rel_var,
