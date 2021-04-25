@@ -362,7 +362,7 @@ impl Transaction for Neo4jTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    #[tracing::instrument(name="wg-neo4j-create-rels-tx", skip(self, src_fragment, dst_fragment, rel_var, props, props_type_name, node_var, partition_key_opt, _sg))]
+    #[tracing::instrument(name="wg-neo4j-create-rels-tx", skip(self, src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt, _sg))]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
