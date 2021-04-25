@@ -36,6 +36,7 @@ impl<'r> Resolver<'r> {
         Resolver { partition_key_opt }
     }
 
+    #[tracing::instrument(name="execute_endpoint", skip(self, info, parent, args, executor))]
     pub(super) async fn resolve_custom_endpoint<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
@@ -147,6 +148,7 @@ impl<'r> Resolver<'r> {
         result
     }
 
+    #[tracing::instrument(name="create_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -203,6 +205,7 @@ impl<'r> Resolver<'r> {
     }
 
     #[allow(unused_variables)]
+    #[tracing::instrument(name="delete_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_delete_mutation<RequestCtx>(
         &mut self,
         field_name: &str,
@@ -257,6 +260,7 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results?)
     }
 
+    #[tracing::instrument(name="read_node", skip(self, info, input_opt, executor))]
     pub(super) async fn resolve_node_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -391,6 +395,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
+    #[tracing::instrument(name="update_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -445,6 +450,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
+    #[tracing::instrument(name="create_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -504,6 +510,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
+    #[tracing::instrument(name="delete_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -581,6 +588,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
+    #[tracing::instrument(name="read_rel", skip(self, info, input_opt, executor))]
     pub(super) async fn resolve_rel_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -727,6 +735,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
+    #[tracing::instrument(name="update_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
