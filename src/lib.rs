@@ -10,7 +10,7 @@
 //! * [Cargo Crate](https://crates.io/crates/warpgrapher)
 //! * [Warpgrapher Book](https://warpforge.github.io/warpgrapher/)
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.8.3")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.8.4")]
 
 #[cfg(feature = "neo4j")]
 pub use bolt_client;
@@ -30,3 +30,4 @@ pub use error::Error;
 pub mod client;
 pub mod engine;
 mod error;
+
