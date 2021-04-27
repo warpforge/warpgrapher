@@ -3,16 +3,23 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Warpgrapher Book (0.8.3)</title>
+        <title>Warpgrapher Book (0.8.4)</title>
         
         <meta name="robots" content="noindex" />
         
+        
+
+
+        <!-- Custom HTML head -->
+        
+
 
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
+        <link rel="icon" href="favicon.svg">
         <link rel="shortcut icon" href="favicon.png">
         <link rel="stylesheet" href="css/variables.css">
         <link rel="stylesheet" href="css/general.css">
@@ -21,8 +28,9 @@
 
         <!-- Fonts -->
         <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
-        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
 
         <!-- Highlight.js Stylesheets -->
         <link rel="stylesheet" href="highlight.css">
@@ -38,7 +46,7 @@
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
             var path_to_root = "";
-            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "light";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
         <!-- Work around some values being stored in localStorage wrapped in quotes -->
@@ -82,8 +90,8 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <div id="sidebar-scrollbox" class="sidebar-scrollbox">
-                <ol class="chapter"><li class="expanded "><a href="warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="expanded "><a href="warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="expanded "><a href="warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="expanded "><a href="warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="expanded "><a href="api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="expanded "><a href="api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="expanded "><a href="api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="expanded "><a href="api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="expanded "><a href="api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="expanded "><a href="api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="expanded "><a href="api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="expanded "><a href="api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="expanded "><a href="api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="expanded "><a href="engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="expanded "><a href="engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="expanded "><a href="engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="expanded "><a href="engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="expanded "><a href="engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="expanded "><a href="engine/context_request.html"><strong aria-hidden="true">3.5.</strong> Request Context</a></li></ol></li></ol>
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="warpgrapher/quickstart.html"><strong aria-hidden="true">1.1.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="warpgrapher/databases.html"><strong aria-hidden="true">1.2.</strong> Databases</a></li><li class="chapter-item expanded "><a href="warpgrapher/config.html"><strong aria-hidden="true">1.3.</strong> Config</a></li></ol></li><li class="chapter-item expanded "><a href="api/intro.html"><strong aria-hidden="true">2.</strong> CRUD API</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="api/node_read.html"><strong aria-hidden="true">2.1.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="api/node_create.html"><strong aria-hidden="true">2.2.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="api/node_update.html"><strong aria-hidden="true">2.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="api/node_delete.html"><strong aria-hidden="true">2.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="api/rel_read.html"><strong aria-hidden="true">2.5.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="api/rel_create.html"><strong aria-hidden="true">2.6.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="api/rel_update.html"><strong aria-hidden="true">2.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="api/rel_delete.html"><strong aria-hidden="true">2.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="engine/intro.html"><strong aria-hidden="true">3.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="engine/endpoints_static.html"><strong aria-hidden="true">3.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="engine/endpoints_defined.html"><strong aria-hidden="true">3.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="engine/dynamic_props.html"><strong aria-hidden="true">3.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="engine/dynamic_rels.html"><strong aria-hidden="true">3.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="engine/context_request.html"><strong aria-hidden="true">3.5.</strong> Request Context</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -92,37 +100,36 @@
 
             <div class="page">
                 
-                <div id="menu-bar" class="menu-bar">
-                    <div id="menu-bar-sticky-container">
-                        <div class="left-buttons">
-                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
-                                <i class="fa fa-bars"></i>
-                            </button>
-                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
-                                <i class="fa fa-paint-brush"></i>
-                            </button>
-                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
-                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
-                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
-                            </ul>
-                            
-                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
-                                <i class="fa fa-search"></i>
-                            </button>
-                            
-                        </div>
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
 
-                        <h1 class="menu-title">Warpgrapher Book (0.8.3)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.8.4)</h1>
 
-                        <div class="right-buttons">
-                            <a href="print.html" title="Print this book" aria-label="Print this book">
-                                <i id="print-button" class="fa fa-print"></i>
-                            </a>
-                            
-                        </div>
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
                     </div>
                 </div>
 
@@ -169,10 +176,10 @@ GraphQL configuration and invoke your custom resolvers when appropriate.</p>
 <h2><a class="header" href="#source" id="source">Source</a></h2>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.8.3&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.8.4&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p><code>src/main.rs</code></p>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">use std::collections::HashMap;
+<pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
@@ -234,7 +241,7 @@ async fn main() {
     // display result
     println!(&quot;result: {:#?}&quot;, result);
 }
-</code></pre></pre>
+</code></pre>
 <h2><a class="header" href="#database" id="database">Database</a></h2>
 <p>Configure database settings:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
@@ -262,7 +269,7 @@ with the database.</p>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.8.3&quot;, features = [&quot;cosmos&quot;] }
+warpgrapher = { version = &quot;0.8.4&quot;, features = [&quot;cosmos&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -283,7 +290,7 @@ could leave partially applied results behind.</p>
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.8.3&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.8.4&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -315,7 +322,7 @@ docker run -i --net=host --rm gremlin-console:latest
 <h2><a class="header" href="#neo4j" id="neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config:</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.8.3&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.8.4&quot;, features = [&quot;neo4j&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB:</p>
 <pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
@@ -351,8 +358,8 @@ model:
         list: true
 </code></pre>
 <h3><a class="header" href="#programmatic-config" id="programmatic-config">Programmatic Config</a></h3>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use warpgrapher::engine::config::{Config, Property, Relationship, Type};
 
@@ -767,8 +774,8 @@ let config = Config::new(
 <p>Warpgrapher includes built-in static endpoints that provide useful information or functionality. Built-in static endpoints names are preceded by <code>_</code>.</p>
 <h2><a class="header" href="#version" id="version">Version</a></h2>
 <p>If the <code>Engine</code> is built with an explicit version:</p>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut server: Engine&lt;()&gt; = Engine::new(config, db)
     .with_version(&quot;0.1.0&quot;.to_string())
@@ -826,8 +833,8 @@ endpoints:
       type: Team
 </code></pre>
 <h4><a class="header" href="#2-implement-endpoint-resolver-logic" id="2-implement-endpoint-resolver-logic">2. Implement endpoint resolver logic</a></h4>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use std::collections::HashMap;
 use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
@@ -858,8 +865,8 @@ fn resolve_getlargestteam(
 <span class="boring">}
 </span></code></pre></pre>
 <h4><a class="header" href="#3-add-resolvers-when-building-engine" id="3-add-resolvers-when-building-engine">3. Add resolvers when building <code>Engine</code></a></h4>
-<pre><pre class="playpen"><code class="language-rust">
-<span class="boring">#![allow(unused_variables)]
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>use warpgrapher::Engine;
 
@@ -905,10 +912,7 @@ let engine = Engine&lt;()&gt;::new(config, db)
 <p>When Warpgrapher auto-generates a CRUD endpoint, the values of Node and Relationship properties are retreived from the database and returned in a query. In some cases, however, it may be necessary to perform real-time computations to derive the value of a prop. We call these type of properties &quot;dynamic properties&quot;, and Warpgrapher provides a mechanism to execute custom logic to resolve the value of the prop. </p>
 <h2><a class="header" href="#usage-1" id="usage-1">Usage</a></h2>
 <h4><a class="header" href="#1-mark-a-properties-as-dynamic-by-setting-the-resolver-field" id="1-mark-a-properties-as-dynamic-by-setting-the-resolver-field">1. Mark a properties as dynamic by setting the resolver field</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>model: 
+<pre><code class="language-rust no_run noplayground">model: 
  - name: Project
    props: 
     - name: name
@@ -917,13 +921,9 @@ let engine = Engine&lt;()&gt;::new(config, db)
       type: Int
       resolver: resolve_project_points
 &quot;;
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value" id="2-define-custom-logic-that-resolve-the-prop-value">2. Define custom logic that resolve the prop value</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    Box::pin(async move {
+<pre><code class="language-rust no_run noplayground">    Box::pin(async move {
         // compute value
         let points = 5;
 
@@ -931,13 +931,9 @@ let engine = Engine&lt;()&gt;::new(config, db)
     })
 }
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#3-add-prop-resolver-when-building-engine" id="3-add-prop-resolver-when-building-engine">3. Add prop resolver when building <code>Engine</code></a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_points&quot;.to_string(),
         Box::new(resolve_project_points),
@@ -949,16 +945,12 @@ let engine = Engine&lt;()&gt;::new(config, db)
         .build()
         .expect(&quot;Failed to build engine&quot;);
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h1><a class="header" href="#dynamic-relationships" id="dynamic-relationships">Dynamic Relationships</a></h1>
 <p>Dynamic relationships are similiar to Dynamic Props. Instead of returning values contained in the database, Dynamic relationships allows values to be computed at request time. </p>
 <h2><a class="header" href="#usage-2" id="usage-2">Usage</a></h2>
 <h4><a class="header" href="#1-mark-rel-as-dynamic-by-setting-the-resolver-field" id="1-mark-rel-as-dynamic-by-setting-the-resolver-field">1. Mark rel as dynamic by setting the resolver field</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>model: 
+<pre><code class="language-rust no_run noplayground">model: 
  - name: User
    props:
     - name: name
@@ -972,13 +964,9 @@ let engine = Engine&lt;()&gt;::new(config, db)
        nodes: [User]
        resolver: resolve_project_top_contributor
 &quot;;
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#2-define-custom-logic-that-resolve-the-prop-value-1" id="2-define-custom-logic-that-resolve-the-prop-value-1">2. Define custom logic that resolve the prop value</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    facade: ResolverFacade&lt;AppRequestContext&gt;,
+<pre><code class="language-rust no_run noplayground">    facade: ResolverFacade&lt;AppRequestContext&gt;,
 ) -&gt; BoxFuture&lt;ExecutionResult&gt; {
     Box::pin(async move {
         // create dynamic dst node
@@ -999,13 +987,9 @@ let engine = Engine&lt;()&gt;::new(config, db)
     })
 }
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#3-add-the-custom-relationship-resolver-to-the-engine" id="3-add-the-custom-relationship-resolver-to-the-engine">3. Add the custom relationship resolver to the engine</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -1017,17 +1001,13 @@ let engine = Engine&lt;()&gt;::new(config, db)
         .build()
         .expect(&quot;Failed to build engine&quot;);
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h1><a class="header" href="#request-context" id="request-context">Request Context</a></h1>
 <p>The Request Context feature enables the creation of <strong>mutable state through the lifecycle of a request</strong>.</p>
 <h3><a class="header" href="#usage-3" id="usage-3">Usage</a></h3>
 <h4><a class="header" href="#1-define-requestcontext-struct" id="1-define-requestcontext-struct">1. Define RequestContext struct</a></h4>
 <p>Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement <code>Clone</code>, <code>Debug</code>, <code>Sync</code>, <code>Send</code>, and Warpgrapher <code>RequestContext</code>. </p>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    request_id: String,
+<pre><code class="language-rust no_run noplayground">    request_id: String,
 }
 
 impl RequestContext for AppRequestContext {
@@ -1041,34 +1021,25 @@ impl RequestContext for AppRequestContext {
 
 fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
     Box::pin(async move {
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#2-create-engine-with-requestcontext-type-parameter" id="2-create-engine-with-requestcontext-type-parameter">2. Create Engine with RequestContext type parameter</a></h4>
 <p>The RequestContext is specified in the second type paramter of <code>Engine</code>. </p>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>        .with_resolvers(resolvers)
+<pre><code class="language-rust no_run noplayground">        .with_resolvers(resolvers)
         .build()
         .expect(&quot;Failed to build engine&quot;);
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h4><a class="header" href="#3-access-context-inside-resolver" id="3-access-context-inside-resolver">3. Access Context inside resolver</a></h4>
-<pre><pre class="playpen"><code class="language-rust no_run noplayground">
-<span class="boring">#![allow(unused_variables)]
-</span><span class="boring">fn main() {
-</span>    Box::pin(async move {
+<pre><code class="language-rust no_run noplayground">    Box::pin(async move {
         let request_context = facade.request_context().unwrap();
         let request_id = request_context.request_id.clone();
         facade.resolve_scalar(format!(&quot;echo! (request_id: {})&quot;, request_id))
     })
 }
 
-<span class="boring">}
-</span></code></pre></pre>
+</code></pre>
 <h3><a class="header" href="#full-example" id="full-example">Full Example</a></h3>
-<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.8.3/examples/request_context/main.rs">Github</a>.</p>
+<p>View on <a href="https://github.com/warpforge/warpgrapher/blob/v0.8.4/examples/request_context/main.rs">Github</a>.</p>
 
                     </main>
 
@@ -1096,10 +1067,10 @@ fn resolve_echo_request(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; B
         
 
         
-        
+
         
         <script type="text/javascript">
-            window.playpen_copyable = true;
+            window.playground_copyable = true;
         </script>
         
 
