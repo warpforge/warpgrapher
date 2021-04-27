@@ -681,6 +681,7 @@ impl Transaction for GremlinTransaction {
         Ok(())
     }
 
+    #[tracing::instrument(name="wg-gremlin-create-nodes", skip(self, node_var, props, partition_key_opt, info, sg))]
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
@@ -735,6 +736,7 @@ impl Transaction for GremlinTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
+    #[tracing::instrument(name="wg-gremlin-create-rels", skip(self, src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt, sg))]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
@@ -938,6 +940,7 @@ impl Transaction for GremlinTransaction {
         Ok(qf)
     }
 
+    #[tracing::instrument(name="wg-gremlin-read-nodes", skip(self, _node_var, query_fragment, partition_key_opt, info))]
     async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         _node_var: &NodeQueryVar,
@@ -1111,6 +1114,7 @@ impl Transaction for GremlinTransaction {
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
+    #[tracing::instrument(name="wg-gremlin-read-rels", skip(self, query_fragment, rel_var, props_type_name, partition_key_opt))]
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1152,6 +1156,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
+    #[tracing::instrument(name="wg-gremlin-update-nodes", skip(self, query_fragment, node_var, props, partition_key_opt, info, sg))]
     async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1199,6 +1204,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
+    #[tracing::instrument(name="wg-gremlin-update-rels", skip(self, query_fragment, rel_var, props, props_type_name, partition_key_opt, sg))]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1250,6 +1256,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
+    #[tracing::instrument(name="wg-gremlin-delete-nodes", skip(self, query_fragment, node_var, partition_key_opt))]
     async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
@@ -1291,6 +1298,7 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
+    #[tracing::instrument(name="wg-gremlin-delete-rels", skip(self, query_fragment, rel_var, partition_key_opt))]
     async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,

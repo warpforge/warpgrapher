@@ -415,6 +415,8 @@ where
     /// # Ok(())
     /// # }
     /// ```
+    /// 
+    #[tracing::instrument(name="wg-execute", skip(self, query, input, metadata))]
     pub async fn execute(
         &self,
         query: String,
