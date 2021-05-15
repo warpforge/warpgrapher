@@ -60,6 +60,61 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
     assert_eq!(projects_a[0].get("active").unwrap(), true);
 }
 
+/// Passes if the create mutation and the read query both succeed, with a specified id.
+#[wg_test]
+#[allow(dead_code)]
+async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let p0 = client
+        .create_node(
+            "Project",
+            "__typename id name description status priority estimate active", Some("1234"),
+            &json!({"id": "8c8727ad-134c-4fca-8352-9dc1f8fcbebd", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+        )
+        .await
+        .unwrap();
+
+    assert!(p0.is_object());
+    assert_eq!(p0.get("__typename").unwrap(), "Project");
+    assert_eq!(
+        p0.get("id").unwrap(),
+        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
+    );
+    assert_eq!(p0.get("name").unwrap(), "MJOLNIR");
+    assert_eq!(p0.get("description").unwrap(), "Powered armor");
+    assert_eq!(p0.get("status").unwrap(), "GREEN");
+    assert_eq!(p0.get("priority").unwrap(), 1);
+    assert_approx_eq!(p0.get("estimate").unwrap().as_f64().unwrap(), 3.3);
+    assert_eq!(p0.get("active").unwrap(), true);
+
+    let projects = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            Some("1234"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert!(projects.is_array());
+    let projects_a = projects.as_array().unwrap();
+    assert_eq!(projects_a.len(), 1);
+    assert_eq!(projects_a[0].get("__typename").unwrap(), "Project");
+    assert_eq!(
+        projects_a[0].get("id").unwrap(),
+        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
+    );
+    assert_eq!(projects_a[0].get("name").unwrap(), "MJOLNIR");
+    assert_eq!(projects_a[0].get("description").unwrap(), "Powered armor");
+    assert_eq!(projects_a[0].get("status").unwrap(), "GREEN");
+    assert_eq!(projects_a[0].get("priority").unwrap(), 1);
+    assert_approx_eq!(
+        projects_a[0].get("estimate").unwrap().as_f64().unwrap(),
+        3.3
+    );
+    assert_eq!(projects_a[0].get("active").unwrap(), true);
+}
+
 /// Passes if the create mutation and the read query both succeed.
 #[wg_test]
 #[allow(dead_code)]

@@ -136,12 +136,7 @@ impl CosmosPool {
 impl DatabasePool for CosmosPool {
     type TransactionType = GremlinTransaction;
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            true,
-            true,
-            false,
-        ))
+        Ok(GremlinTransaction::new(self.pool.clone(), true, true))
     }
 
     async fn client(&self) -> Result<DatabaseClient, Error> {
@@ -171,7 +166,6 @@ pub struct GremlinEndpoint {
     user: Option<String>,
     pass: Option<String>,
     accept_invalid_certs: bool,
-    uuid: bool,
     use_tls: bool,
 }
 
@@ -187,8 +181,6 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
-    /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
-    /// false if the UUIDs for node and vertex ids are represented as string types
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
@@ -223,7 +215,6 @@ impl GremlinEndpoint {
             user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
             pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
-            uuid: env_bool("WG_GREMLIN_UUID")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
         })
     }
@@ -249,10 +240,7 @@ impl DatabaseEndpoint for GremlinEndpoint {
             });
         }
         let options = options_builder.build();
-        Ok(GremlinPool::new(
-            GremlinClient::connect(options)?,
-            self.uuid,
-        ))
+        Ok(GremlinPool::new(GremlinClient::connect(options)?))
     }
 }
 
@@ -260,13 +248,12 @@ impl DatabaseEndpoint for GremlinEndpoint {
 #[derive(Clone, Debug)]
 pub struct GremlinPool {
     pool: GremlinClient,
-    uuid: bool,
 }
 
 #[cfg(feature = "gremlin")]
 impl GremlinPool {
-    fn new(pool: GremlinClient, uuid: bool) -> Self {
-        GremlinPool { pool, uuid }
+    fn new(pool: GremlinClient) -> Self {
+        GremlinPool { pool }
     }
 }
 
@@ -275,12 +262,7 @@ impl GremlinPool {
 impl DatabasePool for GremlinPool {
     type TransactionType = GremlinTransaction;
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            false,
-            true,
-            self.uuid,
-        ))
+        Ok(GremlinTransaction::new(self.pool.clone(), false, true))
     }
 
     async fn client(&self) -> Result<DatabaseClient, Error> {
@@ -310,7 +292,6 @@ pub struct NeptuneEndpoint {
     user: Option<String>,
     pass: Option<String>,
     accept_invalid_certs: bool,
-    uuid: bool,
     use_tls: bool,
 }
 
@@ -326,8 +307,6 @@ impl NeptuneEndpoint {
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
-    /// * WG_GREMLIN_UUID - true if the GREMLIN database uses a UUID type for node and vertex ids,
-    /// false if the UUIDs for node and vertex ids are represented as string types
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
@@ -362,7 +341,6 @@ impl NeptuneEndpoint {
             user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
             pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
-            uuid: env_bool("WG_GREMLIN_UUID")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
         })
     }
@@ -388,10 +366,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
             });
         }
         let options = options_builder.build();
-        Ok(NeptunePool::new(
-            GremlinClient::connect(options)?,
-            self.uuid,
-        ))
+        Ok(NeptunePool::new(GremlinClient::connect(options)?))
     }
 }
 
@@ -399,13 +374,12 @@ impl DatabaseEndpoint for NeptuneEndpoint {
 #[derive(Clone, Debug)]
 pub struct NeptunePool {
     pool: GremlinClient,
-    uuid: bool,
 }
 
 #[cfg(feature = "gremlin")]
 impl NeptunePool {
-    fn new(pool: GremlinClient, uuid: bool) -> Self {
-        NeptunePool { pool, uuid }
+    fn new(pool: GremlinClient) -> Self {
+        NeptunePool { pool }
     }
 }
 
@@ -414,12 +388,7 @@ impl NeptunePool {
 impl DatabasePool for NeptunePool {
     type TransactionType = GremlinTransaction;
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            false,
-            false,
-            self.uuid,
-        ))
+        Ok(GremlinTransaction::new(self.pool.clone(), false, false))
     }
 
     async fn client(&self) -> Result<DatabaseClient, Error> {
@@ -432,16 +401,14 @@ pub struct GremlinTransaction {
     client: GremlinClient,
     partition: bool,
     use_bindings: bool,
-    uuid: bool,
 }
 
 impl GremlinTransaction {
-    pub fn new(client: GremlinClient, partition: bool, use_bindings: bool, uuid: bool) -> Self {
+    pub fn new(client: GremlinClient, partition: bool, use_bindings: bool) -> Self {
         GremlinTransaction {
             client,
             partition,
             use_bindings,
-            uuid,
         }
     }
 
@@ -451,6 +418,7 @@ impl GremlinTransaction {
         params: HashMap<String, Value>,
         note_singles: bool,
         use_bindings: bool,
+        create_query: bool,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
         props
@@ -490,28 +458,38 @@ impl GremlinTransaction {
                         })
                 } else if use_bindings {
                     let suffix = sg.suffix();
-                    outer_q.push_str(
-                        &*(".property(".to_string()
-                            + if note_singles { "single, " } else { "" }
-                            + "'"
-                            + &*k
-                            + "', "
-                            + &*k
-                            + &*suffix
-                            + ")"),
-                    );
+                    if k == "id" && create_query {
+                        outer_q.push_str(&*(".property(id, ".to_string() + &*k + &*suffix + ")"));
+                    } else {
+                        outer_q.push_str(
+                            &*(".property(".to_string()
+                                + if note_singles { "single, " } else { "" }
+                                + "'"
+                                + &*k
+                                + "', "
+                                + &*k
+                                + &*suffix
+                                + ")"),
+                        );
+                    }
                     outer_p.insert(k + &*suffix, v);
                     Ok((outer_q, outer_p))
                 } else {
-                    outer_q.push_str(
-                        &*(".property(".to_string()
-                            + if note_singles { "single, " } else { "" }
-                            + "'"
-                            + &*k
-                            + "', "
-                            + &*v.to_property_value()?
-                            + ")"),
-                    );
+                    if k == "id" && create_query {
+                        outer_q.push_str(
+                            &(".property(id, ".to_string() + &*v.to_property_value()? + ")"),
+                        );
+                    } else {
+                        outer_q.push_str(
+                            &*(".property(".to_string()
+                                + if note_singles { "single, " } else { "" }
+                                + "'"
+                                + &*k
+                                + "', "
+                                + &*v.to_property_value()?
+                                + ")"),
+                        );
+                    }
                     Ok((outer_q, outer_p))
                 }
             })
@@ -569,9 +547,6 @@ impl GremlinTransaction {
         if let GValue::Map(map) = gv {
             map.into_iter()
                 .map(|(k, v)| match (k, v) {
-                    (GKey::String(s), GValue::Uuid(uuid)) => {
-                        Ok((s, GValue::String(uuid.to_hyphenated().to_string())))
-                    }
                     (GKey::String(s), v) => Ok((s, v)),
                     (_, _) => Err(Error::TypeNotExpected { details: None }),
                 })
@@ -622,19 +597,30 @@ impl GremlinTransaction {
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         trace!("GremlinTransaction::rels called -- results: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
         results, props_type_name, partition_key_opt);
+
         results
             .into_iter()
             .map(|r| {
                 let mut hm = GremlinTransaction::gmap_to_hashmap(r)?;
+
+                let rel_id = match hm.remove("rID") {
+                    Some(GValue::String(s)) => Value::String(s),
+                    Some(GValue::Int64(i)) => Value::Int64(i),
+                    Some(GValue::Uuid(uuid)) => Value::Uuid(uuid),
+                    _ => {
+                        return Err(Error::ResponseItemNotFound {
+                            name: "Rel, src, or dst".to_string(),
+                        })
+                    }
+                };
+
                 if let (
-                    Some(GValue::String(rel_id)),
                     Some(GValue::Map(rel_props)),
                     Some(GValue::String(src_id)),
                     Some(GValue::String(src_label)),
                     Some(GValue::String(dst_id)),
                     Some(GValue::String(dst_label)),
                 ) = (
-                    hm.remove("rID"),
                     hm.remove("rProps"),
                     hm.remove("srcID"),
                     hm.remove("srcLabel"),
@@ -653,7 +639,7 @@ impl GremlinTransaction {
                         .collect::<Result<HashMap<String, Value>, Error>>()?;
 
                     Ok(Rel::new(
-                        Value::String(rel_id),
+                        rel_id,
                         partition_key_opt.cloned(),
                         props_type_name.map(|ptn| Node::new(ptn.to_string(), rel_fields)),
                         NodeRef::Identifier {
@@ -681,11 +667,14 @@ impl Transaction for GremlinTransaction {
         Ok(())
     }
 
-    #[tracing::instrument(name="wg-gremlin-create-nodes", skip(self, node_var, props, partition_key_opt, info, sg))]
+    #[tracing::instrument(
+        name = "wg-gremlin-create-nodes",
+        skip(self, node_var, props, partition_key_opt, info, sg)
+    )]
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        mut props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
@@ -698,12 +687,20 @@ impl Transaction for GremlinTransaction {
             query.push_str(".property('partitionKey', partitionKey)");
         }
 
+        if !props.contains_key("id") {
+            props.insert(
+                "id".to_string(),
+                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
+            );
+        }
+
         let (mut q, p) = GremlinTransaction::add_properties(
             query,
             props,
             HashMap::new(),
             true,
             self.use_bindings,
+            true,
             sg,
         )?;
         q += NODE_RETURN_FRAGMENT;
@@ -736,13 +733,26 @@ impl Transaction for GremlinTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    #[tracing::instrument(name="wg-gremlin-create-rels", skip(self, src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt, sg))]
+    #[tracing::instrument(
+        name = "wg-gremlin-create-rels",
+        skip(
+            self,
+            src_fragment,
+            dst_fragment,
+            rel_var,
+            props,
+            props_type_name,
+            partition_key_opt,
+            sg
+        )
+    )]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        id_opt: Option<Value>,
+        mut props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         sg: &mut SuffixGenerator,
@@ -770,8 +780,18 @@ impl Transaction for GremlinTransaction {
         let mut params = src_fragment.params();
         params.extend(dst_fragment.params());
 
-        let (mut q, p) =
-            GremlinTransaction::add_properties(query, props, params, false, self.use_bindings, sg)?;
+        if let Some(id_val) = id_opt {
+            props.insert("id".to_string(), id_val);
+        }
+        let (mut q, p) = GremlinTransaction::add_properties(
+            query,
+            props,
+            params,
+            false,
+            self.use_bindings,
+            true,
+            sg,
+        )?;
 
         q.push_str(REL_RETURN_FRAGMENT);
 
@@ -867,37 +887,7 @@ impl Transaction for GremlinTransaction {
             );
 
             if self.use_bindings {
-                if self.uuid && k == "id" {
-                    match &c.operand {
-                        Value::String(s) => {
-                            let u = Value::Uuid(Uuid::parse_str(&s)?);
-                            params.insert(k + &*param_suffix, u);
-                        }
-                        Value::Array(a) => {
-                            let mut au: Vec<Value> = vec![];
-                            for v in a.iter() {
-                                if let Value::String(s) = &v {
-                                    let u = Value::Uuid(Uuid::parse_str(&s)?);
-                                    au.push(u);
-                                } else {
-                                    return Err(Error::TypeConversionFailed {
-                                        src: format!("{:#?}", c.operand),
-                                        dst: "String".to_string(),
-                                    });
-                                }
-                            }
-                            params.insert(k + &*param_suffix, Value::Array(au));
-                        }
-                        _ => {
-                            return Err(Error::TypeConversionFailed {
-                                src: format!("{:#?}", c.operand),
-                                dst: "String".to_string(),
-                            });
-                        }
-                    }
-                } else {
-                    params.insert(k + &*param_suffix, c.operand);
-                }
+                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -940,7 +930,10 @@ impl Transaction for GremlinTransaction {
         Ok(qf)
     }
 
-    #[tracing::instrument(name="wg-gremlin-read-nodes", skip(self, _node_var, query_fragment, partition_key_opt, info))]
+    #[tracing::instrument(
+        name = "wg-gremlin-read-nodes",
+        skip(self, _node_var, query_fragment, partition_key_opt, info)
+    )]
     async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         _node_var: &NodeQueryVar,
@@ -1041,42 +1034,12 @@ impl Transaction for GremlinTransaction {
                 + ", " 
                 + &*gremlin_comparison_operator(&c)
                 + "("
-                + &*(if self.use_bindings {k.clone() + &*param_suffix}  else {c.operand.to_property_value()?})
+                + &*(if self.use_bindings {k.clone() + &*param_suffix} else {c.operand.to_property_value()?})
                 + ")"
                 + ")"),
             );
             if self.use_bindings {
-                if self.uuid && k == "id" {
-                    match &c.operand {
-                        Value::String(s) => {
-                            let u = Value::Uuid(Uuid::parse_str(&s)?);
-                            params.insert(k + &*param_suffix, u);
-                        }
-                        Value::Array(a) => {
-                            let mut au: Vec<Value> = vec![];
-                            for v in a.iter() {
-                                if let Value::String(s) = &v {
-                                    let u = Value::Uuid(Uuid::parse_str(&s)?);
-                                    au.push(u);
-                                } else {
-                                    return Err(Error::TypeConversionFailed {
-                                        src: format!("{:#?}", c.operand),
-                                        dst: "String".to_string(),
-                                    });
-                                }
-                            }
-                            params.insert(k + &*param_suffix, Value::Array(au));
-                        }
-                        _ => {
-                            return Err(Error::TypeConversionFailed {
-                                src: format!("{:#?}", c.operand),
-                                dst: "String".to_string(),
-                            });
-                        }
-                    }
-                } else {
-                    params.insert(k + &*param_suffix, c.operand);
-                }
+                params.insert(k + &*param_suffix, c.operand);
             }
         }
 
@@ -1114,7 +1077,10 @@ impl Transaction for GremlinTransaction {
         Ok(QueryFragment::new(String::new(), query, params))
     }
 
-    #[tracing::instrument(name="wg-gremlin-read-rels", skip(self, query_fragment, rel_var, props_type_name, partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-gremlin-read-rels",
+        skip(self, query_fragment, rel_var, props_type_name, partition_key_opt)
+    )]
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1156,7 +1122,10 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    #[tracing::instrument(name="wg-gremlin-update-nodes", skip(self, query_fragment, node_var, props, partition_key_opt, info, sg))]
+    #[tracing::instrument(
+        name = "wg-gremlin-update-nodes",
+        skip(self, query_fragment, node_var, props, partition_key_opt, info, sg)
+    )]
     async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1177,6 +1146,7 @@ impl Transaction for GremlinTransaction {
             query_fragment.params(),
             true,
             self.use_bindings,
+            false,
             sg,
         )?;
         q.push_str(NODE_RETURN_FRAGMENT);
@@ -1204,7 +1174,18 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::nodes(results, info)
     }
 
-    #[tracing::instrument(name="wg-gremlin-update-rels", skip(self, query_fragment, rel_var, props, props_type_name, partition_key_opt, sg))]
+    #[tracing::instrument(
+        name = "wg-gremlin-update-rels",
+        skip(
+            self,
+            query_fragment,
+            rel_var,
+            props,
+            props_type_name,
+            partition_key_opt,
+            sg
+        )
+    )]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -1224,6 +1205,7 @@ impl Transaction for GremlinTransaction {
             query_fragment.params(),
             false,
             self.use_bindings,
+            false,
             sg,
         )?;
         q.push_str(REL_RETURN_FRAGMENT);
@@ -1256,7 +1238,10 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
-    #[tracing::instrument(name="wg-gremlin-delete-nodes", skip(self, query_fragment, node_var, partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-gremlin-delete-nodes",
+        skip(self, query_fragment, node_var, partition_key_opt)
+    )]
     async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
@@ -1298,7 +1283,10 @@ impl Transaction for GremlinTransaction {
         GremlinTransaction::extract_count(results)
     }
 
-    #[tracing::instrument(name="wg-gremlin-delete-rels", skip(self, query_fragment, rel_var, partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-gremlin-delete-rels",
+        skip(self, query_fragment, rel_var, partition_key_opt)
+    )]
     async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
@@ -1573,6 +1561,7 @@ mod tests {
             HashMap::new(),
             true,
             true,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1606,6 +1595,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1627,6 +1617,7 @@ mod tests {
             String::new(),
             hashmap! {"my_prop".to_string() => s1},
             HashMap::new(),
+            true,
             true,
             true,
             &mut SuffixGenerator::new(),
@@ -1651,6 +1642,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1669,6 +1661,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1687,6 +1680,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1705,6 +1699,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1725,6 +1720,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .is_err());
@@ -1740,6 +1736,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1760,6 +1757,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1778,6 +1776,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();
@@ -1796,6 +1795,7 @@ mod tests {
             HashMap::new(),
             true,
             false,
+            true,
             &mut SuffixGenerator::new(),
         )
         .unwrap();

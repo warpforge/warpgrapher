@@ -188,6 +188,7 @@ pub trait Transaction: Send + Sync {
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
+        id_opt: Option<Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,

@@ -64,6 +64,7 @@ impl Transaction for NoTransaction {
         _src_query_fragment: QueryFragment,
         _dst_query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
+        _id_opt: Option<Value>,
         _props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,

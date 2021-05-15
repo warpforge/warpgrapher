@@ -61,6 +61,62 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
 }
 
+#[wg_test]
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let _p0 = client
+        .create_node(
+            "Project",
+            "__typename name",
+            Some("1234"),
+            &json!({"name": "Project Zero"}),
+        )
+        .await
+        .unwrap();
+
+    let o0a = client
+        .create_rel(
+            "Project",
+            "owner",
+            "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
+            &json!({"name": {"EQ": "Project Zero"}}),
+            &json!({"id": "6d5dca5e-3082-4152-8d25-a16beace1e90", "props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+        )
+        .await
+        .unwrap();
+
+    assert!(o0a.is_array());
+    assert_eq!(o0a.as_array().unwrap().len(), 1);
+    let o0 = o0a.as_array().unwrap().iter().next().unwrap();
+
+    assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
+    assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
+    assert!(o0.get("dst").unwrap().get("name").unwrap() == "User Zero");
+    assert!(o0.get("props").unwrap().get("since").unwrap() == "yesterday");
+
+    let projects = client
+        .read_node(
+            "Project",
+            "owner{__typename id props{since} dst{...on User{__typename name}}}",
+            Some("1234"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let projects_a = projects.as_array().unwrap();
+    let project = &projects_a[0];
+
+    assert!(project.get("owner").unwrap().is_object());
+    let owner = project.get("owner").unwrap();
+
+    assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
+    assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
+    assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
+    assert!(owner.get("id").unwrap() == "6d5dca5e-3082-4152-8d25-a16beace1e90");
+    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+}
+
 /// Passes if warpgrapher does not create the destination node if it can't find any source nodes
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]

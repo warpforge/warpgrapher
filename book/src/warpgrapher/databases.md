@@ -61,17 +61,11 @@ export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_USER=stephen
 export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
-export WG_GREMLIN_UUID=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
 certificates. This may be necessary in a development or test environment, but should always be set
 to false in production.
-
-The `WG_GREMLIN_UUID` environment variable is set to true if Wargrapher is connecting to a back-end,
-like Apache Tinkerpop, that uses a UUID type for the identifier of a node or vertex. If the back-end
-uses a `String` type that contains a string representation of an identifier, such as Cosmos DB, then
-set this evironment variable to `false`.
 
 If you do not already have a Gremlin-based database running, you can run one using Docker:
 

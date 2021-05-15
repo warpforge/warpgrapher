@@ -20,6 +20,7 @@ use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
+use uuid::Uuid;
 
 /// A Neo4J endpoint collects the information necessary to generate a connection string and
 /// build a database connection pool.
@@ -316,11 +317,14 @@ impl Transaction for Neo4jTransaction {
         }
     }
 
-    #[tracing::instrument(name="wg-neo4j-create-node", skip(self, node_var, props, _partition_key_opt, info, _sg))]
+    #[tracing::instrument(
+        name = "wg-neo4j-create-node",
+        skip(self, node_var, props, _partition_key_opt, info, _sg)
+    )]
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
-        props: HashMap<String, Value>,
+        mut props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
         info: &Info,
         _sg: &mut SuffixGenerator,
@@ -331,9 +335,16 @@ impl Transaction for Neo4jTransaction {
             props
         );
 
+        if !props.contains_key("id") {
+            props.insert(
+                "id".to_string(),
+                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
+            );
+        }
+
         let query = "CREATE (n:".to_string()
             + node_var.label()?
-            + " { id: randomUUID() })\n"
+            + ")\n"
             + "SET n += $props\n"
             + "RETURN n\n";
 
@@ -362,13 +373,26 @@ impl Transaction for Neo4jTransaction {
             .ok_or(Error::ResponseSetNotFound)
     }
 
-    #[tracing::instrument(name="wg-neo4j-create-rels", skip(self, src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt, _sg))]
+    #[tracing::instrument(
+        name = "wg-neo4j-create-rels",
+        skip(
+            self,
+            src_fragment,
+            dst_fragment,
+            rel_var,
+            props,
+            props_type_name,
+            partition_key_opt,
+            _sg
+        )
+    )]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
         src_fragment: QueryFragment,
         dst_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        props: HashMap<String, Value>,
+        id_opt: Option<Value>,
+        mut props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
         _sg: &mut SuffixGenerator,
@@ -396,7 +420,7 @@ impl Transaction for Neo4jTransaction {
             + rel_var.name()
             + ":"
             + rel_var.label()
-            + " { id: randomUUID() }]->("
+            + "]->("
             + rel_var.dst().name()
             + ")\n"
             + "SET "
@@ -409,6 +433,15 @@ impl Transaction for Neo4jTransaction {
             rel_var.name(),
             rel_var.dst().name(),
         );
+
+        if let Some(id_val) = id_opt {
+            props.insert("id".to_string(), id_val);
+        } else {
+            props.insert(
+                "id".to_string(),
+                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
+            );
+        }
 
         let mut params = src_fragment.params();
         params.extend(dst_fragment.params());
@@ -527,7 +560,10 @@ impl Transaction for Neo4jTransaction {
         Ok(qf)
     }
 
-    #[tracing::instrument(name="wg-neo4j-read-nodes", skip(self, query_fragment, node_var, _partition_key_opt, info))]
+    #[tracing::instrument(
+        name = "wg-neo4j-read-nodes",
+        skip(self, query_fragment, node_var, _partition_key_opt, info)
+    )]
     async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
@@ -689,7 +725,10 @@ impl Transaction for Neo4jTransaction {
         Ok(qf)
     }
 
-    #[tracing::instrument(name="wg-neo4j-read-rels", skip(self, query_fragment, rel_var, props_type_name, partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-neo4j-read-rels",
+        skip(self, query_fragment, rel_var, props_type_name, partition_key_opt)
+    )]
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -735,7 +774,10 @@ impl Transaction for Neo4jTransaction {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    #[tracing::instrument(name="wg-neo4j-update-nodes", skip(self, query_fragment, node_var, props, _partition_key_opt, info, _sg))]
+    #[tracing::instrument(
+        name = "wg-neo4j-update-nodes",
+        skip(self, query_fragment, node_var, props, _partition_key_opt, info, _sg)
+    )]
     async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -790,7 +832,18 @@ impl Transaction for Neo4jTransaction {
         Neo4jTransaction::nodes(records, info)
     }
 
-    #[tracing::instrument(name="wg-neo4j-update-rels", skip(self, query_fragment, rel_var, props, props_type_name, partition_key_opt, _sg))]
+    #[tracing::instrument(
+        name = "wg-neo4j-update-rels",
+        skip(
+            self,
+            query_fragment,
+            rel_var,
+            props,
+            props_type_name,
+            partition_key_opt,
+            _sg
+        )
+    )]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
@@ -845,7 +898,10 @@ impl Transaction for Neo4jTransaction {
         Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
     }
 
-    #[tracing::instrument(name="wg-neo4j-delete-nodes", skip(self, query_fragment, node_var, _partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-neo4j-delete-nodes",
+        skip(self, query_fragment, node_var, _partition_key_opt)
+    )]
     async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
@@ -893,7 +949,10 @@ impl Transaction for Neo4jTransaction {
         Neo4jTransaction::extract_count(records)
     }
 
-    #[tracing::instrument(name="wg-neo4j-delete-rels", skip(self, query_fragment, rel_var, _partition_key_opt))]
+    #[tracing::instrument(
+        name = "wg-neo4j-delete-rels",
+        skip(self, query_fragment, rel_var, _partition_key_opt)
+    )]
     async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
@@ -941,13 +1000,13 @@ impl Transaction for Neo4jTransaction {
         Neo4jTransaction::extract_count(records)
     }
 
-    #[tracing::instrument(name="wg-neo4j-commit-tx", skip(self))]
+    #[tracing::instrument(name = "wg-neo4j-commit-tx", skip(self))]
     async fn commit(&mut self) -> Result<(), Error> {
         debug!("transaction::commit called");
         Ok(self.client.commit().await.map(|_| ())?)
     }
 
-    #[tracing::instrument(name="wg-neo4j-rollback-tx", skip(self))]
+    #[tracing::instrument(name = "wg-neo4j-rollback-tx", skip(self))]
     async fn rollback(&mut self) -> Result<(), Error> {
         debug!("transaction::rollback called");
         Ok(self.client.rollback().await.map(|_| ())?)
