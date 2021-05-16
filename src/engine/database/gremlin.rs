@@ -388,7 +388,13 @@ impl NeptunePool {
 impl DatabasePool for NeptunePool {
     type TransactionType = GremlinTransaction;
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(self.pool.clone(), false, false))
+        Ok(GremlinTransaction::new(
+            self.pool
+                .clone()
+                .create_session(Uuid::new_v4().to_hyphenated().to_string())?,
+            false,
+            false,
+        ))
     }
 
     async fn client(&self) -> Result<DatabaseClient, Error> {
@@ -413,14 +419,28 @@ impl GremlinTransaction {
     }
 
     fn add_properties(
-        query: String,
-        props: HashMap<String, Value>,
-        params: HashMap<String, Value>,
+        mut query: String,
+        mut props: HashMap<String, Value>,
+        mut params: HashMap<String, Value>,
         note_singles: bool,
         use_bindings: bool,
         create_query: bool,
         sg: &mut SuffixGenerator,
     ) -> Result<(String, HashMap<String, Value>), Error> {
+        if create_query {
+            if let Some(id_val) = props.remove("id") {
+                if use_bindings {
+                    let suffix = sg.suffix();
+                    query.push_str(&*(".property(id, ".to_string() + "id" + &*suffix + ")"));
+                    params.insert("id".to_string() + &*suffix, id_val);
+                } else {
+                    query.push_str(
+                        &(".property(id, ".to_string() + &*id_val.to_property_value()? + ")"),
+                    );
+                }
+            }
+        }
+
         props
             .into_iter()
             .try_fold((query, params), |(mut outer_q, mut outer_p), (k, v)| {
@@ -458,38 +478,28 @@ impl GremlinTransaction {
                         })
                 } else if use_bindings {
                     let suffix = sg.suffix();
-                    if k == "id" && create_query {
-                        outer_q.push_str(&*(".property(id, ".to_string() + &*k + &*suffix + ")"));
-                    } else {
-                        outer_q.push_str(
-                            &*(".property(".to_string()
-                                + if note_singles { "single, " } else { "" }
-                                + "'"
-                                + &*k
-                                + "', "
-                                + &*k
-                                + &*suffix
-                                + ")"),
-                        );
-                    }
+                    outer_q.push_str(
+                        &*(".property(".to_string()
+                            + if note_singles { "single, " } else { "" }
+                            + "'"
+                            + &*k
+                            + "', "
+                            + &*k
+                            + &*suffix
+                            + ")"),
+                    );
                     outer_p.insert(k + &*suffix, v);
                     Ok((outer_q, outer_p))
                 } else {
-                    if k == "id" && create_query {
-                        outer_q.push_str(
-                            &(".property(id, ".to_string() + &*v.to_property_value()? + ")"),
-                        );
-                    } else {
-                        outer_q.push_str(
-                            &*(".property(".to_string()
-                                + if note_singles { "single, " } else { "" }
-                                + "'"
-                                + &*k
-                                + "', "
-                                + &*v.to_property_value()?
-                                + ")"),
-                        );
-                    }
+                    outer_q.push_str(
+                        &*(".property(".to_string()
+                            + if note_singles { "single, " } else { "" }
+                            + "'"
+                            + &*k
+                            + "', "
+                            + &*v.to_property_value()?
+                            + ")"),
+                    );
                     Ok((outer_q, outer_p))
                 }
             })
