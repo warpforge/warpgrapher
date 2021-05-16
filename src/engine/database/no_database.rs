@@ -31,6 +31,10 @@ pub struct NoDatabasePool {}
 impl DatabasePool for NoDatabasePool {
     type TransactionType = NoTransaction;
 
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(NoTransaction {})
+    }
+
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(NoTransaction {})
     }

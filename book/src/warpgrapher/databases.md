@@ -42,6 +42,31 @@ guarantee atomicity.  Warpgrapher does not use idempotent queries with automated
 this shortcoming of Cosmos DB, so note that if using Cosmos, there is a risk that a failed query 
 could leave partially applied results behind.
 
+## AWS Neptune
+
+Add Warpgrapher to your project config:
+
+`cargo.toml`
+
+```toml
+[dependencies]
+warpgrapher = { version = "0.8.4", features = ["gremlin"] }
+```
+
+Then set up environment variables to contact your Neptune DB:
+
+```bash
+export WG_GREMLIN_HOST=[neptune-rw-hostname].[region].neptune.amazonaws.com
+export WG_GREMLIN_PORT=8182
+export WG_GREMLIN_CERT=false
+export WG_GREMLIN_USE_TLS=true
+export WG_NEPTUNE_READ_REPLICAS=[neptune-ro-hostname].[region].neptune.amazonaws.com
+```
+
+The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
+certificates. This may be necessary in a development or test environment, but should always be set
+to false in production.
+
 ## Gremlin-Based Database
 
 Add Warpgrapher to your project config:

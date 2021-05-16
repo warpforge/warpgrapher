@@ -104,6 +104,41 @@ pub trait DatabaseEndpoint {
 pub trait DatabasePool: Clone + Sync + Send {
     type TransactionType: Transaction;
 
+    /// Returns a [`Transaction`] for the database for which this DatabasePool has connections. If
+    /// the database types offers specific read replicas, such as AWS Neptune, the connection is to
+    /// a read replica. If no separate read replicas are offered, the connection is to the same
+    /// endpoint that serves read/write requests.
+    ///
+    /// [`Transaction`]: ./trait.DatabasePool.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if the transaction cannot be created. The specific [`Error`] variant
+    /// depends on the database back-end.
+    ///
+    /// [`Error`]: ../../enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use tokio::main;
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let endpoint = Neo4jEndpoint::from_env()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let pool = endpoint.pool().await?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let transaction = pool.read_transaction().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error>;
+
     /// Returns a [`Transaction`] for the database for which this DatabasePool has connections
     ///
     /// [`Transaction`]: ./trait.DatabasePool.html

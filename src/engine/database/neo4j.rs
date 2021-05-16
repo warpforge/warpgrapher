@@ -154,6 +154,10 @@ impl Neo4jDatabasePool {
 impl DatabasePool for Neo4jDatabasePool {
     type TransactionType = Neo4jTransaction;
 
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(Neo4jTransaction::new(self.pool.get().await?))
+    }
+
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(Neo4jTransaction::new(self.pool.get().await?))
     }

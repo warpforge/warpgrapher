@@ -135,6 +135,11 @@ impl CosmosPool {
 #[async_trait]
 impl DatabasePool for CosmosPool {
     type TransactionType = GremlinTransaction;
+
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(GremlinTransaction::new(self.pool.clone(), true, true))
+    }
+
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(self.pool.clone(), true, true))
     }
@@ -261,6 +266,11 @@ impl GremlinPool {
 #[async_trait]
 impl DatabasePool for GremlinPool {
     type TransactionType = GremlinTransaction;
+
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(GremlinTransaction::new(self.pool.clone(), false, true))
+    }
+
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(self.pool.clone(), false, true))
     }
@@ -293,6 +303,7 @@ pub struct NeptuneEndpoint {
     pass: Option<String>,
     accept_invalid_certs: bool,
     use_tls: bool,
+    read_host: String,
 }
 
 #[cfg(feature = "gremlin")]
@@ -302,11 +313,10 @@ impl NeptuneEndpoint {
     ///
     /// * WG_GREMLIN_HOST - the hostname for the Gremlin-based DB. For example, `localhost`.
     /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
-    /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
-    /// * WG_GREMLIN_PASS - the password used to authenticate the user.
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
+    /// * WG_NEPTUNE_READ_REPLICAS - hostname for the Neptune read replicas
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
@@ -342,6 +352,7 @@ impl NeptuneEndpoint {
             pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
+            read_host: env_string("WG_NEPTUNE_READ_REPLICAS")?,
         })
     }
 }
@@ -351,35 +362,59 @@ impl NeptuneEndpoint {
 impl DatabaseEndpoint for NeptuneEndpoint {
     type PoolType = NeptunePool;
     async fn pool(&self) -> Result<Self::PoolType, Error> {
-        let mut options_builder = ConnectionOptions::builder()
+        let mut write_options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
             .pool_size(num_cpus::get().try_into().unwrap_or(8))
             .serializer(GraphSON::V3)
             .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
-            options_builder = options_builder.credentials(user, pass);
+            write_options_builder = write_options_builder.credentials(user, pass);
         }
         if self.use_tls {
-            options_builder = options_builder.ssl(true).tls_options(TlsOptions {
+            write_options_builder = write_options_builder.ssl(true).tls_options(TlsOptions {
                 accept_invalid_certs: self.accept_invalid_certs,
             });
         }
-        let options = options_builder.build();
-        Ok(NeptunePool::new(GremlinClient::connect(options)?))
+        let write_options = write_options_builder.build();
+
+        let mut ro_options_builder = ConnectionOptions::builder()
+            .host(&self.read_host)
+            .port(self.port)
+            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .serializer(GraphSON::V3)
+            .deserializer(GraphSON::V3);
+        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
+            ro_options_builder = ro_options_builder.credentials(user, pass);
+        }
+        if self.use_tls {
+            ro_options_builder = ro_options_builder.ssl(true).tls_options(TlsOptions {
+                accept_invalid_certs: self.accept_invalid_certs,
+            });
+        }
+        let ro_options = ro_options_builder.build();
+
+        Ok(NeptunePool::new(
+            GremlinClient::connect(write_options)?,
+            GremlinClient::connect(ro_options)?,
+        ))
     }
 }
 
 #[cfg(feature = "gremlin")]
 #[derive(Clone, Debug)]
 pub struct NeptunePool {
-    pool: GremlinClient,
+    read_pool: GremlinClient,
+    write_pool: GremlinClient,
 }
 
 #[cfg(feature = "gremlin")]
 impl NeptunePool {
-    fn new(pool: GremlinClient) -> Self {
-        NeptunePool { pool }
+    fn new(read_pool: GremlinClient, write_pool: GremlinClient) -> Self {
+        NeptunePool {
+            read_pool,
+            write_pool,
+        }
     }
 }
 
@@ -389,7 +424,7 @@ impl DatabasePool for NeptunePool {
     type TransactionType = GremlinTransaction;
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(
-            self.pool
+            self.write_pool
                 .clone()
                 .create_session(Uuid::new_v4().to_hyphenated().to_string())?,
             false,
@@ -397,8 +432,16 @@ impl DatabasePool for NeptunePool {
         ))
     }
 
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(GremlinTransaction::new(
+            self.read_pool.clone(),
+            false,
+            false,
+        ))
+    }
+
     async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
+        Ok(DatabaseClient::Gremlin(Box::new(self.write_pool.clone())))
     }
 }
 
