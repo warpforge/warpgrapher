@@ -5,7 +5,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::database::env_bool;
 use crate::engine::database::{
     env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
+    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
@@ -52,6 +52,7 @@ pub struct CosmosEndpoint {
     port: u16,
     user: String,
     pass: String,
+    pool_size: u16,
 }
 
 #[cfg(feature = "cosmos")]
@@ -65,6 +66,7 @@ impl CosmosEndpoint {
     /// * WG_COSMOS_USER - the database and collection of the Cosmos DB. For example,
     /// /dbs/*my-db-name*/colls/*my-collection-name*
     /// * WG_COSMOS_PASS - the read/write key for the Cosmos DB.
+    /// * WG_POOL_SIZE - connection pool size
     ///
     /// [`CosmosEndpoint`]: ./struct.CosmosEndpoint.html
     ///
@@ -94,6 +96,8 @@ impl CosmosEndpoint {
             port: env_u16("WG_COSMOS_PORT")?,
             user: env_string("WG_COSMOS_USER")?,
             pass: env_string("WG_COSMOS_PASS")?,
+            pool_size: env_u16("WG_POOL_SIZE")
+                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
         })
     }
 }
@@ -108,7 +112,7 @@ impl DatabaseEndpoint for CosmosEndpoint {
             ConnectionOptions::builder()
                 .host(&self.host)
                 .port(self.port)
-                .pool_size(num_cpus::get().try_into().unwrap_or(8))
+                .pool_size(self.pool_size.into())
                 .ssl(true)
                 .serializer(GraphSON::V1)
                 .deserializer(GraphSON::V1)
@@ -172,6 +176,7 @@ pub struct GremlinEndpoint {
     pass: Option<String>,
     accept_invalid_certs: bool,
     use_tls: bool,
+    pool_size: u16,
 }
 
 #[cfg(feature = "gremlin")]
@@ -186,6 +191,7 @@ impl GremlinEndpoint {
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
+    /// * WG_POOL_SIZE - connection pool size
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
@@ -221,6 +227,8 @@ impl GremlinEndpoint {
             pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
+            pool_size: env_u16("WG_POOL_SIZE")
+                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
         })
     }
 }
@@ -233,7 +241,7 @@ impl DatabaseEndpoint for GremlinEndpoint {
         let mut options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
-            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
             .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
@@ -304,6 +312,7 @@ pub struct NeptuneEndpoint {
     accept_invalid_certs: bool,
     use_tls: bool,
     read_host: String,
+    pool_size: u16,
 }
 
 #[cfg(feature = "gremlin")]
@@ -317,6 +326,7 @@ impl NeptuneEndpoint {
     /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
     /// necessary in a test environment, but it should be set to false in production environments.
     /// * WG_NEPTUNE_READ_REPLICAS - hostname for the Neptune read replicas
+    /// * WG_POOL_SIZE - connection pool size
     ///
     /// The accept_invalid_certs option may be set to true in a test environment, where a test
     /// Gremlin server is running with an invalid cert. It should be set to false in production
@@ -353,6 +363,8 @@ impl NeptuneEndpoint {
             accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
             read_host: env_string("WG_NEPTUNE_READ_REPLICAS")?,
+            pool_size: env_u16("WG_POOL_SIZE")
+                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
         })
     }
 }
@@ -365,7 +377,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
         let mut write_options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
-            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
             .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
@@ -381,7 +393,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
         let mut ro_options_builder = ConnectionOptions::builder()
             .host(&self.read_host)
             .port(self.port)
-            .pool_size(num_cpus::get().try_into().unwrap_or(8))
+            .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
             .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
@@ -718,6 +730,36 @@ impl GremlinTransaction {
 impl Transaction for GremlinTransaction {
     async fn begin(&mut self) -> Result<(), Error> {
         Ok(())
+    }
+
+    #[tracing::instrument(name = "wg-gremlin-execute-query", skip(self, query, params))]
+    async fn execute_query<RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error> {
+        trace!(
+            "GremlinTransaction::execute_query called -- query: {}, params: {:#?}",
+            query,
+            params
+        );
+
+        let param_list: Vec<(&str, &dyn ToGValue)> =
+            params.iter().fold(Vec::new(), |mut pl, (k, v)| {
+                pl.push((k.as_str(), v));
+                pl
+            });
+
+        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let results = raw_results
+            .map(|r| Ok(r?))
+            .collect::<Result<Vec<GValue>, Error>>()?;
+        trace!(
+            "GremlinTransaction::execute_query -- results: {:#?}",
+            results
+        );
+
+        Ok(QueryResult::Gremlin(results))
     }
 
     #[tracing::instrument(

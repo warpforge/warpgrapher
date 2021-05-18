@@ -35,6 +35,13 @@ cargo build --features neo4j
 
 ### Set Environment Variables
 
+```bash
+export WG_POOL_SIZE=1
+```
+
+Setting the pool size to one during testing helps assure that Warpgrapher will continue to operate 
+correctly with constrianed connection pools, even when recursing through resolvers.
+
 For Cosmos DB graphs:
 
 ```bash
@@ -62,6 +69,7 @@ For Neo4J:
 
 ```bash
 export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_READ_REPLICAS=127.0.0.1
 export WG_NEO4J_PORT=7687
 export WG_NEO4J_USER=neo4j
 export WG_NEO4J_PASS=*MY-DB-PASS*

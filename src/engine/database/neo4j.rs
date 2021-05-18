@@ -3,7 +3,7 @@
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
     env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, RelQueryVar, SuffixGenerator, Transaction,
+    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -34,18 +34,22 @@ use uuid::Uuid;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let ne = Neo4jEndpoint::new(
 ///         "127.0.0.1".to_string(),
+///         Some("127.0.0.1".to_string()),
 ///         7687,
 ///         "neo4j".to_string(),
-///         "password".to_string()
+///         "password".to_string(),
+///         8
 ///     );
 /// #    Ok(())
 /// # }
 /// ```
 pub struct Neo4jEndpoint {
     host: String,
+    read_host: String,
     port: u16,
     user: String,
     pass: String,
+    pool_size: u16,
 }
 
 impl Neo4jEndpoint {
@@ -60,28 +64,41 @@ impl Neo4jEndpoint {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///     let ne = Neo4jEndpoint::new(
     ///         "127.0.0.1".to_string(),
+    ///         Some("127.0.0.1".to_string()),
     ///         7687,
     ///         "neo4j".to_string(),
-    ///         "password".to_string()
+    ///         "password".to_string(),
+    ///         8
     ///     );
     /// #    Ok(())
     /// # }
     /// ```
-    pub fn new(host: String, port: u16, user: String, pass: String) -> Self {
+    pub fn new(
+        host: String,
+        read_host_opt: Option<String>,
+        port: u16,
+        user: String,
+        pass: String,
+        pool_size: u16,
+    ) -> Self {
         Neo4jEndpoint {
-            host,
+            host: host.to_string(),
+            read_host: read_host_opt.unwrap_or(host),
             port,
             user,
             pass,
+            pool_size,
         }
     }
 
     /// Reads an variable to construct a [`Neo4jEndpoint`]. The environment variable is
     ///
     /// * WG_NEO4J_ADDR - the address for the Neo4J DB. For example, `127.0.0.1`.
+    /// * WG_NEO4J_READ_REPLICAS - the address for Neo4J read replicas. For example `127.0.0.1`. Optional.
     /// * WG_NEO4J_PORT - the port number for the Neo4J DB.  For example, `7687`.
     /// * WG_NEO4J_USER - the username for the Neo4J DB. For example, `neo4j`.
     /// * WG_NEO4J_PASS - the password for the Neo4J DB. For example, `my-db-pass`.
+    /// * WG_POOL_SIZE - connection pool size. For example, `4`. Optional.
     ///
     /// [`Neo4jEndpoint`]: ./struct.Neo4jEndpoint.html
     ///
@@ -104,9 +121,13 @@ impl Neo4jEndpoint {
     pub fn from_env() -> Result<Self, Error> {
         Ok(Neo4jEndpoint {
             host: env_string("WG_NEO4J_HOST")?,
+            read_host: env_string("WG_NEO4J_READ_REPLICAS")
+                .or_else(|_| env_string("WG_NEO4J_HOST"))?,
             port: env_u16("WG_NEO4J_PORT")?,
             user: env_string("WG_NEO4J_USER")?,
             pass: env_string("WG_NEO4J_PASS")?,
+            pool_size: env_u16("WG_POOL_SIZE")
+                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
         })
     }
 }
@@ -116,8 +137,21 @@ impl DatabaseEndpoint for Neo4jEndpoint {
     type PoolType = Neo4jDatabasePool;
 
     async fn pool(&self) -> Result<Self::PoolType, Error> {
-        let manager = BoltConnectionManager::new(
+        let rw_manager = BoltConnectionManager::new(
             self.host.to_string() + ":" + &*self.port.to_string(),
+            None,
+            [4, 0, 0, 0],
+            HashMap::from_iter(vec![
+                ("user_agent", "warpgrapher/0.2.0"),
+                ("scheme", "basic"),
+                ("principal", &self.user),
+                ("credentials", &self.pass),
+            ]),
+        )
+        .await?;
+
+        let ro_manager = BoltConnectionManager::new(
+            self.read_host.to_string() + ":" + &*self.port.to_string(),
             None,
             [4, 0, 0, 0],
             HashMap::from_iter(vec![
@@ -131,8 +165,11 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 
         let pool = Neo4jDatabasePool::new(
             Pool::builder()
-                .max_open(num_cpus::get().try_into().unwrap_or(8))
-                .build(manager),
+                .max_open(self.pool_size.into())
+                .build(rw_manager),
+            Pool::builder()
+                .max_open(self.pool_size.into())
+                .build(ro_manager),
         );
 
         Ok(pool)
@@ -141,12 +178,13 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 
 #[derive(Clone)]
 pub struct Neo4jDatabasePool {
-    pool: Pool<BoltConnectionManager>,
+    rw_pool: Pool<BoltConnectionManager>,
+    ro_pool: Pool<BoltConnectionManager>,
 }
 
 impl Neo4jDatabasePool {
-    fn new(pool: Pool<BoltConnectionManager>) -> Self {
-        Neo4jDatabasePool { pool }
+    fn new(rw_pool: Pool<BoltConnectionManager>, ro_pool: Pool<BoltConnectionManager>) -> Self {
+        Neo4jDatabasePool { rw_pool, ro_pool }
     }
 }
 
@@ -155,15 +193,15 @@ impl DatabasePool for Neo4jDatabasePool {
     type TransactionType = Neo4jTransaction;
 
     async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(Neo4jTransaction::new(self.pool.get().await?))
+        Ok(Neo4jTransaction::new(self.ro_pool.get().await?))
     }
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(Neo4jTransaction::new(self.pool.get().await?))
+        Ok(Neo4jTransaction::new(self.rw_pool.get().await?))
     }
 
     async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Neo4j(Box::new(self.pool.get().await?)))
+        Ok(DatabaseClient::Neo4j(Box::new(self.rw_pool.get().await?)))
     }
 }
 
@@ -319,6 +357,31 @@ impl Transaction for Neo4jTransaction {
             Ok(message) => Err(Error::Neo4jQueryFailed { message }),
             Err(e) => Err(Error::from(e)),
         }
+    }
+
+    #[tracing::instrument(name = "wg-neo4j-execute-query", skip(self, query, params))]
+    async fn execute_query<RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error> {
+        trace!(
+            "Neo4jTransaction::execute_query called -- query: {}, params: {:#?}",
+            query,
+            params
+        );
+
+        let p = Params::from(params);
+        self.client.run_with_metadata(query, Some(p), None).await?;
+
+        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
+        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        match response {
+            Message::Success(_) => (),
+            message => return Err(Error::Neo4jQueryFailed { message }),
+        }
+
+        Ok(QueryResult::Neo4j(records))
     }
 
     #[tracing::instrument(

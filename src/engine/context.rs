@@ -240,7 +240,7 @@ where
     /// # use tokio::main;
     /// # use warpgrapher::engine::context::RequestContext;
     /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool, Transaction, QueryResult};
     /// # #[cfg(feature = "neo4j")]
     /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
     /// # use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade};
@@ -263,15 +263,18 @@ where
     /// # #[cfg(feature = "neo4j")]
     /// pub fn project_count(facade: ResolverFacade<AppCtx>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let mut db = facade.db_into_neo4j().await?;
-    ///         let query = "MATCH (n:Project) RETURN (n)";
-    ///         db.run_with_metadata(query, None, None).await?;
+    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
+    ///         transaction.begin().await?;
+    ///         let query = "MATCH (n:Project) RETURN (n)".to_string();
+    ///         let qr = transaction.execute_query::<AppCtx>(query, HashMap::new()).await?;
     ///
-    ///         let pull_meta = bolt_client::Metadata::from_iter(vec![("n", -1)]);
-    ///         let (response, records) = db.pull(Some(pull_meta)).await?;
-    ///         match response {
-    ///             Message::Success(_) => facade.resolve_scalar(records.len() as i32),
-    ///             message => Err(Error::Neo4jQueryFailed { message }.into()),
+    ///         if let QueryResult::Neo4j(records) = qr {
+    ///             transaction.commit().await?;
+    ///             std::mem::drop(transaction);
+    ///             facade.resolve_scalar(records.len() as i32)
+    ///         } else {
+    ///             transaction.rollback().await?;
+    ///             Err(warpgrapher::Error::TypeNotExpected { details: None }.into())
     ///         }
     ///     })
     /// }

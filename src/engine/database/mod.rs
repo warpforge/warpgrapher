@@ -12,8 +12,10 @@ use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
 use async_trait::async_trait;
+#[cfg(feature = "neo4j")]
+use bolt_proto::message::Record;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::GremlinClient;
+use gremlin_client::{GValue, GremlinClient};
 #[cfg(feature = "neo4j")]
 use mobc::Connection;
 #[cfg(feature = "neo4j")]
@@ -208,6 +210,12 @@ pub trait DatabasePool: Clone + Sync + Send {
 pub trait Transaction: Send + Sync {
     async fn begin(&mut self) -> Result<(), Error>;
 
+    async fn execute_query<RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error>;
+
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
@@ -312,6 +320,16 @@ pub trait Transaction: Send + Sync {
     async fn commit(&mut self) -> Result<(), Error>;
 
     async fn rollback(&mut self) -> Result<(), Error>;
+}
+
+pub enum QueryResult {
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    Gremlin(Vec<GValue>),
+
+    #[cfg(feature = "neo4j")]
+    Neo4j(Vec<Record>),
+
+    NoDatabsae(),
 }
 
 /// Represents the different types of Crud Operations along with the target of the

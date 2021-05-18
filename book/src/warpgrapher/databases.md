@@ -10,6 +10,17 @@ Using each of the databases requires correctly selecting a crate feature and
 setting up appropriate environment variables to allow Warpgrapher to connect 
 with the database.
 
+Optionally, regardless of database, export an environment variable to control the size of the 
+database connection pool:
+
+```bash
+export WG_POOL_SIZE=4
+```
+
+If the `WG_POOL_SIZE` variable is not set, Warpgrapher defaults to a pool the same size as the 
+number of CPUs detected. If the number of CPUs cannot be detected, Warpgrapher defaults to a pool
+of 8 connections. 
+
 ## Azure Cosmos DB
 
 Add Warpgrapher to your project config:
@@ -126,10 +137,16 @@ Then set up environment variables to contact your Neo4J DB:
 
 ```bash
 export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_READ_REPLICAS=127.0.0.1
 export WG_NEO4J_PORT=7687
 export WG_NEO4J_USER=neo4j
 export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 ```
+
+Note that the `WG_NEO4J_READ_REPLICAS` variable is optional. It is used for Neo4J cluster 
+configurations in which there are both read/write nodes and read-only replicas. If the 
+`WG_NEO4J_READ_REPLICAS` variable is set, read-only queries will be directed to the read replicas,
+whereas mutations will be sent to the instance(s) at `WG_NEO4J_HOST`.
 
 If you do not already have a Neo4J database running, you can run one using Docker:
 
