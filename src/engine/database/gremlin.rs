@@ -313,6 +313,8 @@ pub struct NeptuneEndpoint {
     use_tls: bool,
     read_host: String,
     pool_size: u16,
+    url_signature: Option<String>,
+    read_url_signature: Option<String>,
 }
 
 #[cfg(feature = "gremlin")]
@@ -365,7 +367,33 @@ impl NeptuneEndpoint {
             read_host: env_string("WG_NEPTUNE_READ_REPLICAS")?,
             pool_size: env_u16("WG_POOL_SIZE")
                 .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
+            url_signature: None,
+            read_url_signature: None,
         })
+    }
+
+    pub fn host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn read_host(&self) -> &str {
+        &self.host
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn tls(&self) -> bool {
+        self.use_tls
+    }
+
+    pub fn set_url_signature(&mut self, sig: String) {
+        self.url_signature = Some(sig);
+    }
+
+    pub fn set_read_url_signature(&mut self, sig: String) {
+        self.read_url_signature = Some(sig);
     }
 }
 
@@ -374,12 +402,18 @@ impl NeptuneEndpoint {
 impl DatabaseEndpoint for NeptuneEndpoint {
     type PoolType = NeptunePool;
     async fn pool(&self) -> Result<Self::PoolType, Error> {
+        let mut rw_headers = HashMap::new();
+        if let Some(sig) = &self.url_signature {
+            rw_headers.insert("Authorization".to_string(), sig.to_string());
+        }
+
         let mut write_options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
             .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3);
+            .deserializer(GraphSON::V3)
+            .headers(rw_headers);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
             write_options_builder = write_options_builder.credentials(user, pass);
         }
@@ -390,12 +424,17 @@ impl DatabaseEndpoint for NeptuneEndpoint {
         }
         let write_options = write_options_builder.build();
 
+        let mut ro_headers = HashMap::new();
+        if let Some(sig) = &self.read_url_signature {
+            ro_headers.insert("Authorization".to_string(), sig.to_string());
+        }
         let mut ro_options_builder = ConnectionOptions::builder()
             .host(&self.read_host)
             .port(self.port)
             .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3);
+            .deserializer(GraphSON::V3)
+            .headers(ro_headers);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
             ro_options_builder = ro_options_builder.credentials(user, pass);
         }
