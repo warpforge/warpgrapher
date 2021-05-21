@@ -12,8 +12,10 @@ use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
 use async_trait::async_trait;
+#[cfg(feature = "neo4j")]
+use bolt_proto::message::Record;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::GremlinClient;
+use gremlin_client::{GValue, GremlinClient};
 #[cfg(feature = "neo4j")]
 use mobc::Connection;
 #[cfg(feature = "neo4j")]
@@ -104,6 +106,41 @@ pub trait DatabaseEndpoint {
 pub trait DatabasePool: Clone + Sync + Send {
     type TransactionType: Transaction;
 
+    /// Returns a [`Transaction`] for the database for which this DatabasePool has connections. If
+    /// the database types offers specific read replicas, such as AWS Neptune, the connection is to
+    /// a read replica. If no separate read replicas are offered, the connection is to the same
+    /// endpoint that serves read/write requests.
+    ///
+    /// [`Transaction`]: ./trait.DatabasePool.html
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`Error`] if the transaction cannot be created. The specific [`Error`] variant
+    /// depends on the database back-end.
+    ///
+    /// [`Error`]: ../../enum.Error.html
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use tokio::main;
+    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
+    /// # #[cfg(feature = "neo4j")]
+    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// #
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # #[cfg(feature = "neo4j")]
+    /// let endpoint = Neo4jEndpoint::from_env()?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let pool = endpoint.pool().await?;
+    /// # #[cfg(feature = "neo4j")]
+    /// let transaction = pool.read_transaction().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error>;
+
     /// Returns a [`Transaction`] for the database for which this DatabasePool has connections
     ///
     /// [`Transaction`]: ./trait.DatabasePool.html
@@ -173,6 +210,12 @@ pub trait DatabasePool: Clone + Sync + Send {
 pub trait Transaction: Send + Sync {
     async fn begin(&mut self) -> Result<(), Error>;
 
+    async fn execute_query<RequestCtx: RequestContext>(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error>;
+
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
@@ -188,6 +231,7 @@ pub trait Transaction: Send + Sync {
         src_query_fragment: QueryFragment,
         dst_query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
+        id_opt: Option<Value>,
         props: HashMap<String, Value>,
         props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
@@ -276,6 +320,16 @@ pub trait Transaction: Send + Sync {
     async fn commit(&mut self) -> Result<(), Error>;
 
     async fn rollback(&mut self) -> Result<(), Error>;
+}
+
+pub enum QueryResult {
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    Gremlin(Vec<GValue>),
+
+    #[cfg(feature = "neo4j")]
+    Neo4j(Vec<Record>),
+
+    NoDatabsae(),
 }
 
 /// Represents the different types of Crud Operations along with the target of the

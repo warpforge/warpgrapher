@@ -3,8 +3,6 @@
 
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
-use crate::engine::database::DatabaseClient;
 use crate::engine::database::{
     DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator, Transaction,
 };
@@ -16,13 +14,7 @@ use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
 use crate::Error;
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::GremlinClient;
 use inflector::Inflector;
-#[cfg(feature = "neo4j")]
-use mobc::Connection;
-#[cfg(feature = "neo4j")]
-use mobc_boltrs::BoltConnectionManager;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
@@ -68,8 +60,6 @@ where
     parent: Object<'a, RequestCtx>,
     partition_key_opt: Option<&'a Value>,
     executor: &'a Executor<'a, 'a, GraphQLContext<RequestCtx>>,
-    transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
-
 }
 
 impl<'a, RequestCtx> ResolverFacade<'a, RequestCtx>
@@ -83,7 +73,6 @@ where
         parent: Object<'a, RequestCtx>,
         partition_key_opt: Option<&'a Value>,
         executor: &'a Executor<GraphQLContext<RequestCtx>>,
-        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Self {
         ResolverFacade {
             field_name,
@@ -92,7 +81,6 @@ where
             parent,
             partition_key_opt,
             executor,
-            transaction,
         }
     }
 
@@ -146,133 +134,6 @@ where
     /// ```
     pub fn metadata(&self) -> &HashMap<String, String> {
         self.executor.context().metadata()
-    }
-
-    /// Returns a neo4j database driver from the pool.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
-    /// is not found
-    ///
-    /// [`Error`]: ../../error/enum.Error.html
-    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
-    ///
-    /// # Examples
-    ///
-    /// ```rust, no_run
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    ///
-    /// # impl RequestContext for AppCtx {
-    /// #    type DBEndpointType = Neo4jEndpoint;
-    /// #    fn new() -> Self {AppCtx {}}
-    /// # }
-    ///
-    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
-    ///     let neo4j_client = facade.db_into_neo4j().await?;
-    ///     // use client
-    ///
-    ///     facade.resolve_null()
-    /// }
-    /// ```
-    #[cfg(feature = "neo4j")]
-    pub async fn db_into_neo4j(&self) -> Result<Box<Connection<BoltConnectionManager>>, Error> {
-        if let DatabaseClient::Neo4j(client) = self.executor().context().pool().client().await? {
-            Ok(client)
-        } else {
-            Err(Error::DatabaseNotFound)
-        }
-    }
-
-    /// Returns a cosmos database client from the pool
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
-    /// is not found
-    ///
-    /// [`Error`]: ../../error/enum.Error.html
-    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
-    ///
-    /// # Examples
-    ///
-    /// ```rust, no_run
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
-    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    ///
-    /// # impl RequestContext for AppCtx {
-    /// #    type DBEndpointType = CosmosEndpoint;
-    /// #    fn new() -> Self {AppCtx {}}
-    /// # }
-    ///
-    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
-    ///
-    ///     let cosmos_client = facade.db_into_cosmos().await?;
-    ///     
-    ///     // use client
-    ///
-    ///     facade.resolve_null()
-    /// }
-    /// ```
-    #[cfg(feature = "cosmos")]
-    pub async fn db_into_cosmos(&self) -> Result<Box<GremlinClient>, Error> {
-        if let DatabaseClient::Gremlin(client) = self.executor().context().pool().client().await? {
-            Ok(client)
-        } else {
-            Err(Error::DatabaseNotFound)
-        }
-    }
-
-    /// Returns a gremlin database client from the pool
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error]` variant [`DatabaseNotFound`] if a neo4j database pool
-    /// is not found
-    ///
-    /// [`Error`]: ../../error/enum.Error.html
-    /// [`DatabaseNotFound`]: ../../error/enum.Error.html#variant.DatabaseNotFound
-    ///
-    /// # Examples
-    ///
-    /// ```rust, no_run
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # use warpgrapher::engine::database::gremlin::GremlinEndpoint;
-    /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    ///
-    /// # impl RequestContext for AppCtx {
-    /// #    type DBEndpointType = GremlinEndpoint;
-    /// #    fn new() -> Self {AppCtx {}}
-    /// # }
-    ///
-    /// async fn custom_resolve(facade: ResolverFacade<'_, AppCtx>) -> ExecutionResult {
-    ///
-    ///     let gremlin_client = facade.db_into_gremlin().await?;
-    ///     
-    ///     // use client
-    ///
-    ///     facade.resolve_null()
-    /// }
-    /// ```
-    #[cfg(feature = "gremlin")]
-    pub async fn db_into_gremlin(&self) -> Result<Box<GremlinClient>, Error> {
-        if let DatabaseClient::Gremlin(client) = self.executor().context().pool().client().await? {
-            Ok(client)
-        } else {
-            Err(Error::DatabaseNotFound)
-        }
     }
 
     /// Returns the arguments provided to the resolver in the GraphQL query
@@ -338,26 +199,35 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let result = facade.read_nodes("User", json!({"name": "alice"}), None)
-    ///             .await?;
+    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
+    ///         transaction.begin().await?;
+    ///
+    ///         let result = ResolverFacade::read_nodes(&facade, "User", json!({"name": "alice"}),
+    ///             None, &mut transaction).await?;
     ///         let alice = result.first().unwrap();
+    ///
+    ///         transaction.commit().await?;
+    ///         std::mem::drop(transaction);
+    ///
     ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
     pub async fn read_nodes(
-        &mut self,
+        rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
         input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
-        let mut info = self.info.clone();
+        let mut info = rf.info.clone();
         info.name = "Query".to_string();
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -374,11 +244,10 @@ where
             ),
             partition_key_opt,
             &mut sg,
-            self.transaction,
+            transaction,
         )
         .await?;
-        let results = self
-            .transaction
+        let results = transaction
             .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
             .await;
         results
@@ -399,22 +268,33 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let alice = facade.create_node("User", json!({"name": "alice"}), None).await?;
+    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
+    ///         transaction.begin().await?;
+    ///         let result = ResolverFacade::create_node(&facade, "User", json!({"name": "alice"}), None, &mut transaction).await;
+    ///         if result.is_ok() {
+    ///             transaction.commit().await?;
+    ///         } else {
+    ///             transaction.rollback().await?;
+    ///         }
+    ///         let alice = result?;
+    ///         std::mem::drop(transaction);
     ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
     pub async fn create_node(
-        &mut self,
+        rf: &'a ResolverFacade<'_, RequestCtx>,
         type_name: &str,
         input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Node<RequestCtx>, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -425,11 +305,11 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
-            &Info::new(type_name.to_string(), self.info.type_defs()),
+            &Info::new(type_name.to_string(), rf.info.type_defs()),
             partition_key_opt,
             &mut sg,
-            self.transaction,
-            self.executor.context(),
+            transaction,
+            rf.executor.context(),
         )
         .await;
         result
@@ -450,13 +330,18 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         let result = facade.update_node(
+    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
+    ///         transaction.begin().await?;
+    ///
+    ///         let result = ResolverFacade::update_node(
+    ///             &facade,
     ///             "User",
     ///             json!({
     ///                 "MATCH": {
@@ -468,18 +353,24 @@ where
     ///                     "age": 20
     ///                 }
     ///             }),
-    ///             None
+    ///             None,
+    ///             &mut transaction
     ///         ).await?;
+    ///
+    ///         transaction.commit().await?;
+    ///         std::mem::drop(transaction);
+    ///
     ///         let alice = result.first().unwrap();
     ///         facade.resolve_node(&alice).await
     ///     })
     /// }
     /// ```
     pub async fn update_node(
-        &mut self,
+        rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
         input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -492,12 +383,12 @@ where
             })?,
             &Info::new(
                 format!("{}UpdateInput", type_name.to_string()),
-                self.info.type_defs(),
+                rf.info.type_defs(),
             ),
             partition_key_opt,
             &mut sg,
-            self.transaction,
-            self.executor.context(),
+            transaction,
+            rf.executor.context(),
         )
         .await;
         result
@@ -518,13 +409,18 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn custom_resolve(mut facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
-    ///         facade.delete_node(
+    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
+    ///         transaction.begin().await?;
+    ///
+    ///         ResolverFacade::delete_node(
+    ///             &facade,
     ///             "User",
     ///             json!({
     ///                 "MATCH": {
@@ -533,17 +429,23 @@ where
     ///                     }
     ///                 }
     ///             }),
-    ///             None
+    ///             None,
+    ///             &mut transaction
     ///         ).await?;
+    ///
+    ///         transaction.commit().await?;
+    ///         std::mem::drop(transaction);
+    ///
     ///         facade.resolve_null()
     ///     })
     /// }
     /// ```
     pub async fn delete_node(
-        &mut self,
+        rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
         input: impl TryInto<Value>,
         partition_key_opt: Option<&Value>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -556,12 +458,12 @@ where
             })?,
             &Info::new(
                 format!("{}DeleteInput", type_name.to_string()),
-                self.info.type_defs(),
+                rf.info.type_defs(),
             ),
             partition_key_opt,
             &mut sg,
-            self.transaction,
-            self.executor.context(),
+            transaction,
+            rf.executor.context(),
         )
         .await;
         result

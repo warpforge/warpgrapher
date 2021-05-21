@@ -36,7 +36,7 @@ impl<'r> Resolver<'r> {
         Resolver { partition_key_opt }
     }
 
-    #[tracing::instrument(name="execute_endpoint", skip(self, info, parent, args, executor))]
+    #[tracing::instrument(name = "execute_endpoint", skip(self, info, parent, args, executor))]
     pub(super) async fn resolve_custom_endpoint<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
@@ -55,21 +55,15 @@ impl<'r> Resolver<'r> {
         let func = executor.context().resolver(field_name)?;
 
         // results
-        let mut transaction = executor.context().pool().transaction().await?;
-        let result = func(ResolverFacade::new(
+        func(ResolverFacade::new(
             field_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             executor,
-            &mut transaction,
         ))
-        .await;
-        transaction.commit().await?;
-        std::mem::drop(transaction);
-
-        result
+        .await
     }
 
     pub(super) async fn resolve_custom_field<RequestCtx: RequestContext>(
@@ -93,21 +87,15 @@ impl<'r> Resolver<'r> {
 
         let func = &executor.context().resolver(resolver_name)?;
 
-        let mut transaction = executor.context().pool().transaction().await?;
-        let result = func(ResolverFacade::new(
+        func(ResolverFacade::new(
             field_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             &executor,
-            &mut transaction,
         ))
-        .await;
-        transaction.commit().await?;
-        std::mem::drop(transaction);
-
-        result
+        .await
     }
 
     pub(super) async fn resolve_custom_rel<RequestCtx: RequestContext>(
@@ -131,24 +119,18 @@ impl<'r> Resolver<'r> {
 
         let func = &executor.context().resolver(resolver_name)?;
 
-        let mut transaction = executor.context().pool().transaction().await?;
-        let result = func(ResolverFacade::new(
+        func(ResolverFacade::new(
             rel_name.to_string(),
             info,
             args,
             parent,
             self.partition_key_opt,
             executor,
-            &mut transaction,
         ))
-        .await;
-        transaction.commit().await?;
-        std::mem::drop(transaction);
-
-        result
+        .await
     }
 
-    #[tracing::instrument(name="create_node", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "create_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -205,7 +187,7 @@ impl<'r> Resolver<'r> {
     }
 
     #[allow(unused_variables)]
-    #[tracing::instrument(name="delete_node", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "delete_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_delete_mutation<RequestCtx>(
         &mut self,
         field_name: &str,
@@ -260,7 +242,7 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results?)
     }
 
-    #[tracing::instrument(name="read_node", skip(self, info, input_opt, executor))]
+    #[tracing::instrument(name = "read_node", skip(self, info, input_opt, executor))]
     pub(super) async fn resolve_node_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -291,7 +273,7 @@ impl<'r> Resolver<'r> {
             sg.suffix(),
         );
 
-        let mut transaction = executor.context().pool().transaction().await?;
+        let mut transaction = executor.context().pool().read_transaction().await?;
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin().await?;
         }
@@ -395,7 +377,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[tracing::instrument(name="update_node", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "update_node", skip(self, info, input, executor))]
     pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -450,7 +432,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name="create_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "create_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -510,7 +492,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name="delete_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "delete_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -588,7 +570,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name="read_rel", skip(self, info, input_opt, executor))]
+    #[tracing::instrument(name = "read_rel", skip(self, info, input_opt, executor))]
     pub(super) async fn resolve_rel_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -624,7 +606,7 @@ impl<'r> Resolver<'r> {
         let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
         let rel_var = RelQueryVar::new(rel_name.to_string(), rel_suffix, src_var, dst_var);
 
-        let mut transaction = executor.context().pool().transaction().await?;
+        let mut transaction = executor.context().pool().read_transaction().await?;
         if info.name() == "Mutation" || info.name() == "Query" {
             transaction.begin().await?;
         }
@@ -735,7 +717,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[tracing::instrument(name="update_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(name = "update_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -887,7 +869,7 @@ impl<'r> Resolver<'r> {
         );
 
         let mut sg = SuffixGenerator::new();
-        let mut transaction = executor.context().pool().transaction().await?;
+        let mut transaction = executor.context().pool().read_transaction().await?;
 
         let results = match field_name {
             "dst" => {

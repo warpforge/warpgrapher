@@ -36,7 +36,7 @@ tracing-futures = {version="0.2.5"}
 # Optional dependencies
 bolt-client = { version = "0.9.1", features = ["tokio-stream"], optional = true }
 bolt-proto = { version = "0.10.0", optional = true }
-gremlin-client = { version = "0.7.1", optional = true, features = ["derive"] }
+gremlin-client = { version = "0.8.0", optional = true, features = ["derive"] }
 mobc = { version = "0.7.2", optional = true }
 mobc-boltrs = { version = "0.2.0", optional = true }
 

@@ -10,6 +10,17 @@ Using each of the databases requires correctly selecting a crate feature and
 setting up appropriate environment variables to allow Warpgrapher to connect 
 with the database.
 
+Optionally, regardless of database, export an environment variable to control the size of the 
+database connection pool:
+
+```bash
+export WG_POOL_SIZE=4
+```
+
+If the `WG_POOL_SIZE` variable is not set, Warpgrapher defaults to a pool the same size as the 
+number of CPUs detected. If the number of CPUs cannot be detected, Warpgrapher defaults to a pool
+of 8 connections. 
+
 ## Azure Cosmos DB
 
 Add Warpgrapher to your project config:
@@ -42,6 +53,31 @@ guarantee atomicity.  Warpgrapher does not use idempotent queries with automated
 this shortcoming of Cosmos DB, so note that if using Cosmos, there is a risk that a failed query 
 could leave partially applied results behind.
 
+## AWS Neptune
+
+Add Warpgrapher to your project config:
+
+`cargo.toml`
+
+```toml
+[dependencies]
+warpgrapher = { version = "0.8.4", features = ["gremlin"] }
+```
+
+Then set up environment variables to contact your Neptune DB:
+
+```bash
+export WG_GREMLIN_HOST=[neptune-rw-hostname].[region].neptune.amazonaws.com
+export WG_GREMLIN_PORT=8182
+export WG_GREMLIN_CERT=false
+export WG_GREMLIN_USE_TLS=true
+export WG_NEPTUNE_READ_REPLICAS=[neptune-ro-hostname].[region].neptune.amazonaws.com
+```
+
+The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
+certificates. This may be necessary in a development or test environment, but should always be set
+to false in production.
+
 ## Gremlin-Based Database
 
 Add Warpgrapher to your project config:
@@ -61,17 +97,11 @@ export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_USER=stephen
 export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
-export WG_GREMLIN_UUID=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
 certificates. This may be necessary in a development or test environment, but should always be set
 to false in production.
-
-The `WG_GREMLIN_UUID` environment variable is set to true if Wargrapher is connecting to a back-end,
-like Apache Tinkerpop, that uses a UUID type for the identifier of a node or vertex. If the back-end
-uses a `String` type that contains a string representation of an identifier, such as Cosmos DB, then
-set this evironment variable to `false`.
 
 If you do not already have a Gremlin-based database running, you can run one using Docker:
 
@@ -107,10 +137,16 @@ Then set up environment variables to contact your Neo4J DB:
 
 ```bash
 export WG_NEO4J_HOST=127.0.0.1
+export WG_NEO4J_READ_REPLICAS=127.0.0.1
 export WG_NEO4J_PORT=7687
 export WG_NEO4J_USER=neo4j
 export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 ```
+
+Note that the `WG_NEO4J_READ_REPLICAS` variable is optional. It is used for Neo4J cluster 
+configurations in which there are both read/write nodes and read-only replicas. If the 
+`WG_NEO4J_READ_REPLICAS` variable is set, read-only queries will be directed to the read replicas,
+whereas mutations will be sent to the instance(s) at `WG_NEO4J_HOST`.
 
 If you do not already have a Neo4J database running, you can run one using Docker:
 

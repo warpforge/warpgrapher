@@ -29,6 +29,7 @@ pub enum Value {
 }
 
 impl Value {
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
     pub(crate) fn to_property_value(&self) -> Result<String, Error> {
         match self {
             Value::Array(a) => Ok(a
@@ -49,6 +50,7 @@ impl Value {
         }
     }
 
+    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
     fn sanitize(s: &str) -> String {
         s.replace("\\", "\\\\").replace("'", "\\'")
     }
@@ -232,6 +234,8 @@ impl TryFrom<Value> for String {
     fn try_from(value: Value) -> Result<String, Self::Error> {
         if let Value::String(s) = value {
             Ok(s)
+        } else if let Value::Int64(i) = value {
+            Ok(i.to_string())
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),

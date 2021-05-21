@@ -4,7 +4,7 @@
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
     Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment,
-    RelQueryVar, SuffixGenerator, Transaction,
+    QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -31,6 +31,10 @@ pub struct NoDatabasePool {}
 impl DatabasePool for NoDatabasePool {
     type TransactionType = NoTransaction;
 
+    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
+        Ok(NoTransaction {})
+    }
+
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(NoTransaction {})
     }
@@ -45,6 +49,14 @@ pub struct NoTransaction {}
 #[async_trait]
 impl Transaction for NoTransaction {
     async fn begin(&mut self) -> Result<(), Error> {
+        Err(Error::DatabaseNotFound)
+    }
+
+    async fn execute_query<RequestCtx: RequestContext>(
+        &mut self,
+        _query: String,
+        _params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error> {
         Err(Error::DatabaseNotFound)
     }
 
@@ -64,6 +76,7 @@ impl Transaction for NoTransaction {
         _src_query_fragment: QueryFragment,
         _dst_query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
+        _id_opt: Option<Value>,
         _props: HashMap<String, Value>,
         _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,

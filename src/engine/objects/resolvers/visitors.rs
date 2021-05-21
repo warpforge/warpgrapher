@@ -968,6 +968,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                 src_fragment,
                 dst_fragment,
                 rel_var,
+                m.remove("id"),
                 props,
                 props_type_name,
                 partition_key_opt,

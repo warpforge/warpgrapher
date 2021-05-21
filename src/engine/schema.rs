@@ -492,7 +492,7 @@ fn fmt_node_create_mutation_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerMutationInput
 /// }
 fn generate_node_create_mutation_input(t: &Type) -> NodeType {
-    let mut props = generate_props(t.props_as_slice(), false, false);
+    let mut props = generate_props(t.props_as_slice(), true, false);
 
     t.rels().for_each(|r| {
         props.insert(
@@ -1082,6 +1082,12 @@ fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
 /// }
 fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
     let mut props = HashMap::new();
+    props.insert(
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string())
+            .with_required(false),
+    );
+
     if !r.props_as_slice().is_empty() {
         props.insert(
             "props".to_string(),
@@ -2709,7 +2715,7 @@ mod tests {
         let project_mutation_input = generate_node_create_mutation_input(&project_type);
         assert!(project_mutation_input.type_name == "ProjectCreateMutationInput");
         assert!(project_mutation_input.type_kind == TypeKind::Input);
-        assert!(project_mutation_input.props.len() == 7);
+        assert!(project_mutation_input.props.len() == 8);
         let project_name = project_mutation_input.props.get("name").unwrap();
         assert!(project_name.name == "name");
         assert!(project_name.kind == PropertyKind::Scalar);
