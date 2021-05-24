@@ -487,7 +487,11 @@ impl Transaction for Neo4jTransaction {
             + rel_var.name()
             + ":"
             + rel_var.label()
-            + "]->("
+            + if id_opt.is_none() {
+                " { id: randomUUID() }]->("
+            } else {
+                "]->("
+            }
             + rel_var.dst().name()
             + ")\n"
             + "SET "
@@ -503,11 +507,6 @@ impl Transaction for Neo4jTransaction {
 
         if let Some(id_val) = id_opt {
             props.insert("id".to_string(), id_val);
-        } else {
-            props.insert(
-                "id".to_string(),
-                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
-            );
         }
 
         let mut params = src_fragment.params();
