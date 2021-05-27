@@ -381,7 +381,7 @@ impl NeptuneEndpoint {
     }
 
     pub fn read_host(&self) -> &str {
-        &self.host
+        &self.read_host
     }
 
     pub fn port(&self) -> u16 {
