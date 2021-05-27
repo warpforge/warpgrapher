@@ -317,8 +317,6 @@ pub struct NeptuneEndpoint {
     use_tls: bool,
     read_host: String,
     pool_size: u16,
-    rw_headers: HashMap<String, String>,
-    ro_headers: HashMap<String, String>,
 }
 
 #[cfg(feature = "gremlin")]
@@ -371,8 +369,6 @@ impl NeptuneEndpoint {
             read_host: env_string("WG_NEPTUNE_READ_REPLICAS")?,
             pool_size: env_u16("WG_POOL_SIZE")
                 .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
-            rw_headers: HashMap::new(),
-            ro_headers: HashMap::new(),
         })
     }
 
@@ -391,14 +387,6 @@ impl NeptuneEndpoint {
     pub fn tls(&self) -> bool {
         self.use_tls
     }
-
-    pub fn set_rw_headers(&mut self, headers: HashMap<String, String>) {
-        self.rw_headers = headers;
-    }
-
-    pub fn set_ro_headers(&mut self, headers: HashMap<String, String>) {
-        self.ro_headers = headers;
-    }
 }
 
 #[cfg(feature = "gremlin")]
@@ -411,8 +399,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
             .port(self.port)
             .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3)
-            .headers(self.rw_headers.clone());
+            .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
             write_options_builder = write_options_builder.credentials(user, pass);
         }
@@ -428,8 +415,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
             .port(self.port)
             .pool_size(self.pool_size.into())
             .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3)
-            .headers(self.ro_headers.clone());
+            .deserializer(GraphSON::V3);
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
             ro_options_builder = ro_options_builder.credentials(user, pass);
         }
