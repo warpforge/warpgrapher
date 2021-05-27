@@ -17,7 +17,6 @@ use gremlin_client::aio::GremlinClient;
 #[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
 use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, Map, ToGValue, VertexProperty};
-use juniper::futures::StreamExt;
 use juniper::futures::TryStreamExt;
 use log::trace;
 use serde::{Deserialize, Serialize};
@@ -441,6 +440,7 @@ impl DatabaseEndpoint for NeptuneEndpoint {
         }
         let ro_options = ro_options_builder.build();
 
+        #[allow(clippy::eval_order_dependence)]
         Ok(NeptunePool::new(
             GremlinClient::connect(write_options).await?,
             GremlinClient::connect(ro_options).await?,
@@ -786,15 +786,7 @@ impl Transaction for GremlinTransaction {
             });
 
         let raw_results = self.client.execute(query, param_list.as_slice()).await?;
-        /*
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .try_collect::<Result<Vec<GValue>, Error>>()
-            .await?;
-            */
-        let results = raw_results
-            .try_collect::<Result<Vec<GValue>, Error>>()
-            .await?;
+        let results = raw_results.try_collect().await?;
 
         trace!(
             "GremlinTransaction::execute_query -- results: {:#?}",
@@ -858,10 +850,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
         trace!("GremlinTransaction::create_node -- results: {:#?}", results);
 
         GremlinTransaction::nodes(results, info)?
@@ -948,10 +938,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
@@ -1103,10 +1091,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::nodes(results, info)
     }
@@ -1251,10 +1237,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
@@ -1303,10 +1287,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::nodes(results, info)
     }
@@ -1367,10 +1349,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
@@ -1412,10 +1392,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::extract_count(results)
     }
@@ -1457,10 +1435,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::extract_count(results)
     }
