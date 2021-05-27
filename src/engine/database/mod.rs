@@ -15,7 +15,9 @@ use async_trait::async_trait;
 #[cfg(feature = "neo4j")]
 use bolt_proto::message::Record;
 #[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::{GValue, GremlinClient};
+use gremlin_client::aio::GremlinClient;
+#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+use gremlin_client::GValue;
 #[cfg(feature = "neo4j")]
 use mobc::Connection;
 #[cfg(feature = "neo4j")]

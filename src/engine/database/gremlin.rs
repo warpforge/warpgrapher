@@ -13,10 +13,12 @@ use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
 #[cfg(feature = "gremlin")]
+use gremlin_client::aio::GremlinClient;
+#[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
-use gremlin_client::{
-    ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
-};
+use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, Map, ToGValue, VertexProperty};
+use juniper::futures::StreamExt;
+use juniper::futures::TryStreamExt;
 use log::trace;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -108,22 +110,25 @@ impl DatabaseEndpoint for CosmosEndpoint {
     type PoolType = CosmosPool;
 
     async fn pool(&self) -> Result<Self::PoolType, Error> {
-        Ok(CosmosPool::new(GremlinClient::connect(
-            ConnectionOptions::builder()
-                .host(&self.host)
-                .port(self.port)
-                .pool_size(self.pool_size.into())
-                .ssl(true)
-                .serializer(GraphSON::V1)
-                .deserializer(GraphSON::V1)
-                .credentials(&self.user, &self.pass)
-                .build(),
-        )?))
+        Ok(CosmosPool::new(
+            GremlinClient::connect(
+                ConnectionOptions::builder()
+                    .host(&self.host)
+                    .port(self.port)
+                    .pool_size(self.pool_size.into())
+                    .ssl(true)
+                    .serializer(GraphSON::V1)
+                    .deserializer(GraphSON::V1)
+                    .credentials(&self.user, &self.pass)
+                    .build(),
+            )
+            .await?,
+        ))
     }
 }
 
 #[cfg(feature = "cosmos")]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct CosmosPool {
     pool: GremlinClient,
 }
@@ -253,12 +258,12 @@ impl DatabaseEndpoint for GremlinEndpoint {
             });
         }
         let options = options_builder.build();
-        Ok(GremlinPool::new(GremlinClient::connect(options)?))
+        Ok(GremlinPool::new(GremlinClient::connect(options).await?))
     }
 }
 
 #[cfg(feature = "gremlin")]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct GremlinPool {
     pool: GremlinClient,
 }
@@ -437,14 +442,14 @@ impl DatabaseEndpoint for NeptuneEndpoint {
         let ro_options = ro_options_builder.build();
 
         Ok(NeptunePool::new(
-            GremlinClient::connect(write_options)?,
-            GremlinClient::connect(ro_options)?,
+            GremlinClient::connect(write_options).await?,
+            GremlinClient::connect(ro_options).await?,
         ))
     }
 }
 
 #[cfg(feature = "gremlin")]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct NeptunePool {
     read_pool: GremlinClient,
     write_pool: GremlinClient,
@@ -468,7 +473,8 @@ impl DatabasePool for NeptunePool {
         Ok(GremlinTransaction::new(
             self.write_pool
                 .clone()
-                .create_session(Uuid::new_v4().to_hyphenated().to_string())?,
+                .create_session(Uuid::new_v4().to_hyphenated().to_string())
+                .await?,
             false,
             false,
         ))
@@ -487,7 +493,6 @@ impl DatabasePool for NeptunePool {
     }
 }
 
-#[derive(Debug)]
 pub struct GremlinTransaction {
     client: GremlinClient,
     partition: bool,
@@ -780,10 +785,17 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        /*
         let results = raw_results
             .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+            .try_collect::<Result<Vec<GValue>, Error>>()
+            .await?;
+            */
+        let results = raw_results
+            .try_collect::<Result<Vec<GValue>, Error>>()
+            .await?;
+
         trace!(
             "GremlinTransaction::execute_query -- results: {:#?}",
             results
