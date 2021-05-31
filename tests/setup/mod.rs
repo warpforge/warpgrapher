@@ -242,7 +242,7 @@ fn clear_cosmos_db() {
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<NeptuneRequestCtx> {
+pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<GremlinRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config: Configuration = File::open(config_path)
@@ -250,9 +250,9 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<NeptuneRequ
         .try_into()
         .unwrap();
 
-    let database_pool = NeptuneEndpoint::from_env().unwrap().pool().await.unwrap();
+    let database_pool = GremlinEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    let engine = Engine::<NeptuneRequestCtx>::new(config, database_pool)
+    let engine = Engine::<GremlinRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
         .build()
         .expect("Could not create warpgrapher engine");

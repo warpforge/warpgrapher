@@ -144,11 +144,21 @@ impl DatabasePool for CosmosPool {
     type TransactionType = GremlinTransaction;
 
     async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(self.pool.clone(), true, true))
+        Ok(GremlinTransaction::new(
+            self.pool.clone(),
+            false,
+            true,
+            true,
+        ))
     }
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(self.pool.clone(), true, true))
+        Ok(GremlinTransaction::new(
+            self.pool.clone(),
+            false,
+            true,
+            true,
+        ))
     }
 }
 
@@ -275,11 +285,21 @@ impl DatabasePool for GremlinPool {
     type TransactionType = GremlinTransaction;
 
     async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(self.pool.clone(), false, true))
+        Ok(GremlinTransaction::new(
+            self.pool.clone(),
+            false,
+            false,
+            true,
+        ))
     }
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(self.pool.clone(), false, true))
+        Ok(GremlinTransaction::new(
+            self.pool.clone(),
+            false,
+            false,
+            true,
+        ))
     }
 }
 
@@ -452,6 +472,7 @@ impl DatabasePool for NeptunePool {
                 .clone()
                 .create_session(Uuid::new_v4().to_hyphenated().to_string())
                 .await?,
+            true,
             false,
             false,
         ))
@@ -462,20 +483,28 @@ impl DatabasePool for NeptunePool {
             self.read_pool.clone(),
             false,
             false,
+            false,
         ))
     }
 }
 
 pub struct GremlinTransaction {
     client: GremlinClient,
+    sessioned_client: bool,
     partition: bool,
     use_bindings: bool,
 }
 
 impl GremlinTransaction {
-    pub fn new(client: GremlinClient, partition: bool, use_bindings: bool) -> Self {
+    pub fn new(
+        client: GremlinClient,
+        sessioned_client: bool,
+        partition: bool,
+        use_bindings: bool,
+    ) -> Self {
         GremlinTransaction {
             client,
+            sessioned_client,
             partition,
             use_bindings,
         }
@@ -1415,7 +1444,15 @@ impl Transaction for GremlinTransaction {
     }
 
     async fn commit(&mut self) -> Result<(), Error> {
-        self.client.close_session().await.map_err(Error::from)
+        if self.sessioned_client {
+            self.client
+                .close_session()
+                .await
+                .map(|_r| ())
+                .map_err(Error::from)
+        } else {
+            Ok(())
+        }
     }
 
     async fn rollback(&mut self) -> Result<(), Error> {
