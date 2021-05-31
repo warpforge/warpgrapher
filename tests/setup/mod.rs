@@ -5,10 +5,6 @@ use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
 #[cfg(any(feature = "neo4j"))]
 use log::trace;
 #[cfg(feature = "neo4j")]
-use mobc::Connection;
-#[cfg(feature = "neo4j")]
-use mobc_boltrs::BoltConnectionManager;
-#[cfg(feature = "neo4j")]
 use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use std::convert::TryFrom;
@@ -18,8 +14,6 @@ use std::convert::TryInto;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
-#[cfg(feature = "neo4j")]
-use std::iter::FromIterator;
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
@@ -29,12 +23,14 @@ use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 use warpgrapher::engine::database::gremlin::{GremlinEndpoint, NeptuneEndpoint};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::database::neo4j::Neo4jTransaction;
 #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::QueryResult;
 #[cfg(feature = "neo4j")]
-use warpgrapher::engine::database::{DatabaseClient, DatabasePool, Transaction};
+use warpgrapher::engine::database::{DatabasePool, Transaction};
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::events::EventHandlerBag;
 #[cfg(feature = "neo4j")]
@@ -141,15 +137,11 @@ fn gremlin_accept_invalid_tls() -> bool {
 
 #[allow(dead_code)]
 #[cfg(feature = "neo4j")]
-pub(crate) async fn bolt_client() -> Result<Box<Connection<BoltConnectionManager>>, Error> {
+pub(crate) async fn bolt_transaction() -> Result<Neo4jTransaction, Error> {
     let endpoint = Neo4jEndpoint::from_env()?;
     let pool = endpoint.pool().await?;
 
-    if let DatabaseClient::Neo4j(c) = pool.client().await? {
-        Ok(c)
-    } else {
-        Err(Error::DatabaseNotFound)
-    }
+    pool.transaction().await
 }
 
 #[allow(dead_code)]
@@ -250,7 +242,7 @@ fn clear_cosmos_db() {
 
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
-pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<GremlinRequestCtx> {
+pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<NeptuneRequestCtx> {
     // load config
     //let config_path = "./tests/fixtures/config.yml".to_string();
     let config: Configuration = File::open(config_path)
@@ -258,9 +250,9 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<GremlinRequ
         .try_into()
         .unwrap();
 
-    let database_pool = GremlinEndpoint::from_env().unwrap().pool().await.unwrap();
+    let database_pool = NeptuneEndpoint::from_env().unwrap().pool().await.unwrap();
 
-    let engine = Engine::<GremlinRequestCtx>::new(config, database_pool)
+    let engine = Engine::<NeptuneRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
         .build()
         .expect("Could not create warpgrapher engine");
@@ -294,17 +286,15 @@ fn clear_gremlin_db() {
 #[cfg(feature = "neo4j")]
 #[allow(dead_code)]
 async fn clear_neo4j_db() {
-    let mut graph = bolt_client().await.expect("Failed to get database client");
-    let result = graph
-        .run_with_metadata("MATCH (n) DETACH DELETE (n);", None, None)
-        .await;
-    result.expect("Expected successful query run.");
-
-    let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
-    let (_response, _records) = graph
-        .pull(Some(pull_meta))
+    bolt_transaction()
         .await
-        .expect("Expected pull to succeed.");
+        .expect("Failed to get database client")
+        .execute_query::<Neo4jRequestCtx>(
+            "MATCH (n) DETACH DELETE (n);".to_string(),
+            HashMap::new(),
+        )
+        .await
+        .expect("Expected successful query run.");
 }
 
 #[allow(dead_code)]

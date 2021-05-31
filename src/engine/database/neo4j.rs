@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -198,10 +198,6 @@ impl DatabasePool for Neo4jDatabasePool {
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(Neo4jTransaction::new(self.rw_pool.get().await?))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Neo4j(Box::new(self.rw_pool.get().await?)))
     }
 }
 

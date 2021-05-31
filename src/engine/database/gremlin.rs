@@ -4,15 +4,14 @@ use crate::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
-#[cfg(feature = "gremlin")]
 use gremlin_client::aio::GremlinClient;
 #[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
@@ -151,10 +150,6 @@ impl DatabasePool for CosmosPool {
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(self.pool.clone(), true, true))
     }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
-    }
 }
 
 /// A Gremlin DB endpoint collects the information necessary to generate a connection string and
@@ -285,10 +280,6 @@ impl DatabasePool for GremlinPool {
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(self.pool.clone(), false, true))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
     }
 }
 
@@ -472,10 +463,6 @@ impl DatabasePool for NeptunePool {
             false,
             false,
         ))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.write_pool.clone())))
     }
 }
 
@@ -1428,7 +1415,7 @@ impl Transaction for GremlinTransaction {
     }
 
     async fn commit(&mut self) -> Result<(), Error> {
-        Ok(())
+        self.client.close_session().await.map_err(Error::from)
     }
 
     async fn rollback(&mut self) -> Result<(), Error> {
