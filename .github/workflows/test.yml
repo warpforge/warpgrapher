@@ -23,9 +23,8 @@ jobs:
       WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
       WG_GREMLIN_HOST: 127.0.0.1
       WG_GREMLIN_PORT: 8182
-      WG_GREMLIN_USER: stephen
-      WG_GREMLIN_PASS: password
       WG_GREMLIN_CERT: true
+      WG_GREMLIN_TLS: false
       WG_NEO4J_HOST: 127.0.0.1
       WG_NEO4J_PORT: 7687
       WG_NEO4J_USER: neo4j
