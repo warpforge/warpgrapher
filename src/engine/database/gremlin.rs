@@ -24,6 +24,7 @@ use std::convert::{TryFrom, TryInto};
 #[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fmt::Debug;
+#[cfg(feature = "gremlin")]
 use uuid::Uuid;
 
 static NODE_RETURN_FRAGMENT: &str =
@@ -636,15 +637,23 @@ impl GremlinTransaction {
             .map(|r| {
                 let mut hm = GremlinTransaction::gmap_to_hashmap(r)?;
 
-                if let (
-                    Some(GValue::String(id)),
-                    Some(GValue::String(label)),
-                    Some(GValue::Map(props)),
-                ) = (hm.remove("nID"), hm.remove("nLabel"), hm.remove("nProps"))
+                let id = match hm.remove("nID") {
+                    Some(GValue::String(s)) => Value::String(s),
+                    Some(GValue::Int64(i)) => Value::Int64(i),
+                    Some(GValue::Uuid(uuid)) => Value::Uuid(uuid),
+                    _ => {
+                        return Err(Error::ResponseItemNotFound {
+                            name: "Node id".to_string(),
+                        })
+                    }
+                };
+
+                if let (Some(GValue::String(label)), Some(GValue::Map(props))) =
+                    (hm.remove("nLabel"), hm.remove("nProps"))
                 {
                     let type_def = info.type_def_by_name(&label)?;
                     let mut fields = GremlinTransaction::extract_node_properties(props, type_def)?;
-                    fields.insert("id".to_string(), Value::String(id));
+                    fields.insert("id".to_string(), id);
                     Ok(Node::new(label, fields))
                 } else {
                     Err(Error::ResponseItemNotFound {
@@ -674,22 +683,40 @@ impl GremlinTransaction {
                     Some(GValue::Uuid(uuid)) => Value::Uuid(uuid),
                     _ => {
                         return Err(Error::ResponseItemNotFound {
-                            name: "Rel, src, or dst".to_string(),
+                            name: "Rel ID".to_string(),
+                        })
+                    }
+                };
+
+                let src_id = match hm.remove("srcID") {
+                    Some(GValue::String(s)) => Value::String(s),
+                    Some(GValue::Int64(i)) => Value::Int64(i),
+                    Some(GValue::Uuid(uuid)) => Value::Uuid(uuid),
+                    _ => {
+                        return Err(Error::ResponseItemNotFound {
+                            name: "Src ID".to_string(),
+                        })
+                    }
+                };
+
+                let dst_id = match hm.remove("dstID") {
+                    Some(GValue::String(s)) => Value::String(s),
+                    Some(GValue::Int64(i)) => Value::Int64(i),
+                    Some(GValue::Uuid(uuid)) => Value::Uuid(uuid),
+                    _ => {
+                        return Err(Error::ResponseItemNotFound {
+                            name: "Dst ID".to_string(),
                         })
                     }
                 };
 
                 if let (
                     Some(GValue::Map(rel_props)),
-                    Some(GValue::String(src_id)),
                     Some(GValue::String(src_label)),
-                    Some(GValue::String(dst_id)),
                     Some(GValue::String(dst_label)),
                 ) = (
                     hm.remove("rProps"),
-                    hm.remove("srcID"),
                     hm.remove("srcLabel"),
-                    hm.remove("dstID"),
                     hm.remove("dstLabel"),
                 ) {
                     let rel_fields = rel_props
@@ -708,17 +735,17 @@ impl GremlinTransaction {
                         partition_key_opt.cloned(),
                         props_type_name.map(|ptn| Node::new(ptn.to_string(), rel_fields)),
                         NodeRef::Identifier {
-                            id: Value::String(src_id),
+                            id: src_id,
                             label: src_label,
                         },
                         NodeRef::Identifier {
-                            id: Value::String(dst_id),
+                            id: dst_id,
                             label: dst_label,
                         },
                     ))
                 } else {
                     Err(Error::ResponseItemNotFound {
-                        name: "Rel, src, or dst".to_string(),
+                        name: "Rel props, src label, or dst label".to_string(),
                     })
                 }
             })
@@ -769,7 +796,7 @@ impl Transaction for GremlinTransaction {
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
-        mut props: HashMap<String, Value>,
+        props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
         info: &Info,
         sg: &mut SuffixGenerator,
@@ -780,13 +807,6 @@ impl Transaction for GremlinTransaction {
 
         if self.partition {
             query.push_str(".property('partitionKey', partitionKey)");
-        }
-
-        if !props.contains_key("id") {
-            props.insert(
-                "id".to_string(),
-                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
-            );
         }
 
         let (mut q, p) = GremlinTransaction::add_properties(

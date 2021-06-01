@@ -56,9 +56,8 @@ For Gremlin-based DB graphs:
 ```bash
 export WG_GREMLIN_HOST=localhost
 export WG_GREMLIN_PORT=8182
-export WG_GREMLIN_USER=stephen
-export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
+export WG_GREMLIN_USE_TLS=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
@@ -90,22 +89,7 @@ Start your database in accordance with it's instructions.  For example, for the 
 reference implementation, run:
 
 ```bash
-docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
-docker run --rm -p 8182:8182 gremlin:latest
-```
-
-To use an interactive gremlin console to manually inspect test instances, run
-
-```bash
-docker build -t gremlin-console -f tests/fixtures/gremlin-console/Dockerfile tests/fixtures/gremlin-console
-docker run -i --net=host --rm gremlin-console:latest
-```
-
-In the console, connect to the remote graph:
-
-```
-:remote connect tinkerpop.server conf/remote.yaml
-:remote console
+docker run -it --rm -p 8182:8182 tinkerpop/gremlin-server:latest
 ```
 
 For neo4j:
