@@ -1,5 +1,6 @@
 use crate::Error;
 use juniper::{DefaultScalarValue, FromInputValue, InputValue};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use uuid::Uuid;
@@ -15,7 +16,7 @@ use uuid::Uuid;
 ///
 /// let v = Value::Bool(true);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Value {
     Array(Vec<Value>),
     Bool(bool),
