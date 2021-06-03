@@ -58,11 +58,17 @@ export WG_GREMLIN_HOST=localhost
 export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_CERT=true
 export WG_GREMLIN_USE_TLS=true
+export WG_GREMLIN_LONG_IDS=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
 certificates. This may be necessary in a development or test environment, but should always be set
 to false in production.
+
+The `WG_GREMLIN_LONG_IDS` envrionment variable is true if Warpgrapher should use long integers as
+vertex and edge identifiers. If false, Warpgrapher will send identifers to the database as strings.
+In all cases, the client-facing GraphQL schema uses identifiers of the type ID, which GraphQL 
+serializes as strings.
 
 For Neo4J:
 

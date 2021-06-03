@@ -75,8 +75,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
-    // Gremlin returns the number, and Cosmos returns the string; Warpgrapher just passes it through
-    assert!(p0.get("id").unwrap() == 12345 || p0.get("id").unwrap() == "12345");
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(p0.get("name").unwrap(), "MJOLNIR");
     assert_eq!(p0.get("description").unwrap(), "Powered armor");
     assert_eq!(p0.get("status").unwrap(), "GREEN");
@@ -89,7 +88,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "__typename id name description status priority estimate active",
             Some("1234"),
-            None,
+            Some(&json!({"id": {"EQ": "12345"}})),
         )
         .await
         .unwrap();
@@ -98,8 +97,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 1);
     assert_eq!(projects_a[0].get("__typename").unwrap(), "Project");
-    // Gremlin returns the number, and Cosmos returns the string; Warpgrapher just passes it through
-    assert!(p0.get("id").unwrap() == 12345 || p0.get("id").unwrap() == "12345");
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(projects_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(projects_a[0].get("description").unwrap(), "Powered armor");
     assert_eq!(projects_a[0].get("status").unwrap(), "GREEN");
