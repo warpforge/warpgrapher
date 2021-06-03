@@ -97,6 +97,7 @@ export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_USER=stephen
 export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
+export WG_GREMLIN_LONG_IDS=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
