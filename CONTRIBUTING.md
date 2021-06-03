@@ -42,33 +42,19 @@ export WG_POOL_SIZE=1
 Setting the pool size to one during testing helps assure that Warpgrapher will continue to operate 
 correctly with constrianed connection pools, even when recursing through resolvers.
 
-For Cosmos DB graphs:
-
-```bash
-export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
-export WG_COSMOS_PORT=443
-export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
-export WG_COSMOS_PASS=*MY-COSMOS-KEY*
-```
-
 For Gremlin-based DB graphs:
 
 ```bash
 export WG_GREMLIN_HOST=localhost
+export WG_GREMLIN_READ_REPLICAS=localhost
 export WG_GREMLIN_PORT=8182
-export WG_GREMLIN_CERT=true
-export WG_GREMLIN_USE_TLS=true
+export WG_GREMLIN_USE_TLS=false
+export WG_GREMLIN_VALIDATE_CERTS=false
+export WG_GREMLIN_BINDINGS=true
 export WG_GREMLIN_LONG_IDS=true
+export WG_GREMLIN_PARTITION=false
+export WG_GREMLIN_SESSIONS=false
 ```
-
-The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
-certificates. This may be necessary in a development or test environment, but should always be set
-to false in production.
-
-The `WG_GREMLIN_LONG_IDS` envrionment variable is true if Warpgrapher should use long integers as
-vertex and edge identifiers. If false, Warpgrapher will send identifers to the database as strings.
-In all cases, the client-facing GraphQL schema uses identifiers of the type ID, which GraphQL 
-serializes as strings.
 
 For Neo4J:
 
@@ -81,13 +67,6 @@ export WG_NEO4J_PASS=*MY-DB-PASS*
 ```
 
 ### Run the Database
-
-For Cosmos DB:
-
-Cosmos DB is an Azure cloud service, so it's already running. Or, if you're using a local Cosmos
-emulator, start the service based on its instructions. Note that when setting up the Cosmos 
-database, you must 1) choose Gremlin (graph) API support, and 2) use the string `partitionKey` as 
-the name of the partition key for the database.
 
 For Gremlin-based databases:
 
@@ -115,12 +94,6 @@ cargo test --lib
 ```
 
 Run all tests (unit and integration).
-
-For Cosmos DB:
-
-```bash
-cargo test --features cosmos --tests -- --test-threads=1
-```
 
 For Gremlin-based DBs:
 
@@ -179,7 +152,7 @@ documentation. Use the cargo-deadlinks subcommand to check for these dead links.
 cargo deadlinks
 ```
 
-## Review Against API Style GUide
+## Review Against API Style Guide
 
 Review your change against the following Rust language API style guidelines.
 

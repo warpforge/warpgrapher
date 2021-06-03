@@ -1,6 +1,6 @@
 #[cfg(feature = "gremlin")]
 use gremlin_client::TlsOptions;
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+#[cfg(feature = "gremlin")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
 #[cfg(any(feature = "neo4j"))]
 use log::trace;
@@ -8,24 +8,22 @@ use log::trace;
 use std::collections::HashMap;
 #[cfg(feature = "neo4j")]
 use std::convert::TryFrom;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use std::convert::TryInto;
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+#[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
-#[cfg(feature = "cosmos")]
-use warpgrapher::engine::database::gremlin::CosmosEndpoint;
 #[cfg(feature = "gremlin")]
-use warpgrapher::engine::database::gremlin::{GremlinEndpoint, NeptuneEndpoint};
+use warpgrapher::engine::database::gremlin::GremlinEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::neo4j::Neo4jTransaction;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::engine::database::DatabaseEndpoint;
 #[cfg(feature = "neo4j")]
 use warpgrapher::engine::database::QueryResult;
@@ -44,52 +42,13 @@ use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "neo4j")]
 use warpgrapher::juniper::BoxFuture;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
 
 #[allow(dead_code)]
 pub(crate) fn init() {
     let _ = env_logger::builder().is_test(true).try_init();
-}
-
-#[cfg(feature = "cosmos")]
-fn cosmos_host() -> String {
-    var_os("WG_COSMOS_HOST")
-        .expect("Expected WG_COSMOS_HOST to be set.")
-        .to_str()
-        .expect("Expected WG_COSMOS_HOST to be a string.")
-        .to_owned()
-}
-
-#[cfg(feature = "cosmos")]
-fn cosmos_port() -> u16 {
-    var_os("WG_COSMOS_PORT")
-        .expect("Expected WG_COSMOS_PORT to be set.")
-        .to_str()
-        .expect("Expected WG_COSMOS_PORT to be a string.")
-        .parse::<u16>()
-        .expect("Expected WG_COSMOS_PORT to be a u16.")
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "cosmos")]
-fn cosmos_user() -> String {
-    var_os("WG_COSMOS_USER")
-        .expect("Expected WG_COSMOS_USER to be set.")
-        .to_str()
-        .expect("Expected WG_COSMOS_USER to be a string.")
-        .to_owned()
-}
-
-#[allow(dead_code)]
-#[cfg(feature = "cosmos")]
-fn cosmos_pass() -> String {
-    var_os("WG_COSMOS_PASS")
-        .expect("Expected WG_COSMOS_PASS to be set.")
-        .to_str()
-        .expect("Expected WG_COSMOS_PASS to be a string.")
-        .to_owned()
 }
 
 #[cfg(feature = "gremlin")]
@@ -132,7 +91,7 @@ fn gremlin_use_tls() -> bool {
 #[allow(dead_code)]
 #[cfg(feature = "gremlin")]
 fn gremlin_accept_invalid_tls() -> bool {
-    env_bool("WG_GREMLIN_CERT").unwrap_or(true)
+    env_bool("WG_GREMLIN_VALIDATE_CERTS").unwrap_or(true)
 }
 
 #[allow(dead_code)]
@@ -202,45 +161,6 @@ pub(crate) async fn neo4j_test_client_with_events(
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "cosmos")]
-pub(crate) async fn cosmos_test_client(config_path: &str) -> Client<CosmosRequestCtx> {
-    // load config
-    //let config_path = "./tests/fixtures/config.yml".to_string();
-    let config: Configuration = File::open(config_path)
-        .expect("Failed to load config file")
-        .try_into()
-        .unwrap();
-
-    let database_pool = CosmosEndpoint::from_env().unwrap().pool().await.unwrap();
-
-    let engine = Engine::<CosmosRequestCtx>::new(config, database_pool)
-        .with_version("1.0".to_string())
-        .build()
-        .expect("Could not create warpgrapher engine");
-
-    Client::new_with_engine(engine, None)
-}
-
-#[cfg(feature = "cosmos")]
-#[allow(dead_code)]
-fn clear_cosmos_db() {
-    // g.V().drop() -- delete the entire graph
-    let client = GremlinClient::connect(
-        ConnectionOptions::builder()
-            .host(cosmos_host())
-            .port(cosmos_port())
-            .pool_size(1)
-            .ssl(true)
-            .serializer(GraphSON::V2)
-            .credentials(&cosmos_user(), &cosmos_pass())
-            .build(),
-    )
-    .expect("Expected successful gremlin client creation.");
-
-    let _ = client.execute("g.V().drop()", &[]);
-}
-
-#[allow(dead_code)]
 #[cfg(feature = "gremlin")]
 pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<GremlinRequestCtx> {
     // load config
@@ -299,9 +219,6 @@ async fn clear_neo4j_db() {
 
 #[allow(dead_code)]
 pub(crate) async fn clear_db() {
-    #[cfg(feature = "cosmos")]
-    clear_cosmos_db();
-
     #[cfg(feature = "gremlin")]
     clear_gremlin_db();
 
@@ -334,43 +251,6 @@ impl RequestContext for Neo4jRequestCtx {
     }
 }
 
-/*
-#[cfg(feature = "neo4j")]
-impl MetadataExtensionCtx for Neo4jRequestCtx {
-    fn set_metadata(&mut self, metadata: Metadata) {
-        self.metadata = metadata
-    }
-}
-*/
-
-#[cfg(feature = "cosmos")]
-#[derive(Clone, Debug)]
-pub struct CosmosRequestCtx {
-    metadata: Metadata,
-}
-
-#[cfg(feature = "cosmos")]
-impl RequestContext for CosmosRequestCtx {
-    type DBEndpointType = CosmosEndpoint;
-    fn new() -> CosmosRequestCtx {
-        CosmosRequestCtx {
-            metadata: Metadata {
-                src_ip: "".to_string(),
-                src_useragent: "".to_string(),
-            },
-        }
-    }
-}
-
-/*
-#[cfg(feature = "cosmos")]
-impl MetadataExtensionCtx for CosmosRequestCtx {
-    fn set_metadata(&mut self, metadata: Metadata) {
-        self.metadata = metadata
-    }
-}
-*/
-
 #[cfg(feature = "gremlin")]
 #[derive(Clone, Debug)]
 pub struct GremlinRequestCtx {
@@ -389,33 +269,6 @@ impl RequestContext for GremlinRequestCtx {
         }
     }
 }
-
-#[cfg(feature = "gremlin")]
-#[derive(Clone, Debug)]
-pub struct NeptuneRequestCtx {
-    metadata: Metadata,
-}
-
-#[cfg(feature = "gremlin")]
-impl RequestContext for NeptuneRequestCtx {
-    type DBEndpointType = NeptuneEndpoint;
-    fn new() -> NeptuneRequestCtx {
-        NeptuneRequestCtx {
-            metadata: Metadata {
-                src_ip: "".to_string(),
-                src_useragent: "".to_string(),
-            },
-        }
-    }
-}
-/*
-#[cfg(feature = "gremlin")]
-impl MetadataExtensionCtx for GremlinRequestCtx {
-    fn set_metadata(&mut self, metadata: Metadata) {
-        self.metadata = metadata
-    }
-}
-*/
 
 #[allow(dead_code)]
 fn name_validator(value: &Value) -> Result<(), Error> {

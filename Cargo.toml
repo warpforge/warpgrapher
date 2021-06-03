@@ -12,7 +12,6 @@ version = "0.8.4"
 edition = "2018"
 
 [features]
-cosmos = ["gremlin-client"]
 gremlin = ["gremlin-client"]
 neo4j = ["bolt-client", "bolt-proto", "mobc", "mobc-boltrs"]
 

@@ -32,7 +32,7 @@ pub enum Value {
 }
 
 impl Value {
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     pub(crate) fn to_property_value(&self) -> Result<String, Error> {
         match self {
             Value::Array(a) => Ok(a
@@ -53,7 +53,7 @@ impl Value {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     fn sanitize(s: &str) -> String {
         s.replace("\\", "\\\\").replace("'", "\\'")
     }

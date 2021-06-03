@@ -7,21 +7,10 @@ pub fn wg_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input: ItemFn = parse_macro_input!(item);
 
     let name = &input.sig.ident;
-    let name_cosmos = format_ident!("{}{}", name, "_cosmos");
     let name_gremlin = format_ident!("{}{}", name, "_gremlin");
     let name_neo4j = format_ident!("{}{}", name, "_neo4j");
 
     let gen = quote! {
-        #[cfg(feature = "cosmos")]
-        #[tokio::test]
-        async fn #name_cosmos() {
-            setup::init();
-            setup::clear_db().await;
-
-            let client = setup::cosmos_test_client("./tests/fixtures/minimal.yml").await;
-            #name(client).await;
-        }
-
         #[cfg(feature = "gremlin")]
         #[tokio::test]
         async fn #name_gremlin() {
