@@ -62,9 +62,6 @@ jobs:
     - name: Check Featureless Build
       run: cargo check
       
-    - name: Check Cosmos Build
-      run: cargo check --features cosmos
-
     - name: Check Gremlin Build
       run: cargo check --features gremlin
 
