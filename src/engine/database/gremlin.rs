@@ -770,33 +770,61 @@ impl Transaction for GremlinTransaction {
         if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
-        query.push_str(".hasId(within(id_list))");
-        let ids = nodes
-            .iter()
-            .map(|n| n.id())
-            .collect::<Result<Vec<&Value>, Error>>()?
-            .into_iter()
-            .cloned()
-            .collect::<Vec<Value>>()
-            .into_iter()
-            .map(|id| {
-                if self.long_ids {
-                    if let Value::String(s) = id {
-                        if let Ok(i) = s.parse::<i64>() {
-                            Value::Int64(i)
+
+        let mut params = HashMap::new();
+
+        if self.bindings {
+            query.push_str(".hasId(within(id_list))");
+            let ids = nodes
+                .iter()
+                .map(|n| n.id())
+                .collect::<Result<Vec<&Value>, Error>>()?
+                .into_iter()
+                .cloned()
+                .collect::<Vec<Value>>()
+                .into_iter()
+                .map(|id| {
+                    if self.long_ids {
+                        if let Value::String(s) = id {
+                            if let Ok(i) = s.parse::<i64>() {
+                                Value::Int64(i)
+                            } else {
+                                Value::String(s)
+                            }
                         } else {
-                            Value::String(s)
+                            id
                         }
                     } else {
                         id
                     }
-                } else {
-                    id
-                }
-            })
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
+                })
+                .collect();
+            params.insert("id_list".to_string(), Value::Array(ids));
+        } else {
+            let fragment = nodes.iter().enumerate().try_fold(
+                ".hasId(within(".to_string(),
+                |mut acc, (i, n)| -> Result<String, Error> {
+                    if i > 0 {
+                        acc.push_str(", ");
+                    }
+
+                    acc.push_str(
+                        &*(n.id().and_then(|id| {
+                            if self.long_ids {
+                                if let Value::String(s) = id {
+                                    if let Ok(i) = s.parse::<i64>() {
+                                        return Value::Int64(i).to_property_value();
+                                    }
+                                }
+                            }
+                            id.to_property_value()
+                        })?),
+                    );
+                    Ok(acc)
+                },
+            )?;
+            query.push_str(&*(fragment + "))"));
+        }
 
         Ok(QueryFragment::new("".to_string(), query, params))
     }
@@ -940,34 +968,65 @@ impl Transaction for GremlinTransaction {
         if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
-        query.push_str(&(".hasId(within(id_list))"));
 
-        let ids = rels
-            .iter()
-            .map(|r| r.id())
-            .collect::<Vec<&Value>>()
-            .into_iter()
-            .cloned()
-            .collect::<Vec<Value>>()
-            .into_iter()
-            .map(|id| {
-                if self.long_ids {
-                    if let Value::String(s) = id {
-                        if let Ok(i) = s.parse::<i64>() {
-                            Value::Int64(i)
+        let mut params = HashMap::new();
+
+        if self.bindings {
+            query.push_str(&(".hasId(within(id_list))"));
+
+            let ids = rels
+                .iter()
+                .map(|r| r.id())
+                .collect::<Vec<&Value>>()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<Value>>()
+                .into_iter()
+                .map(|id| {
+                    if self.long_ids {
+                        if let Value::String(s) = id {
+                            if let Ok(i) = s.parse::<i64>() {
+                                Value::Int64(i)
+                            } else {
+                                Value::String(s)
+                            }
                         } else {
-                            Value::String(s)
+                            id
                         }
                     } else {
                         id
                     }
-                } else {
-                    id
-                }
-            })
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
+                })
+                .collect();
+            params.insert("id_list".to_string(), Value::Array(ids));
+        } else {
+            let fragment = rels.iter().enumerate().try_fold(
+                ".hasId(within(".to_string(),
+                |mut acc, (i, r)| -> Result<String, Error> {
+                    if i > 0 {
+                        acc.push_str(", ");
+                    }
+
+                    acc.push_str(
+                        &*(if self.long_ids {
+                            if let Value::String(s) = r.id() {
+                                if let Ok(i) = s.parse::<i64>() {
+                                    Value::Int64(i).to_property_value()
+                                } else {
+                                    r.id().to_property_value()
+                                }
+                            } else {
+                                r.id().to_property_value()
+                            }
+                        } else {
+                            r.id().to_property_value()
+                        })?,
+                    );
+                    Ok(acc)
+                },
+            )?;
+            query.push_str(&*(fragment + "))"));
+        }
 
         Ok(QueryFragment::new("".to_string(), query, params))
     }
@@ -1661,7 +1720,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(".property(single, 'my_prop', -1)", q);
+        assert_eq!(".property(single, 'my_prop', -1L)", q);
         assert!(p.is_empty());
     }
 

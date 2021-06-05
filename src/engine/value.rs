@@ -42,7 +42,7 @@ impl Value {
                 .join(", ")),
             Value::Bool(bool) => Ok(bool.to_string()),
             Value::Float64(f) => Ok(f.to_string() + "f"),
-            Value::Int64(i) => Ok(i.to_string()),
+            Value::Int64(i) => Ok(i.to_string() + "L"),
             Value::Map(_) => Err(Error::TypeNotExpected {
                 details: Some("Expected scalar, not a map.".to_string()),
             }),
