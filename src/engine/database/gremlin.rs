@@ -57,7 +57,6 @@ pub struct GremlinEndpoint {
     sessions: bool,
     version: GraphSON,
     pool_size: u16,
-    long_ids: bool,
 }
 
 impl GremlinEndpoint {
@@ -136,7 +135,6 @@ impl GremlinEndpoint {
             },
             pool_size: env_u16("WG_POOL_SIZE")
                 .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
-            long_ids: env_bool("WG_GREMLIN_LONG_IDS").unwrap_or(true),
         })
     }
 }
@@ -234,8 +232,7 @@ impl DatabasePool for GremlinPool {
             self.bindings,
             self.long_ids,
             self.partitions,
-            false,
-            false,
+            self.sessions,
         ))
     }
 
