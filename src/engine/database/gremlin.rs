@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::env::var_os;
 use std::fmt::Debug;
+#[cfg(feature = "gremlin")]
 use uuid::Uuid;
 
 static NODE_RETURN_FRAGMENT: &str =
@@ -56,6 +57,7 @@ pub struct GremlinEndpoint {
     sessions: bool,
     version: GraphSON,
     pool_size: u16,
+    long_ids: bool,
 }
 
 impl GremlinEndpoint {
@@ -134,6 +136,7 @@ impl GremlinEndpoint {
             },
             pool_size: env_u16("WG_POOL_SIZE")
                 .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
+            long_ids: env_bool("WG_GREMLIN_LONG_IDS").unwrap_or(true),
         })
     }
 }
@@ -231,6 +234,7 @@ impl DatabasePool for GremlinPool {
             self.bindings,
             self.long_ids,
             self.partitions,
+            false,
             false,
         ))
     }
@@ -770,7 +774,6 @@ impl Transaction for GremlinTransaction {
         if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
-
         let mut params = HashMap::new();
 
         if self.bindings {
