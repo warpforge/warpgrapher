@@ -56,14 +56,19 @@ For Gremlin-based DB graphs:
 ```bash
 export WG_GREMLIN_HOST=localhost
 export WG_GREMLIN_PORT=8182
-export WG_GREMLIN_USER=stephen
-export WG_GREMLIN_PASS=password
 export WG_GREMLIN_CERT=true
+export WG_GREMLIN_USE_TLS=true
+export WG_GREMLIN_LONG_IDS=true
 ```
 
 The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
 certificates. This may be necessary in a development or test environment, but should always be set
 to false in production.
+
+The `WG_GREMLIN_LONG_IDS` envrionment variable is true if Warpgrapher should use long integers as
+vertex and edge identifiers. If false, Warpgrapher will send identifers to the database as strings.
+In all cases, the client-facing GraphQL schema uses identifiers of the type ID, which GraphQL 
+serializes as strings.
 
 For Neo4J:
 
@@ -90,22 +95,7 @@ Start your database in accordance with it's instructions.  For example, for the 
 reference implementation, run:
 
 ```bash
-docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
-docker run --rm -p 8182:8182 gremlin:latest
-```
-
-To use an interactive gremlin console to manually inspect test instances, run
-
-```bash
-docker build -t gremlin-console -f tests/fixtures/gremlin-console/Dockerfile tests/fixtures/gremlin-console
-docker run -i --net=host --rm gremlin-console:latest
-```
-
-In the console, connect to the remote graph:
-
-```
-:remote connect tinkerpop.server conf/remote.yaml
-:remote console
+docker run -it --rm -p 8182:8182 tinkerpop/gremlin-server:latest
 ```
 
 For neo4j:

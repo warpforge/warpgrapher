@@ -68,17 +68,14 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name description status priority estimate active", Some("1234"),
-            &json!({"id": "8c8727ad-134c-4fca-8352-9dc1f8fcbebd", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+            &json!({"id": "12345", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
         .await
         .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
-    assert_eq!(
-        p0.get("id").unwrap(),
-        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
-    );
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(p0.get("name").unwrap(), "MJOLNIR");
     assert_eq!(p0.get("description").unwrap(), "Powered armor");
     assert_eq!(p0.get("status").unwrap(), "GREEN");
@@ -91,7 +88,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "__typename id name description status priority estimate active",
             Some("1234"),
-            None,
+            Some(&json!({"id": {"EQ": "12345"}})),
         )
         .await
         .unwrap();
@@ -100,10 +97,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 1);
     assert_eq!(projects_a[0].get("__typename").unwrap(), "Project");
-    assert_eq!(
-        projects_a[0].get("id").unwrap(),
-        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
-    );
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(projects_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(projects_a[0].get("description").unwrap(), "Powered armor");
     assert_eq!(projects_a[0].get("status").unwrap(), "GREEN");
