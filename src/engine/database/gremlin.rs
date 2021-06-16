@@ -232,7 +232,7 @@ impl DatabasePool for GremlinPool {
             self.bindings,
             self.long_ids,
             self.partitions,
-            self.sessions,
+            false,
         ))
     }
 
