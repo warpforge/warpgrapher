@@ -199,6 +199,120 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
 
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
+async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let _p0 = client
+        .create_node(
+            "Project",
+            "name",
+            Some("1234"),
+            &json!({"name": "Project Zero"}),
+        )
+        .await
+        .unwrap();
+
+    let c0 = client
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234"),
+            &json!({"hash": "1"}),
+        )
+        .await
+        .unwrap();
+
+    assert!(c0.is_object());
+    assert_eq!(c0.get("__typename").unwrap(), "Commit");
+    assert_eq!(c0.get("hash").unwrap(), "1");
+
+    let c1 = client
+        .create_node(
+            "Commit",
+            "__typename hash",
+            Some("1234"),
+            &json!({"hash": "2"}),
+        )
+        .await
+        .unwrap();
+
+    assert!(c1.is_object());
+    assert_eq!(c1.get("__typename").unwrap(), "Commit");
+    assert_eq!(c1.get("hash").unwrap(), "2");
+
+    let a0 = client
+        .create_rel(
+            "Project",
+            "activity",
+            "__typename id props{repo} dst{...on Commit{__typename hash}}",Some("1234"),
+            &json!({"name": {"EQ": "Project Zero"}}),
+            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": {"GT": "0"}}}}}])
+        )
+        .await
+        .unwrap();
+
+    let activity = a0.as_array().unwrap();
+    assert_eq!(activity.len(), 2);
+
+    assert!(activity
+        .iter()
+        .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
+    assert!(activity
+        .iter()
+        .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
+    assert!(activity
+        .iter()
+        .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "1"));
+    assert!(activity
+        .iter()
+        .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "2"));
+    assert!(activity
+        .iter()
+        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+
+    let first_id = activity[0].get("id").unwrap();
+    let second_id = activity[1].get("id").unwrap();
+
+    assert_ne!(first_id, second_id);
+
+    let projects = client
+        .read_node(
+            "Project",
+            "activity{__typename id props{repo} dst{...on Commit{__typename hash}}}",
+            Some("1234"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let projects_a = projects.as_array().unwrap();
+    let project = &projects_a[0];
+
+    let activity = project.get("activity").unwrap().as_array().unwrap();
+    assert_eq!(activity.len(), 2);
+
+    assert!(activity
+        .iter()
+        .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
+    assert!(activity
+        .iter()
+        .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
+    assert!(activity
+        .iter()
+        .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "1"));
+    assert!(activity
+        .iter()
+        .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "2"));
+    assert!(activity
+        .iter()
+        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+
+    let first_id = activity[0].get("id").unwrap();
+    let second_id = activity[1].get("id").unwrap();
+
+    assert_ne!(first_id, second_id);
+}
+
+#[wg_test]
+#[allow(clippy::cognitive_complexity, dead_code)]
 async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(

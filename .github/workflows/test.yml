@@ -17,15 +17,12 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      WG_COSMOS_HOST: ${{ secrets.WG_COSMOS_HOST }}
-      WG_COSMOS_PORT: ${{ secrets.WG_COSMOS_PORT }}
-      WG_COSMOS_USER: ${{ secrets.WG_COSMOS_USER }}
-      WG_COSMOS_PASS: ${{ secrets.WG_COSMOS_PASS }}
-      WG_GREMLIN_HOST: 127.0.0.1
+      WG_POOL_SIZE: 1
+      WG_GREMLIN_HOST: localhost
       WG_GREMLIN_PORT: 8182
-      WG_GREMLIN_USER: stephen
-      WG_GREMLIN_PASS: password
-      WG_GREMLIN_CERT: true
+      WG_GREMLIN_USE_TLS: false
+      WG_GREMLIN_VALIDATE_CERTS: false
+      WG_GREMLIN_LONG_IDS: true
       WG_NEO4J_HOST: 127.0.0.1
       WG_NEO4J_PORT: 7687
       WG_NEO4J_USER: neo4j
@@ -65,9 +62,6 @@ jobs:
     - name: Check Featureless Build
       run: cargo check
       
-    - name: Check Cosmos Build
-      run: cargo check --features cosmos
-
     - name: Check Gremlin Build
       run: cargo check --features gremlin
 
@@ -83,17 +77,14 @@ jobs:
     - name: Run Linter
       run: cargo clippy --all-targets --all-features -- -D warnings
 
-    - name: Build gremlin docker
-      run: docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
-
     - name: Start gremlin database
-      run: docker run --rm -d --name gremlin -p 8182:8182 gremlin:latest
+      run: docker run --rm -d --name gremlin -p 8182:8182 tinkerpop/gremlin-server:latest
       
     - name: Start neo4j database
       run: docker run --rm -d --name neo4j -e NEO4J_AUTH="neo4j/testpass" -p 7474:7474 -p 7687:7687 neo4j:4.1
 
     - name: Run Tests (All Features)
-      run: cargo test --features neo4j,gremlin -- --test-threads=1
+      run: cargo test --all-features -- --test-threads=1
 
     - name: Stop neo4j database
       run: docker rm -f neo4j

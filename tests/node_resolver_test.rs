@@ -3,13 +3,13 @@ mod setup;
 use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
+use setup::{bolt_transaction, clear_db, init, neo4j_test_client, Neo4jRequestCtx};
 #[cfg(feature = "neo4j")]
-use setup::{bolt_client, clear_db, init};
-#[cfg(feature = "neo4j")]
-use std::iter::FromIterator;
+use std::collections::HashMap;
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::database::Transaction;
 use warpgrapher_macros::wg_test;
 
 /// Passes if the create mutation and the read query both succeed.
@@ -68,17 +68,14 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name description status priority estimate active", Some("1234"),
-            &json!({"id": "8c8727ad-134c-4fca-8352-9dc1f8fcbebd", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+            &json!({"id": "12345", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
         )
         .await
         .unwrap();
 
     assert!(p0.is_object());
     assert_eq!(p0.get("__typename").unwrap(), "Project");
-    assert_eq!(
-        p0.get("id").unwrap(),
-        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
-    );
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(p0.get("name").unwrap(), "MJOLNIR");
     assert_eq!(p0.get("description").unwrap(), "Powered armor");
     assert_eq!(p0.get("status").unwrap(), "GREEN");
@@ -91,7 +88,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "__typename id name description status priority estimate active",
             Some("1234"),
-            None,
+            Some(&json!({"id": {"EQ": "12345"}})),
         )
         .await
         .unwrap();
@@ -100,10 +97,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     let projects_a = projects.as_array().unwrap();
     assert_eq!(projects_a.len(), 1);
     assert_eq!(projects_a[0].get("__typename").unwrap(), "Project");
-    assert_eq!(
-        projects_a[0].get("id").unwrap(),
-        "8c8727ad-134c-4fca-8352-9dc1f8fcbebd"
-    );
+    assert_eq!(p0.get("id").unwrap(), "12345");
     assert_eq!(projects_a[0].get("name").unwrap(), "MJOLNIR");
     assert_eq!(projects_a[0].get("description").unwrap(), "Powered armor");
     assert_eq!(projects_a[0].get("status").unwrap(), "GREEN");
@@ -482,17 +476,16 @@ async fn error_on_node_missing_id_neo4j() {
     init();
     clear_db().await;
 
-    let mut graph = bolt_client().await.expect("Could not get database client.");
+    let mut graph = bolt_transaction()
+        .await
+        .expect("Could not get database client.");
     graph
-        .run_with_metadata("CREATE (n:Project { name: 'Project One' })", None, None)
+        .execute_query::<Neo4jRequestCtx>(
+            "CREATE (n:Project { name: 'Project One' })".to_string(),
+            HashMap::new(),
+        )
         .await
         .expect("Expected successful query run.");
-
-    let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
-    let (_response, _records) = graph
-        .pull(Some(pull_meta))
-        .await
-        .expect("Expected pull to succeed.");
 
     let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     error_on_node_missing_id(client).await;

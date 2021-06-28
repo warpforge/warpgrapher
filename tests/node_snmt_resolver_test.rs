@@ -2,7 +2,7 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;

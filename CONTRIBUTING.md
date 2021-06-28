@@ -42,28 +42,19 @@ export WG_POOL_SIZE=1
 Setting the pool size to one during testing helps assure that Warpgrapher will continue to operate 
 correctly with constrianed connection pools, even when recursing through resolvers.
 
-For Cosmos DB graphs:
-
-```bash
-export WG_COSMOS_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
-export WG_COSMOS_PORT=443
-export WG_COSMOS_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
-export WG_COSMOS_PASS=*MY-COSMOS-KEY*
-```
-
 For Gremlin-based DB graphs:
 
 ```bash
 export WG_GREMLIN_HOST=localhost
+export WG_GREMLIN_READ_REPLICAS=localhost
 export WG_GREMLIN_PORT=8182
-export WG_GREMLIN_USER=stephen
-export WG_GREMLIN_PASS=password
-export WG_GREMLIN_CERT=true
+export WG_GREMLIN_USE_TLS=false
+export WG_GREMLIN_VALIDATE_CERTS=false
+export WG_GREMLIN_BINDINGS=true
+export WG_GREMLIN_LONG_IDS=true
+export WG_GREMLIN_PARTITION=false
+export WG_GREMLIN_SESSIONS=false
 ```
-
-The `WG_GREMLIN_CERT` environment variable is true if Warpgrapher should ignore the validity of 
-certificates. This may be necessary in a development or test environment, but should always be set
-to false in production.
 
 For Neo4J:
 
@@ -77,35 +68,13 @@ export WG_NEO4J_PASS=*MY-DB-PASS*
 
 ### Run the Database
 
-For Cosmos DB:
-
-Cosmos DB is an Azure cloud service, so it's already running. Or, if you're using a local Cosmos
-emulator, start the service based on its instructions. Note that when setting up the Cosmos 
-database, you must 1) choose Gremlin (graph) API support, and 2) use the string `partitionKey` as 
-the name of the partition key for the database.
-
 For Gremlin-based databases:
 
 Start your database in accordance with it's instructions.  For example, for the Apache Tinkerpop 
 reference implementation, run:
 
 ```bash
-docker build -t gremlin -f tests/fixtures/gremlin/Dockerfile tests/fixtures/gremlin
-docker run --rm -p 8182:8182 gremlin:latest
-```
-
-To use an interactive gremlin console to manually inspect test instances, run
-
-```bash
-docker build -t gremlin-console -f tests/fixtures/gremlin-console/Dockerfile tests/fixtures/gremlin-console
-docker run -i --net=host --rm gremlin-console:latest
-```
-
-In the console, connect to the remote graph:
-
-```
-:remote connect tinkerpop.server conf/remote.yaml
-:remote console
+docker run -it --rm -p 8182:8182 tinkerpop/gremlin-server:latest
 ```
 
 For neo4j:
@@ -125,12 +94,6 @@ cargo test --lib
 ```
 
 Run all tests (unit and integration).
-
-For Cosmos DB:
-
-```bash
-cargo test --features cosmos --tests -- --test-threads=1
-```
 
 For Gremlin-based DBs:
 
@@ -189,7 +152,7 @@ documentation. Use the cargo-deadlinks subcommand to check for these dead links.
 cargo deadlinks
 ```
 
-## Review Against API Style GUide
+## Review Against API Style Guide
 
 Review your change against the following Rust language API style guidelines.
 
