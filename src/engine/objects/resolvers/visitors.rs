@@ -78,7 +78,9 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                         PropertyKind::Input => {
                             inputs.insert(k, v);
                         }
-                        _ => return Err(Error::TypeNotExpected { details: None }),
+                        _ => {
+                            return Err(Error::TypeNotExpected { details: Some("Expected Scalar or Input".to_string()) })
+                        }
                     }
                     Ok((props, inputs))
                 },
@@ -169,7 +171,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                 .await?;
                             }
                         }
-                        _ => return Err(Error::TypeNotExpected { details: None }),
+                        _ => return Err(Error::TypeNotExpected { details: Some("Expected Scalar, DynamicScalar, or Input".to_string()) }),
                     }
                 }
             }
@@ -178,7 +180,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
 
             Ok(node)
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("Expected visit_node_create_mutation_input input to be Map".to_string()) })
         }
     })
 }
@@ -250,7 +252,7 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
         )
         .await
     } else {
-        Err(Error::TypeNotExpected { details: None })
+        Err(Error::TypeNotExpected { details: Some("Expected visit_node_delete_input input to be Map".to_string()) })
     }
 }
 
@@ -994,7 +996,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
         }
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected { details: None })
+        Err(Error::TypeNotExpected { details: Some("visit_rel_create_mutation_input input is not Map".to_string()) })
     }
 }
 

@@ -4,10 +4,11 @@
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator, Transaction,
+    DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator, Transaction, RelQueryVar
 };
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input,
+    visit_rel_query_input
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -252,6 +253,95 @@ where
             .await;
         results
     }
+
+
+    /// Provides an abstracted database rel read operation using warpgrapher inputs. This is the
+    /// recommended way to read relationships in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `src_node_label` - String reference represing name of node type (ex: "User").
+    /// * `rel_label` - String reference representing the name of the relationship (ex: "teams").
+    /// * `input` - `Value` describing the relationship query input.
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let rels: Vec<Rel<()>> = ef.read_rels(
+    ///             "User",
+    ///             "teams",
+    ///             json!({
+    ///                 "src": {"name": {"EQ": "alice"}}
+    ///             }),
+    ///             None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn read_rels(
+        &self,
+        src_node_label: &str,
+        rel_label: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+        transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
+        let input_value_opt = Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
+            src: "TryInto<Value>".to_string(),
+            dst: "Value".to_string(),
+        })?);
+        let mut sg = SuffixGenerator::new();
+        let rel_suffix = sg.suffix();
+        let dst_suffix = sg.suffix();
+        let src_var = NodeQueryVar::new(
+            Some(src_node_label.to_string()),
+            "src".to_string(),
+            sg.suffix(),
+        );
+        let dst_var = NodeQueryVar::new(None, "dst".to_string(), dst_suffix);
+        let rel_var = RelQueryVar::new(rel_label.to_string(), rel_suffix, src_var, dst_var);
+        let info = Info::new(
+            src_node_label.to_string()
+                + &*((&rel_label.to_string().to_title_case())
+                    .split_whitespace()
+                    .collect::<String>())
+                + "QueryInput",
+            self.info.type_defs(),
+        );
+        let query_fragment = visit_rel_query_input::<RequestCtx>(
+            None,
+            &rel_var,
+            input_value_opt,
+            &info,
+            partition_key_opt,
+            &mut sg,
+            transaction,
+        )
+        .await?;
+
+        let results = transaction
+            .read_rels(
+                query_fragment,
+                &rel_var,
+                None,
+                partition_key_opt,
+            )
+            .await?;
+
+        Ok(results)
+    }
+
 
     /// Provides an abstracted database node create operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
@@ -523,7 +613,7 @@ where
                 },
             ))
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
         }
     }
 
@@ -580,7 +670,7 @@ where
                 NodeRef::Node(dst),
             ))
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
         }
     }
 
@@ -662,7 +752,7 @@ where
         if let Object::Node(n) = self.parent {
             Ok(n)
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
         }
     }
 

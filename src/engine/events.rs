@@ -1220,7 +1220,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
-            &Info::new(type_name.to_string(), self.info.type_defs()),
+            &Info::new(format!("{}CreateMutationInput", type_name.to_string()), self.info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
