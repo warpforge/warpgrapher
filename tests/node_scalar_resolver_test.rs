@@ -63,7 +63,7 @@ async fn scalar_lists_test<RequestCtx: RequestContext>(mut client: Client<Reques
     let bools = result.get("bool_list").unwrap();
     assert!(bools.is_array());
     assert!(bools.get(0).unwrap().as_bool().unwrap());
-    assert!(bools.get(1).unwrap().as_bool().unwrap());
+    assert!(!bools.get(1).unwrap().as_bool().unwrap());
 
     let ints = result.get("int_list").unwrap();
     assert!(ints.is_array());
@@ -128,7 +128,7 @@ async fn scalar_lists_no_array_test<RequestCtx: RequestContext>(mut client: Clie
 
     let bools = result.get("bool_list").unwrap();
     assert!(bools.is_array());
-    assert!(bools.get(0).unwrap().as_bool().unwrap());
+    assert!(!bools.get(0).unwrap().as_bool().unwrap());
 
     let ints = result.get("int_list").unwrap();
     assert!(ints.is_array());
@@ -258,7 +258,7 @@ async fn scalar_no_lists_no_array_test<RequestCtx: RequestContext>(mut client: C
         "string0"
     );
 
-    assert!(result.get("bool_list").unwrap().as_bool().unwrap());
+    assert!(!result.get("bool_list").unwrap().as_bool().unwrap());
 
     assert_eq!(result.get("int_list").unwrap().as_i64().unwrap(), 0);
 
