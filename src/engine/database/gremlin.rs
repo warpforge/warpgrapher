@@ -390,7 +390,7 @@ impl GremlinTransaction {
         } else if let Some(GValue::Int64(i)) = results.get(0) {
             Ok(i32::try_from(*i)?)
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("extract_count value is not GValue Int32 or Int64".to_string()) })
         }
     }
 
@@ -426,7 +426,7 @@ impl GremlinTransaction {
                 } else if let GKey::String(k) = key {
                     Ok((k, val.try_into()?))
                 } else {
-                    Err(Error::TypeNotExpected { details: None })
+                    Err(Error::TypeNotExpected { details: Some("GValue is not String or List".to_string()) })
                 }
             })
             .collect::<Result<HashMap<String, Value>, Error>>()
@@ -437,11 +437,11 @@ impl GremlinTransaction {
             map.into_iter()
                 .map(|(k, v)| match (k, v) {
                     (GKey::String(s), v) => Ok((s, v)),
-                    (_, _) => Err(Error::TypeNotExpected { details: None }),
+                    (_, _) => Err(Error::TypeNotExpected { details: Some("GValue is not String".to_string()) }),
                 })
                 .collect()
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected { details: Some("GValue is not Map".to_string()) })
         }
     }
 
@@ -548,7 +548,7 @@ impl GremlinTransaction {
                             if let GKey::String(k) = key {
                                 Ok((k, val.try_into()?))
                             } else {
-                                Err(Error::TypeNotExpected { details: None })
+                                Err(Error::TypeNotExpected { details: Some("GKey is not String".to_string()) })
                             }
                         })
                         .collect::<Result<HashMap<String, Value>, Error>>()?;
@@ -582,7 +582,7 @@ impl Transaction for GremlinTransaction {
         Ok(())
     }
 
-    #[tracing::instrument(name = "wg-gremlin-execute-query", skip(self, query, params))]
+    #[tracing::instrument(level="info", name="wg-gremlin-execute-query", skip(self, query, params))]
     async fn execute_query<RequestCtx: RequestContext>(
         &mut self,
         query: String,
@@ -612,6 +612,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-create-nodes",
         skip(self, node_var, props, partition_key_opt, info, sg)
     )]
@@ -670,6 +671,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-create-rels",
         skip(
             self,
@@ -910,6 +912,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-read-nodes",
         skip(self, _node_var, query_fragment, partition_key_opt, info)
     )]
@@ -1103,6 +1106,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-read-rels",
         skip(self, query_fragment, rel_var, props_type_name, partition_key_opt)
     )]
@@ -1146,6 +1150,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-update-nodes",
         skip(self, query_fragment, node_var, props, partition_key_opt, info, sg)
     )]
@@ -1197,6 +1202,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-update-rels",
         skip(
             self,
@@ -1260,6 +1266,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-delete-nodes",
         skip(self, query_fragment, node_var, partition_key_opt)
     )]
@@ -1303,6 +1310,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level="info",
         name = "wg-gremlin-delete-rels",
         skip(self, query_fragment, rel_var, partition_key_opt)
     )]
