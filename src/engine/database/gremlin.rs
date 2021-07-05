@@ -332,7 +332,7 @@ impl GremlinTransaction {
                     }
                     a.into_iter()
                         .try_fold((outer_q, outer_p), |(mut inner_q, mut inner_p), val| {
-                            Ok(if use_bindings {
+                            if use_bindings {
                                 let suffix = sg.suffix();
                                 inner_q.push_str(
                                     &*(".property(list, '".to_string()
@@ -343,7 +343,6 @@ impl GremlinTransaction {
                                         + ")"),
                                 );
                                 inner_p.insert(k.to_string() + &*suffix, val);
-                                (inner_q, inner_p)
                             } else {
                                 inner_q.push_str(
                                     // Use
@@ -353,8 +352,8 @@ impl GremlinTransaction {
                                         + &*val.to_property_value()?
                                         + ")"),
                                 );
-                                (inner_q, inner_p)
-                            })
+                            };
+                            Ok((inner_q, inner_p))
                         })
                 } else if use_bindings {
                     let suffix = sg.suffix();

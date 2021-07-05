@@ -32,7 +32,7 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
     assert_eq!(p0.get("status").unwrap(), "GREEN");
     assert_eq!(p0.get("priority").unwrap(), 1);
     assert_approx_eq!(p0.get("estimate").unwrap().as_f64().unwrap(), 3.3);
-    assert_eq!(p0.get("active").unwrap(), true);
+    assert!(p0.get("active").unwrap().as_bool().unwrap());
 
     let projects = client
         .read_node(
@@ -57,7 +57,7 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
         projects_a[0].get("estimate").unwrap().as_f64().unwrap(),
         3.3
     );
-    assert_eq!(projects_a[0].get("active").unwrap(), true);
+    assert!(projects_a[0].get("active").unwrap().as_bool().unwrap());
 }
 
 /// Passes if the create mutation and the read query both succeed, with a specified id.
@@ -81,7 +81,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(p0.get("status").unwrap(), "GREEN");
     assert_eq!(p0.get("priority").unwrap(), 1);
     assert_approx_eq!(p0.get("estimate").unwrap().as_f64().unwrap(), 3.3);
-    assert_eq!(p0.get("active").unwrap(), true);
+    assert!(p0.get("active").unwrap().as_bool().unwrap());
 
     let projects = client
         .read_node(
@@ -106,7 +106,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
         projects_a[0].get("estimate").unwrap().as_f64().unwrap(),
         3.3
     );
-    assert_eq!(projects_a[0].get("active").unwrap(), true);
+    assert!(projects_a[0].get("active").unwrap().as_bool().unwrap());
 }
 
 /// Passes if the create mutation and the read query both succeed.

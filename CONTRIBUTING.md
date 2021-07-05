@@ -13,13 +13,8 @@ git clone https://github.com/warpforge/warpgrapher.git
 
 ## Build Warpgrapher
 
-To build for use with Cosmos DB:
-
-```bash
-cargo build --features cosmos
-```
-
-To build for use with a Gremlin-based database, such as Apache Tinkerpop or AWS Neptune:
+To build for use with a Gremlin-based database, such as Apache Tinkerpop, AWS Neptune, or Azure 
+CosmosDB:
 
 ```bash
 cargo build --features gremlin
