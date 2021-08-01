@@ -857,7 +857,31 @@ where
             .await
     }
     
-    pub async fn resolve_node_list(&self, node_list: Vec<&Node<RequestCtx>>) -> ExecutionResult {
+
+    /// Returns a GraphQL Object representing a list of graph node defined by a type and a map of props.
+    ///
+    /// # Examples
+    /// ```rust, no_run
+    /// use serde_json::json;
+    /// use std::collections::HashMap;
+    /// use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
+    /// use warpgrapher::engine::value::Value;
+    /// use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
+    ///     Box::pin(async move {
+    ///         // do work
+    ///         let mut hm = HashMap::new();
+    ///         hm.insert("name".to_string(), Value::String("John Doe".to_string()));
+    ///         hm.insert("age".to_string(), Value::Int64(21));
+    ///
+    ///         // return node
+    ///         let node_list = vec![facade.node("User", hm)]
+    ///         facade.resolve_node_list(node_list).await
+    ///     })
+    /// }
+    /// ```
+    pub async fn resolve_node_list(&self, node_list: Vec<Node<RequestCtx>>) -> ExecutionResult {
         self.executor
             .resolve_async(
                 &Info::new(node_list.first().unwrap().typename().to_string(), self.info.type_defs()),
