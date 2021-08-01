@@ -766,6 +766,15 @@ where
             )
             .await
     }
+    
+    pub async fn resolve_node_list(&self, node_list: Vec<&Node<RequestCtx>>) -> ExecutionResult {
+        self.executor
+            .resolve_async(
+                &Info::new(node_list.first().unwrap().typename().to_string(), self.info.type_defs()),
+                &node_list,
+            )
+            .await
+    }
 
     /// Returns a GraphQL Object representing a graph relationship defined by an ID, props, and a
     /// destination Warpgrapher Node.
