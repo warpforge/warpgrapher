@@ -876,7 +876,7 @@ where
     ///         hm.insert("age".to_string(), Value::Int64(21));
     ///
     ///         // return node
-    ///         let node_list = vec![facade.node("User", hm)]
+    ///         let node_list = vec![facade.node("User", hm)];
     ///         facade.resolve_node_list(node_list).await
     ///     })
     /// }
