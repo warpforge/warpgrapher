@@ -1,6 +1,6 @@
 //! Provides the [`Error`] type for Warpgrapher
 
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+#[cfg(feature = "gremlin")]
 use gremlin_client::GremlinError;
 use http::header::{InvalidHeaderName, InvalidHeaderValue};
 use std::fmt::{Display, Formatter};
@@ -97,7 +97,7 @@ pub enum Error {
     },
 
     /// Returned if a client for a Cosmos or Gremlin database pool cannot be built or a query fails.
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     GremlinActionFailed {
         source: Box<gremlin_client::GremlinError>,
     },
@@ -327,7 +327,7 @@ impl Display for Error {
             Error::EventError { source } => {
                 write!(f, "Event handler returned an error: {}", source)
             }
-            #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+            #[cfg(feature = "gremlin")]
             Error::GremlinActionFailed { source } => {
                 write!(
                     f,
@@ -486,7 +486,7 @@ impl std::error::Error for Error {
             Error::EnvironmentVariableBoolNotParsed { source } => Some(source),
             Error::EnvironmentVariableIntNotParsed { source } => Some(source),
             Error::EventError { source } => Some(source.as_ref()),
-            #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+            #[cfg(feature = "gremlin")]
             Error::GremlinActionFailed { source } => Some(source),
             Error::InputItemNotFound { name: _ } => None,
             Error::InvalidHeaderName { source } => Some(source),
@@ -546,7 +546,7 @@ impl From<bolt_proto::error::Error> for Error {
     }
 }
 
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+#[cfg(feature = "gremlin")]
 impl From<GremlinError> for Error {
     fn from(e: GremlinError) -> Self {
         Error::GremlinActionFailed {

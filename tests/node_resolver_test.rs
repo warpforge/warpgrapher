@@ -3,13 +3,13 @@ mod setup;
 use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
 #[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
+use setup::{bolt_transaction, clear_db, init, neo4j_test_client, Neo4jRequestCtx};
 #[cfg(feature = "neo4j")]
-use setup::{bolt_client, clear_db, init};
-#[cfg(feature = "neo4j")]
-use std::iter::FromIterator;
+use std::collections::HashMap;
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
+#[cfg(feature = "neo4j")]
+use warpgrapher::engine::database::Transaction;
 use warpgrapher_macros::wg_test;
 
 /// Passes if the create mutation and the read query both succeed.
@@ -32,7 +32,7 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
     assert_eq!(p0.get("status").unwrap(), "GREEN");
     assert_eq!(p0.get("priority").unwrap(), 1);
     assert_approx_eq!(p0.get("estimate").unwrap().as_f64().unwrap(), 3.3);
-    assert_eq!(p0.get("active").unwrap(), true);
+    assert!(p0.get("active").unwrap().as_bool().unwrap());
 
     let projects = client
         .read_node(
@@ -57,7 +57,7 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
         projects_a[0].get("estimate").unwrap().as_f64().unwrap(),
         3.3
     );
-    assert_eq!(projects_a[0].get("active").unwrap(), true);
+    assert!(projects_a[0].get("active").unwrap().as_bool().unwrap());
 }
 
 /// Passes if the create mutation and the read query both succeed, with a specified id.
@@ -81,7 +81,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(p0.get("status").unwrap(), "GREEN");
     assert_eq!(p0.get("priority").unwrap(), 1);
     assert_approx_eq!(p0.get("estimate").unwrap().as_f64().unwrap(), 3.3);
-    assert_eq!(p0.get("active").unwrap(), true);
+    assert!(p0.get("active").unwrap().as_bool().unwrap());
 
     let projects = client
         .read_node(
@@ -106,7 +106,7 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
         projects_a[0].get("estimate").unwrap().as_f64().unwrap(),
         3.3
     );
-    assert_eq!(projects_a[0].get("active").unwrap(), true);
+    assert!(projects_a[0].get("active").unwrap().as_bool().unwrap());
 }
 
 /// Passes if the create mutation and the read query both succeed.
@@ -476,17 +476,16 @@ async fn error_on_node_missing_id_neo4j() {
     init();
     clear_db().await;
 
-    let mut graph = bolt_client().await.expect("Could not get database client.");
+    let mut graph = bolt_transaction()
+        .await
+        .expect("Could not get database client.");
     graph
-        .run_with_metadata("CREATE (n:Project { name: 'Project One' })", None, None)
+        .execute_query::<Neo4jRequestCtx>(
+            "CREATE (n:Project { name: 'Project One' })".to_string(),
+            HashMap::new(),
+        )
         .await
         .expect("Expected successful query run.");
-
-    let pull_meta = bolt_client::Metadata::from_iter(vec![("n", 1)]);
-    let (_response, _records) = graph
-        .pull(Some(pull_meta))
-        .await
-        .expect("Expected pull to succeed.");
 
     let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
     error_on_node_missing_id(client).await;

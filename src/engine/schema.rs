@@ -342,7 +342,7 @@ fn generate_query_props(
             p.name().to_string(),
             Property::new(
                 p.name().to_string(),
-                match p.type_name().as_ref() {
+                match p.type_name() {
                     "Boolean" => PropertyKind::Scalar,
                     "ID" => PropertyKind::ScalarComp,
                     "String" => PropertyKind::ScalarComp,
@@ -354,7 +354,7 @@ fn generate_query_props(
                         })
                     }
                 },
-                match p.type_name().as_ref() {
+                match p.type_name() {
                     "Boolean" => "Boolean".to_string(),
                     "ID" => fmt_string_query_input_name(),
                     "String" => fmt_string_query_input_name(),

@@ -1,6 +1,6 @@
 //! Traits and helper structs for interacting with the graph storage database
 
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
+#[cfg(feature = "gremlin")]
 pub mod gremlin;
 #[cfg(feature = "neo4j")]
 pub mod neo4j;
@@ -14,15 +14,11 @@ use crate::error::Error;
 use async_trait::async_trait;
 #[cfg(feature = "neo4j")]
 use bolt_proto::message::Record;
-#[cfg(any(feature = "cosmos", feature = "gremlin"))]
-use gremlin_client::{GValue, GremlinClient};
-#[cfg(feature = "neo4j")]
-use mobc::Connection;
-#[cfg(feature = "neo4j")]
-use mobc_boltrs::BoltConnectionManager;
+#[cfg(feature = "gremlin")]
+use gremlin_client::GValue;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use std::env::var_os;
 use std::fmt::Debug;
 
@@ -31,7 +27,7 @@ pub fn env_bool(var_name: &str) -> Result<bool, Error> {
     Ok(env_string(var_name)?.parse::<bool>()?)
 }
 
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 fn env_string(var_name: &str) -> Result<String, Error> {
     var_os(var_name)
         .map(|osstr| osstr.to_string_lossy().into_owned())
@@ -40,23 +36,9 @@ fn env_string(var_name: &str) -> Result<String, Error> {
         })
 }
 
-#[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
-}
-
-/// Contains a database client
-pub enum DatabaseClient {
-    /// Cosmos database client
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
-    Gremlin(Box<GremlinClient>),
-
-    /// Neo4J database client
-    #[cfg(feature = "neo4j")]
-    Neo4j(Box<Connection<BoltConnectionManager>>),
-
-    /// No database has been configured for use
-    NoDatabase,
 }
 
 /// Trait for a database endpoint. Structs that implement this trait typically take in a connection
@@ -172,38 +154,6 @@ pub trait DatabasePool: Clone + Sync + Send {
     /// # }
     /// ```
     async fn transaction(&self) -> Result<Self::TransactionType, Error>;
-
-    /// Returns a [`DatabaseClient`] for the database for which this DatabasePool has connections
-    ///
-    /// [`DatabaseClient`]: ./enum.DatabaseClient.html
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`Error`] if the client cannot be obtained from the pool. The specific [`Error`]
-    /// variant depends on the database back-end.
-    ///
-    /// [`Error`]: ../../enum.Error.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let endpoint = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let pool = endpoint.pool().await?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let client = pool.client().await?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    async fn client(&self) -> Result<DatabaseClient, Error>;
 }
 
 #[async_trait]
@@ -323,7 +273,7 @@ pub trait Transaction: Send + Sync {
 }
 
 pub enum QueryResult {
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     Gremlin(Vec<GValue>),
 
     #[cfg(feature = "neo4j")]
@@ -438,7 +388,7 @@ pub struct QueryFragment {
 }
 
 impl QueryFragment {
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn new(
         match_fragment: String,
         where_fragment: String,
@@ -456,12 +406,12 @@ impl QueryFragment {
         &self.match_fragment
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn where_fragment(&self) -> &str {
         &self.where_fragment
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn params(self) -> HashMap<String, Value> {
         self.params
     }
@@ -497,7 +447,7 @@ impl NodeQueryVar {
         &self.suffix
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
