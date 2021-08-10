@@ -766,7 +766,7 @@ pub struct Property {
     /// Filter of properties that determines whether the property will be used in creation,
     /// matching/query, update, and output/shape portions of the schema
     #[serde(default)]
-    uses_filter: UsesFilter,
+    uses: UsesFilter,
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
@@ -817,7 +817,7 @@ impl Property {
     /// ```
     pub fn new(
         name: String,
-        uses_filter: UsesFilter,
+        uses: UsesFilter,
         type_name: String,
         required: bool,
         list: bool,
@@ -826,7 +826,7 @@ impl Property {
     ) -> Property {
         Property {
             name,
-            uses_filter,
+            uses,
             type_name,
             required,
             list,
@@ -874,9 +874,9 @@ impl Property {
     /// let p = Property::new("propname".to_string(), UsesFilter::all(), "String".to_string(),
     ///         true, false, None, None);
     ///
-    /// assert_eq!(UsesFilter::all(), p.uses_filter());
-    pub fn uses_filter(&self) -> UsesFilter {
-        self.uses_filter
+    /// assert_eq!(UsesFilter::all(), p.uses());
+    pub fn uses(&self) -> UsesFilter {
+        self.uses
     }
 
     /// Returns the optional name of the custom resolver associated with this property

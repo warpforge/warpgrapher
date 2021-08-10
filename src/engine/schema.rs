@@ -277,40 +277,37 @@ fn generate_create_props(props: &[crate::engine::config::Property]) -> HashMap<S
     );
 
     // insert properties into hashmap
-    props
-        .iter()
-        .filter(|p| p.uses_filter().create())
-        .for_each(|p| {
-            match &p.resolver() {
-                None => {
-                    hm.insert(
+    props.iter().filter(|p| p.uses().create()).for_each(|p| {
+        match &p.resolver() {
+            None => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::Scalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(p.required())
-                        .with_list(p.list())
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-                Some(r) => {
-                    hm.insert(
+                        PropertyKind::Scalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(p.required())
+                    .with_list(p.list())
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+            Some(r) => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::DynamicScalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(p.required())
-                        .with_list(p.list())
-                        .with_resolver(r)
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-            };
-        });
+                        PropertyKind::DynamicScalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(p.required())
+                    .with_list(p.list())
+                    .with_resolver(r)
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+        };
+    });
 
     hm
 }
@@ -321,40 +318,37 @@ fn generate_update_props(props: &[crate::engine::config::Property]) -> HashMap<S
     let mut hm = HashMap::new();
 
     // insert properties into hashmap
-    props
-        .iter()
-        .filter(|p| p.uses_filter().update())
-        .for_each(|p| {
-            match &p.resolver() {
-                None => {
-                    hm.insert(
+    props.iter().filter(|p| p.uses().update()).for_each(|p| {
+        match &p.resolver() {
+            None => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::Scalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(false)
-                        .with_list(p.list())
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-                Some(r) => {
-                    hm.insert(
+                        PropertyKind::Scalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(false)
+                    .with_list(p.list())
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+            Some(r) => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::DynamicScalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(false)
-                        .with_list(p.list())
-                        .with_resolver(r)
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-            };
-        });
+                        PropertyKind::DynamicScalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(false)
+                    .with_list(p.list())
+                    .with_resolver(r)
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+        };
+    });
 
     hm
 }
@@ -377,40 +371,37 @@ fn generate_output_props(
     }
 
     // insert properties into hashmap
-    props
-        .iter()
-        .filter(|p| p.uses_filter().output())
-        .for_each(|p| {
-            match &p.resolver() {
-                None => {
-                    hm.insert(
+    props.iter().filter(|p| p.uses().output()).for_each(|p| {
+        match &p.resolver() {
+            None => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::Scalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(p.required())
-                        .with_list(p.list())
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-                Some(r) => {
-                    hm.insert(
+                        PropertyKind::Scalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(p.required())
+                    .with_list(p.list())
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+            Some(r) => {
+                hm.insert(
+                    p.name().to_string(),
+                    Property::new(
                         p.name().to_string(),
-                        Property::new(
-                            p.name().to_string(),
-                            PropertyKind::DynamicScalar,
-                            p.type_name().to_string(),
-                        )
-                        .with_required(p.required())
-                        .with_list(p.list())
-                        .with_resolver(r)
-                        .with_validator(p.validator().cloned()),
-                    );
-                }
-            };
-        });
+                        PropertyKind::DynamicScalar,
+                        p.type_name().to_string(),
+                    )
+                    .with_required(p.required())
+                    .with_list(p.list())
+                    .with_resolver(r)
+                    .with_validator(p.validator().cloned()),
+                );
+            }
+        };
+    });
 
     hm
 }
@@ -433,7 +424,7 @@ fn generate_query_props(
             ),
         );
     }
-    for p in props.iter().filter(|p| p.uses_filter().query()) {
+    for p in props.iter().filter(|p| p.uses().query()) {
         query_props.insert(
             p.name().to_string(),
             Property::new(
