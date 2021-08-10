@@ -4,11 +4,11 @@
 use crate::engine::context::GraphQLContext;
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    DatabaseEndpoint, DatabasePool, NodeQueryVar, SuffixGenerator, Transaction, RelQueryVar
+    DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input,
-    visit_rel_query_input
+    visit_rel_query_input,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -254,7 +254,6 @@ where
         results
     }
 
-
     /// Provides an abstracted database rel read operation using warpgrapher inputs. This is the
     /// recommended way to read relationships in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
@@ -331,17 +330,11 @@ where
         .await?;
 
         let results = transaction
-            .read_rels(
-                query_fragment,
-                &rel_var,
-                None,
-                partition_key_opt,
-            )
+            .read_rels(query_fragment, &rel_var, None, partition_key_opt)
             .await?;
 
         Ok(results)
     }
-
 
     /// Provides an abstracted database node create operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
@@ -613,7 +606,9 @@ where
                 },
             ))
         } else {
-            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
+            Err(Error::TypeNotExpected {
+                details: Some("parent_node is not of type Object::Node".to_string()),
+            })
         }
     }
 
@@ -670,7 +665,9 @@ where
                 NodeRef::Node(dst),
             ))
         } else {
-            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
+            Err(Error::TypeNotExpected {
+                details: Some("parent_node is not of type Object::Node".to_string()),
+            })
         }
     }
 
@@ -752,7 +749,9 @@ where
         if let Object::Node(n) = self.parent {
             Ok(n)
         } else {
-            Err(Error::TypeNotExpected { details: Some("parent_node is not of type Object::Node".to_string()) })
+            Err(Error::TypeNotExpected {
+                details: Some("parent_node is not of type Object::Node".to_string()),
+            })
         }
     }
 
@@ -856,7 +855,6 @@ where
             )
             .await
     }
-    
 
     /// Returns a GraphQL Object representing a list of graph node defined by a type and a map of props.
     ///
@@ -884,7 +882,10 @@ where
     pub async fn resolve_node_list(&self, node_list: Vec<Node<RequestCtx>>) -> ExecutionResult {
         self.executor
             .resolve_async(
-                &Info::new(node_list.first().unwrap().typename().to_string(), self.info.type_defs()),
+                &Info::new(
+                    node_list.first().unwrap().typename().to_string(),
+                    self.info.type_defs(),
+                ),
                 &node_list,
             )
             .await

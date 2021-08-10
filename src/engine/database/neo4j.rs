@@ -1138,7 +1138,7 @@ impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Value> for Node<Requ
         match value {
             bolt_proto::value::Value::Node(n) => {
                 let type_name = &n.labels()[0];
-                let properties: &HashMap<String, bolt_proto::value::Value> = &n.properties();
+                let properties: &HashMap<String, bolt_proto::value::Value> = n.properties();
                 let props_value = Value::try_from(properties.clone())?;
                 let props = HashMap::<String, Value>::try_from(props_value)?;
                 Ok(Node::new(type_name.to_string(), props))

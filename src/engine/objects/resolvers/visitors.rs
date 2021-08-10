@@ -59,7 +59,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                 match p.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
                         p.validator().map_or(Ok(()), |v_name| {
-                            validate_input(context.validators(), &v_name, &input)
+                            validate_input(context.validators(), v_name, &input)
                         })
                     }
                     _ => Ok(()), // No validation action to take
@@ -79,7 +79,9 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                             inputs.insert(k, v);
                         }
                         _ => {
-                            return Err(Error::TypeNotExpected { details: Some("Expected Scalar or Input".to_string()) })
+                            return Err(Error::TypeNotExpected {
+                                details: Some("Expected Scalar or Input".to_string()),
+                            })
                         }
                     }
                     Ok((props, inputs))
@@ -171,7 +173,13 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                 .await?;
                             }
                         }
-                        _ => return Err(Error::TypeNotExpected { details: Some("Expected Scalar, DynamicScalar, or Input".to_string()) }),
+                        _ => {
+                            return Err(Error::TypeNotExpected {
+                                details: Some(
+                                    "Expected Scalar, DynamicScalar, or Input".to_string(),
+                                ),
+                            })
+                        }
                     }
                 }
             }
@@ -180,7 +188,11 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
 
             Ok(node)
         } else {
-            Err(Error::TypeNotExpected { details: Some("Expected visit_node_create_mutation_input input to be Map".to_string()) })
+            Err(Error::TypeNotExpected {
+                details: Some(
+                    "Expected visit_node_create_mutation_input input to be Map".to_string(),
+                ),
+            })
         }
     })
 }
@@ -239,7 +251,7 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
 
         visit_node_delete_mutation_input::<RequestCtx>(
             fragment,
-            &node_var,
+            node_var,
             m.remove("DELETE"),
             &Info::new(
                 itd.property("DELETE")?.type_name().to_owned(),
@@ -252,7 +264,9 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
         )
         .await
     } else {
-        Err(Error::TypeNotExpected { details: Some("Expected visit_node_delete_input input to be Map".to_string()) })
+        Err(Error::TypeNotExpected {
+            details: Some("Expected visit_node_delete_input input to be Map".to_string()),
+        })
     }
 }
 
@@ -497,9 +511,9 @@ pub(crate) fn visit_node_query_input<'a, RequestCtx: RequestContext>(
                 }
             }
 
-            transaction.node_read_fragment(rqfs, &node_var, props, sg)
+            transaction.node_read_fragment(rqfs, node_var, props, sg)
         } else {
-            transaction.node_read_fragment(Vec::new(), &node_var, HashMap::new(), sg)
+            transaction.node_read_fragment(Vec::new(), node_var, HashMap::new(), sg)
         }
     })
 }
@@ -607,7 +621,7 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
                 match p.kind() {
                     PropertyKind::Scalar | PropertyKind::DynamicScalar => {
                         p.validator().map_or(Ok(()), |v_name| {
-                            validate_input(context.validators(), &v_name, &input)
+                            validate_input(context.validators(), v_name, &input)
                         })
                     }
                     _ => Ok(()), // No validation action to take
@@ -996,7 +1010,9 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
         }
         Ok(rels)
     } else {
-        Err(Error::TypeNotExpected { details: Some("visit_rel_create_mutation_input input is not Map".to_string()) })
+        Err(Error::TypeNotExpected {
+            details: Some("visit_rel_create_mutation_input input is not Map".to_string()),
+        })
     }
 }
 
@@ -1537,7 +1553,7 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
 
         let fragment = visit_rel_query_input::<RequestCtx>(
             src_fragment_opt,
-            &rel_var,
+            rel_var,
             m.remove("MATCH"), // uses remove to take ownership
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
@@ -1555,7 +1571,7 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
             // remove used to take ownership
             visit_rel_update_mutation_input::<RequestCtx>(
                 fragment,
-                &rel_var,
+                rel_var,
                 props_type_name,
                 update,
                 &Info::new(
