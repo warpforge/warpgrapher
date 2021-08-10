@@ -28,14 +28,14 @@ use std::convert::TryInto;
 ///
 /// ```rust
 /// # use warpgrapher::Error;
-/// # use warpgrapher::engine::config::{Configuration, Property};
+/// # use warpgrapher::engine::config::{Configuration, Property, UsesFilter};
 ///
 /// fn before_engine_build_func(config: &mut Configuration) -> Result<(), Error> {
 ///     for t in config.model.iter_mut() {
 ///         let mut_props: &mut Vec<Property> = t.mut_props();
 ///         mut_props.push(Property::new(
 ///             "global_prop".to_string(),
-///             false,
+///             UsesFilter::all(),
 ///             "String".to_string(),
 ///             false,
 ///             false,
@@ -1220,7 +1220,10 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
-            &Info::new(format!("{}CreateMutationInput", type_name.to_string()), self.info.type_defs()),
+            &Info::new(
+                format!("{}CreateMutationInput", type_name.to_string()),
+                self.info.type_defs(),
+            ),
             partition_key_opt,
             &mut sg,
             self.transaction,

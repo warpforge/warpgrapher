@@ -61,7 +61,7 @@ where
     RequestCtx: RequestContext,
 {
     fn name(info: &Self::TypeInfo) -> Option<&str> {
-        Some(&info.name())
+        Some(info.name())
     }
 
     fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
@@ -138,7 +138,7 @@ where
     type TypeInfo = Info;
 
     fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
-        Some(&info.name())
+        Some(info.name())
     }
 }
 
@@ -215,10 +215,7 @@ where
             "__label".to_string(),
             Value::String(self.concrete_typename.clone()),
         );
-        fields.insert(
-            "id".to_string(),
-            self.id()?.clone(),
-        );
+        fields.insert("id".to_string(), self.id()?.clone());
         let m = Value::Map(fields);
         let v = serde_json::Value::try_from(m)?;
         let t: T = serde_json::from_value(v)
@@ -400,7 +397,12 @@ where
                             ))
                         }
                         (_, _, _) => {
-                            panic!("{}", Error::TypeNotExpected { details: Some("argument is not valid".to_string()) })
+                            panic!(
+                                "{}",
+                                Error::TypeNotExpected {
+                                    details: Some("argument is not valid".to_string())
+                                }
+                            )
                         }
                     }
                 })
@@ -422,7 +424,7 @@ where
     RequestCtx: RequestContext,
 {
     fn name(info: &Self::TypeInfo) -> Option<&str> {
-        Some(&info.name())
+        Some(info.name())
     }
 
     fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
@@ -430,7 +432,7 @@ where
         DefaultScalarValue: 'r,
     {
         trace!("Node::meta called -- info.name: {}", info.name());
-        let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
+        let nt = info.type_def_by_name(info.name()).unwrap_or_else(|e| {
             error!("Node::meta panicking on type: {}", info.name().to_string());
             panic!("{}", e)
         });
@@ -449,12 +451,12 @@ where
     type Context = GraphQLContext<RequestCtx>;
     type TypeInfo = Info;
     fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
-        Some(&info.name())
+        Some(info.name())
     }
 
     fn concrete_type_name(&self, _context: &Self::Context, info: &Self::TypeInfo) -> String {
         let tn = info
-            .type_def_by_name(&info.name())
+            .type_def_by_name(info.name())
             .unwrap_or_else(|e| {
                 error!(
                     "Node::concrete_type_name panicking on type: {}",
@@ -539,7 +541,7 @@ where
                     resolver
                         .resolve_custom_rel(
                             info,
-                            &rel_name,
+                            rel_name,
                             p.resolver(),
                             Object::Node(self),
                             args,
@@ -547,7 +549,10 @@ where
                         )
                         .await
                 }
-                PropertyKind::Input => Err((Error::TypeNotExpected { details: Some("PropertyKind::Input not expected".to_string()) }).into()),
+                PropertyKind::Input => Err((Error::TypeNotExpected {
+                    details: Some("PropertyKind::Input not expected".to_string()),
+                })
+                .into()),
                 PropertyKind::NodeCreateMutation => {
                     let input = input_opt.ok_or_else(|| Error::InputItemNotFound {
                         name: "input".to_string(),
@@ -561,7 +566,7 @@ where
                         name: "input".to_string(),
                     })?;
                     resolver
-                        .resolve_node_delete_mutation(field_name, &label, info, input, executor)
+                        .resolve_node_delete_mutation(field_name, label, info, input, executor)
                         .await
                 }
                 PropertyKind::NodeUpdateMutation => {
@@ -594,7 +599,7 @@ where
                         }
                     };
                     resolver
-                        .resolve_rel_read_query(field_name, &rel_name, info, io, executor)
+                        .resolve_rel_read_query(field_name, rel_name, info, io, executor)
                         .await
                 }
                 PropertyKind::RelCreateMutation {
@@ -606,7 +611,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_create_mutation(
-                            field_name, &src_label, &rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, executor,
                         )
                         .await
                 }
@@ -619,7 +624,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_delete_mutation(
-                            field_name, &src_label, &rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, executor,
                         )
                         .await
                 }
@@ -632,7 +637,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_update_mutation(
-                            field_name, &src_label, &rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, executor,
                         )
                         .await
                 }
@@ -641,8 +646,14 @@ where
                         .resolve_scalar_field(info, field_name, &self.fields, executor)
                         .await
                 }
-                PropertyKind::ScalarComp => Err((Error::TypeNotExpected { details: Some("PropertyKind::ScalarComp not expected".to_string()) }).into()),
-                PropertyKind::Union => Err((Error::TypeNotExpected { details: Some("PropertyKind::Union not expected".to_string()) }).into()),
+                PropertyKind::ScalarComp => Err((Error::TypeNotExpected {
+                    details: Some("PropertyKind::ScalarComp not expected".to_string()),
+                })
+                .into()),
+                PropertyKind::Union => Err((Error::TypeNotExpected {
+                    details: Some("PropertyKind::Union not expected".to_string()),
+                })
+                .into()),
                 PropertyKind::VersionQuery => resolver.resolve_static_version_query(executor).await,
             };
 
@@ -771,7 +782,7 @@ where
     RequestCtx: RequestContext,
 {
     fn name(info: &Self::TypeInfo) -> Option<&str> {
-        Some(&info.name())
+        Some(info.name())
     }
 
     fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
@@ -780,7 +791,7 @@ where
     {
         trace!("Rel::meta called for {}", info.name());
 
-        let nt = info.type_def_by_name(&info.name()).unwrap_or_else(|e| {
+        let nt = info.type_def_by_name(info.name()).unwrap_or_else(|e| {
             error!("Rel::meta panicking on type: {}", info.name().to_string());
             panic!("{}", e)
         });
@@ -828,12 +839,12 @@ where
     type TypeInfo = Info;
 
     fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
-        Some(&info.name())
+        Some(info.name())
     }
 
     fn concrete_type_name(&self, _context: &Self::Context, info: &Self::TypeInfo) -> String {
         let tn = info
-            .type_def_by_name(&info.name())
+            .type_def_by_name(info.name())
             .unwrap_or_else(|e| {
                 error!("Rel::concrete_type_name panicking on type: {}", info.name());
                 panic!("{}", e)
@@ -894,7 +905,10 @@ where
                             .resolve_rel_props(info, field_name, p, executor)
                             .await
                     }
-                    None => Err(Error::TypeNotExpected { details: Some("Object is missing props".to_string()) }.into()),
+                    None => Err(Error::TypeNotExpected {
+                        details: Some("Object is missing props".to_string()),
+                    }
+                    .into()),
                 },
                 (PropertyKind::Object, &"src") => match &self.src_ref {
                     NodeRef::Identifier { id, label: _ } => {
@@ -926,16 +940,19 @@ where
                 (PropertyKind::Union, _) => match &self.dst_ref {
                     NodeRef::Identifier { id, label } => {
                         resolver
-                            .resolve_union_field(info, label, field_name, &id, executor)
+                            .resolve_union_field(info, label, field_name, id, executor)
                             .await
                     }
                     NodeRef::Node(n) => {
                         resolver
-                            .resolve_union_field_node(info, field_name, &n, executor)
+                            .resolve_union_field_node(info, field_name, n, executor)
                             .await
                     }
                 },
-                (_, _) => Err((Error::TypeNotExpected { details: Some("Unexpected PropertyKind".to_string()) }).into()),
+                (_, _) => Err((Error::TypeNotExpected {
+                    details: Some("Unexpected PropertyKind".to_string()),
+                })
+                .into()),
             }
         })
     }
