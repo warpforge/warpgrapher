@@ -142,6 +142,7 @@ pub(crate) struct Property {
     name: String,
     kind: PropertyKind,
     type_name: String,
+    hidden: bool,
     required: bool,
     list: bool,
     arguments: HashMap<String, Argument>,
@@ -155,6 +156,7 @@ impl Property {
             name,
             kind,
             type_name,
+            hidden: false,
             required: false,
             list: false,
             arguments: HashMap::new(),
@@ -180,6 +182,10 @@ impl Property {
                         name: input_arg.type_name.to_string(),
                     })
             })
+    }
+
+    pub(crate) fn hidden(&self) -> bool {
+        self.hidden
     }
 
     pub(crate) fn kind(&self) -> &PropertyKind {
@@ -212,6 +218,11 @@ impl Property {
 
     fn with_arguments(mut self, arguments: HashMap<String, Argument>) -> Self {
         self.arguments = arguments;
+        self
+    }
+
+    fn with_hidden(mut self, hidden: bool) -> Self {
+        self.hidden = hidden;
         self
     }
 
@@ -277,7 +288,7 @@ fn generate_create_props(props: &[crate::engine::config::Property]) -> HashMap<S
     );
 
     // insert properties into hashmap
-    props.iter().filter(|p| p.uses().create()).for_each(|p| {
+    props.iter().for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(
@@ -288,6 +299,7 @@ fn generate_create_props(props: &[crate::engine::config::Property]) -> HashMap<S
                         p.type_name().to_string(),
                     )
                     .with_required(p.required())
+                    .with_hidden(!p.uses().create())
                     .with_list(p.list())
                     .with_validator(p.validator().cloned()),
                 );
@@ -301,6 +313,7 @@ fn generate_create_props(props: &[crate::engine::config::Property]) -> HashMap<S
                         p.type_name().to_string(),
                     )
                     .with_required(p.required())
+                    .with_hidden(!p.uses().create())
                     .with_list(p.list())
                     .with_resolver(r)
                     .with_validator(p.validator().cloned()),
@@ -318,7 +331,7 @@ fn generate_update_props(props: &[crate::engine::config::Property]) -> HashMap<S
     let mut hm = HashMap::new();
 
     // insert properties into hashmap
-    props.iter().filter(|p| p.uses().update()).for_each(|p| {
+    props.iter().for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(
@@ -329,6 +342,7 @@ fn generate_update_props(props: &[crate::engine::config::Property]) -> HashMap<S
                         p.type_name().to_string(),
                     )
                     .with_required(false)
+                    .with_hidden(!p.uses().update())
                     .with_list(p.list())
                     .with_validator(p.validator().cloned()),
                 );
@@ -342,6 +356,7 @@ fn generate_update_props(props: &[crate::engine::config::Property]) -> HashMap<S
                         p.type_name().to_string(),
                     )
                     .with_required(false)
+                    .with_hidden(!p.uses().update())
                     .with_list(p.list())
                     .with_resolver(r)
                     .with_validator(p.validator().cloned()),
@@ -371,7 +386,7 @@ fn generate_output_props(
     }
 
     // insert properties into hashmap
-    props.iter().filter(|p| p.uses().output()).for_each(|p| {
+    props.iter().for_each(|p| {
         match &p.resolver() {
             None => {
                 hm.insert(
@@ -382,6 +397,7 @@ fn generate_output_props(
                         p.type_name().to_string(),
                     )
                     .with_required(p.required())
+                    .with_hidden(!p.uses().output())
                     .with_list(p.list())
                     .with_validator(p.validator().cloned()),
                 );
@@ -395,6 +411,7 @@ fn generate_output_props(
                         p.type_name().to_string(),
                     )
                     .with_required(p.required())
+                    .with_hidden(p.uses().output())
                     .with_list(p.list())
                     .with_resolver(r)
                     .with_validator(p.validator().cloned()),
@@ -424,7 +441,7 @@ fn generate_query_props(
             ),
         );
     }
-    for p in props.iter().filter(|p| p.uses().query()) {
+    for p in props.iter() {
         query_props.insert(
             p.name().to_string(),
             Property::new(
@@ -453,7 +470,8 @@ fn generate_query_props(
                         })
                     }
                 },
-            ),
+            )
+            .with_hidden(!p.uses().query()),
         );
     }
     Ok(query_props)
@@ -2078,6 +2096,7 @@ fn string_array_input(name: &str) -> Property {
         name: name.to_string(),
         kind: PropertyKind::Scalar,
         type_name: "String".to_string(),
+        hidden: false,
         required: false,
         list: true,
         arguments: HashMap::new(),
