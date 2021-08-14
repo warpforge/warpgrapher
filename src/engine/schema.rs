@@ -411,7 +411,7 @@ fn generate_output_props(
                         p.type_name().to_string(),
                     )
                     .with_required(p.required())
-                    .with_hidden(p.uses().output())
+                    .with_hidden(!p.uses().output())
                     .with_list(p.list())
                     .with_resolver(r)
                     .with_validator(p.validator().cloned()),
