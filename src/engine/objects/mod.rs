@@ -84,6 +84,7 @@ where
 
         let args = props
             .iter()
+            .filter(|p| !p.hidden())
             .map(|p| match (p.type_name(), p.required(), p.list()) {
                 ("Boolean", false, false) => registry.arg::<Option<bool>>(p.name(), &()),
                 ("Boolean", false, true) => registry.arg::<Option<Vec<bool>>>(p.name(), &()),
@@ -283,6 +284,7 @@ where
 
         let fields = props
             .iter()
+            .filter(|p| !p.hidden())
             .map(|p| {
                 let f = match (p.type_name(), p.required(), p.list(), p.kind()) {
                     ("Boolean", false, false, _) => registry.field::<Option<bool>>(p.name(), &()),
@@ -801,6 +803,7 @@ where
 
         let fields = props
             .iter()
+            .filter(|p| !p.hidden())
             .map(|p| match (p.type_name(), p.required(), p.list()) {
                 ("ID", false, false) => registry.field::<Option<ID>>(p.name(), &()),
                 ("ID", false, true) => registry.field::<Option<Vec<ID>>>(p.name(), &()),
