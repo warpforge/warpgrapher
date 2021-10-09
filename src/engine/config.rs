@@ -1158,6 +1158,7 @@ pub struct Type {
     name: String,
 
     /// Vector of properties on this type
+    #[serde(default)]
     props: Vec<Property>,
 
     /// Vector of relationships on this type
