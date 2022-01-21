@@ -51,3 +51,4 @@ The project is currently in active development. Prior to reaching 1.0.0:
 1. Minor versions represent breaking changes.
 2. Patch versions represent fixes and features.
 3. There are no deprecation warnings between releases.
+

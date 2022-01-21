@@ -752,9 +752,10 @@ pub enum GraphqlType {
 /// # Examples
 ///
 /// ```rust
-/// # use warpgrapher::engine::config::Property;
+/// # use warpgrapher::engine::config::{Property, UsesFilter};
 ///
-/// let p = Property::new("name".to_string(), false, "String".to_string(), true, false, None, None);
+/// let p = Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true,
+/// false, None, None);
 /// ```
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -762,9 +763,10 @@ pub struct Property {
     /// Name of the property
     name: String,
 
-    /// If true, removes this property from the schema and hides it from the public API
-    #[serde(default = "get_false")]
-    hidden: bool,
+    /// Filter of properties that determines whether the property will be used in creation,
+    /// matching/query, update, and output/shape portions of the schema
+    #[serde(default)]
+    uses: UsesFilter,
 
     /// The name of the type of the property (e.g. String)
     #[serde(rename = "type")]
@@ -808,13 +810,14 @@ impl Property {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::Property;
+    /// # use warpgrapher::engine::config::{Property, UsesFilter};
     ///
-    /// let p = Property::new("name".to_string(), false, "String".to_string(), true, false, None, None);
+    /// let p = Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true,
+    /// false, None, None);
     /// ```
     pub fn new(
         name: String,
-        hidden: bool,
+        uses: UsesFilter,
         type_name: String,
         required: bool,
         list: bool,
@@ -823,7 +826,7 @@ impl Property {
     ) -> Property {
         Property {
             name,
-            hidden,
+            uses,
             type_name,
             required,
             list,
@@ -840,7 +843,8 @@ impl Property {
     ///
     /// # use warpgrapher::engine::config::Property;
     ///
-    /// let p = Property::new("name".to_string(), "String".to_string(), true, false, None, None);
+    /// let p = Property::new("name".to_string(), UsesFiter::all(), "String".to_string(),
+    ///         true, false, None, None);
     ///
     /// assert!(!p.list());
     pub fn list(&self) -> bool {
@@ -853,16 +857,26 @@ impl Property {
     ///
     /// # use warpgrapher::engine::config::Property;
     ///
-    /// let p = Property::new("propname".to_string(), "String".to_string(), true, false, None,
-    ///     None);
+    /// let p = Property::new("propname".to_string(), UsesFilter::all(), "String".to_string(),
+    ///     true, false, None, None);
     ///
     /// assert_eq!("propname", p.name());
     pub fn name(&self) -> &str {
         &self.name
     }
 
-    pub fn hidden(&self) -> bool {
-        self.hidden
+    /// Returns the filter describing how a property is to be used
+    ///
+    /// # Examples
+    ///
+    /// # use warpgrapher::engine::config::Property;
+    ///
+    /// let p = Property::new("propname".to_string(), UsesFilter::all(), "String".to_string(),
+    ///         true, false, None, None);
+    ///
+    /// assert_eq!(UsesFilter::all(), p.uses());
+    pub fn uses(&self) -> UsesFilter {
+        self.uses
     }
 
     /// Returns the optional name of the custom resolver associated with this property
@@ -1125,12 +1139,14 @@ impl Relationship {
 /// # Examples
 ///
 /// ```rust
-/// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+/// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
 ///
 /// let t = Type::new(
 ///     "User".to_string(),
-///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
-///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
+///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(),
+///         true, false, None, None),
+///          Property::new("role".to_string(), UsesFilter::all(), "String".to_string(),
+///         true, false, None, None)),
 ///     vec!(),
 ///     EndpointsFilter::all()
 /// );
@@ -1142,6 +1158,7 @@ pub struct Type {
     name: String,
 
     /// Vector of properties on this type
+    #[serde(default)]
     props: Vec<Property>,
 
     /// Vector of relationships on this type
@@ -1174,12 +1191,14 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(),
+    ///         true, false, None, None),
+    ///          Property::new("role".to_string(), UsesFilter::all(), "String".to_string(),
+    ///         true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1204,12 +1223,12 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None),
+    ///          Property::new("role".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1228,12 +1247,12 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None),
-    ///          Property::new("role".to_string(), false, "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None),
+    ///          Property::new("role".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1251,14 +1270,12 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
-    ///     vec!(),
-    ///     EndpointsFilter::all()
-    /// );
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(),
+    ///         true, false, None, None)), vec!(), EndpointsFilter::all());
     ///
     /// assert_eq!("name", t.props().next().expect("Expected property").name());
     /// ```
@@ -1277,11 +1294,11 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter};
+    /// # use warpgrapher::engine::config::{Type, Property, EndpointsFilter, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None)),
     ///     vec!(),
     ///     EndpointsFilter::all()
     /// );
@@ -1300,13 +1317,15 @@ impl Type {
     /// # Examples
     ///
     /// ```rust
-    /// # use warpgrapher::engine::config::{EndpointsFilter, Property, Relationship, Type};
+    /// # use warpgrapher::engine::config::{EndpointsFilter, Property, Relationship,
+    /// #    Type, UsesFilter};
     ///
     /// let t = Type::new(
     ///     "User".to_string(),
-    ///     vec!(Property::new("name".to_string(), false, "String".to_string(), true, false, None, None)),
+    ///     vec!(Property::new("name".to_string(), UsesFilter::all(), "String".to_string(), true,
+    ///         false, None, None)),
     ///     vec!(Relationship::new("rel_name".to_string(), false, vec!("Role".to_string()), vec!(
-    ///         Property::new("rel_prop".to_string(), false, "String".to_string(), true, false, None, None)
+    ///         Property::new("rel_prop".to_string(), UsesFilter::all(), "String".to_string(), true, false, None, None)
     ///     ), EndpointsFilter::all(), None)),
     ///     EndpointsFilter::all()
     /// );
@@ -1376,6 +1395,166 @@ pub enum TypeDef {
     Custom(Type),
 }
 
+/// Configuration item for property usage filters. This allows configuration to control which of the
+/// basic creation input, query input, update input, and output uses are auto-generated for a
+/// [`Property`]. If a filter boolean is set to true, the use of the property is generated. False
+/// indicates that the property should be omitted from use. For example, one might set the output
+/// use to true and all other uses to false for calculated value that is derived upon request but
+/// would never appear in the creation or update of a node. If all are set to false, the property
+/// is hidden, meaning that it can be read from and written to the database but does not appear in
+/// the client-facing GraphQL schema.
+///
+/// [`Property`]: ./struct.Property.html
+///
+/// # Examples
+///
+/// ```rust
+/// # use warpgrapher::engine::config::UsesFilter;
+///
+/// let uf = UsesFilter::new(true, true, true, true);
+/// ```
+#[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
+pub struct UsesFilter {
+    /// True if the property should be included in the NodeCreateMutationInput portion of the schema
+    #[serde(default = "get_true")]
+    create: bool,
+
+    /// True if the property should be included in the NodeQueryInput portion of the schema
+    #[serde(default = "get_true")]
+    query: bool,
+
+    /// True if the property should be included in the NodeUpdateMutationInput portion of the schema
+    #[serde(default = "get_true")]
+    update: bool,
+
+    /// True if the property should be included in output shape portion of the schema
+    #[serde(default = "get_true")]
+    output: bool,
+}
+
+impl UsesFilter {
+    /// Creates a new filter with the option to configure uses of a property
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::new(false, false, false, true);
+    /// ```
+    pub fn new(create: bool, query: bool, update: bool, output: bool) -> UsesFilter {
+        UsesFilter {
+            create,
+            query,
+            update,
+            output,
+        }
+    }
+
+    /// Creates a new filter with all uses -- create, query, update, and output
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::all();
+    /// ```
+    pub fn all() -> UsesFilter {
+        UsesFilter {
+            create: true,
+            query: true,
+            update: true,
+            output: true,
+        }
+    }
+
+    /// Returns true if Warpgrapher should use the property in the NodeCreateMutationInput
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::all();
+    /// assert_eq!(true, uf.create());
+    /// ```
+    pub fn create(self) -> bool {
+        self.create
+    }
+
+    /// Returns true if Warpgrapher should use the property in the NodeQueryInput
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::all();
+    /// assert_eq!(true, uf.query());
+    /// ```
+    pub fn query(self) -> bool {
+        self.query
+    }
+
+    /// Creates a new filter with no uses of a property, hiding it from the GraphQL schema
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::none();
+    /// ```
+    pub fn none() -> UsesFilter {
+        UsesFilter {
+            create: false,
+            query: false,
+            update: false,
+            output: false,
+        }
+    }
+
+    /// Returns true if Warpgrapher should generate a property in the output shape of a node
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::all();
+    /// assert_eq!(true, uf.output());
+    /// ```
+    pub fn output(self) -> bool {
+        self.output
+    }
+
+    /// Returns true if Warpgrapher should use the property in the NodeUpdateInput
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::config::UsesFilter;
+    ///
+    /// let uf = UsesFilter::all();
+    /// assert_eq!(true, uf.update());
+    /// ```
+    pub fn update(self) -> bool {
+        self.update
+    }
+}
+
+impl Default for UsesFilter {
+    fn default() -> UsesFilter {
+        UsesFilter {
+            create: true,
+            query: true,
+            update: true,
+            output: true,
+        }
+    }
+}
+
 /// Creates a combined [`Configuration`] data structure from multiple [`Configuration`] structs.
 /// All [`Configuration`] structs must be the same version.
 ///
@@ -1443,7 +1622,7 @@ pub(crate) fn mock_project_type() -> Type {
         vec![
             Property::new(
                 "name".to_string(),
-                false,
+                UsesFilter::all(),
                 "String".to_string(),
                 true,
                 false,
@@ -1452,7 +1631,7 @@ pub(crate) fn mock_project_type() -> Type {
             ),
             Property::new(
                 "tags".to_string(),
-                false,
+                UsesFilter::all(),
                 "String".to_string(),
                 false,
                 true,
@@ -1461,7 +1640,7 @@ pub(crate) fn mock_project_type() -> Type {
             ),
             Property::new(
                 "public".to_string(),
-                false,
+                UsesFilter::all(),
                 "Boolean".to_string(),
                 true,
                 false,
@@ -1476,7 +1655,7 @@ pub(crate) fn mock_project_type() -> Type {
                 vec!["User".to_string()],
                 vec![Property::new(
                     "since".to_string(),
-                    false,
+                    UsesFilter::all(),
                     "String".to_string(),
                     false,
                     false,
@@ -1521,7 +1700,7 @@ fn mock_user_type() -> Type {
         "User".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1539,7 +1718,7 @@ fn mock_kanbanboard_type() -> Type {
         "KanbanBoard".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1557,7 +1736,7 @@ fn mock_scrumboard_type() -> Type {
         "ScrumBoard".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1575,7 +1754,7 @@ fn mock_feature_type() -> Type {
         "Feature".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1593,7 +1772,7 @@ fn mock_bug_type() -> Type {
         "Bug".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1611,7 +1790,7 @@ fn mock_commit_type() -> Type {
         "Commit".to_string(),
         vec![Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1664,7 +1843,7 @@ pub(crate) fn mock_endpoint_three() -> Endpoint {
                 "BurndownFilter".to_string(),
                 vec![Property::new(
                     "ticket_types".to_string(),
-                    false,
+                    UsesFilter::all(),
                     "String".to_string(),
                     true,
                     false,
@@ -1682,7 +1861,7 @@ pub(crate) fn mock_endpoint_three() -> Endpoint {
                 "BurndownMetrics".to_string(),
                 vec![Property::new(
                     "points".to_string(),
-                    false,
+                    UsesFilter::all(),
                     "Int".to_string(),
                     false,
                     false,
@@ -1727,7 +1906,7 @@ pub(crate) fn mock_endpoints_filter() -> Configuration {
             "User".to_string(),
             vec![Property::new(
                 "name".to_string(),
-                false,
+                UsesFilter::all(),
                 "String".to_string(),
                 true,
                 false,
@@ -1745,7 +1924,7 @@ pub(crate) fn mock_endpoints_filter() -> Configuration {
 mod tests {
     use super::{
         compose, Configuration, Endpoint, EndpointType, EndpointsFilter, Property, Relationship,
-        Type,
+        Type, UsesFilter,
     };
     use crate::Error;
     use std::convert::TryInto;
@@ -1766,7 +1945,7 @@ mod tests {
                     vec![
                         Property::new(
                             "username".to_string(),
-                            false,
+                            UsesFilter::all(),
                             "String".to_string(),
                             false,
                             false,
@@ -1775,7 +1954,7 @@ mod tests {
                         ),
                         Property::new(
                             "email".to_string(),
-                            false,
+                            UsesFilter::all(),
                             "String".to_string(),
                             false,
                             false,
@@ -1791,7 +1970,7 @@ mod tests {
                     "Team".to_string(),
                     vec![Property::new(
                         "teamname".to_string(),
-                        false,
+                        UsesFilter::all(),
                         "String".to_string(),
                         false,
                         false,
@@ -1829,7 +2008,7 @@ mod tests {
     fn new_property() {
         let p = Property::new(
             "name".to_string(),
-            false,
+            UsesFilter::all(),
             "String".to_string(),
             true,
             false,
@@ -1849,7 +2028,7 @@ mod tests {
             vec![
                 Property::new(
                     "name".to_string(),
-                    false,
+                    UsesFilter::all(),
                     "String".to_string(),
                     true,
                     false,
@@ -1858,7 +2037,7 @@ mod tests {
                 ),
                 Property::new(
                     "role".to_string(),
-                    false,
+                    UsesFilter::all(),
                     "String".to_string(),
                     true,
                     false,

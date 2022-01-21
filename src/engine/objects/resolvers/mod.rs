@@ -36,7 +36,11 @@ impl<'r> Resolver<'r> {
         Resolver { partition_key_opt }
     }
 
-    #[tracing::instrument(name = "execute_endpoint", skip(self, info, parent, args, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "execute_endpoint",
+        skip(self, info, parent, args, executor)
+    )]
     pub(super) async fn resolve_custom_endpoint<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
@@ -93,7 +97,7 @@ impl<'r> Resolver<'r> {
             args,
             parent,
             self.partition_key_opt,
-            &executor,
+            executor,
         ))
         .await
     }
@@ -130,7 +134,11 @@ impl<'r> Resolver<'r> {
         .await
     }
 
-    #[tracing::instrument(name = "create_node", skip(self, info, input, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "create_node",
+        skip(self, info, input, executor)
+    )]
     pub(super) async fn resolve_node_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -187,7 +195,11 @@ impl<'r> Resolver<'r> {
     }
 
     #[allow(unused_variables)]
-    #[tracing::instrument(name = "delete_node", skip(self, info, input, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "delete_node",
+        skip(self, info, input, executor)
+    )]
     pub(super) async fn resolve_node_delete_mutation<RequestCtx>(
         &mut self,
         field_name: &str,
@@ -242,7 +254,11 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results?)
     }
 
-    #[tracing::instrument(name = "read_node", skip(self, info, input_opt, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "read_node",
+        skip(self, info, input_opt, executor)
+    )]
     pub(super) async fn resolve_node_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -265,7 +281,7 @@ impl<'r> Resolver<'r> {
         } else {
             info.type_def_by_name("Query")?
                 .property(p.type_name())?
-                .input_type_definition(&info)?
+                .input_type_definition(info)?
         };
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
@@ -377,7 +393,11 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[tracing::instrument(name = "update_node", skip(self, info, input, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "update_node",
+        skip(self, info, input, executor)
+    )]
     pub(super) async fn resolve_node_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -432,7 +452,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name = "create_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(level = "info", name = "create_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -492,7 +512,7 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name = "delete_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(level = "info", name = "delete_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -570,7 +590,11 @@ impl<'r> Resolver<'r> {
             .await
     }
 
-    #[tracing::instrument(name = "read_rel", skip(self, info, input_opt, executor))]
+    #[tracing::instrument(
+        level = "info",
+        name = "read_rel",
+        skip(self, info, input_opt, executor)
+    )]
     pub(super) async fn resolve_rel_read_query<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -592,7 +616,7 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(&p.type_name())?;
+        let rtd = info.type_def_by_name(p.type_name())?;
         let src_prop = rtd.property("src")?;
 
         let dst_suffix = sg.suffix();
@@ -717,7 +741,7 @@ impl<'r> Resolver<'r> {
         }
     }
 
-    #[tracing::instrument(name = "update_rel", skip(self, info, input, executor))]
+    #[tracing::instrument(level = "info", name = "update_rel", skip(self, info, input, executor))]
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
@@ -739,7 +763,7 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(&p.type_name())?;
+        let rtd = info.type_def_by_name(p.type_name())?;
         let props_prop = rtd.property("props");
         let rel_var = RelQueryVar::new(
             rel_name.to_string(),
@@ -835,10 +859,18 @@ impl<'r> Resolver<'r> {
                         }
                     }
                     Some(Value::Array(_)) | Some(Value::Map(_)) | None => {
-                        Err((Error::TypeNotExpected { details: None }).into())
+                        Err((Error::TypeNotExpected {
+                            details: Some(
+                                "Expected Array of scalar, found Array of Array/Map".to_string(),
+                            ),
+                        })
+                        .into())
                     }
                 },
-                Value::Map(_) => Err((Error::TypeNotExpected { details: None }).into()),
+                Value::Map(_) => Err((Error::TypeNotExpected {
+                    details: Some("Expected scalar, found Map".to_string()),
+                })
+                .into()),
             },
         )
     }

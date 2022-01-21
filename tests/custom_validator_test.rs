@@ -35,7 +35,7 @@ async fn custom_input_validator_create() {
     trace!("RESULT: {:#?}", result);
     let error = matches!(result, serde_json::Value::Null);
 
-    assert_eq!(error, true);
+    assert!(error);
 
     // shutdown server
 }
@@ -85,7 +85,7 @@ async fn custom_input_validator_update() {
     trace!("RESULT: {:#?}", result);
     let error = matches!(result, serde_json::Value::Null);
 
-    assert_eq!(error, true);
+    assert!(error);
 
     // shutdown server
 }

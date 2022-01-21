@@ -3,8 +3,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment,
-    QueryResult, RelQueryVar, SuffixGenerator, Transaction,
+    Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, QueryResult,
+    RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -37,10 +37,6 @@ impl DatabasePool for NoDatabasePool {
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(NoTransaction {})
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::NoDatabase)
     }
 }
 

@@ -8,6 +8,13 @@ model:
         type: String
         required: true
 
+  # Portfolio -- used to test that nodes with only rels, no props, are handled correctly
+  - name: Portfolio
+    rels: 
+      - name: projects
+        nodes: [Project]
+        list: true
+
   # Project
   - name: Project
     props:
