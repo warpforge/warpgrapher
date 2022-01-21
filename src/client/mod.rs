@@ -142,7 +142,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -251,7 +251,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -320,7 +320,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -402,7 +402,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     /// # use serde_json::json;
     ///
     /// # #[tokio::main]
@@ -481,7 +481,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -574,7 +574,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Examples
     ///
     /// ```no_run
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -640,7 +640,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -712,7 +712,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {
@@ -784,7 +784,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// ```rust,no_run
     /// # use serde_json::json;
-    /// # use warpgrapher::Client;;
+    /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
     /// # async fn main() {

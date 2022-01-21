@@ -382,6 +382,7 @@ impl TryFrom<Value> for Comparison {
 
 #[derive(Clone, Debug)]
 pub struct QueryFragment {
+    #[allow(dead_code)]
     match_fragment: String,
     where_fragment: String,
     params: HashMap<String, Value>,
@@ -456,7 +457,9 @@ impl NodeQueryVar {
 #[derive(Clone, Debug)]
 pub struct RelQueryVar {
     label: String,
+    #[allow(dead_code)]
     suffix: String,
+    #[allow(dead_code)]
     name: String,
     src: NodeQueryVar,
     dst: NodeQueryVar,

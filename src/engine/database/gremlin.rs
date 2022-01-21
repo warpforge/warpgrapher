@@ -1843,10 +1843,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            format!(
-                ".property(single, 'my_prop', '{}')",
-                uuid.to_hyphenated().to_string()
-            ),
+            format!(".property(single, 'my_prop', '{}')", uuid.to_hyphenated()),
             q
         );
         assert!(p.is_empty());

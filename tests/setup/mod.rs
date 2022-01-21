@@ -228,13 +228,16 @@ pub(crate) async fn clear_db() {
 
 #[derive(Clone, Debug)]
 pub struct Metadata {
+    #[allow(dead_code)]
     pub(crate) src_ip: String,
+    #[allow(dead_code)]
     pub(crate) src_useragent: String,
 }
 
 #[cfg(feature = "neo4j")]
 #[derive(Clone, Debug)]
 pub struct Neo4jRequestCtx {
+    #[allow(dead_code)]
     metadata: Metadata,
 }
 
@@ -251,9 +254,9 @@ impl RequestContext for Neo4jRequestCtx {
     }
 }
 
-#[cfg(feature = "gremlin")]
 #[derive(Clone, Debug)]
 pub struct GremlinRequestCtx {
+    #[allow(dead_code)]
     metadata: Metadata,
 }
 

@@ -1163,10 +1163,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?),
-            &Info::new(
-                format!("{}QueryInput", type_name.to_string()),
-                info.type_defs(),
-            ),
+            &Info::new(format!("{}QueryInput", type_name), info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1221,7 +1218,7 @@ where
                 dst: "".to_string(),
             })?,
             &Info::new(
-                format!("{}CreateMutationInput", type_name.to_string()),
+                format!("{}CreateMutationInput", type_name),
                 self.info.type_defs(),
             ),
             partition_key_opt,
@@ -1280,10 +1277,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
-            &Info::new(
-                format!("{}UpdateInput", type_name.to_string()),
-                self.info.type_defs(),
-            ),
+            &Info::new(format!("{}UpdateInput", type_name), self.info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1339,10 +1333,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
-            &Info::new(
-                format!("{}DeleteInput", type_name.to_string()),
-                self.info.type_defs(),
-            ),
+            &Info::new(format!("{}DeleteInput", type_name), self.info.type_defs()),
             partition_key_opt,
             &mut sg,
             self.transaction,
@@ -1422,7 +1413,7 @@ where
             &info,
             partition_key_opt,
             &mut sg,
-            &mut self.transaction,
+            self.transaction,
         )
         .await?;
 
