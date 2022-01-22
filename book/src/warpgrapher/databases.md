@@ -62,7 +62,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.8.4", features = ["gremlin"] }
+warpgrapher = { version = "0.9.0", features = ["gremlin"] }
 ```
 
 Then set up environment variables to contact your Gremlin-based DB:
@@ -109,7 +109,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.8.4", features = ["gremlin"] }
+warpgrapher = { version = "0.9.0", features = ["gremlin"] }
 ```
 
 Then set up environment variables to contact your Neptune DB:
@@ -137,7 +137,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.8.4", features = ["gremlin"] }
+warpgrapher = { version = "0.9.0", features = ["gremlin"] }
 ```
 
 Then set up environment variables to contact your Cosmos DB:
@@ -171,7 +171,7 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.8.4", features = ["neo4j"] }
+warpgrapher = { version = "0.9.0", features = ["neo4j"] }
 ```
 
 Then set up environment variables to contact your Neo4J DB:

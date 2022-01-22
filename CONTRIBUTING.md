@@ -161,8 +161,8 @@ https://rust-lang.github.io/api-guidelines/checklist.html
 ## Updating version prior to release
 
 ```bash
-export OLD_VERSION=0.8.2
-export NEW_VERSION=0.8.3
+export OLD_VERSION=0.8.4
+export NEW_VERSION=0.9.0
 ```
 
 ```bash
