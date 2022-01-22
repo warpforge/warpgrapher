@@ -1,27 +1,23 @@
-//! Provides database interface types and functions for Cosmos DB and other Gremlin-based DBs
+//! Provides database interface types and functions for Gremlin-based DBs
 
 use crate::engine::context::RequestContext;
-#[cfg(feature = "gremlin")]
 use crate::engine::database::env_bool;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::{Info, NodeType};
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
-#[cfg(feature = "gremlin")]
+use gremlin_client::aio::GremlinClient;
 use gremlin_client::TlsOptions;
-use gremlin_client::{
-    ConnectionOptions, GKey, GValue, GraphSON, GremlinClient, Map, ToGValue, VertexProperty,
-};
+use gremlin_client::{ConnectionOptions, GKey, GValue, GraphSON, Map, ToGValue, VertexProperty};
+use juniper::futures::TryStreamExt;
 use log::trace;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-#[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fmt::Debug;
 #[cfg(feature = "gremlin")]
@@ -31,138 +27,6 @@ static NODE_RETURN_FRAGMENT: &str =
     ".project('nID', 'nLabel', 'nProps').by(id()).by(label()).by(valueMap())";
 
 static REL_RETURN_FRAGMENT: &str = ".project('rID', 'rProps', 'srcID', 'srcLabel', 'dstID', 'dstLabel').by(id()).by(valueMap()).by(outV().id()).by(outV().label()).by(inV().id()).by(inV().label())";
-
-/// A Cosmos DB endpoint collects the information necessary to generate a connection string and
-/// build a database connection pool.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use warpgrapher::Error;
-/// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
-/// #
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let ce = CosmosEndpoint::from_env()?;
-/// #    Ok(())
-/// # }
-/// ```
-#[cfg(feature = "cosmos")]
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct CosmosEndpoint {
-    host: String,
-    port: u16,
-    user: String,
-    pass: String,
-    pool_size: u16,
-}
-
-#[cfg(feature = "cosmos")]
-impl CosmosEndpoint {
-    /// Reads a set of environment variables to construct a [`CosmosEndpoint`]. The environment
-    /// variables are as follows
-    ///
-    /// * WG_COSMOS_HOST - the hostname for the Cosmos DB. For example,
-    /// *my-db*.gremlin.cosmos.azure.com
-    /// * WG_COSMOS_PORT - the port number for the Cosmos DB. For example, 443
-    /// * WG_COSMOS_USER - the database and collection of the Cosmos DB. For example,
-    /// /dbs/*my-db-name*/colls/*my-collection-name*
-    /// * WG_COSMOS_PASS - the read/write key for the Cosmos DB.
-    /// * WG_POOL_SIZE - connection pool size
-    ///
-    /// [`CosmosEndpoint`]: ./struct.CosmosEndpoint.html
-    ///
-    /// # Errors
-    ///
-    /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
-    /// * [`EnvironmentVariableParseError`] - if an environment variable has the wrong type,
-    /// typically meaning that the WG_COSMOS_PORT variable cannot be parsed from a strign into an
-    /// integer
-    ///
-    /// [`EnvironmentVariableNotFound`]: ../../enum.ErrorKind.html
-    /// [`EnvironmentVariableParseError`]: ../../enum.ErrorKind.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use warpgrapher::engine::database::gremlin::CosmosEndpoint;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let ce = CosmosEndpoint::from_env()?;
-    /// #    Ok(())
-    /// # }
-    /// ```
-    pub fn from_env() -> Result<CosmosEndpoint, Error> {
-        Ok(CosmosEndpoint {
-            host: env_string("WG_COSMOS_HOST")?,
-            port: env_u16("WG_COSMOS_PORT")?,
-            user: env_string("WG_COSMOS_USER")?,
-            pass: env_string("WG_COSMOS_PASS")?,
-            pool_size: env_u16("WG_POOL_SIZE")
-                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
-        })
-    }
-}
-
-#[cfg(feature = "cosmos")]
-#[async_trait]
-impl DatabaseEndpoint for CosmosEndpoint {
-    type PoolType = CosmosPool;
-
-    async fn pool(&self) -> Result<Self::PoolType, Error> {
-        Ok(CosmosPool::new(GremlinClient::connect(
-            ConnectionOptions::builder()
-                .host(&self.host)
-                .port(self.port)
-                .pool_size(self.pool_size.into())
-                .ssl(true)
-                .serializer(GraphSON::V1)
-                .deserializer(GraphSON::V1)
-                .credentials(&self.user, &self.pass)
-                .build(),
-        )?))
-    }
-}
-
-#[cfg(feature = "cosmos")]
-#[derive(Clone, Debug)]
-pub struct CosmosPool {
-    pool: GremlinClient,
-}
-
-#[cfg(feature = "cosmos")]
-impl CosmosPool {
-    fn new(pool: GremlinClient) -> Self {
-        CosmosPool { pool }
-    }
-}
-
-#[cfg(feature = "cosmos")]
-#[async_trait]
-impl DatabasePool for CosmosPool {
-    type TransactionType = GremlinTransaction;
-
-    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            true,
-            true,
-            false,
-        ))
-    }
-
-    async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            true,
-            true,
-            false,
-        ))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
-    }
-}
 
 /// A Gremlin DB endpoint collects the information necessary to generate a connection string and
 /// build a database connection pool.
@@ -178,39 +42,54 @@ impl DatabasePool for CosmosPool {
 /// #    Ok(())
 /// # }
 /// ```
-#[cfg(feature = "gremlin")]
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug)]
 pub struct GremlinEndpoint {
     host: String,
+    read_replica: String,
     port: u16,
     user: Option<String>,
     pass: Option<String>,
-    accept_invalid_certs: bool,
     use_tls: bool,
-    pool_size: u16,
+    validate_certs: bool,
+    bindings: bool,
     long_ids: bool,
+    partitions: bool,
+    sessions: bool,
+    version: GraphSON,
+    pool_size: u16,
 }
 
-#[cfg(feature = "gremlin")]
 impl GremlinEndpoint {
     /// Reads a set of environment variables to construct a [`GremlinEndpoint`]. The environment
     /// variables are as follows
     ///
     /// * WG_GREMLIN_HOST - the hostname for the Gremlin-based DB. For example, `localhost`.
+    /// * WG_GREMLIN_READ_REPLICA - a separate host name for read-only replica nodes, if being
+    ///   used for additional scalability. If not set, the read pool connects to the same host as
+    ///   the read/write connection pool.
     /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
-    /// * WG_GREMLIN_USER - the username for the Gremlin-based DB. For example, `warpuser`.
-    /// * WG_GREMLIN_PASS - the password used to authenticate the user.
+    /// * WG_GREMLIN_USER - the username for the Gremlin-based DB, if required. For example,
+    ///   `warpuser`.
+    /// * WG_GREMLIN_PASS - the password used to authenticate the user, if required.
     /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
-    /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
-    /// necessary in a test environment, but it should be set to false in production environments.
+    ///   Defaults to true.
+    /// * WG_GREMLIN_VALIDATE_CERTS - false if Warpgrapher should reject invalid certs for TLS
+    ///   connections. true to validate certs. It may be necessary to set to false in test
+    ///   environments, but it should be set to true in production environments. Defaults to true.
+    /// * WG_GREMLIN_BINDINGS - true if Warpgrapher should use Gremlin bindings to send values
+    ///   in queries (effectively query parameterization), and `false` if values should be
+    ///   sanitized and sent inline in the query string itself. Defaults to `true`.
     /// * WG_GREMLIN_LONG_IDS - true if Warpgrapher should use long integers as vertex and edge ids
-    /// in the database; false if Warpgrapher should use strings. All identifiers are of type ID in
-    /// the GraphQL schema, which GraphQL serializes as strings.
+    ///   in the database; false if Warpgrapher should use strings. All identifiers are of type ID
+    ///   in the GraphQL schema, which GraphQL serializes as strings. Defaults to false.
+    /// * WG_GREMLIN_PARTITIONS - true if Warpgrapher should require a partition ID, and false if
+    ///   Warpgrapher should ignore or omit partition IDs. Defaults to `false`.
+    /// * WG_GREMLIN_SESSIONS - true if Warpgrapher mutations should be conducted within a single
+    ///   Gremlin session, which in some databases provides transactional semantics, and `false` if
+    ///   sessions should not be used. Defaults to `false`.
+    /// * WG_GREMLIN_VERSION - may be set to `1`, `2`, or `3`, to indicate the version of GraphSON
+    ///   serialization that should be used in communicating with the database. Defaults to `3`.
     /// * WG_POOL_SIZE - connection pool size
-    ///
-    /// The accept_invalid_certs option may be set to true in a test environment, where a test
-    /// Gremlin server is running with an invalid cert. It should be set to false in production
-    /// environments.
     ///
     /// [`GremlinEndpoint`]: ./struct.GremlinEndpoint.html
     ///
@@ -235,275 +114,174 @@ impl GremlinEndpoint {
     /// # }
     /// ```
     pub fn from_env() -> Result<GremlinEndpoint, Error> {
+        let host = env_string("WG_GREMLIN_HOST")?;
+
         Ok(GremlinEndpoint {
-            host: env_string("WG_GREMLIN_HOST")?,
+            host: host.clone(),
+            read_replica: env_string("WG_GREMLIN_READ_REPLICA").unwrap_or(host),
             port: env_u16("WG_GREMLIN_PORT")?,
             user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
             pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
-            accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
             use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
+            validate_certs: env_bool("WG_GREMLIN_VALIDATE_CERTS").unwrap_or(true),
+            bindings: env_bool("WG_GREMLIN_BINDINGS").unwrap_or(true),
+            long_ids: env_bool("WG_GREMLIN_LONG_IDS").unwrap_or(false),
+            partitions: env_bool("WG_GREMLIN_PARTITIONS").unwrap_or(false),
+            sessions: env_bool("WG_GREMLIN_SESSIONS").unwrap_or(false),
+            version: match env_u16("WG_GREMLIN_VERSION").unwrap_or(3) {
+                1 => GraphSON::V1,
+                2 => GraphSON::V2,
+                _ => GraphSON::V3,
+            },
             pool_size: env_u16("WG_POOL_SIZE")
                 .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
-            long_ids: env_bool("WG_GREMLIN_LONG_IDS").unwrap_or(true),
         })
     }
 }
 
-#[cfg(feature = "gremlin")]
 #[async_trait]
 impl DatabaseEndpoint for GremlinEndpoint {
     type PoolType = GremlinPool;
+
     async fn pool(&self) -> Result<Self::PoolType, Error> {
-        let mut options_builder = ConnectionOptions::builder()
+        let mut ro_options_builder = ConnectionOptions::builder()
+            .host(&self.read_replica)
+            .port(self.port)
+            .pool_size(self.pool_size.into())
+            .serializer(self.version.clone())
+            .deserializer(self.version.clone());
+        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
+            ro_options_builder = ro_options_builder.credentials(user, pass);
+        }
+        if self.use_tls {
+            ro_options_builder = ro_options_builder
+                .ssl(self.use_tls)
+                .tls_options(TlsOptions {
+                    accept_invalid_certs: !self.validate_certs,
+                });
+        }
+        let ro_options = ro_options_builder.build();
+
+        let mut rw_options_builder = ConnectionOptions::builder()
             .host(&self.host)
             .port(self.port)
             .pool_size(self.pool_size.into())
-            .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3);
+            .serializer(self.version.clone())
+            .deserializer(self.version.clone());
         if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
-            options_builder = options_builder.credentials(user, pass);
+            rw_options_builder = rw_options_builder.credentials(user, pass);
         }
         if self.use_tls {
-            options_builder = options_builder.ssl(true).tls_options(TlsOptions {
-                accept_invalid_certs: self.accept_invalid_certs,
-            });
+            rw_options_builder = rw_options_builder
+                .ssl(self.use_tls)
+                .tls_options(TlsOptions {
+                    accept_invalid_certs: !self.validate_certs,
+                });
         }
-        let options = options_builder.build();
+        let rw_options = rw_options_builder.build();
+
+        #[allow(clippy::eval_order_dependence)]
         Ok(GremlinPool::new(
-            GremlinClient::connect(options)?,
+            GremlinClient::connect(ro_options).await?,
+            GremlinClient::connect(rw_options).await?,
+            self.bindings,
             self.long_ids,
+            self.partitions,
+            self.sessions,
         ))
     }
 }
 
-#[cfg(feature = "gremlin")]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct GremlinPool {
-    pool: GremlinClient,
+    ro_pool: GremlinClient,
+    rw_pool: GremlinClient,
+    bindings: bool,
     long_ids: bool,
+    partitions: bool,
+    sessions: bool,
 }
 
-#[cfg(feature = "gremlin")]
 impl GremlinPool {
-    fn new(pool: GremlinClient, long_ids: bool) -> Self {
-        GremlinPool { pool, long_ids }
+    fn new(
+        ro_pool: GremlinClient,
+        rw_pool: GremlinClient,
+        bindings: bool,
+        long_ids: bool,
+        partitions: bool,
+        sessions: bool,
+    ) -> Self {
+        GremlinPool {
+            ro_pool,
+            rw_pool,
+            bindings,
+            long_ids,
+            partitions,
+            sessions,
+        }
     }
 }
 
-#[cfg(feature = "gremlin")]
 #[async_trait]
 impl DatabasePool for GremlinPool {
     type TransactionType = GremlinTransaction;
 
     async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            false,
-            true,
+            self.ro_pool.clone(),
+            self.bindings,
             self.long_ids,
+            self.partitions,
+            false,
         ))
     }
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.pool.clone(),
-            false,
-            true,
-            self.long_ids,
-        ))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.pool.clone())))
-    }
-}
-
-/// A Neptune DB endpoint collects the information necessary to generate a connection string and
-/// build a database connection pool.
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use warpgrapher::Error;
-/// # use warpgrapher::engine::database::gremlin::NeptuneEndpoint;
-/// #
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let ne = NeptuneEndpoint::from_env()?;
-/// #    Ok(())
-/// # }
-/// ```
-#[cfg(feature = "gremlin")]
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct NeptuneEndpoint {
-    host: String,
-    port: u16,
-    user: Option<String>,
-    pass: Option<String>,
-    accept_invalid_certs: bool,
-    use_tls: bool,
-    read_host: String,
-    pool_size: u16,
-}
-
-#[cfg(feature = "gremlin")]
-impl NeptuneEndpoint {
-    /// Reads a set of environment variables to construct a [`NeptuneEndpoint`]. The environment
-    /// variables are as follows
-    ///
-    /// * WG_GREMLIN_HOST - the hostname for the Gremlin-based DB. For example, `localhost`.
-    /// * WG_GREMLIN_PORT - the port number for the Gremlin-based DB. For example, `443`.
-    /// * WG_GREMLIN_USE_TLS - true if Warpgrapher should use TLS to connect to gremlin endpoint.
-    /// * WG_GREMLIN_CERT - true if Warpgrapher should accept an invalid cert. This could be
-    /// necessary in a test environment, but it should be set to false in production environments.
-    /// * WG_NEPTUNE_READ_REPLICAS - hostname for the Neptune read replicas
-    /// * WG_POOL_SIZE - connection pool size
-    ///
-    /// The accept_invalid_certs option may be set to true in a test environment, where a test
-    /// Gremlin server is running with an invalid cert. It should be set to false in production
-    /// environments.
-    ///
-    /// [`NeptuneEndpoint`]: ./struct.NeptuneEndpoint.html
-    ///
-    /// # Errors
-    ///
-    /// * [`EnvironmentVariableNotFound`] - if an environment variable does not exist
-    /// * [`EnvironmentVariableParseError`] - if an environment variable has the wrong type,
-    /// typically meaning that the WG_GREMLIN_PORT variable cannot be parsed from a string into an
-    /// integer
-    ///
-    /// [`EnvironmentVariableNotFound`]: ../../enum.ErrorKind.html
-    /// [`EnvironmentVariableParseError`]: ../../enum.ErrorKind.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use warpgrapher::engine::database::gremlin::NeptuneEndpoint;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let ge = NeptuneEndpoint::from_env()?;
-    /// #    Ok(())
-    /// # }
-    /// ```
-    pub fn from_env() -> Result<NeptuneEndpoint, Error> {
-        Ok(NeptuneEndpoint {
-            host: env_string("WG_GREMLIN_HOST")?,
-            port: env_u16("WG_GREMLIN_PORT")?,
-            user: var_os("WG_GREMLIN_USER").map(|osstr| osstr.to_string_lossy().into_owned()),
-            pass: var_os("WG_GREMLIN_PASS").map(|osstr| osstr.to_string_lossy().into_owned()),
-            accept_invalid_certs: env_bool("WG_GREMLIN_CERT")?,
-            use_tls: env_bool("WG_GREMLIN_USE_TLS").unwrap_or(true),
-            read_host: env_string("WG_NEPTUNE_READ_REPLICAS")?,
-            pool_size: env_u16("WG_POOL_SIZE")
-                .unwrap_or_else(|_| num_cpus::get().try_into().unwrap_or(8)),
+        Ok(if self.sessions {
+            GremlinTransaction::new(
+                self.rw_pool
+                    .clone()
+                    .create_session(Uuid::new_v4().to_hyphenated().to_string())
+                    .await?,
+                self.bindings,
+                self.long_ids,
+                self.partitions,
+                self.sessions,
+            )
+        } else {
+            GremlinTransaction::new(
+                self.rw_pool.clone(),
+                self.bindings,
+                self.long_ids,
+                self.partitions,
+                self.sessions,
+            )
         })
     }
 }
 
-#[cfg(feature = "gremlin")]
-#[async_trait]
-impl DatabaseEndpoint for NeptuneEndpoint {
-    type PoolType = NeptunePool;
-    async fn pool(&self) -> Result<Self::PoolType, Error> {
-        let mut write_options_builder = ConnectionOptions::builder()
-            .host(&self.host)
-            .port(self.port)
-            .pool_size(self.pool_size.into())
-            .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3);
-        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
-            write_options_builder = write_options_builder.credentials(user, pass);
-        }
-        if self.use_tls {
-            write_options_builder = write_options_builder.ssl(true).tls_options(TlsOptions {
-                accept_invalid_certs: self.accept_invalid_certs,
-            });
-        }
-        let write_options = write_options_builder.build();
-
-        let mut ro_options_builder = ConnectionOptions::builder()
-            .host(&self.read_host)
-            .port(self.port)
-            .pool_size(self.pool_size.into())
-            .serializer(GraphSON::V3)
-            .deserializer(GraphSON::V3);
-        if let (Some(user), Some(pass)) = (self.user.as_ref(), self.pass.as_ref()) {
-            ro_options_builder = ro_options_builder.credentials(user, pass);
-        }
-        if self.use_tls {
-            ro_options_builder = ro_options_builder.ssl(true).tls_options(TlsOptions {
-                accept_invalid_certs: self.accept_invalid_certs,
-            });
-        }
-        let ro_options = ro_options_builder.build();
-
-        Ok(NeptunePool::new(
-            GremlinClient::connect(write_options)?,
-            GremlinClient::connect(ro_options)?,
-        ))
-    }
-}
-
-#[cfg(feature = "gremlin")]
-#[derive(Clone, Debug)]
-pub struct NeptunePool {
-    read_pool: GremlinClient,
-    write_pool: GremlinClient,
-}
-
-#[cfg(feature = "gremlin")]
-impl NeptunePool {
-    fn new(read_pool: GremlinClient, write_pool: GremlinClient) -> Self {
-        NeptunePool {
-            read_pool,
-            write_pool,
-        }
-    }
-}
-
-#[cfg(feature = "gremlin")]
-#[async_trait]
-impl DatabasePool for NeptunePool {
-    type TransactionType = GremlinTransaction;
-    async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.write_pool
-                .clone()
-                .create_session(Uuid::new_v4().to_hyphenated().to_string())?,
-            false,
-            false,
-            false,
-        ))
-    }
-
-    async fn read_transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(GremlinTransaction::new(
-            self.read_pool.clone(),
-            false,
-            false,
-            false,
-        ))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Gremlin(Box::new(self.write_pool.clone())))
-    }
-}
-
-#[derive(Debug)]
 pub struct GremlinTransaction {
     client: GremlinClient,
-    partition: bool,
-    use_bindings: bool,
+    bindings: bool,
     long_ids: bool,
+    partitions: bool,
+    sessions: bool,
 }
 
 impl GremlinTransaction {
-    pub fn new(client: GremlinClient, partition: bool, use_bindings: bool, long_ids: bool) -> Self {
+    pub fn new(
+        client: GremlinClient,
+        bindings: bool,
+        long_ids: bool,
+        partitions: bool,
+        sessions: bool,
+    ) -> Self {
         GremlinTransaction {
             client,
-            partition,
-            use_bindings,
+            bindings,
             long_ids,
+            partitions,
+            sessions,
         }
     }
 
@@ -554,7 +332,7 @@ impl GremlinTransaction {
                     }
                     a.into_iter()
                         .try_fold((outer_q, outer_p), |(mut inner_q, mut inner_p), val| {
-                            Ok(if use_bindings {
+                            if use_bindings {
                                 let suffix = sg.suffix();
                                 inner_q.push_str(
                                     &*(".property(list, '".to_string()
@@ -565,7 +343,6 @@ impl GremlinTransaction {
                                         + ")"),
                                 );
                                 inner_p.insert(k.to_string() + &*suffix, val);
-                                (inner_q, inner_p)
                             } else {
                                 inner_q.push_str(
                                     // Use
@@ -575,8 +352,8 @@ impl GremlinTransaction {
                                         + &*val.to_property_value()?
                                         + ")"),
                                 );
-                                (inner_q, inner_p)
-                            })
+                            };
+                            Ok((inner_q, inner_p))
                         })
                 } else if use_bindings {
                     let suffix = sg.suffix();
@@ -613,7 +390,9 @@ impl GremlinTransaction {
         } else if let Some(GValue::Int64(i)) = results.get(0) {
             Ok(i32::try_from(*i)?)
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected {
+                details: Some("extract_count value is not GValue Int32 or Int64".to_string()),
+            })
         }
     }
 
@@ -649,7 +428,9 @@ impl GremlinTransaction {
                 } else if let GKey::String(k) = key {
                     Ok((k, val.try_into()?))
                 } else {
-                    Err(Error::TypeNotExpected { details: None })
+                    Err(Error::TypeNotExpected {
+                        details: Some("GValue is not String or List".to_string()),
+                    })
                 }
             })
             .collect::<Result<HashMap<String, Value>, Error>>()
@@ -660,11 +441,15 @@ impl GremlinTransaction {
             map.into_iter()
                 .map(|(k, v)| match (k, v) {
                     (GKey::String(s), v) => Ok((s, v)),
-                    (_, _) => Err(Error::TypeNotExpected { details: None }),
+                    (_, _) => Err(Error::TypeNotExpected {
+                        details: Some("GValue is not String".to_string()),
+                    }),
                 })
                 .collect()
         } else {
-            Err(Error::TypeNotExpected { details: None })
+            Err(Error::TypeNotExpected {
+                details: Some("GValue is not Map".to_string()),
+            })
         }
     }
 
@@ -771,7 +556,9 @@ impl GremlinTransaction {
                             if let GKey::String(k) = key {
                                 Ok((k, val.try_into()?))
                             } else {
-                                Err(Error::TypeNotExpected { details: None })
+                                Err(Error::TypeNotExpected {
+                                    details: Some("GKey is not String".to_string()),
+                                })
                             }
                         })
                         .collect::<Result<HashMap<String, Value>, Error>>()?;
@@ -805,7 +592,11 @@ impl Transaction for GremlinTransaction {
         Ok(())
     }
 
-    #[tracing::instrument(name = "wg-gremlin-execute-query", skip(self, query, params))]
+    #[tracing::instrument(
+        level = "info",
+        name = "wg-gremlin-execute-query",
+        skip(self, query, params)
+    )]
     async fn execute_query<RequestCtx: RequestContext>(
         &mut self,
         query: String,
@@ -823,10 +614,9 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
+
         trace!(
             "GremlinTransaction::execute_query -- results: {:#?}",
             results
@@ -836,6 +626,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-create-nodes",
         skip(self, node_var, props, partition_key_opt, info, sg)
     )]
@@ -851,7 +642,7 @@ impl Transaction for GremlinTransaction {
 
         let mut query = "g.addV('".to_string() + node_var.label()? + "')";
 
-        if self.partition {
+        if self.partitions {
             query.push_str(".property('partitionKey', partitionKey)");
         }
 
@@ -860,7 +651,7 @@ impl Transaction for GremlinTransaction {
             props,
             HashMap::new(),
             true,
-            self.use_bindings,
+            self.bindings,
             true,
             self.long_ids,
             sg,
@@ -875,7 +666,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -883,10 +674,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
         trace!("GremlinTransaction::create_node -- results: {:#?}", results);
 
         GremlinTransaction::nodes(results, info)?
@@ -896,6 +685,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-create-rels",
         skip(
             self,
@@ -950,7 +740,7 @@ impl Transaction for GremlinTransaction {
             props,
             params,
             false,
-            self.use_bindings,
+            self.bindings,
             true,
             self.long_ids,
             sg,
@@ -966,7 +756,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -974,10 +764,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
@@ -995,36 +783,63 @@ impl Transaction for GremlinTransaction {
 
         let mut query = ".hasLabel('".to_string() + node_var.label()? + "')";
 
-        if self.partition {
+        if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
-        query.push_str(".hasId(within(id_list))");
-        let ids = nodes
-            .iter()
-            .map(|n| n.id())
-            .collect::<Result<Vec<&Value>, Error>>()?
-            .into_iter()
-            .cloned()
-            .collect::<Vec<Value>>()
-            .into_iter()
-            .map(|id| {
-                if self.long_ids {
-                    if let Value::String(s) = id {
-                        if let Ok(i) = s.parse::<i64>() {
-                            Value::Int64(i)
+        let mut params = HashMap::new();
+
+        if self.bindings {
+            query.push_str(".hasId(within(id_list))");
+            let ids = nodes
+                .iter()
+                .map(|n| n.id())
+                .collect::<Result<Vec<&Value>, Error>>()?
+                .into_iter()
+                .cloned()
+                .collect::<Vec<Value>>()
+                .into_iter()
+                .map(|id| {
+                    if self.long_ids {
+                        if let Value::String(s) = id {
+                            if let Ok(i) = s.parse::<i64>() {
+                                Value::Int64(i)
+                            } else {
+                                Value::String(s)
+                            }
                         } else {
-                            Value::String(s)
+                            id
                         }
                     } else {
                         id
                     }
-                } else {
-                    id
-                }
-            })
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
+                })
+                .collect();
+            params.insert("id_list".to_string(), Value::Array(ids));
+        } else {
+            let fragment = nodes.iter().enumerate().try_fold(
+                ".hasId(within(".to_string(),
+                |mut acc, (i, n)| -> Result<String, Error> {
+                    if i > 0 {
+                        acc.push_str(", ");
+                    }
+
+                    acc.push_str(
+                        &*(n.id().and_then(|id| {
+                            if self.long_ids {
+                                if let Value::String(s) = id {
+                                    if let Ok(i) = s.parse::<i64>() {
+                                        return Value::Int64(i).to_property_value();
+                                    }
+                                }
+                            }
+                            id.to_property_value()
+                        })?),
+                    );
+                    Ok(acc)
+                },
+            )?;
+            query.push_str(&*(fragment + "))"));
+        }
 
         Ok(QueryFragment::new("".to_string(), query, params))
     }
@@ -1048,7 +863,7 @@ impl Transaction for GremlinTransaction {
             query.push_str(&(".hasLabel('".to_string() + node_var.label()? + "')"));
         }
 
-        if self.partition {
+        if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
 
@@ -1062,11 +877,11 @@ impl Transaction for GremlinTransaction {
                 + ", " 
                 + &*gremlin_comparison_operator(&c)
                 + "("
-                + &*(if self.use_bindings { k.clone() + &*param_suffix } else { c.operand.to_property_value()? })
+                + &*(if self.bindings { k.clone() + &*param_suffix } else { c.operand.to_property_value()? })
                 + "))"),
             );
 
-            if self.use_bindings {
+            if self.bindings {
                 params.insert(k + &*param_suffix, c.operand);
             }
         }
@@ -1111,6 +926,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-read-nodes",
         skip(self, _node_var, query_fragment, partition_key_opt, info)
     )]
@@ -1138,7 +954,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1146,10 +962,8 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::nodes(results, info)
     }
@@ -1167,37 +981,68 @@ impl Transaction for GremlinTransaction {
 
         let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
 
-        if self.partition {
+        if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
-        query.push_str(&(".hasId(within(id_list))"));
 
-        let ids = rels
-            .iter()
-            .map(|r| r.id())
-            .collect::<Vec<&Value>>()
-            .into_iter()
-            .cloned()
-            .collect::<Vec<Value>>()
-            .into_iter()
-            .map(|id| {
-                if self.long_ids {
-                    if let Value::String(s) = id {
-                        if let Ok(i) = s.parse::<i64>() {
-                            Value::Int64(i)
+        let mut params = HashMap::new();
+
+        if self.bindings {
+            query.push_str(".hasId(within(id_list))");
+
+            let ids = rels
+                .iter()
+                .map(|r| r.id())
+                .collect::<Vec<&Value>>()
+                .into_iter()
+                .cloned()
+                .collect::<Vec<Value>>()
+                .into_iter()
+                .map(|id| {
+                    if self.long_ids {
+                        if let Value::String(s) = id {
+                            if let Ok(i) = s.parse::<i64>() {
+                                Value::Int64(i)
+                            } else {
+                                Value::String(s)
+                            }
                         } else {
-                            Value::String(s)
+                            id
                         }
                     } else {
                         id
                     }
-                } else {
-                    id
-                }
-            })
-            .collect();
-        let mut params = HashMap::new();
-        params.insert("id_list".to_string(), Value::Array(ids));
+                })
+                .collect();
+            params.insert("id_list".to_string(), Value::Array(ids));
+        } else {
+            let fragment = rels.iter().enumerate().try_fold(
+                ".hasId(within(".to_string(),
+                |mut acc, (i, r)| -> Result<String, Error> {
+                    if i > 0 {
+                        acc.push_str(", ");
+                    }
+
+                    acc.push_str(
+                        &*(if self.long_ids {
+                            if let Value::String(s) = r.id() {
+                                if let Ok(i) = s.parse::<i64>() {
+                                    Value::Int64(i).to_property_value()
+                                } else {
+                                    r.id().to_property_value()
+                                }
+                            } else {
+                                r.id().to_property_value()
+                            }
+                        } else {
+                            r.id().to_property_value()
+                        })?,
+                    );
+                    Ok(acc)
+                },
+            )?;
+            query.push_str(&*(fragment + "))"));
+        }
 
         Ok(QueryFragment::new("".to_string(), query, params))
     }
@@ -1217,7 +1062,7 @@ impl Transaction for GremlinTransaction {
         let mut query = ".hasLabel('".to_string() + rel_var.label() + "')";
         let mut params = HashMap::new();
 
-        if self.partition {
+        if self.partitions {
             query.push_str(".has('partitionKey', partitionKey)");
         }
 
@@ -1231,11 +1076,11 @@ impl Transaction for GremlinTransaction {
                 + ", " 
                 + &*gremlin_comparison_operator(&c)
                 + "("
-                + &*(if self.use_bindings {k.clone() + &*param_suffix} else {c.operand.to_property_value()?})
+                + &*(if self.bindings {k.clone() + &*param_suffix} else {c.operand.to_property_value()?})
                 + ")"
                 + ")"),
             );
-            if self.use_bindings {
+            if self.bindings {
                 params.insert(k + &*param_suffix, c.operand);
             }
         }
@@ -1275,6 +1120,7 @@ impl Transaction for GremlinTransaction {
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-read-rels",
         skip(self, query_fragment, rel_var, props_type_name, partition_key_opt)
     )]
@@ -1303,7 +1149,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1311,15 +1157,14 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-update-nodes",
         skip(self, query_fragment, node_var, props, partition_key_opt, info, sg)
     )]
@@ -1342,7 +1187,7 @@ impl Transaction for GremlinTransaction {
             props,
             query_fragment.params(),
             true,
-            self.use_bindings,
+            self.bindings,
             false,
             self.long_ids,
             sg,
@@ -1356,7 +1201,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1364,15 +1209,14 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::nodes(results, info)
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-update-rels",
         skip(
             self,
@@ -1402,7 +1246,7 @@ impl Transaction for GremlinTransaction {
             props,
             query_fragment.params(),
             false,
-            self.use_bindings,
+            self.bindings,
             false,
             self.long_ids,
             sg,
@@ -1421,7 +1265,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1429,15 +1273,14 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(q, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(q, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::rels(results, props_type_name, partition_key_opt)
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-delete-nodes",
         skip(self, query_fragment, node_var, partition_key_opt)
     )]
@@ -1466,7 +1309,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1474,15 +1317,14 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::extract_count(results)
     }
 
     #[tracing::instrument(
+        level = "info",
         name = "wg-gremlin-delete-rels",
         skip(self, query_fragment, rel_var, partition_key_opt)
     )]
@@ -1511,7 +1353,7 @@ impl Transaction for GremlinTransaction {
                 pl
             });
 
-        if self.partition {
+        if self.partitions {
             if let Some(pk) = partition_key_opt {
                 param_list.push(("partitionKey", pk));
             } else {
@@ -1519,16 +1361,22 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        let raw_results = self.client.execute(query, param_list.as_slice())?;
-        let results = raw_results
-            .map(|r| Ok(r?))
-            .collect::<Result<Vec<GValue>, Error>>()?;
+        let raw_results = self.client.execute(query, param_list.as_slice()).await?;
+        let results = raw_results.try_collect().await?;
 
         GremlinTransaction::extract_count(results)
     }
 
     async fn commit(&mut self) -> Result<(), Error> {
-        Ok(())
+        if self.sessions {
+            self.client
+                .close_session()
+                .await
+                .map(|_r| ())
+                .map_err(Error::from)
+        } else {
+            Ok(())
+        }
     }
 
     async fn rollback(&mut self) -> Result<(), Error> {
@@ -1697,9 +1545,6 @@ fn gremlin_comparison_operator(c: &Comparison) -> String {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "cosmos")]
-    use super::CosmosEndpoint;
-    #[cfg(feature = "gremlin")]
     use super::GremlinEndpoint;
     use super::GremlinTransaction;
     use crate::engine::database::SuffixGenerator;
@@ -1707,20 +1552,6 @@ mod tests {
     use maplit::hashmap;
     use std::collections::HashMap;
     use uuid::Uuid;
-
-    #[cfg(feature = "cosmos")]
-    #[test]
-    fn test_cosmos_endpoint_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<CosmosEndpoint>();
-    }
-
-    #[cfg(feature = "cosmos")]
-    #[test]
-    fn test_cosmos_endpoint_sync() {
-        fn assert_sync<T: Sync>() {}
-        assert_sync::<CosmosEndpoint>();
-    }
 
     #[cfg(feature = "gremlin")]
     #[test]
@@ -1910,7 +1741,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(".property(single, 'my_prop', -1)", q);
+        assert_eq!(".property(single, 'my_prop', -1L)", q);
         assert!(p.is_empty());
     }
 
@@ -2012,10 +1843,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            format!(
-                ".property(single, 'my_prop', '{}')",
-                uuid.to_hyphenated().to_string()
-            ),
+            format!(".property(single, 'my_prop', '{}')", uuid.to_hyphenated()),
             q
         );
         assert!(p.is_empty());

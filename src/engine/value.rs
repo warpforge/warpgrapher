@@ -3,6 +3,8 @@ use juniper::{DefaultScalarValue, FromInputValue, InputValue};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::fmt::Result as FmtResult;
+use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
 /// Intermediate data structure for serialized values, allowing for translation between the values
@@ -30,7 +32,7 @@ pub enum Value {
 }
 
 impl Value {
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     pub(crate) fn to_property_value(&self) -> Result<String, Error> {
         match self {
             Value::Array(a) => Ok(a
@@ -40,7 +42,7 @@ impl Value {
                 .join(", ")),
             Value::Bool(bool) => Ok(bool.to_string()),
             Value::Float64(f) => Ok(f.to_string() + "f"),
-            Value::Int64(i) => Ok(i.to_string()),
+            Value::Int64(i) => Ok(i.to_string() + "L"),
             Value::Map(_) => Err(Error::TypeNotExpected {
                 details: Some("Expected scalar, not a map.".to_string()),
             }),
@@ -51,9 +53,56 @@ impl Value {
         }
     }
 
-    #[cfg(any(feature = "cosmos", feature = "gremlin"))]
+    #[cfg(feature = "gremlin")]
     fn sanitize(s: &str) -> String {
         s.replace("\\", "\\\\").replace("'", "\\'")
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(
+            f,
+            "{}",
+            match &self {
+                Value::Array(v) => {
+                    let s = v
+                        .iter()
+                        .enumerate()
+                        .fold("[".to_string(), |mut acc, (i, val)| {
+                            if i > 0 {
+                                acc.push_str(", ");
+                            }
+
+                            acc.push_str(&*format!("{}", val));
+                            acc
+                        });
+                    s + "]"
+                }
+                Value::Bool(b) => b.to_string(),
+                Value::Float64(f) => f.to_string(),
+                Value::Int64(i) => i.to_string(),
+                Value::Map(m) => {
+                    let s =
+                        m.iter()
+                            .enumerate()
+                            .fold("[".to_string(), |mut acc, (i, (key, val))| {
+                                if i > 0 {
+                                    acc.push_str(", ");
+                                }
+
+                                acc.push_str(&*format!("({}, {})", key, val));
+                                acc
+                            });
+
+                    s + "]"
+                }
+                Value::Null => "{}".to_string(),
+                Value::String(s) => s.to_string(),
+                Value::UInt64(u) => u.to_string(),
+                Value::Uuid(uuid) => uuid.to_hyphenated().to_string(),
+            }
+        )
     }
 }
 

@@ -2,8 +2,8 @@
 
 use crate::engine::context::RequestContext;
 use crate::engine::database::{
-    env_string, env_u16, Comparison, DatabaseClient, DatabaseEndpoint, DatabasePool, NodeQueryVar,
-    Operation, QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
+    env_string, env_u16, Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, Operation,
+    QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
@@ -198,10 +198,6 @@ impl DatabasePool for Neo4jDatabasePool {
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
         Ok(Neo4jTransaction::new(self.rw_pool.get().await?))
-    }
-
-    async fn client(&self) -> Result<DatabaseClient, Error> {
-        Ok(DatabaseClient::Neo4j(Box::new(self.rw_pool.get().await?)))
     }
 }
 
@@ -487,7 +483,11 @@ impl Transaction for Neo4jTransaction {
             + rel_var.name()
             + ":"
             + rel_var.label()
-            + "]->("
+            + if id_opt.is_none() {
+                " { id: randomUUID() }]->("
+            } else {
+                "]->("
+            }
             + rel_var.dst().name()
             + ")\n"
             + "SET "
@@ -503,11 +503,6 @@ impl Transaction for Neo4jTransaction {
 
         if let Some(id_val) = id_opt {
             props.insert("id".to_string(), id_val);
-        } else {
-            props.insert(
-                "id".to_string(),
-                Value::String(Uuid::new_v4().to_hyphenated().to_string()),
-            );
         }
 
         let mut params = src_fragment.params();
@@ -1143,7 +1138,7 @@ impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Value> for Node<Requ
         match value {
             bolt_proto::value::Value::Node(n) => {
                 let type_name = &n.labels()[0];
-                let properties: &HashMap<String, bolt_proto::value::Value> = &n.properties();
+                let properties: &HashMap<String, bolt_proto::value::Value> = n.properties();
                 let props_value = Value::try_from(properties.clone())?;
                 let props = HashMap::<String, Value>::try_from(props_value)?;
                 Ok(Node::new(type_name.to_string(), props))
