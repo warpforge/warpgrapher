@@ -1,59 +1,208 @@
 # Node Read
 
-* [Read All Nodes](#read-all-nodes)
-* [Read nodes with matching props](#read-nodes-with-matching-props)
-* [Return nodes with relationships to other nodes with matching props](#return-nodes-with-relationships-to-other-nodes-with-matching-props)
+The GraphQL API examples below use the example schema described in the [Relationships](../configuration/relationships.html) section of the book. The unique IDs for nodes and relationships  in the examples below may differ than other sections and chapters of the book.
 
+* [All Nodes](#all-nodes)
+* [Node with Matching Properties](#node-with-matching-properties)
+* [Node with Matching Relationships](#node-with-matching-relationships)
+* [Node with Matching Destinations](#node-with-matching-destinations)
 
-### Return all nodes 
+## All Nodes
 
-To return all `Project` nodes:
+The GraphQL query below lists all organizations.
 
 ```
 query {
-    Project {
-        id
-        name
-        status
-    }
+  Organization {
+    id
+    name
+  }
 }
 ```
 
-### Return nodes with matching props
+The output is as follows.
 
-To return all `Project` nodes with `status == "ACTIVE"`:
+```
+{
+  "data": {
+    "Organization": [
+      {
+        "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+        "name": "Just Us League"
+      },
+      {
+        "id": "5692bd2a-2bc9-4497-8285-1f7860478cd6",
+        "name": "Consortia Unlimited"
+      },
+      {
+        "id": "1eea1d47-1fe8-4bed-9116-e0037fbdb296",
+        "name": "Warpforge"
+      }
+    ]
+  }
+}
+```
+
+## Node with Matching Properties
+
+The GraphQL query below lists all organizations with the name `Warpforge`.
 
 ```
 query {
-    Project(
-        input: {
-            status: "ACTIVE"
+  Organization(input: { name: { EQ: "Warpforge" } }) {
+    id
+    name
+  }
+}
+```
+
+The output is as follows.
+
+```
+{
+  "data": {
+    "Organization": [
+      {
+        "id": "1eea1d47-1fe8-4bed-9116-e0037fbdb296",
+        "name": "Warpforge"
+      }
+    ]
+  }
+}
+```
+
+## Node with Matching Relationships
+
+The GraphQL query below lists all organizations with members that joined in 2020.
+
+```
+query {
+  Organization(
+    input: { members: { props: { joinDate: { CONTAINS: "2020" } } } }
+  ) {
+    id
+    name
+    members {
+      props {
+        joinDate
+      }
+      dst {
+        ... on User {
+          id
+          email
         }
-    )
-    {
-        id
-        name
+      }
     }
+  }
 }
 ```
 
-### Return nodes with relationships to other nodes with matching props
-
-To returns all `Project` nodes containing an `owner` relationship to a `User` node with `name="Halsey"`:
+The output is as follows:
 
 ```
-query {
-    Project(
-        input: {
-            owner: {
-                dst: {
-                    User: {
-                        name: "Halsey"
-                    }
-                }
+{
+  "data": {
+    "Organization": [
+      {
+        "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+        "name": "Just Us League",
+        "members": [
+          {
+            "props": {
+              "joinDate": "2020-02-20"
+            },
+            "dst": {
+              "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+              "email": "alistair@example.com"
             }
+          }
+        ]
+      },
+      {
+        "id": "5692bd2a-2bc9-4497-8285-1f7860478cd6",
+        "name": "Consortia Unlimited",
+        "members": [
+          {
+            "props": {
+              "joinDate": "2020-02-20"
+            },
+            "dst": {
+              "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+              "email": "alistair@example.com"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+## Node with Matching Destinations
+
+The GraphQL query below lists all the organizations of which the user `alistair@example.com` is a member.
+
+```
+query {
+  Organization(
+    input: {
+      members: { dst: { User: { email: { EQ: "alistair@example.com" } } } }
+    }
+  ) {
+    id
+    name
+    members {
+      props {
+        joinDate
+      }
+      dst {
+        ... on User {
+          id
+          email
         }
-    )
-    { ... }
+      }
+    }
+  }
+}
+```
+
+The output is as follows:
+
+```
+{
+  "data": {
+    "Organization": [
+      {
+        "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+        "name": "Just Us League",
+        "members": [
+          {
+            "props": {
+              "joinDate": "2020-02-20"
+            },
+            "dst": {
+              "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+              "email": "alistair@example.com"
+            }
+          }
+        ]
+      },
+      {
+        "id": "5692bd2a-2bc9-4497-8285-1f7860478cd6",
+        "name": "Consortia Unlimited",
+        "members": [
+          {
+            "props": {
+              "joinDate": "2020-02-20"
+            },
+            "dst": {
+              "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+              "email": "alistair@example.com"
+            }
+          }
+        ]
+      }
+    ]
+  }
 }
 ```

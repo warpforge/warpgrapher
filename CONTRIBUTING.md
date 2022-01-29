@@ -1,4 +1,3 @@
-
 # Contributing
 
 Note that the steps below are for doing development on the Warpgrapher itself,
@@ -77,7 +76,7 @@ For neo4j:
 Note that Warpgrapher is only compatible with version 4.0 and later of Neo4J.
 
 ```bash
-docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.1
+docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.4
 ```
 
 ### Run Tests
@@ -160,6 +159,10 @@ https://rust-lang.github.io/api-guidelines/checklist.html
 
 ## Updating version prior to release
 
+Open an rc-X.Y.Z branch.
+
+Update version in `Cargo.toml.`
+
 ```bash
 export OLD_VERSION=0.8.4
 export NEW_VERSION=0.9.0
@@ -176,3 +179,5 @@ find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERS
 cd ./book
 ./build.sh
 ```
+
+Commit and merge the rc-X.Y.Z branch. Add a release version tag using the GitHub UI.
