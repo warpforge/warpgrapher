@@ -12,7 +12,7 @@
 //!
 //! To browse source code, report issues, or contribute to the project, see the [GitHub Repository](https://github.com/warpforge/warpgrapher).
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.9.0")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.9.1")]
 
 #[cfg(feature = "neo4j")]
 pub use bolt_client;
