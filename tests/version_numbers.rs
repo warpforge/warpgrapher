@@ -23,5 +23,5 @@ fn test_quickstart_version() {
 
 #[test]
 fn test_databases_version() {
-    version_sync::assert_markdown_deps_updated!("book/src/warpgrapher/databases.md");
+    version_sync::assert_markdown_deps_updated!("book/src/configuration/databases.md");
 }

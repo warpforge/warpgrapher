@@ -14,6 +14,7 @@ use std::convert::TryInto;
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
+#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::engine::context::RequestContext;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
