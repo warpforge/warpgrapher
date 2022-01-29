@@ -1,50 +1,203 @@
 # Relationship Read
 
-* [Find relationships by src node](#find-relationships-by-src-node)
-* [Find relationships by dst node](#find-relationships-by-dst-node)
-* [Find relationships by rel props](#find-relationships-by-rel-props)
+The GraphQL API examples below use the example schema described in the [Relationships](../configuration/relationships.html) section of the book. The unique IDs for nodes and relationships  in the examples below may differ than other sections and chapters of the book.
 
-### Find relationships by src node
+* [By Relationship Properties](#by-relationship-properties)
+* [By Source Node](#by-source-node)
+* [By Destination Node](#by-destination-node)
+
+## By Relationship Properties
+
+The GraphQL query below retrieves all the members who joined organizations on 2018-01-08.
 
 ```
 query {
-    ProjectIssues(input: {
-        src: {
-            Project: {
-                name: "Project 0"
-            }
-        }
-    })
-    {
-        id
+  OrganizationMembers(input: { props: { joinDate: { EQ: "2018-01-08" } } }) {
+    id
+    props {
+      joinDate
     }
+    src {
+      id
+      name
+    }
+    dst {
+      ... on User {
+        id
+        email
+      }
+    }
+  }
 }
 ```
 
-### Find relationships by dst node
+The output is as follows.
 
 ```
-query {
-    ProjectIssues(input: {
-        dst: {
-            Feature: {
-                name: "Add new button"
-            }
+{
+  "data": {
+    "OrganizationMembers": [
+      {
+        "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
+        "props": {
+          "joinDate": "2018-01-08"
+        },
+        "src": {
+          "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+          "name": "Warpforge"
+        },
+        "dst": {
+          "id": "f2e894bf-e98e-48a7-b16a-adc95cd34ac3",
+          "email": "javier@example.com"
         }
-    })
-    {...}
+      }
+    ]
+  }
 }
 ```
 
-### Find relationships by rel props
+## By Source Node
+
+The GraphQL query below retrieves all the members of users in the Warpforge organization.
 
 ```
 query {
-    ProjectOwner(input: {
-        props: {
-            since: "2015"
+  OrganizationMembers(
+    input: { src: { Organization: { name: { EQ: "Warpforge" } } } }
+  ) {
+    id
+    props {
+      joinDate
+    }
+    src {
+      id
+      name
+    }
+    dst {
+      ... on User {
+        id
+        email
+      }
+    }
+  }
+}
+```
+
+The output is as follows.
+
+```
+{
+  "data": {
+    "OrganizationMembers": [
+      {
+        "id": "3ab33be6-16a3-4e50-87b5-3bb7d195ea54",
+        "props": {
+          "joinDate": "2022-01-28"
+        },
+        "src": {
+          "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+          "name": "Warpforge"
+        },
+        "dst": {
+          "id": "c2b71308-2fd7-4d43-b037-30ec473e90a5",
+          "email": "constantine@example.com"
         }
-    })
-    {...}
+      },
+      {
+        "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
+        "props": {
+          "joinDate": "2022-01-28"
+        },
+        "src": {
+          "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+          "name": "Warpforge"
+        },
+        "dst": {
+          "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+          "email": "alistair@example.com"
+        }
+      },
+      {
+        "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
+        "props": {
+          "joinDate": "2018-01-08"
+        },
+        "src": {
+          "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+          "name": "Warpforge"
+        },
+        "dst": {
+          "id": "f2e894bf-e98e-48a7-b16a-adc95cd34ac3",
+          "email": "javier@example.com"
+        }
+      }
+    ]
+  }
+}
+```
+
+## By Destination Node
+
+The GraphQL query below retrieves all of the members of alistair@example.com.
+
+```
+query {
+  OrganizationMembers(
+    input: { dst: { User: { email: { EQ: "alistair@example.com" } } } }
+  ) {
+    id
+    props {
+      joinDate
+    }
+    src {
+      id
+      name
+    }
+    dst {
+      ... on User {
+        id
+        email
+      }
+    }
+  }
+}
+```
+
+The output is as follows.
+
+```
+{
+  "data": {
+    "OrganizationMembers": [
+      {
+        "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
+        "props": {
+          "joinDate": "2022-01-28"
+        },
+        "src": {
+          "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
+          "name": "Warpforge"
+        },
+        "dst": {
+          "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+          "email": "alistair@example.com"
+        }
+      },
+      {
+        "id": "00051bc1-133c-445d-b00c-4faf61b2bffa",
+        "props": {
+          "joinDate": "2020-02-20"
+        },
+        "src": {
+          "id": "5692bd2a-2bc9-4497-8285-1f7860478cd6",
+          "name": "Prophet and Loss Inc."
+        },
+        "dst": {
+          "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
+          "email": "alistair@example.com"
+        }
+      }
+    ]
+  }
 }
 ```

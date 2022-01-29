@@ -1,0 +1,686 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Relationships - Warpgrapher Book (0.9.0)</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li class="chapter-item expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">2.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="../integrations/intro.html"><strong aria-hidden="true">3.</strong> Server Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../integrations/actix.html"><strong aria-hidden="true">3.1.</strong> Actix Web</a></li><li class="chapter-item expanded "><a href="../integrations/lambda.html"><strong aria-hidden="true">3.2.</strong> AWS Lambda</a></li></ol></li><li class="chapter-item expanded "><a href="../configuration/intro.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../configuration/databases.html"><strong aria-hidden="true">4.1.</strong> Databases</a></li><li class="chapter-item expanded "><a href="../configuration/formats.html"><strong aria-hidden="true">4.2.</strong> Formats</a></li><li class="chapter-item expanded "><a href="../configuration/types.html"><strong aria-hidden="true">4.3.</strong> Types</a></li><li class="chapter-item expanded "><a href="../configuration/relationships.html" class="active"><strong aria-hidden="true">4.4.</strong> Relationships</a></li></ol></li><li class="chapter-item expanded "><a href="../api/intro.html"><strong aria-hidden="true">5.</strong> CRUD API Usage Examples</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../api/node_create.html"><strong aria-hidden="true">5.1.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="../api/node_read.html"><strong aria-hidden="true">5.2.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="../api/node_update.html"><strong aria-hidden="true">5.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">5.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">5.5.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">5.6.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">5.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">5.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="../engine/intro.html"><strong aria-hidden="true">6.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">6.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">6.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">6.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">6.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">6.5.</strong> Request Context</a></li><li class="chapter-item expanded "><a href="../engine/input_validation.html"><strong aria-hidden="true">6.6.</strong> Input Validation</a></li><li class="chapter-item expanded "><a href="../engine/event_handlers.html"><strong aria-hidden="true">6.7.</strong> Event Handlers</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Warpgrapher Book (0.9.0)</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="relationships"><a class="header" href="#relationships">Relationships</a></h1>
+<p>The <a href="../warpgrapher/quickstart.html">Quickstart</a> example used a very simple model with only one type, containing one property. The <a href="./types.html">Types</a> section explored configuration file format and the resulting GraphQL schema in more detail. However, Warpgrapher can generate create, read, update, and delete operations for relationships between types as well. The configuration below includes describes two types and a relationship between them.</p>
+<pre><code class="language-yaml">version: 1
+model:
+  - name: User
+    props:
+      - name: email
+        type: String
+  - name: Organization
+    props:
+      - name: name
+        type: String
+    rels:
+      - name: members
+        nodes: [User]
+        list: true
+</code></pre>
+<p>The configuration above adds a second type, called <code>Organization</code>. The definition of the organization type contains the <code>rels</code> attribute, which was not seen in the earlier example. The <code>rels</code> attribute contains a list of permissible relationships between nodes. In this case, the configuration adds a <code>members</code> relationship from nodes of of the <code>Organization</code> type to nodes of the <code>User</code> type, indicating that certain users are members of an organization. The <code>name</code> attribute in the configuration is the name of the relationship and must be unique within the scope of that type. The <code>nodes</code> attribute is a list of other types that may be at the destination end of the relationship. In this case, the only type at may be a member is the <code>User</code> type, but in other use cases, the destination node might be allowed to be one of several types.  Lastly, the <code>list</code> attribute is <code>true</code>, indicating that an <code>Organization</code> may have more than one member.</p>
+<h2 id="relationship-configuration"><a class="header" href="#relationship-configuration">Relationship Configuration</a></h2>
+<p>The example configuration above is fairly simple, and does not make use of several optional attributes. The definition below shows the full set of configuration options that are permissible on a relationship.</p>
+<pre><code class="language-yaml">model:
+  - name: String
+    rels:
+      - name: String
+        nodes: [String]  # Values in the list must be other types in the model
+        list: Boolean
+        props:
+          - name: String
+            uses:
+              create: Boolean
+              query: Boolean
+              update: Boolean
+              output: Boolean
+            type: String  # Boolean | Float | ID | Int | String
+            required: Boolean
+            list: Boolean
+            resolver: String
+            validator: String
+        endpoints:
+          read: Boolean
+          create: Boolean
+          update: Boolean
+          delete: Boolean
+        resolver: String
+</code></pre>
+<p>The snippet above shows that relationships are defined in a list under the <code>rels</code> attribute within a type definition. Each relationship has a <code>name</code> that must be unique within the scope of that type. The <code>nodes</code> attribute is a list of name of types within the model that can appear as destination nodes in the relationship. Note that the a type may appear in its own relationship's <code>nodes</code> lists. A node is permitted to have relationships to nodes of the same type.</p>
+<p>If the <code>list</code> attribute is <code>true</code>, then a node may have relationships of the same type to multiple destination nodes, modeling one-to-many relationships. If <code>list</code> is false, then the node may only have a single relationship of that type, to a single destination node.</p>
+<p>The <code>props</code> attribute on a relationship works the same way that the <code>props</code> attribute works on nodes, except that the properties are associated with the relationship rather than with the node.  See the description of the <code>props</code> attribute in the section on <a href="./types.html">types</a> for more details.</p>
+<p>Similarly, the <code>endpoints</code> attribute on relationships works the same way that it does on nodes. The individual boolean attributes within the <code>endpoints</code> object control whether Warpgrapher generates GraphQL schema elements for create, read, update, and delete operations. Just as with types, the default for all the boolean values is <code>true</code>, meaning that by default Warpgrapher creates schema elements and resolvers for all CRUD operations.</p>
+<p>Lastly, the <code>resolver</code> attribute is also similar to the attribute of the same name on property definitions. The string in the <code>resolver</code> attribute is mapped to a custom-written Rust function provided when setting up the Warpgrapher engine. This allows systems using Warpgrapher to control the behavior of resolving some relationships. Use cases for this include dynamically-generated relationships that are computed at query time rather than being stored in the back-end data store.</p>
+<h2 id="generated-schema"><a class="header" href="#generated-schema">Generated Schema</a></h2>
+<p>This section describes each of the GraphQL schema elements that Warpgrapher generates for CRUD operations on relationships. Discussion of the schema elements related solely to types, absent relationships, was covered previously in the <a href="./types.html">types section</a>.</p>
+<h3 id="queries-in-a-model-with-relationships"><a class="header" href="#queries-in-a-model-with-relationships">Queries in a Model with Relationships</a></h3>
+<p>The top level GraphQL query object includes three (3) queries. This should make intuitive sense. The model has two nodes, <code>Organization</code> and <code>User</code>, and one relationship, the <code>OrganizationMembers</code> relationship from a source organization to a destination user that is a member of that organization. Warpgrapher's generated schema allows for querying either node type or the relationship between them. As will be discussed in detail below, the inputs to these query operations have a recursive structure, so that using the top level query for the relationship, it is possible to filter based on the properties of the source or destination nodes. Similarly, when querying for a node type, it is possible to add search parameters related to relationships, the destinations of those relationships, and so on.</p>
+<pre><code>type Query {
+  Organization(
+    partitionKey: String
+    input: OrganizationQueryInput
+  ): [Organization!]
+  OrganizationMembers(
+    partitionKey: String
+    input: OrganizationMembersQueryInput
+  ): [OrganizationMembersRel!]
+  User(partitionKey: String, input: UserQueryInput): [User!]
+  _version: String
+}
+</code></pre>
+<h3 id="querying-for-a-relationship"><a class="header" href="#querying-for-a-relationship">Querying for a Relationship</a></h3>
+<p>In the top level GraphQL query, note that a new query, called <code>OrganizationMembers</code> has been generated for the relationship. This query has an input parameter, <code>OrganizationMembersQueryInput</code> that provides search query arguments to select the set of relationships to be returned.</p>
+<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>OrganizationMembersPropsQueryInput</code> allows queries based on the properties on the relationship itself. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
+<pre><code>input OrganizationMembersQueryInput {
+  dst: OrganizationMembersDstQueryInput
+  id: StringQueryInput
+  props: OrganizationMembersPropsQueryInput
+  src: OrganizationMembersSrcQueryInput
+}
+
+input OrganizationMembersPropsQueryInput {
+  joinDate: StringQueryInput
+}
+</code></pre>
+<p>The two input objects for the <code>src</code> and <code>dst</code> input objects are shown below. Note that for the source query input, the only attribute is an <code>Organization</code> attribute that is an <code>OrganizationQueryInput</code> and that for the destination, the only attribute is a <code>User</code> attribute that is a <code>UserQueryInput</code>. There are two important observations here.  First, the reason for having the <code>OrganizationMembersDstQueryInput</code> object is that a relationship might have more than one node type as a possible destination. When building the GraphQL schema, Warpgrapher has to allow for the client to query any of those possible destination nodes. In this example, the only type of destination node is a <code>User</code>, so that's the only possibility shown below. If the nodes list had more types of nodes, any of those node types could be queried through the <code>OrganizationMembersDstQueryInput</code>.  The second observation is that both the <code>OrganizationQueryInput</code> and the <code>UserQueryInput</code> inputs are the same input parameters used to query for a set of nodes in the <code>Organization</code> and <code>User</code> root level GraphQL queries shown above.</p>
+<pre><code>input OrganizationMembersSrcQueryInput {
+  Organization: OrganizationQueryInput
+}
+
+input OrganizationMembersDstQueryInput {
+  User: UserQueryInput
+}
+</code></pre>
+<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, a bad of properties <code>props</code> which includes the <code>joinDate</code> relationship property, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
+<pre><code>type OrganizationMembersRel {
+  dst: OrganizationMembersNodesUnion!
+  id: ID!
+  props: OrganizationMembersProps
+  src: Organization!
+}
+
+type OrganizationMembersProps {
+  joinDate: String
+}
+</code></pre>
+<p>The <code>src</code> attribute in the <code>OrganizationMembersRel</code> output type is an <code>Organization</code> type, which is exactly the same output type used for node queries, and so will be covered in the section on querying for nodes, below.  The <code>dst</code> attribute is a little more complex. Recall from the description of the configuration schema that Warpgrapher may connect from a source node type to a destination that can be one of many node types. A GraphQL union type is used to represent the multiple destination node types that may exist.  As shown in the schema snippet below, in this example of <code>OrganizationMembersNodesUnion</code>, there is only a single destination node type of User. A more complex configuration might have multiple node types in the union.</p>
+<pre><code>union OrganizationMembersNodesUnion = User
+</code></pre>
+<p>Note that the <code>User</code> type is the same type that is used to return users in queries for nodes.</p>
+<h3 id="querying-for-a-node"><a class="header" href="#querying-for-a-node">Querying for a Node</a></h3>
+<p>The root GraphQL <code>Query</code> object has queries for each of the node types in the configuration.  To see how relationships affect node queries, have a look at the <code>Organization</code> query, beginning with the <code>OrganizationQueryInput</code> definition in the snippet below. In addition to the <code>id</code> and <code>name</code> attributes for searching based on the scalar properties of the type, the schema also includes a <code>members</code> attribute, of type <code>OrganizationMembersQueryInput</code>.  This is the same input object described above that's used in the root level query for the <code>OrganizationMembers</code> relationship. This recursive schema structure is really quite powerful, as it allows the client to query for nodes based on a combination of the node's property values, the values of properties in the relationships that it has, and the values of properties in the destination nodes at the other end of those relationships, to any level of depth.  For example, it would be easy to construct a query that retrieves all of the organizations that contain a particular user as a member. For examples of relationship-based queries, see the chapter on <a href="../api/intro.html">API usage</a>.</p>
+<pre><code>input OrganizationQueryInput {
+  id: StringQueryInput
+  members: OrganizationMembersQueryInput
+  name: StringQueryInput
+}
+</code></pre>
+<p>Relationshps information can be navigated in the output type for the node, as well. The <code>Organization</code> output type shown in the snippet below includes both the scalar properties on the type, the <code>id</code> and <code>name</code>, as well as the relationship to the <code>members</code> of the Organization.  The <code>members</code> attribute includes an input of type <code>OrganizationMembersQueryInput</code>. This is the same input type that is used to query for members relationships from the GraphQL root query, desribed above. This means that when retrieving Organization nodes, it's possible to filter the set of members that you want to retrieve in a nested query. Again, the recursive structure of the schema generated by Warpgrapher allows you the flexibility to query to any level of depth in a sub-graph that is needed.</p>
+<pre><code>type Organization {
+  id: ID!
+  members(input: OrganizationMembersQueryInput): [OrganizationMembersRel!]
+  name: String
+}
+</code></pre>
+<h3 id="mutations-in-a-model-with-relationships"><a class="header" href="#mutations-in-a-model-with-relationships">Mutations in a Model with Relationships</a></h3>
+<p>The GraphQL schema's top level mutation object contains nine (9) mutations. This should make intuitive sense. There are three mutations (create, update, and delete), and three kinds of things that can be mutated: organization nodes, user nodes, and membership relationships between organizations and nodes. There are quite a few nested input and output types contributing to these mutations. The high-level principle to keep in mind is that Warpgrapher allows recursive operations that support manipulation of whole sub-graphs at a time. For example, node mutations have nested input objects that allow manipulation of the relationships on those nodes, and the destination nodes at the end of those relationships, and so on.</p>
+<pre><code>type Mutation {
+  OrganizationCreate(
+    input: OrganizationCreateMutationInput!
+    partitionKey: String
+  ): Organization
+  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationMembersCreate(
+    input: OrganizationMembersCreateInput!
+    partitionKey: String
+  ): [OrganizationMembersRel!]
+  OrganizationMembersDelete(
+    input: OrganizationMembersDeleteInput!
+    partitionKey: String
+  ): Int
+  OrganizationMembersUpdate(
+    partitionKey: String
+    input: OrganizationMembersUpdateInput!
+  ): [OrganizationMembersRel!]
+  OrganizationUpdate(
+    partitionKey: String
+    input: OrganizationUpdateInput!
+  ): [Organization!]
+  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
+  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
+  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+}
+</code></pre>
+<h3 id="mutating-a-relationship"><a class="header" href="#mutating-a-relationship">Mutating a Relationship</a></h3>
+<h4 id="creating-a-relationship"><a class="header" href="#creating-a-relationship">Creating a Relationship</a></h4>
+<p>The snippet below contains the input for creation of one or more OrganizationMembers relationships. There are two attributes, <code>MATCH</code> and <code>CREATE</code>. The <code>MATCH</code> attribute is used to identify the organization or organizations that should be matched as the source of the relationship(s) to be created. It has the same type, <code>OrganizationQueryInput</code> that is used to query for nodes using the <code>Organization</code> query under the GraphQL <code>Query</code> root described above.  The match query may select more than one node, allowing similar relationships to be created in bulk. Matching existing source nodes is the only option when creating a relationship. If it is necessary to create the node at the source end of the relationship, see the node creation operation, in this case <code>OrganizationCreate</code> instead.</p>
+<pre><code>input OrganizationMembersCreateInput {
+  CREATE: [OrganizationMembersCreateMutationInput!]
+  MATCH: OrganizationQueryInput
+}
+</code></pre>
+<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It has a <code>props</code> object that includes the joinDate attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
+<pre><code>input OrganizationMembersCreateMutationInput {
+  dst: OrganizationMembersNodesMutationInputUnion!
+  id: ID
+  props: OrganizationMembersPropsInput
+}
+
+input OrganizationMembersPropsInput {
+  joinDate: String
+}
+</code></pre>
+<p>The <code>dst</code> property in the <code>OrganizationMembersCreateMutationInput</code> above is of type <code>OrganizationMembersNodesMutationInputUnion</code>, which is included in the schema snippet below. Don't be intimidated by the lengthy name of the union type. Recall that in the configuration above, the destination type of a relationship is allowed to have more than one type. In this configuration, it only has one type, but the <code>OrganizationMembersNodesMutationInputUnion</code> is what allows the destination of the relationship to have multiple types. In this case, the only option is <code>User</code>, with a type of <code>UserInput</code>.</p>
+<pre><code>input OrganizationMembersNodesMutationInputUnion {
+  User: UserInput
+}
+</code></pre>
+<p>The <code>UserInput</code> type, which provides the destination node for the relationship(s) to be created, has two attributes. When using the <code>EXISTING</code> attribute, Warpgrapher search the graph database for a set of nodes matching the <code>UserQueryInput</code> search criteria and uses the results as the destination nodes for creation of the relationship(s). Note that this <code>UserQueryInput</code> type is the same input type that is used to query for users in the user query under the GraphQL root <code>Query</code>. No matter where in the recursive hierarchy, searhing for <code>User</code> nodes always uses the same input.  The <code>NEW</code> attribute creates a new <code>User</code> node as the destination of the relationship. Note that the <code>UserCreateMutationInput</code> input type is the same input type used to create a <code>User</code> node in the <code>UserCreate</code> mutation under the GraphQL root <code>Mutation</code> object.</p>
+<pre><code>input UserInput {
+  EXISTING: UserQueryInput
+  NEW: UserCreateMutationInput
+}
+</code></pre>
+<p>The output of creating one or more relationships, <code>OrganizationMembersRel</code>, is the same output type returned from querying for the organization's members relationship, as was described in the section on queries, above. It contains the newly created relationship.</p>
+<h4 id="updating-a-relationship"><a class="header" href="#updating-a-relationship">Updating a Relationship</a></h4>
+<p>The input for a relationship update mutation, <code>OrganizationMembersUpdateInput</code> is shown in the schema snippet below. The update input consists of two parts. The <code>MATCH</code> attribute is a query input to identify the relationships that should be updated. Note that the match input type, <code>OrganizationMembersQueryInput</code> is the same input type used to provide search parameters when searching for relationships under the <code>OrganizationMembers</code> query under the GraphQL root <code>Query</code> object.  The <code>SET</code> attribute is used to describe the changes that should be made to values in the relationship(s) matched by the <code>MATCH</code> parameter, and potentially the sub-graph beneath.</p>
+<pre><code>input OrganizationMembersUpdateInput {
+  MATCH: OrganizationMembersQueryInput
+  SET: OrganizationMembersUpdateMutationInput!
+}
+</code></pre>
+<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>props</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
+<pre><code>input OrganizationMembersUpdateMutationInput {
+  dst: OrganizationMembersDstUpdateMutationInput
+  props: OrganizationMembersPropsInput
+  src: OrganizationMembersSrcUpdateMutationInput
+}
+</code></pre>
+<p>The source and destination node input types are shown in the schema snippets below. Note that the types, <code>OrganizationUpdateMutationInput</code> and <code>UserUpdateMutationInput</code> are the same input types used for the <code>SET</code> attributes in the single node update operation, described in in the section on single-node mutation operations below. Thus, we have hit the point where the GraphQL schema structure that Warpgrapher generates is recursive. A relationship update mutation can update the properties on the relationship, as described just above, or using this recursive input structure, reach down into the source and destination nodes at the ends of the relationship and edit their properties as well.</p>
+<pre><code>input OrganizationMembersSrcUpdateMutationInput {
+  Organization: OrganizationUpdateMutationInput
+}
+
+input OrganizationMembersDstUpdateMutationInput {
+  User: UserUpdateMutationInput
+}
+</code></pre>
+<p>The output for updating one or more relationships, <code>OrganizationMembersRel</code>, is the same output type returned from querying for an organization's members relationship, as was described in the section on queries, above. For update operations, it returns the list of relationships that were updated in the mutation.</p>
+<h4 id="deleting-a-relationship"><a class="header" href="#deleting-a-relationship">Deleting a Relationship</a></h4>
+<p>The input for a relationship delete mutation, <code>OrganizationMembersDeleteInput</code>, is shown in the schema snippet below. The <code>MATCH</code> attribute is used to query for the relationships that are desired to be deleted. Note that the input type, <code>OrganizationMembersQueryInput</code> is the same input type used to query for relationships under the relationship query in the GraphQL root <code>Query</code> object, described in the section on querying, above.</p>
+<pre><code>input OrganizationMembersDeleteInput {
+  MATCH: OrganizationMembersQueryInput
+  dst: OrganizationMembersDstDeleteMutationInput
+  src: OrganizationMembersSrcDeleteMutationInput
+}
+</code></pre>
+<p>The src and destination delete mutation inputs are not particularly interesting for this simple schema. The input type for the src of the relationship contains a single <code>Organization</code> attribute that has the same type as the deletion input for an <code>OrganizationDelete</code> mutation. However, the only option in that type is deletion of members, which is what is already being done. On the destination side, because the <code>User</code> type has no relationships of its own, the <code>UserDeleteMutationInput</code> object is empty altogether. Thus, for the most part, the <code>src</code> and <code>dst</code> attriubtes on the <code>OrganizationMembersDeleteInput</code> are not particularly useful, though in more complex models, they allows the possibility of deleting multiple nodes and relationships in a single query.</p>
+<pre><code>input OrganizationMembersSrcDeleteMutationInput {
+  Organization: OrganizationDeleteMutationInput
+}
+
+input OrganizationMembersDstDeleteMutationInput {
+  User: UserDeleteMutationInput
+}
+
+input OrganizationDeleteMutationInput {
+  members: [OrganizationMembersDeleteInput!]
+}
+
+input UserDeleteMutationInput
+</code></pre>
+<p>The output from the relationship deletion mutation is an integer with a count of the relationships deleted.</p>
+<h3 id="mutating-a-node"><a class="header" href="#mutating-a-node">Mutating a Node</a></h3>
+<p>In many ways, modifying a node in a data model that includes relationships is similar to what was described in the node-only portion of the book, previously. Thus, this section doesn't repeat that same content, instead focusing only on the changes the come from having a relationship in the mix.</p>
+<h4 id="creating-a-node"><a class="header" href="#creating-a-node">Creating a Node</a></h4>
+<p>The snippet below contains the input for creation of an organization. Note the <code>members</code> attribute, of type <code>OrganizationMembersCreateMutationInput</code>, which allows for the creation of members attributes in the same mutation that creates the organization.  The <code>OrganizationMembersCreateMutationInput</code> input type is the same one that is used for the <code>CREATE</code> attribute in the <code>OrganizationMembersCreate</code> mutation under the root GraphQL <code>mutation</code> object. Thus, when creating a node, you can create members for it using the same full flexbility provided by the mutation dedicated to creating relationships. The recursive nature of the creation inputs allows for the creation of entire sub-graphs.</p>
+<pre><code>input OrganizationCreateMutationInput {
+  id: ID
+  members: [OrganizationMembersCreateMutationInput!]
+  name: String
+}
+</code></pre>
+<p>The rest of the inputs and output for the node creation mutation are the same as those described previously for a simpler model without relationships.</p>
+<h3 id="updating-a-node"><a class="header" href="#updating-a-node">Updating a Node</a></h3>
+<p>The <code>OrganizationUpdateInput</code> for making changes to organizations looks similar to the input types used for objects that don't have relationships. It has a <code>MATCH</code> attribute to select the objects to update, and a <code>SET</code> attribute to describe the changes to be made. The difference is in the </p>
+<pre><code>input OrganizationUpdateInput {
+  MATCH: OrganizationQueryInput
+  SET: OrganizationUpdateMutationInput
+}
+
+input OrganizationUpdateMutationInput {
+  members: [OrganizationMembersChangeInput!]
+  name: String
+}
+</code></pre>
+<p>The differences for the inclusion of relationships begin in the <code>OrganizationUpdateMutationInput</code> input type used to set new values for the nodes to be updated, which includes a <code>members</code> attribute of type <code>OrganizationMembersChangeInput</code>. There are three changes one could make to a relationship: add one or more new relationships to destination nodes, delete one or more relationships to destination nodes, or keep the relationships to the same set of destination nodes but make changes to the properties of one or more of those destination nodes.  Those options are captured in the <code>OrganizationMembersChangeInput</code> input type in the schema snippet below.</p>
+<pre><code>input OrganizationMembersChangeInput {
+  ADD: OrganizationMembersCreateMutationInput
+  DELETE: OrganizationMembersDeleteInput
+  UPDATE: OrganizationMembersUpdateInput
+}
+</code></pre>
+<p>The <code>OrganizationMembersCreateMutationInput</code> input type for the <code>ADD</code> operation is the same one that was described above as the <code>CREATE</code> attribute the section on mutations to create new relationships. This makes sense, as in this context it is already clear what the source node or nodes are, and the <code>ADD</code> attribute need only create the new relationships to be added. Similarly, the <code>OrganizationMembersDeleteInput</code> used for the <code>DELETE</code> attribute here is the same one that is used for the <code>OrganizationMembersDelete</code> operation under the root GraphQL <code>Mutation</code> type. The match will be scoped to the relationships under the source node(s) selected by the <code>OrganizationUpdateInput</code> <code>MATCH</code> query. As expected, the same is true for the <code>OrganizationMembersUpdateInput</code> input type used for the <code>UPDATE</code> attribute. It's the same as the input used for the <code>OrganizationMembersUpdate</code> mutation under the root GraphQL <code>Mutation</code> type.</p>
+<h3 id="deleting-a-node"><a class="header" href="#deleting-a-node">Deleting a Node</a></h3>
+<p>The <code>OrganizationDeleteInput</code> input type, shown in the schema snippet below, looks similar to the one for nodes without relationships. However, the <code>OrganizationDeleteMutationInput</code> is different, as it includes a <code>members</code> attribute of type <code>OrganizationMembersDeleteInput</code>, which is the same type used for the <code>OrganizationMembersDelete</code> mutation under the GraphQL root <code>Mutation</code> type. In the case of this model, this additional input does little. In a more complex model with multiple types of relationships, however, it would allow for deletion of whole subgraphs of nodes and relationships.</p>
+<pre><code>input OrganizationDeleteInput {
+  DELETE: OrganizationDeleteMutationInput
+  MATCH: OrganizationQueryInput
+}
+
+input OrganizationDeleteMutationInput {
+  members: [OrganizationMembersDeleteInput!]
+}
+</code></pre>
+<h2 id="full-schema-listing"><a class="header" href="#full-schema-listing">Full Schema Listing</a></h2>
+<p>The full schema for the example above is included below.</p>
+<pre><code>input OrganizationMembersDeleteInput {
+  MATCH: OrganizationMembersQueryInput
+  dst: OrganizationMembersDstDeleteMutationInput
+  src: OrganizationMembersSrcDeleteMutationInput
+}
+
+input OrganizationCreateMutationInput {
+  id: ID
+  members: [OrganizationMembersCreateMutationInput!]
+  name: String
+}
+
+input OrganizationMembersCreateInput {
+  CREATE: [OrganizationMembersCreateMutationInput!]
+  MATCH: OrganizationQueryInput
+}
+
+input OrganizationMembersSrcQueryInput {
+  Organization: OrganizationQueryInput
+}
+
+type Mutation {
+  OrganizationCreate(
+    input: OrganizationCreateMutationInput!
+    partitionKey: String
+  ): Organization
+  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationMembersCreate(
+    input: OrganizationMembersCreateInput!
+    partitionKey: String
+  ): [OrganizationMembersRel!]
+  OrganizationMembersDelete(
+    input: OrganizationMembersDeleteInput!
+    partitionKey: String
+  ): Int
+  OrganizationMembersUpdate(
+    partitionKey: String
+    input: OrganizationMembersUpdateInput!
+  ): [OrganizationMembersRel!]
+  OrganizationUpdate(
+    partitionKey: String
+    input: OrganizationUpdateInput!
+  ): [Organization!]
+  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
+  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
+  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+}
+
+input OrganizationMembersChangeInput {
+  ADD: OrganizationMembersCreateMutationInput
+  DELETE: OrganizationMembersDeleteInput
+  UPDATE: OrganizationMembersUpdateInput
+}
+
+input UserUpdateMutationInput {
+  email: String
+}
+
+input UserDeleteInput {
+  DELETE: UserDeleteMutationInput
+  MATCH: UserQueryInput
+}
+
+input OrganizationMembersNodesMutationInputUnion {
+  User: UserInput
+}
+
+input UserInput {
+  EXISTING: UserQueryInput
+  NEW: UserCreateMutationInput
+}
+
+input OrganizationQueryInput {
+  id: StringQueryInput
+  members: OrganizationMembersQueryInput
+  name: StringQueryInput
+}
+
+union OrganizationMembersNodesUnion = User
+
+type Query {
+  Organization(
+    partitionKey: String
+    input: OrganizationQueryInput
+  ): [Organization!]
+  OrganizationMembers(
+    partitionKey: String
+    input: OrganizationMembersQueryInput
+  ): [OrganizationMembersRel!]
+  User(partitionKey: String, input: UserQueryInput): [User!]
+  _version: String
+}
+
+input OrganizationMembersDstDeleteMutationInput {
+  User: UserDeleteMutationInput
+}
+
+input OrganizationMembersUpdateInput {
+  MATCH: OrganizationMembersQueryInput
+  SET: OrganizationMembersUpdateMutationInput!
+}
+
+input OrganizationMembersSrcUpdateMutationInput {
+  Organization: OrganizationUpdateMutationInput
+}
+
+input UserUpdateInput {
+  MATCH: UserQueryInput
+  SET: UserUpdateMutationInput
+}
+
+input OrganizationUpdateInput {
+  MATCH: OrganizationQueryInput
+  SET: OrganizationUpdateMutationInput
+}
+
+input OrganizationMembersPropsQueryInput {
+  joinDate: StringQueryInput
+}
+
+type OrganizationMembersRel {
+  dst: OrganizationMembersNodesUnion!
+  id: ID!
+  props: OrganizationMembersProps
+  src: Organization!
+}
+
+input OrganizationMembersUpdateMutationInput {
+  dst: OrganizationMembersDstUpdateMutationInput
+  props: OrganizationMembersPropsInput
+  src: OrganizationMembersSrcUpdateMutationInput
+}
+
+input OrganizationMembersSrcDeleteMutationInput {
+  Organization: OrganizationDeleteMutationInput
+}
+
+input UserQueryInput {
+  email: StringQueryInput
+  id: StringQueryInput
+}
+
+input OrganizationMembersQueryInput {
+  dst: OrganizationMembersDstQueryInput
+  id: StringQueryInput
+  props: OrganizationMembersPropsQueryInput
+  src: OrganizationMembersSrcQueryInput
+}
+
+input OrganizationDeleteMutationInput {
+  members: [OrganizationMembersDeleteInput!]
+}
+
+type Organization {
+  id: ID!
+  members(input: OrganizationMembersQueryInput): [OrganizationMembersRel!]
+  name: String
+}
+
+input OrganizationUpdateMutationInput {
+  members: [OrganizationMembersChangeInput!]
+  name: String
+}
+
+type Subscription
+
+input OrganizationMembersCreateMutationInput {
+  dst: OrganizationMembersNodesMutationInputUnion!
+  id: ID
+  props: OrganizationMembersPropsInput
+}
+
+input UserDeleteMutationInput
+
+input OrganizationMembersDstUpdateMutationInput {
+  User: UserUpdateMutationInput
+}
+
+type User {
+  email: String
+  id: ID!
+}
+
+input OrganizationMembersPropsInput {
+  joinDate: String
+}
+
+input OrganizationMembersDstQueryInput {
+  User: UserQueryInput
+}
+
+type OrganizationMembersProps {
+  joinDate: String
+}
+
+input UserCreateMutationInput {
+  email: String
+  id: ID
+}
+
+input StringQueryInput {
+  CONTAINS: String
+  EQ: String
+  GT: String
+  GTE: String
+  IN: [String!]
+  LT: String
+  LTE: String
+  NOTCONTAINS: String
+  NOTEQ: String
+  NOTIN: [String!]
+}
+
+input OrganizationDeleteInput {
+  DELETE: OrganizationDeleteMutationInput
+  MATCH: OrganizationQueryInput
+}
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../configuration/types.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next" href="../api/intro.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../configuration/types.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next" href="../api/intro.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </body>
+</html>

@@ -316,8 +316,11 @@ pub enum Operation {
 /// it on the database-specific transaction for use in creating match portion of queries.
 #[derive(Clone, Debug)]
 pub struct Comparison {
+    #[allow(dead_code)]
     operation: Operation,
+    #[allow(dead_code)]
     operand: Value,
+    #[allow(dead_code)]
     negated: bool,
 }
 
@@ -384,7 +387,9 @@ impl TryFrom<Value> for Comparison {
 pub struct QueryFragment {
     #[allow(dead_code)]
     match_fragment: String,
+    #[allow(dead_code)]
     where_fragment: String,
+    #[allow(dead_code)]
     params: HashMap<String, Value>,
 }
 
@@ -423,6 +428,7 @@ pub struct NodeQueryVar {
     base: String,
     suffix: String,
     label: Option<String>,
+    #[allow(dead_code)]
     name: String,
 }
 

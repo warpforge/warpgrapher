@@ -14,3 +14,7 @@ The project is currently in development. Prior to reaching v1.0.0:
 1. Minor versions represent breaking changes.
 2. Patch versions represent fixes and features.
 3. There are no deprecation warnings between releases.
+
+For in-depth usage information, see the [API Documentation](https://docs.rs/warpgrapher/latest/warpgrapher/).
+
+To browse the source code or contribute, see the project's [GitHub Repository](https://github.com/warpforge/warpgrapher).

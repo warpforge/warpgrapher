@@ -1,31 +1,33 @@
 # Request Context
 
-The Request Context feature enables the creation of **mutable state through the lifecycle of a request**.
+In some cases, it's desirable to pass custom state information from your application into the Warpgrapher request cycle, so that your custom resolvers can make use of that information. The request context makes this passing of state possible.
 
-### Usage
+## Define the RequestContext
 
-#### 1. Define RequestContext struct
-
-Define a struct that contains mutable information to be available for the lifetime of a request. The request context must implement `Clone`, `Debug`, `Sync`, `Send`, and Warpgrapher `RequestContext`. 
+Every system using Warpgrapher defines a struct that implements `RequestContext`. In addition to implementing the trait, that struct is free to carry additional state information. However, the context must implement `Clone`, `Debug`, `Sync`, `Send`, as well as Warpgrapher's `RequestContext` trait. See the code snippet below for an example.
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:28:41}}
+{{#include ../../../examples/request_context/main.rs:26:38}}
 ```
 
-#### 2. Create Engine with RequestContext type parameter
+## Engine Type Parameter
 
-The RequestContext is specified in the second type paramter of `Engine`. 
+The struct that implements `RequestContext` is passed to the `Engine` as a type parameter, as shown in the code snippet below.
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:66:69}}
+{{#include ../../../examples/request_context/main.rs:64:68}}
 ```
 
-#### 3. Access Context inside resolver
+## Access the Context
+
+Once passed to the `Engine`, the struct implementing `RequestContext` is available to functions that implement custom endpoints and resolvers, as shown in the snippet below.
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/request_context/main.rs:41:47}}
+{{#include ../../../examples/request_context/main.rs:40:46}}
 ```
 
-### Full Example
+## Full Example Source
 
-View on [Github](https://github.com/warpforge/warpgrapher/blob/v0.9.0/examples/request_context/main.rs).
+```rust,no_run,noplayground
+{{#include ../../../examples/request_context/main.rs}}
+```

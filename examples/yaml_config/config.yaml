@@ -1,0 +1,8 @@
+version: 1
+model:
+
+  # User
+  - name: User
+    props:
+      - name: email
+        type: String

@@ -1,121 +1,63 @@
 # Defined Endpoints
 
-In addition to the CRUD endpoints auto-generated for each type, Warpgrapher provides the ability to define additional endpoints. 
+In addition to the CRUD endpoints auto-generated for each type, Warpgrapher provides the ability to define additional custom endpoints. 
 
-## Usage
+## Configuration
 
-#### 1. Add Endpoints to Config
+The schema for an endpoint entry in the Warpgrapher configuration is as follows.
 
-The following config specified no types in the `model` section (so no CRUD endpoints will be generated), but defines several endpoints of varying inputs and outputs. 
+```
+endpoints:
+  - name: String
+    class: String         # /Mutation | Query/
+    input:                # null if there is no input parameter
+      type: String
+      list: Boolean
+      required: Boolean
+    output:               # null if there is no input parameter
+      type: String
+      list: Boolean       # defaults to false
+      required: Boolean   # defaults to false
+```
+
+The `name` of the endpoint will be used later as the key to a hash of endpoint resolution fuctions. It uniquely identified this endpoint. The `class` attribute tells Warpgrapher whether this endpoint belongs under the root query or root mutation object. The convention is that any operation with side effects, modifying the persistent data store, should be a mutation. Read-only operations are queries.  The `input` attribute allows specification of an input to the endpoint function. The input type may be a scalar GraphQL type -- `Boolean`, `Float`, `ID`, `Int`, or `String` -- or it may be a type defined elsewhere in the `model` section of the Warpgrapher configuration.  The `list` determines whether the input is actually a list of that type rather than a singular instance.  If the `required` attribute is true, the input is required.  If `false`, the input is optional.  The `output` attribute describes the value returned by the custom endpoint. It has fields similar to `input`, in that it includes `type`, `lsit`, and `required` attributes.
+
+
+The following configuration defines a custom endpoints, `TopIssue`.
+
 
 ```yaml
-version: 1
-model:
-
-  # Team
-  - name: Team
-    props:
-    - name: name
-      type: String
-    - name: size
-      type: Int
-
-endpoints:
-
-  # GetAppName
-  - name: GetAppName
-    class: Query
-    input: null
-    output:
-      type: String
-
-  # GetLargetTeam
-  - name: GetLargestTeam
-    class: Query
-    input: null
-    output:
-      type: Team
+{{#include ../../../examples/endpoints/main.rs:14:27}}
 ```
 
-#### 2. Implement endpoint resolver logic
+## Implementation
+
+To implement the custom endpoint, a resolver function is defined, as follows. In this example, the function just puts together a static response and resolves it. A real system would like do some comparison of nodes and relationships to determine the top issue, and dynamically return that record.
 
 ```rust
-use std::collections::HashMap;
-use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
-use warpgrapher::value::Value;
-
-// resolver that returns a Scalar (String)
-fn resolve_getappname(
-  context: ResolverFacade<()>
-) -> ExecutionResult {
-
-  facade.resolve_scalar("MyAppName")
-}
-
-// resolver that returns a Node (Team)
-fn resolve_getlargestteam(
-  facade: ResolverFacade<()>
-) -> ExecutionResult {
-
-  // query database to get team ...
-  let mut hm = HashMap::new();
-  hm.insert("name".to_string(), Value::String("Blue Team".to_string()));
-  hm.insert("size".to_string(), Value::Int64(5));
-  
-  let largest_team_node = facade.create_node(("Team", &hm);
-
-  context.resolve_node(&larget_team_node)
-}
+{{#include ../../../examples/endpoints/main.rs:40:53}}
 ```
 
-#### 3. Add resolvers when building `Engine`
+## Add Resolvers to the Warpgrapher Engine
+
+To add the custom endpoint resolver to the engine, it must be associated with the name the endpoint was given in the configuration above. The example code below creates a `HashMap` to map from the custom endpoint name and the implementing function. That map is then passed to the `Engine` when it is created.
 
 ```rust
-use warpgrapher::Engine;
-
-let mut resolvers = Resolvers<()>::new();
-resolvers.insert("GetAppName".to_string, Box::new(resolve_getappname));
-resolvers.insert("GetLargestTeam".to_string, Box::new(resolve_getlargestteam));
-
-let engine = Engine<()>::new(config, db)
-    .with_resolvers(resolvers)
-    .build();
+{{#include ../../../examples/endpoints/main.rs:67:75}}
 ```
 
-#### 4. Call Defined Endpoints
+## Example of Calling the Endpoint
+
+The code below calls the endine with a query that exercises the custom endpoint.
 
 ```
-query {
-  GetAppName
-}
+{{#include ../../../examples/endpoints/main.rs:78:88}}
 ```
 
-```json
-{
-  "data": {
-    "GetAppName": "MyAppName"
-  }
-}
-```
+## Full Example Source
+
+See below for the full code for the example above.
 
 ```
-query {
-  GetLargestTeam {
-    id
-    name
-    size
-  }
-}
-```
-
-```json
-{
-  "data": {
-    "GetLargestTeam": {
-      "id": "123456789012345670",
-      "name": "Blue Team",
-      "size": 5
-    }
-  }
-}
+{{#include ../../../examples/endpoints/main.rs}}
 ```
