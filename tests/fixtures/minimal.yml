@@ -14,7 +14,12 @@ model:
       - name: projects
         nodes: [Project]
         list: true
-
+      - name: activity
+        nodes: [Commit]
+        props:
+            - name: repo
+              type: String
+        list: true
   # Project
   - name: Project
     props:
