@@ -12,7 +12,7 @@ First, set up the `Cargo.toml` file to import Warpgrapher as a dependency. There
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.9.0", features = ["neo4j"] }
+warpgrapher = { version = "0.9.1", features = ["neo4j"] }
 ```
 
 The `src/main.rs` file begins with a definition of the data model for the example:
