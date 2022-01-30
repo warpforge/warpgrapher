@@ -327,6 +327,42 @@ async fn read_mnst_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
+/// Passes if the create mutation succeeds and the rel query returns an empty list. Added because
+/// of a bug that caused all rels with the same edge label to be returned, even if the source node
+/// type was different, under Gremlin.
+#[wg_test]
+#[allow(dead_code)]
+async fn read_rel_by_edge_label<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    client
+        .create_node(
+            "Portfolio",
+            "__typename id",
+            Some("1234"),
+            &json!({
+                "activity": {
+                    "dst": {
+                        "Commit": {
+                            "NEW": {
+                                "hash": "111111"
+                            }
+                        }
+                    }
+                }
+            }),
+        )
+        .await
+        .unwrap();
+
+    let activities = client
+        .read_rel("Project", "activity", "__typename id", Some("1234"), None)
+        .await
+        .unwrap();
+
+    assert!(activities.is_array());
+    let activities_a = activities.as_array().unwrap();
+    assert_eq!(activities_a.len(), 0);
+}
+
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]

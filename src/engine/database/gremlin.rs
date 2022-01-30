@@ -1085,36 +1085,26 @@ impl Transaction for GremlinTransaction {
             }
         }
 
-        if src_fragment_opt.is_some() || dst_fragment_opt.is_some() {
-            query.push_str(".where(");
+        query.push_str(".where(");
 
-            let both = src_fragment_opt.is_some() && dst_fragment_opt.is_some();
-
-            if both {
-                query.push_str("and(");
-            }
-
-            if let Some(src_fragment) = src_fragment_opt {
-                query.push_str(&("outV()".to_string() + src_fragment.where_fragment()));
-
-                params.extend(src_fragment.params());
-            }
-
-            if both {
-                query.push_str(", ");
-            }
-
-            if let Some(dst_fragment) = dst_fragment_opt {
-                query.push_str(&("inV()".to_string() + dst_fragment.where_fragment()));
-
-                params.extend(dst_fragment.params());
-            }
-
-            if both {
-                query.push(')');
-            }
-            query.push(')');
+        if dst_fragment_opt.is_some() {
+            query.push_str("and(");
         }
+
+        query.push_str(&("outV().hasLabel('".to_string() + rel_var.src.label()? + "')"));
+
+        if let Some(src_fragment) = src_fragment_opt {
+            query.push_str(src_fragment.where_fragment());
+            params.extend(src_fragment.params());
+        }
+
+        if let Some(dst_fragment) = dst_fragment_opt {
+            query.push_str(", ");
+            query.push_str(&(", inV()".to_string() + dst_fragment.where_fragment() + ")"));
+            params.extend(dst_fragment.params());
+        }
+
+        query.push(')');
 
         Ok(QueryFragment::new(String::new(), query, params))
     }

@@ -77,7 +77,7 @@ For neo4j:
 Note that Warpgrapher is only compatible with version 4.0 and later of Neo4J.
 
 ```bash
-docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.1
+docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.4
 ```
 
 ### Run Tests
