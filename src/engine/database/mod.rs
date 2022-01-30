@@ -425,8 +425,11 @@ impl QueryFragment {
 
 #[derive(Clone, Debug)]
 pub struct NodeQueryVar {
+    #[allow(dead_code)]
     base: String,
+    #[allow(dead_code)]
     suffix: String,
+    #[allow(dead_code)]
     label: Option<String>,
     #[allow(dead_code)]
     name: String,
