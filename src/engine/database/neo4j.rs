@@ -16,7 +16,7 @@ use bolt_proto::error::ConversionError;
 use bolt_proto::message::{Message, Record};
 use log::{debug, trace};
 use mobc::{Connection, Pool};
-use mobc_boltrs::BoltConnectionManager;
+use mobc_bolt::Manager;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::iter::FromIterator;
@@ -137,29 +137,31 @@ impl DatabaseEndpoint for Neo4jEndpoint {
     type PoolType = Neo4jDatabasePool;
 
     async fn pool(&self) -> Result<Self::PoolType, Error> {
-        let rw_manager = BoltConnectionManager::new(
+        let rw_manager = Manager::new(
             self.host.to_string() + ":" + &*self.port.to_string(),
             None,
             [4, 0, 0, 0],
-            HashMap::from_iter(vec![
+            Metadata::from_iter(vec![
                 ("user_agent", "warpgrapher/0.2.0"),
                 ("scheme", "basic"),
                 ("principal", &self.user),
                 ("credentials", &self.pass),
-            ]),
+            ])
+            .into(),
         )
         .await?;
 
-        let ro_manager = BoltConnectionManager::new(
+        let ro_manager = Manager::new(
             self.read_host.to_string() + ":" + &*self.port.to_string(),
             None,
             [4, 0, 0, 0],
-            HashMap::from_iter(vec![
+            Metadata::from_iter(vec![
                 ("user_agent", "warpgrapher/0.2.0"),
                 ("scheme", "basic"),
                 ("principal", &self.user),
                 ("credentials", &self.pass),
-            ]),
+            ])
+            .into(),
         )
         .await?;
 
@@ -178,12 +180,12 @@ impl DatabaseEndpoint for Neo4jEndpoint {
 
 #[derive(Clone)]
 pub struct Neo4jDatabasePool {
-    rw_pool: Pool<BoltConnectionManager>,
-    ro_pool: Pool<BoltConnectionManager>,
+    rw_pool: Pool<Manager>,
+    ro_pool: Pool<Manager>,
 }
 
 impl Neo4jDatabasePool {
-    fn new(rw_pool: Pool<BoltConnectionManager>, ro_pool: Pool<BoltConnectionManager>) -> Self {
+    fn new(rw_pool: Pool<Manager>, ro_pool: Pool<Manager>) -> Self {
         Neo4jDatabasePool { rw_pool, ro_pool }
     }
 }
@@ -202,11 +204,11 @@ impl DatabasePool for Neo4jDatabasePool {
 }
 
 pub struct Neo4jTransaction {
-    client: Connection<BoltConnectionManager>,
+    client: Connection<Manager>,
 }
 
 impl Neo4jTransaction {
-    pub fn new(client: Connection<BoltConnectionManager>) -> Neo4jTransaction {
+    pub fn new(client: Connection<Manager>) -> Neo4jTransaction {
         Neo4jTransaction { client }
     }
 
@@ -239,7 +241,7 @@ impl Neo4jTransaction {
     }
 
     fn extract_node_properties(
-        props: HashMap<String, bolt_proto::value::Value>,
+        props: HashMap<String, bolt_proto::Value>,
         type_def: &NodeType,
     ) -> Result<HashMap<String, Value>, Error> {
         trace!("Neo4jTransaction::extract_node_properties called");
@@ -248,7 +250,7 @@ impl Neo4jTransaction {
             .into_iter()
             .map(|(k, v)| {
                 if type_def.property(&k)?.list() {
-                    if let bolt_proto::value::Value::List(_) = v {
+                    if let bolt_proto::Value::List(_) = v {
                         Ok((k, v.try_into()?))
                     } else {
                         Ok((k, Value::Array(vec![(v.try_into()?)])))
@@ -269,7 +271,7 @@ impl Neo4jTransaction {
         records
             .into_iter()
             .map(|r| {
-                if let bolt_proto::value::Value::Node(n) = &r.fields()[0] {
+                if let bolt_proto::Value::Node(n) = &r.fields()[0] {
                     Ok(Node::new(
                         n.labels()[0].to_string(),
                         Neo4jTransaction::extract_node_properties(
@@ -308,17 +310,17 @@ impl Neo4jTransaction {
                     .ok_or_else(|| Error::ResponseItemNotFound {
                         name: "dst_labels".to_string(),
                     })?;
-                let mut props =
-                    if let bolt_proto::value::Value::Relationship(rel) = r.fields()[2].clone() {
-                        rel.properties()
-                            .iter()
-                            .map(|(k, v)| Ok((k.to_string(), v.clone().try_into()?)))
-                            .collect::<Result<HashMap<String, Value>, bolt_proto::error::Error>>()?
-                    } else {
-                        return Err(Error::ResponseItemNotFound {
-                            name: "rel".to_string(),
-                        });
-                    };
+                let mut props = if let bolt_proto::Value::Relationship(rel) = r.fields()[2].clone()
+                {
+                    rel.properties()
+                        .iter()
+                        .map(|(k, v)| Ok((k.to_string(), v.clone().try_into()?)))
+                        .collect::<Result<HashMap<String, Value>, bolt_proto::error::Error>>()?
+                } else {
+                    return Err(Error::ResponseItemNotFound {
+                        name: "rel".to_string(),
+                    });
+                };
 
                 Ok(Rel::new(
                     props
@@ -368,10 +370,10 @@ impl Transaction for Neo4jTransaction {
         );
 
         let p = Params::from(params);
-        self.client.run_with_metadata(query, Some(p), None).await?;
+        self.client.run(query, Some(p), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -421,10 +423,10 @@ impl Transaction for Neo4jTransaction {
         );
 
         let p = Params::from(params);
-        self.client.run_with_metadata(query, Some(p), None).await?;
+        self.client.run(query, Some(p), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -516,10 +518,10 @@ impl Transaction for Neo4jTransaction {
         );
 
         let p = Params::from(params);
-        self.client.run_with_metadata(q, Some(p), None).await?;
+        self.client.run(q, Some(p), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -660,12 +662,10 @@ impl Transaction for Neo4jTransaction {
             query,
             params
         );
-        self.client
-            .run_with_metadata(query, Some(params.into()), None)
-            .await?;
+        self.client.run(query, Some(params.into()), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -822,12 +822,10 @@ impl Transaction for Neo4jTransaction {
             query,
             params
         );
-        self.client
-            .run_with_metadata(query, Some(params.into()), None)
-            .await?;
+        self.client.run(query, Some(params.into()), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -882,10 +880,10 @@ impl Transaction for Neo4jTransaction {
         );
 
         let p = Params::from(params);
-        self.client.run_with_metadata(query, Some(p), None).await?;
+        self.client.run(query, Some(p), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -948,10 +946,10 @@ impl Transaction for Neo4jTransaction {
         );
 
         let p = Params::from(params);
-        self.client.run_with_metadata(q, Some(p), None).await?;
+        self.client.run(q, Some(p), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -997,12 +995,10 @@ impl Transaction for Neo4jTransaction {
             params
         );
 
-        self.client
-            .run_with_metadata(query, Some(params.into()), None)
-            .await?;
+        self.client.run(query, Some(params.into()), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -1048,12 +1044,10 @@ impl Transaction for Neo4jTransaction {
             params
         );
 
-        self.client
-            .run_with_metadata(query, Some(params.into()), None)
-            .await?;
+        self.client.run(query, Some(params.into()), None).await?;
 
-        let pull_meta = Metadata::from_iter(vec![("n", -1)]);
-        let (response, records) = self.client.pull(Some(pull_meta)).await?;
+        let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
+        let (records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
@@ -1075,53 +1069,45 @@ impl Transaction for Neo4jTransaction {
     }
 }
 
-impl TryFrom<bolt_proto::value::Value> for Value {
-    type Error = bolt_proto::error::Error;
+impl TryFrom<bolt_proto::Value> for Value {
+    type Error = bolt_proto::error::ConversionError;
 
-    fn try_from(bv: bolt_proto::value::Value) -> Result<Value, bolt_proto::error::Error> {
+    fn try_from(bv: bolt_proto::Value) -> Result<Value, bolt_proto::error::ConversionError> {
         match bv {
-            bolt_proto::value::Value::Boolean(_) => Ok(Value::Bool(bv.try_into()?)),
-            bolt_proto::value::Value::Integer(_) => Ok(Value::Int64(bv.try_into()?)),
-            bolt_proto::value::Value::Float(_) => Ok(Value::Float64(bv.try_into()?)),
-            bolt_proto::value::Value::Bytes(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::List(_) => Ok(Value::Array(bv.try_into()?)),
-            bolt_proto::value::Value::Map(_) => Ok(Value::Map(bv.try_into()?)),
-            bolt_proto::value::Value::Null => Ok(Value::Null),
-            bolt_proto::value::Value::String(_) => Ok(Value::String(bv.try_into()?)),
-            bolt_proto::value::Value::Node(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::Relationship(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::Path(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::UnboundRelationship(_) => {
-                Err(ConversionError::FromValue(bv).into())
-            }
-            bolt_proto::value::Value::Date(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::Time(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::DateTimeOffset(_) => {
-                Err(ConversionError::FromValue(bv).into())
-            }
-            bolt_proto::value::Value::DateTimeZoned(_) => {
-                Err(ConversionError::FromValue(bv).into())
-            }
-            bolt_proto::value::Value::LocalTime(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::LocalDateTime(_) => {
-                Err(ConversionError::FromValue(bv).into())
-            }
-            bolt_proto::value::Value::Duration(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::Point2D(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::value::Value::Point3D(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Boolean(_) => Ok(Value::Bool(bv.try_into()?)),
+            bolt_proto::Value::Integer(_) => Ok(Value::Int64(bv.try_into()?)),
+            bolt_proto::Value::Float(_) => Ok(Value::Float64(bv.try_into()?)),
+            bolt_proto::Value::Bytes(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::List(_) => Ok(Value::Array(bv.try_into()?)),
+            bolt_proto::Value::Map(_) => Ok(Value::Map(bv.try_into()?)),
+            bolt_proto::Value::Null => Ok(Value::Null),
+            bolt_proto::Value::String(_) => Ok(Value::String(bv.try_into()?)),
+            bolt_proto::Value::Node(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Relationship(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Path(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::UnboundRelationship(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Date(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Time(_, _) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::DateTimeOffset(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::DateTimeZoned(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::LocalTime(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::LocalDateTime(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Duration(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Point2D(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Point3D(_) => Err(ConversionError::FromValue(bv).into()),
         }
     }
 }
 
-impl From<Value> for bolt_proto::value::Value {
-    fn from(v: Value) -> bolt_proto::value::Value {
+impl From<Value> for bolt_proto::Value {
+    fn from(v: Value) -> bolt_proto::Value {
         match v {
             Value::Array(a) => a.into(),
             Value::Bool(b) => b.into(),
             Value::Float64(f) => f.into(),
             Value::Int64(i) => i.into(),
             Value::Map(m) => m.into(),
-            Value::Null => bolt_proto::value::Value::Null,
+            Value::Null => bolt_proto::Value::Null,
             Value::String(s) => s.into(),
             // This last conversion may be lossy, but interoperability with bolt_proto doesn't
             // allow for a TryFrom conversion here.
@@ -1131,14 +1117,14 @@ impl From<Value> for bolt_proto::value::Value {
     }
 }
 
-impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Value> for Node<RequestCtx> {
+impl<RequestCtx: RequestContext> TryFrom<bolt_proto::Value> for Node<RequestCtx> {
     type Error = crate::Error;
 
-    fn try_from(value: bolt_proto::value::Value) -> Result<Self, Error> {
+    fn try_from(value: bolt_proto::Value) -> Result<Self, Error> {
         match value {
-            bolt_proto::value::Value::Node(n) => {
+            bolt_proto::Value::Node(n) => {
                 let type_name = &n.labels()[0];
-                let properties: &HashMap<String, bolt_proto::value::Value> = n.properties();
+                let properties: &HashMap<String, bolt_proto::Value> = n.properties();
                 let props_value = Value::try_from(properties.clone())?;
                 let props = HashMap::<String, Value>::try_from(props_value)?;
                 Ok(Node::new(type_name.to_string(), props))
@@ -1151,10 +1137,10 @@ impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Value> for Node<Requ
     }
 }
 
-impl TryFrom<HashMap<String, bolt_proto::value::Value>> for Value {
+impl TryFrom<HashMap<String, bolt_proto::Value>> for Value {
     type Error = Error;
 
-    fn try_from(hm: HashMap<String, bolt_proto::value::Value>) -> Result<Value, Error> {
+    fn try_from(hm: HashMap<String, bolt_proto::Value>) -> Result<Value, Error> {
         let hmv: HashMap<String, Value> = hm.into_iter().try_fold(
             HashMap::new(),
             |mut acc, (key, bolt_value)| -> Result<HashMap<String, Value>, Error> {
