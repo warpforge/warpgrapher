@@ -146,8 +146,7 @@ impl DatabaseEndpoint for Neo4jEndpoint {
                 ("scheme", "basic"),
                 ("principal", &self.user),
                 ("credentials", &self.pass),
-            ])
-            .into(),
+            ]),
         )
         .await?;
 
@@ -160,8 +159,7 @@ impl DatabaseEndpoint for Neo4jEndpoint {
                 ("scheme", "basic"),
                 ("principal", &self.user),
                 ("credentials", &self.pass),
-            ])
-            .into(),
+            ]),
         )
         .await?;
 
@@ -1077,24 +1075,24 @@ impl TryFrom<bolt_proto::Value> for Value {
             bolt_proto::Value::Boolean(_) => Ok(Value::Bool(bv.try_into()?)),
             bolt_proto::Value::Integer(_) => Ok(Value::Int64(bv.try_into()?)),
             bolt_proto::Value::Float(_) => Ok(Value::Float64(bv.try_into()?)),
-            bolt_proto::Value::Bytes(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Bytes(_) => Err(ConversionError::FromValue(bv)),
             bolt_proto::Value::List(_) => Ok(Value::Array(bv.try_into()?)),
             bolt_proto::Value::Map(_) => Ok(Value::Map(bv.try_into()?)),
             bolt_proto::Value::Null => Ok(Value::Null),
             bolt_proto::Value::String(_) => Ok(Value::String(bv.try_into()?)),
-            bolt_proto::Value::Node(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Relationship(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Path(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::UnboundRelationship(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Date(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Time(_, _) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::DateTimeOffset(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::DateTimeZoned(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::LocalTime(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::LocalDateTime(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Duration(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Point2D(_) => Err(ConversionError::FromValue(bv).into()),
-            bolt_proto::Value::Point3D(_) => Err(ConversionError::FromValue(bv).into()),
+            bolt_proto::Value::Node(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Relationship(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Path(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::UnboundRelationship(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Date(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Time(_, _) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::DateTimeOffset(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::DateTimeZoned(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::LocalTime(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::LocalDateTime(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Duration(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Point2D(_) => Err(ConversionError::FromValue(bv)),
+            bolt_proto::Value::Point3D(_) => Err(ConversionError::FromValue(bv)),
         }
     }
 }
