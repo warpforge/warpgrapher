@@ -23,7 +23,7 @@ pub enum Error {
     /// a network connection failure
     #[cfg(feature = "neo4j")]
     BoltClientFailed {
-        source: bolt_client::error::Error,
+        source: bolt_client::error::CommunicationError,
     },
 
     /// Returned if a [`Client`] is unable to submit a request to the server, such as due to a
@@ -109,11 +109,12 @@ pub enum Error {
         name: String,
     },
 
-    /// Returned if an invalid header is passed to the constructor for creating an http client.
-    /// There are two possible invalid header types based on whether the name or value was invalid.
+    /// Returned if an invalid header name is passed to the constructor for creating an http client.
     InvalidHeaderName {
         source: InvalidHeaderName,
     },
+
+    // Returne if an invalid header value is passed to the constructor for creating an HTTP client.
     InvalidHeaderValue {
         source: InvalidHeaderValue,
     },
@@ -124,18 +125,18 @@ pub enum Error {
     /// the Warpgrapher project.
     LabelNotFound,
 
-    /// Returned if a Neo4J pool cannot return a client transaction. The source error contains
-    /// additional information.
+    /// Returned if the Neo4J database driver suffers an internal value type conversation failure.
+    /// The source error contains additional information.
     #[cfg(feature = "neo4j")]
-    Neo4jPoolFailed {
-        source: mobc::Error<mobc_boltrs::Error>,
+    Neo4jConversionFailed {
+        source: bolt_proto::error::ConversionError,
     },
 
-    /// Returned if a Neo4J pool cannot be built, such as if the host, port, or authentication
-    /// credentials are incorrect. The source error contains additional information.
+    /// Returned if a Neo4J pool cannot be built or cannot return a client transaction. The source
+    /// error contains additional information.
     #[cfg(feature = "neo4j")]
-    Neo4jPoolNotBuilt {
-        source: mobc_boltrs::Error,
+    Neo4jPoolFailed {
+        source: mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>,
     },
 
     /// Returned if a Neo4J query fails to execute correctly
@@ -355,12 +356,12 @@ impl Display for Error {
                 write!(f, "Failed to deserialize JSON into struct: {}", source)
             }
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolFailed { source } => {
-                write!(f, "Could not get Neo4J transaction from pool: {}", source)
+            Error::Neo4jConversionFailed { source } => {
+                write!(f, "Neo4j value conversion failure: {}", source)
             }
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolNotBuilt { source } => {
-                write!(f, "Could not build Neo4j connection pool: {}", source)
+            Error::Neo4jPoolFailed { source } => {
+                write!(f, "Could not get Neo4J transaction from pool: {}", source)
             }
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message } => {
@@ -494,9 +495,9 @@ impl std::error::Error for Error {
             Error::JsonDeserializationFailed { source } => Some(source),
             Error::LabelNotFound => None,
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolFailed { source } => Some(source),
+            Error::Neo4jConversionFailed { source } => Some(source),
             #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolNotBuilt { source } => Some(source),
+            Error::Neo4jPoolFailed { source } => Some(source),
             #[cfg(feature = "neo4j")]
             Error::Neo4jQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
@@ -530,8 +531,8 @@ impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
 }
 
 #[cfg(feature = "neo4j")]
-impl From<bolt_client::error::Error> for Error {
-    fn from(e: bolt_client::error::Error) -> Self {
+impl From<bolt_client::error::CommunicationError> for Error {
+    fn from(e: bolt_client::error::CommunicationError) -> Self {
         Error::BoltClientFailed { source: e }
     }
 }
@@ -556,16 +557,16 @@ impl From<GremlinError> for Error {
 }
 
 #[cfg(feature = "neo4j")]
-impl From<mobc::Error<mobc_boltrs::Error>> for Error {
-    fn from(e: mobc::Error<mobc_boltrs::Error>) -> Self {
-        Error::Neo4jPoolFailed { source: e }
+impl From<bolt_proto::error::ConversionError> for Error {
+    fn from(e: bolt_proto::error::ConversionError) -> Self {
+        Error::Neo4jConversionFailed { source: e }
     }
 }
 
 #[cfg(feature = "neo4j")]
-impl From<mobc_boltrs::Error> for Error {
-    fn from(e: mobc_boltrs::Error) -> Self {
-        Error::Neo4jPoolNotBuilt { source: e }
+impl From<mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>> for Error {
+    fn from(e: mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>) -> Self {
+        Error::Neo4jPoolFailed { source: e }
     }
 }
 
