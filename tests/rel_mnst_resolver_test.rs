@@ -23,10 +23,11 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}", Some("1234"),
+            "__typename repo dst{...on Commit{__typename hash}}",
+            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
-                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"NEW": {"hash": "11111"}}}}])
+            &json!([{"repo": "Repo Zero", "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
+                    {"repo": "Repo One", "dst": {"Commit": {"NEW": {"hash": "11111"}}}}]),
         )
         .await
         .unwrap();
@@ -48,15 +49,15 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
 
     let projects = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             None,
         )
@@ -83,10 +84,10 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
 }
 
 #[wg_test]
@@ -134,10 +135,10 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",Some("1234"),
+            "__typename repo dst{...on Commit{__typename hash}}",Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "00000"}}}}},
-                    {"props": {"repo": "Repo One"}, "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "11111"}}}}}])
+            &json!([{"repo": "Repo Zero", "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "00000"}}}}},
+                    {"repo": "Repo One", "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "11111"}}}}}])
         )
         .await
         .unwrap();
@@ -159,12 +160,12 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
 
     let projects = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             None,
         )
@@ -191,10 +192,10 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
 }
 
 #[wg_test]
@@ -242,9 +243,10 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
         .create_rel(
             "Project",
             "activity",
-            "__typename id props{repo} dst{...on Commit{__typename hash}}",Some("1234"),
+            "__typename id repo dst{...on Commit{__typename hash}}",
+            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!([{"props": {"repo": "Repo Zero"}, "dst": {"Commit": {"EXISTING": {"hash": {"GT": "0"}}}}}])
+            &json!([{"repo": "Repo Zero", "dst": {"Commit": {"EXISTING": {"hash": {"GT": "0"}}}}}]),
         )
         .await
         .unwrap();
@@ -266,7 +268,7 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "2"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
 
     let first_id = activity[0].get("id").unwrap();
     let second_id = activity[1].get("id").unwrap();
@@ -276,7 +278,7 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
     let projects = client
         .read_node(
             "Project",
-            "activity{__typename id props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename id repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             None,
         )
@@ -303,7 +305,7 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "2"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() == "Repo Zero"));
 
     let first_id = activity[0].get("id").unwrap();
     let second_id = activity[1].get("id").unwrap();
@@ -323,11 +325,11 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -340,9 +342,9 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename repo dst{...on Commit{__typename hash}}",
             Some("1234"),
-            Some(&json!({"props": {"repo": {"EQ": "Repo Zero"}}})),
+            Some(&json!({"repo": {"EQ": "Repo Zero"}})),
         )
         .await
         .unwrap();
@@ -356,7 +358,7 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
@@ -377,11 +379,11 @@ async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -394,7 +396,7 @@ async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{ __typename hash}}",
+            "__typename repo dst{...on Commit{ __typename hash}}",
             Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
@@ -410,10 +412,10 @@ async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
@@ -437,11 +439,11 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -454,7 +456,7 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename repo dst{...on Commit{__typename hash}}",
             Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": {"EQ": "00000"}}}})),
         )
@@ -470,7 +472,7 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
@@ -491,11 +493,11 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -508,10 +510,10 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename repo dst{...on Commit{__typename hash}}",
             Some("1234"),
-            Some(&json!({"props": {"repo": {"EQ": "Repo Zero"}}})),
-            &json!({"props": {"repo": "Repo Two"}}),
+            Some(&json!({"repo": {"EQ": "Repo Zero"}})),
+            &json!({"repo": "Repo Two"}),
         )
         .await
         .unwrap();
@@ -528,10 +530,10 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .all(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -539,7 +541,7 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
@@ -561,13 +563,13 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .any(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
@@ -588,11 +590,11 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -605,10 +607,10 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename repo dst{...on Commit{__typename hash}}",
             Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
-            &json!({"props": {"repo": "Repo Two"}}),
+            &json!({"repo": "Repo Two"}),
         )
         .await
         .unwrap();
@@ -625,13 +627,13 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .all(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo One"));
+        .all(|a| a.get("repo").unwrap() != "Repo One"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -652,11 +654,11 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -669,10 +671,10 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "activity",
-            "__typename props{repo} dst{...on Commit{__typename hash}}",
+            "__typename repo dst{...on Commit{__typename hash}}",
             Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": {"EQ": "00000"}}}})),
-            &json!({"props": {"repo": "Repo Two"}}),
+            &json!({"repo": "Repo Two"}),
         )
         .await
         .unwrap();
@@ -689,10 +691,10 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .all(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -700,7 +702,7 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
@@ -722,13 +724,13 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .any(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -749,11 +751,11 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                      "props": {"repo": "Repo Zero"},
+                      "repo": "Repo Zero",
                       "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                      "props": {"repo": "Repo One"},
+                      "repo": "Repo One",
                       "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -767,7 +769,7 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "activity",
             Some("1234"),
-            Some(&json!({"props": {"repo": {"EQ": "Repo One"}}})),
+            Some(&json!({"repo": {"EQ": "Repo One"}})),
             None,
             None,
         )
@@ -777,7 +779,7 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             None,
         )
@@ -799,10 +801,10 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo One"));
+        .all(|a| a.get("repo").unwrap() != "Repo One"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -823,11 +825,11 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                      "props": {"repo": "Repo Zero"},
+                      "repo": "Repo Zero",
                       "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                      "props": {"repo": "Repo One"},
+                      "repo": "Repo One",
                       "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -851,7 +853,7 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             None,
         )
@@ -873,10 +875,10 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo One"));
+        .all(|a| a.get("repo").unwrap() != "Repo One"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
@@ -897,11 +899,11 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Zero"},
+                        "repo": "Repo Zero",
                         "dst": {"Commit": {"NEW": {"hash": "00000"}}}
                     },
                     {
-                        "props": {"repo": "Repo One"},
+                        "repo": "Repo One",
                         "dst": {"Commit": {"NEW": {"hash": "11111"}}}
                     }
                 ]
@@ -919,11 +921,11 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project One",
                 "activity": [
                     {
-                        "props": {"repo": "Repo Two"},
+                        "repo": "Repo Two",
                         "dst": {"Commit": {"NEW": {"hash": "22222"}}}
                     },
                     {
-                        "props": {"repo": "Repo Three"},
+                        "repo": "Repo Three",
                         "dst": {"Commit": {"NEW": {"hash": "33333"}}}
                     }
                 ]
@@ -947,7 +949,7 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects0 = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
@@ -957,7 +959,7 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "activity{__typename props{repo} dst{...on Commit{__typename hash}}}",
+            "activity{__typename repo dst{...on Commit{__typename hash}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
@@ -985,13 +987,13 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Two"));
+        .any(|a| a.get("repo").unwrap() == "Repo Two"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "22222"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Three"));
+        .any(|a| a.get("repo").unwrap() == "Repo Three"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "33333"));

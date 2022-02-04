@@ -449,11 +449,11 @@ async fn test_before_rel_create_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -492,11 +492,11 @@ async fn test_before_rel_read_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -506,18 +506,12 @@ async fn test_before_rel_read_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
@@ -553,11 +547,11 @@ async fn test_before_rel_update_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -567,7 +561,7 @@ async fn test_before_rel_update_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -575,10 +569,10 @@ async fn test_before_rel_update_handler() {
         .update_rel(
             "Project",
             "issues",
-            "id props { since }",
+            "id since",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2000"}}})),
-            &json!({"props": {"since": "2010"}}),
+            Some(&json!({"since": {"EQ": "2000"}})),
+            &json!({"since": "2010"}),
         )
         .await
         .unwrap();
@@ -615,11 +609,11 @@ async fn test_before_rel_delete_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -629,7 +623,7 @@ async fn test_before_rel_delete_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -638,7 +632,7 @@ async fn test_before_rel_delete_handler() {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
+            Some(&json!({"since": {"EQ": "2010"}})),
             None,
             None,
         )
@@ -677,11 +671,11 @@ async fn test_after_rel_create_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -720,11 +714,11 @@ async fn test_after_rel_read_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
         )
@@ -734,18 +728,12 @@ async fn test_after_rel_read_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
@@ -781,11 +769,11 @@ async fn test_after_rel_update_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -795,7 +783,7 @@ async fn test_after_rel_update_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -803,10 +791,10 @@ async fn test_after_rel_update_handler() {
         .update_rel(
             "Project",
             "issues",
-            "id props { since }",
+            "id since",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2000"}}})),
-            &json!({"props": {"since": "2010"}}),
+            Some(&json!({"since": {"EQ": "2000"}})),
+            &json!({"since": "2010"}),
         )
         .await
         .unwrap();
@@ -843,11 +831,11 @@ async fn test_after_rel_delete_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
         )
@@ -857,7 +845,7 @@ async fn test_after_rel_delete_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -866,7 +854,7 @@ async fn test_after_rel_delete_handler() {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
+            Some(&json!({"since": {"EQ": "2010"}})),
             None,
             None,
         )

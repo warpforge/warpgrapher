@@ -184,12 +184,23 @@ pub(crate) async fn gremlin_test_client(config_path: &str) -> Client<GremlinRequ
 #[cfg(feature = "gremlin")]
 #[allow(dead_code)]
 fn clear_gremlin_db() {
+    let version = match var_os("WG_GREMLIN_VERSION")
+        .map(|osstr| osstr.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "3".to_string())
+        .parse::<u16>()
+        .unwrap_or(3)
+    {
+        1 => GraphSON::V1,
+        2 => GraphSON::V2,
+        _ => GraphSON::V3,
+    };
+
     let mut options_builder = ConnectionOptions::builder()
         .host(gremlin_host())
         .port(gremlin_port())
         .pool_size(num_cpus::get().try_into().unwrap_or(8))
-        .serializer(GraphSON::V3)
-        .deserializer(GraphSON::V3);
+        .serializer(version.clone())
+        .deserializer(version);
     if let (Some(user), Some(pass)) = (gremlin_user(), gremlin_pass()) {
         options_builder = options_builder.credentials(&user, &pass);
     }
@@ -410,7 +421,8 @@ pub(crate) fn project_top_dev(
                     &facade
                         .create_rel(
                             Value::String("1234567890".to_string()),
-                            None,
+                            "topdev",
+                            HashMap::new(),
                             dev_id,
                             "User",
                         )
@@ -478,12 +490,19 @@ pub(crate) fn project_top_issues(
         facade
             .resolve_rel_list(vec![
                 &facade
-                    .create_rel(Value::String("1234567890".to_string()), None, bug_id, "Bug")
+                    .create_rel(
+                        Value::String("1234567890".to_string()),
+                        "topissues",
+                        HashMap::new(),
+                        bug_id,
+                        "Bug",
+                    )
                     .expect("Expected rel"),
                 &facade
                     .create_rel(
                         Value::String("0987654321".to_string()),
-                        None,
+                        "topissues",
+                        HashMap::new(),
                         feature_id,
                         "Feature",
                     )

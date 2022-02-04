@@ -60,9 +60,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -86,9 +84,7 @@ The output is as follows.
         "members": [
           {
             "id": "78acc7ac-2153-413d-a8d7-688e472340d5",
-            "props": {
-              "joinDate": "2021-01-02"
-            },
+            "joinDate": "2021-01-02",
             "dst": {
               "id": "ea2a1b68-fda2-4adb-9c80-554761a1c97b",
               "email": "balthazar@example.com"
@@ -96,9 +92,7 @@ The output is as follows.
           },
           {
             "id": "00051bc1-133c-445d-b00c-4faf61b2bffa",
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -123,7 +117,7 @@ mutation {
       SET: {
         members: {
           ADD: {
-            props: { joinDate: "2018-01-08" }
+            joinDate: "2018-01-08",
             dst: { User: { NEW: { email: "constantine@example.com" } } }
           }
         }
@@ -134,9 +128,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -160,9 +152,7 @@ The output is as follows.
         "members": [
           {
             "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
-            "props": {
-              "joinDate": "2018-01-08"
-            },
+            "joinDate": "2018-01-08",
             "dst": {
               "id": "f2e894bf-e98e-48a7-b16a-adc95cd34ac3",
               "email": "constantine@example.com"
@@ -170,9 +160,7 @@ The output is as follows.
           },
           {
             "id": "bd302b7f-8a3f-49ab-aac3-c3348d8b8d94",
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -210,9 +198,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -236,9 +222,7 @@ The output is as follows.
         "members": [
           {
             "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
-            "props": {
-              "joinDate": "2018-01-08"
-            },
+            "joinDate": "2018-01-08",
             "dst": {
               "id": "f2e894bf-e98e-48a7-b16a-adc95cd34ac3",
               "email": "javier@example.com"
@@ -246,9 +230,7 @@ The output is as follows.
           },
           {
             "id": "bd302b7f-8a3f-49ab-aac3-c3348d8b8d94",
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -283,9 +265,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -309,9 +289,7 @@ The output is as follows.
         "members": [
           {
             "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
-            "props": {
-              "joinDate": "2018-01-08"
-            },
+            "joinDate": "2018-01-08",
             "dst": {
               "id": "f2e894bf-e98e-48a7-b16a-adc95cd34ac3",
               "email": "javier@example.com"

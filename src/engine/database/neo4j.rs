@@ -7,7 +7,6 @@ use crate::engine::database::{
 };
 use crate::engine::objects::{Node, NodeRef, Rel};
 use crate::engine::schema::Info;
-use crate::engine::schema::NodeType;
 use crate::engine::value::Value;
 use crate::Error;
 use async_trait::async_trait;
@@ -209,137 +208,6 @@ impl Neo4jTransaction {
     pub fn new(client: Connection<Manager>) -> Neo4jTransaction {
         Neo4jTransaction { client }
     }
-
-    fn add_rel_return(query: String, src_var: &str, rel_var: &str, dst_var: &str) -> String {
-        query
-            + "RETURN "
-            + src_var
-            + ".id as src_id, labels("
-            + src_var
-            + ") as src_labels, "
-            + rel_var
-            + " as rel, "
-            + dst_var
-            + ".id as dst_id, labels("
-            + dst_var
-            + ") as dst_labels\n"
-    }
-
-    fn extract_count(records: Vec<Record>) -> Result<i32, Error> {
-        trace!(
-            "Neo4jTransaction::extract_count called -- records: {:#?}",
-            records
-        );
-
-        records
-            .into_iter()
-            .next()
-            .ok_or(Error::ResponseSetNotFound)
-            .and_then(|r| r.fields()[0].clone().try_into().map_err(Error::from))
-    }
-
-    fn extract_node_properties(
-        props: HashMap<String, bolt_proto::Value>,
-        type_def: &NodeType,
-    ) -> Result<HashMap<String, Value>, Error> {
-        trace!("Neo4jTransaction::extract_node_properties called");
-
-        props
-            .into_iter()
-            .map(|(k, v)| {
-                if type_def.property(&k)?.list() {
-                    if let bolt_proto::Value::List(_) = v {
-                        Ok((k, v.try_into()?))
-                    } else {
-                        Ok((k, Value::Array(vec![(v.try_into()?)])))
-                    }
-                } else {
-                    Ok((k, v.try_into()?))
-                }
-            })
-            .collect::<Result<HashMap<String, Value>, Error>>()
-    }
-
-    fn nodes<RequestCtx: RequestContext>(
-        records: Vec<Record>,
-        info: &Info,
-    ) -> Result<Vec<Node<RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::nodes called -- records: {:#?}", records);
-
-        records
-            .into_iter()
-            .map(|r| {
-                if let bolt_proto::Value::Node(n) = &r.fields()[0] {
-                    Ok(Node::new(
-                        n.labels()[0].to_string(),
-                        Neo4jTransaction::extract_node_properties(
-                            n.properties().clone(),
-                            info.type_def_by_name(&n.labels()[0])?,
-                        )?,
-                    ))
-                } else {
-                    Err(Error::ResponseItemNotFound {
-                        name: "node".to_string(),
-                    })
-                }
-            })
-            .collect()
-    }
-
-    fn rels<RequestCtx: RequestContext>(
-        records: Vec<Record>,
-        partition_key_opt: Option<&Value>,
-        props_type_name: Option<&str>,
-    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::rels called -- records: {:#?}", records);
-
-        records
-            .into_iter()
-            .map(|r| {
-                let src_id = r.fields()[0].clone().try_into()?;
-                let src_label = TryInto::<Vec<String>>::try_into(r.fields()[1].clone())?
-                    .pop()
-                    .ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "src_labels".to_string(),
-                    })?;
-                let dst_id = r.fields()[3].clone().try_into()?;
-                let dst_label = TryInto::<Vec<String>>::try_into(r.fields()[4].clone())?
-                    .pop()
-                    .ok_or_else(|| Error::ResponseItemNotFound {
-                        name: "dst_labels".to_string(),
-                    })?;
-                let mut props = if let bolt_proto::Value::Relationship(rel) = r.fields()[2].clone()
-                {
-                    rel.properties()
-                        .iter()
-                        .map(|(k, v)| Ok((k.to_string(), v.clone().try_into()?)))
-                        .collect::<Result<HashMap<String, Value>, bolt_proto::error::Error>>()?
-                } else {
-                    return Err(Error::ResponseItemNotFound {
-                        name: "rel".to_string(),
-                    });
-                };
-
-                Ok(Rel::new(
-                    props
-                        .remove("id")
-                        .ok_or_else(|| Error::ResponseItemNotFound {
-                            name: "id".to_string(),
-                        })?,
-                    partition_key_opt.cloned(),
-                    props_type_name.map(|ptn| Node::new(ptn.to_string(), props)),
-                    NodeRef::Identifier {
-                        id: src_id,
-                        label: src_label,
-                    },
-                    NodeRef::Identifier {
-                        id: dst_id,
-                        label: dst_label,
-                    },
-                ))
-            })
-            .collect::<Result<Vec<Rel<RequestCtx>>, Error>>()
-    }
 }
 
 #[async_trait]
@@ -382,14 +250,14 @@ impl Transaction for Neo4jTransaction {
 
     #[tracing::instrument(
         name = "wg-neo4j-create-node",
-        skip(self, node_var, props, _partition_key_opt, info, _sg)
+        skip(self, node_var, props, _partition_key_opt, _info, _sg)
     )]
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         mut props: HashMap<String, Value>,
         _partition_key_opt: Option<&Value>,
-        info: &Info,
+        _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error> {
         trace!(
@@ -424,16 +292,13 @@ impl Transaction for Neo4jTransaction {
         self.client.run(query, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
-        let (records, response) = self.client.pull(Some(pull_meta)).await?;
+        let (mut records, response) = self.client.pull(Some(pull_meta)).await?;
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::nodes(records, info)?
-            .into_iter()
-            .next()
-            .ok_or(Error::ResponseSetNotFound)
+        records.pop().ok_or(Error::ResponseSetNotFound)?.try_into()
     }
 
     #[tracing::instrument(
@@ -444,8 +309,8 @@ impl Transaction for Neo4jTransaction {
             dst_fragment,
             rel_var,
             props,
-            props_type_name,
             partition_key_opt,
+            _info,
             _sg
         )
     )]
@@ -456,12 +321,12 @@ impl Transaction for Neo4jTransaction {
         rel_var: &RelQueryVar,
         id_opt: Option<Value>,
         mut props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::create_rels called -- src_query: {:#?}, dst_query: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
-        src_fragment, dst_fragment, rel_var, props, props_type_name, partition_key_opt);
+        trace!("Neo4jTransaction::create_rels called -- src_query: {:#?}, dst_query: {:#?}, rel_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}",
+        src_fragment, dst_fragment, rel_var, props, partition_key_opt);
 
         let query = src_fragment.match_fragment().to_string()
             + dst_fragment.match_fragment()
@@ -492,14 +357,14 @@ impl Transaction for Neo4jTransaction {
             + ")\n"
             + "SET "
             + rel_var.name()
-            + " += $props\n";
-
-        let q = Neo4jTransaction::add_rel_return(
-            query,
-            rel_var.src().name(),
-            rel_var.name(),
-            rel_var.dst().name(),
-        );
+            + " += $props\n"
+            + "RETURN "
+            + rel_var.src.name()
+            + " as src, "
+            + rel_var.name()
+            + " as rel, "
+            + rel_var.dst.name()
+            + " as dst\n";
 
         if let Some(id_val) = id_opt {
             props.insert("id".to_string(), id_val);
@@ -510,22 +375,27 @@ impl Transaction for Neo4jTransaction {
         params.insert("props".to_string(), props.into());
 
         trace!(
-            "Neo4jTransaction::create_rels -- q: {}, params: {:#?}",
-            q,
+            "Neo4jTransaction::create_rels -- query: {}, params: {:#?}",
+            query,
             params
         );
 
         let p = Params::from(params);
-        self.client.run(q, Some(p), None).await?;
+        self.client.run(query, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
         let (records, response) = self.client.pull(Some(pull_meta)).await?;
+        trace!("Reached record pull");
         match response {
             Message::Success(_) => (),
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
+        trace!("Rel Records: {:#?}", records);
+        records
+            .into_iter()
+            .map(|r| r.try_into())
+            .collect::<Result<Vec<Rel<RequestCtx>>, Error>>()
     }
 
     fn node_read_by_ids_fragment<RequestCtx: RequestContext>(
@@ -669,7 +539,12 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::nodes(records, info)
+        trace!("Rel Records: {:#?}", records);
+
+        records
+            .into_iter()
+            .map(|n| n.try_into())
+            .collect::<Result<Vec<Node<RequestCtx>>, Error>>()
     }
 
     fn rel_read_by_ids_fragment<RequestCtx: RequestContext>(
@@ -698,7 +573,7 @@ impl Transaction for Neo4jTransaction {
         let ids = rels
             .iter()
             .map(|r| r.id())
-            .collect::<Vec<&Value>>()
+            .collect::<Result<Vec<&Value>, Error>>()?
             .into_iter()
             .cloned()
             .collect();
@@ -787,17 +662,17 @@ impl Transaction for Neo4jTransaction {
 
     #[tracing::instrument(
         name = "wg-neo4j-read-rels",
-        skip(self, query_fragment, rel_var, props_type_name, partition_key_opt)
+        skip(self, query_fragment, rel_var, partition_key_opt, _info)
     )]
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        _info: &Info,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::read_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
-        query_fragment, rel_var, props_type_name, partition_key_opt);
+        trace!("Neo4jTransaction::read_rels called -- query_fragment: {:#?}, rel_var: {:#?}, partition_key_opt: {:#?}",
+        query_fragment, rel_var, partition_key_opt);
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
@@ -806,13 +681,16 @@ impl Transaction for Neo4jTransaction {
             String::new()
         };
 
-        let mut query = query_fragment.match_fragment().to_string() + &*where_clause + "\n";
-        query = Neo4jTransaction::add_rel_return(
-            query,
-            rel_var.src().name(),
-            rel_var.name(),
-            rel_var.dst().name(),
-        );
+        let query = query_fragment.match_fragment().to_string()
+            + &*where_clause
+            + "\n"
+            + "RETURN "
+            + rel_var.src.name()
+            + " as src, "
+            + rel_var.name()
+            + " as rel, "
+            + rel_var.dst.name()
+            + " as dst\n";
         let params = query_fragment.params();
 
         trace!(
@@ -829,7 +707,12 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
+        trace!("Rel Records: {:#?}", records);
+
+        records
+            .into_iter()
+            .map(|r| r.try_into())
+            .collect::<Result<Vec<Rel<RequestCtx>>, Error>>()
     }
 
     #[tracing::instrument(
@@ -887,32 +770,27 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::nodes(records, info)
+        records
+            .into_iter()
+            .map(|n| n.try_into())
+            .collect::<Result<Vec<Node<RequestCtx>>, Error>>()
     }
 
     #[tracing::instrument(
         name = "wg-neo4j-update-rels",
-        skip(
-            self,
-            query_fragment,
-            rel_var,
-            props,
-            props_type_name,
-            partition_key_opt,
-            _sg
-        )
+        skip(self, query_fragment, rel_var, props, partition_key_opt, _info, _sg)
     )]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("Neo4jTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, props_type_name: {:#?}, partition_key_opt: {:#?}",
-        query_fragment, rel_var, props, props_type_name, partition_key_opt);
+        trace!("Neo4jTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}",
+        query_fragment, rel_var, props, partition_key_opt);
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
@@ -925,26 +803,26 @@ impl Transaction for Neo4jTransaction {
             + &*where_clause
             + "SET "
             + rel_var.name()
-            + " += $props\n";
+            + " += $props\n"
+            + "RETURN "
+            + rel_var.src.name()
+            + " as src, "
+            + rel_var.name()
+            + " as rel, "
+            + rel_var.dst.name()
+            + " as dst\n";
 
         let mut params = query_fragment.params();
         params.insert("props".to_string(), props.into());
 
-        let q = Neo4jTransaction::add_rel_return(
-            query,
-            rel_var.src().name(),
-            rel_var.name(),
-            rel_var.dst().name(),
-        );
-
         trace!(
             "Neo4jTransaction::update_rels -- q: {}, params: {:#?}",
-            q,
+            query,
             params
         );
 
         let p = Params::from(params);
-        self.client.run(q, Some(p), None).await?;
+        self.client.run(query, Some(p), None).await?;
 
         let pull_meta = Metadata::from_iter(vec![("n", -1i8)]);
         let (records, response) = self.client.pull(Some(pull_meta)).await?;
@@ -953,7 +831,11 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::rels(records, partition_key_opt, props_type_name)
+        trace!("Rel Records: {:#?}", records);
+        records
+            .into_iter()
+            .map(|n| n.try_into())
+            .collect::<Result<Vec<Rel<RequestCtx>>, Error>>()
     }
 
     #[tracing::instrument(
@@ -1002,7 +884,14 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::extract_count(records)
+        records
+            .into_iter()
+            .next()
+            .ok_or(Error::ResponseSetNotFound)?
+            .fields()[0]
+            .clone()
+            .try_into()
+            .map_err(|e: ConversionError| e.into())
     }
 
     #[tracing::instrument(
@@ -1051,7 +940,14 @@ impl Transaction for Neo4jTransaction {
             message => return Err(Error::Neo4jQueryFailed { message }),
         }
 
-        Neo4jTransaction::extract_count(records)
+        records
+            .into_iter()
+            .next()
+            .ok_or(Error::ResponseSetNotFound)?
+            .fields()[0]
+            .clone()
+            .try_into()
+            .map_err(|e: ConversionError| e.into())
     }
 
     #[tracing::instrument(name = "wg-neo4j-commit-tx", skip(self))]
@@ -1115,19 +1011,66 @@ impl From<Value> for bolt_proto::Value {
     }
 }
 
-impl<RequestCtx: RequestContext> TryFrom<bolt_proto::Value> for Node<RequestCtx> {
+impl<RequestCtx: RequestContext> TryFrom<bolt_proto::value::Node> for Node<RequestCtx> {
     type Error = crate::Error;
 
-    fn try_from(value: bolt_proto::Value) -> Result<Self, Error> {
-        match value {
-            bolt_proto::Value::Node(n) => {
-                let type_name = &n.labels()[0];
-                let properties: &HashMap<String, bolt_proto::Value> = n.properties();
+    fn try_from(value: bolt_proto::value::Node) -> Result<Self, Error> {
+        let type_name = &value.labels()[0];
+        let properties: &HashMap<String, bolt_proto::Value> = value.properties();
+        let props_value = Value::try_from(properties.clone())?;
+        let props = HashMap::<String, Value>::try_from(props_value)?;
+        Ok(Node::new(type_name.to_string(), props))
+    }
+}
+
+impl<RequestCtx: RequestContext> TryFrom<Record> for Node<RequestCtx> {
+    type Error = crate::Error;
+
+    fn try_from(value: Record) -> Result<Self, Error> {
+        if let bolt_proto::Value::Node(n) = value.fields()[0].clone() {
+            let type_name = &n.labels()[0];
+            let properties: &HashMap<String, bolt_proto::Value> = n.properties();
+            trace!("Bolt properties: {:#?}", properties);
+            let props_value = Value::try_from(properties.clone())?;
+            let props = HashMap::<String, Value>::try_from(props_value)?;
+            Ok(Node::new(type_name.to_string(), props))
+        } else {
+            Err(Error::TypeConversionFailed {
+                src: format!("{:#?}", value),
+                dst: "Node".to_string(),
+            })
+        }
+    }
+}
+
+impl<RequestCtx: RequestContext> TryFrom<Record> for Rel<RequestCtx> {
+    type Error = crate::Error;
+
+    fn try_from(value: Record) -> Result<Self, Error> {
+        match (
+            value.fields()[0].clone(),
+            value.fields()[1].clone(),
+            value.fields()[2].clone(),
+        ) {
+            (
+                bolt_proto::Value::Node(src),
+                bolt_proto::Value::Relationship(rel),
+                bolt_proto::Value::Node(dst),
+            ) => {
+                let src_node = src.try_into()?;
+                let dst_node = dst.try_into()?;
+                let rel_name = rel.rel_type();
+                let properties: &HashMap<String, bolt_proto::Value> = rel.properties();
                 let props_value = Value::try_from(properties.clone())?;
                 let props = HashMap::<String, Value>::try_from(props_value)?;
-                Ok(Node::new(type_name.to_string(), props))
+                Ok(Rel::new(
+                    rel_name.to_string(),
+                    props,
+                    NodeRef::Node(src_node),
+                    NodeRef::Node(dst_node),
+                ))
             }
-            _ => Err(Error::TypeConversionFailed {
+            (_, _, _) => Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
                 dst: "Node".to_string(),
             }),

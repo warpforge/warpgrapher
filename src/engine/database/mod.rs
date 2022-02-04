@@ -183,8 +183,8 @@ pub trait Transaction: Send + Sync {
         rel_var: &RelQueryVar,
         id_opt: Option<Value>,
         props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
@@ -229,8 +229,8 @@ pub trait Transaction: Send + Sync {
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        info: &Info,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     async fn update_nodes<RequestCtx: RequestContext>(
@@ -243,13 +243,14 @@ pub trait Transaction: Send + Sync {
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
+    #[allow(clippy::too_many_arguments)]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        props_type_name: Option<&str>,
         partition_key_opt: Option<&Value>,
+        info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 

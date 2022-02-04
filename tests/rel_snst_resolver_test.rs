@@ -23,9 +23,10 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
+            "__typename since dst{...on User{__typename name}}",
+            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            &json!({"since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
         )
         .await
         .unwrap();
@@ -37,12 +38,12 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(o0.get("dst").unwrap().get("name").unwrap() == "User Zero");
-    assert!(o0.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(o0.get("since").unwrap() == "yesterday");
 
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -58,7 +59,7 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
 }
 
 #[wg_test]
@@ -78,9 +79,9 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
         .create_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
+            "__typename since dst{...on User{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"id": "6d5dca5e-3082-4152-8d25-a16beace1e90", "props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            &json!({"id": "6d5dca5e-3082-4152-8d25-a16beace1e90", "since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
         )
         .await
         .unwrap();
@@ -92,12 +93,12 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(o0.get("dst").unwrap().get("name").unwrap() == "User Zero");
-    assert!(o0.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(o0.get("since").unwrap() == "yesterday");
 
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename id props{since} dst{...on User{__typename name}}}",
+            "owner{__typename id since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -114,7 +115,7 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
     assert!(owner.get("id").unwrap() == "6d5dca5e-3082-4152-8d25-a16beace1e90");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
 }
 
 /// Passes if warpgrapher does not create the destination node if it can't find any source nodes
@@ -125,9 +126,10 @@ async fn snst_without_src_no_new_dst<RequestCtx: RequestContext>(mut client: Cli
         .create_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}", Some("1234"),
+            "__typename since dst{...on User{__typename name}}",
+            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"props": {"since": "yesterday"}, "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            &json!({"since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
         )
         .await
         .unwrap();
@@ -176,11 +178,11 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({
-                "props": {"since": "yesterday"},
+                "since": "yesterday",
                 "dst": {"User": {"EXISTING": {"name": {"EQ": "User Zero"}}}}
             }),
         )
@@ -194,12 +196,12 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(o0.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(o0.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(o0.get("dst").unwrap().get("name").unwrap() == "User Zero");
-    assert!(o0.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(o0.get("since").unwrap() == "yesterday");
 
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -213,7 +215,7 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
 }
 
 #[wg_test]
@@ -227,7 +229,7 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -239,9 +241,9 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
+            Some(&json!({"since": {"EQ": "yesterday"}})),
         )
         .await
         .unwrap();
@@ -253,9 +255,7 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(owner
         .iter()
         .all(|o| o.get("__typename").unwrap() == "ProjectOwnerRel"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() == "yesterday"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() == "yesterday"));
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
@@ -275,7 +275,7 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -287,7 +287,7 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
@@ -301,9 +301,7 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(owner
         .iter()
         .all(|o| o.get("__typename").unwrap() == "ProjectOwnerRel"));
-    assert!(owner
-        .iter()
-        .any(|o| o.get("props").unwrap().get("since").unwrap() == "yesterday"));
+    assert!(owner.iter().any(|o| o.get("since").unwrap() == "yesterday"));
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
@@ -323,7 +321,7 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -335,7 +333,7 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
             Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
         )
@@ -349,9 +347,7 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(owner
         .iter()
         .all(|o| o.get("__typename").unwrap() == "ProjectOwnerRel"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() == "yesterday"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() == "yesterday"));
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
@@ -371,7 +367,7 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                  "props": {"since": "yesterday"},
+                  "since": "yesterday",
                   "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -383,10 +379,10 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
-            &json!({"props": {"since": "today"}}),
+            Some(&json!({"since": {"EQ": "yesterday"}})),
+            &json!({"since": "today"}),
         )
         .await
         .unwrap();
@@ -401,12 +397,8 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
-    assert!(owner
-        .iter()
-        .any(|o| o.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() != "yesterday"));
+    assert!(owner.iter().any(|o| o.get("since").unwrap() == "today"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() != "yesterday"));
     assert!(owner
         .iter()
         .any(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
@@ -414,7 +406,7 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -429,8 +421,8 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("props").unwrap().get("since").unwrap() != "yesterday");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
+    assert!(owner.get("since").unwrap() != "yesterday");
+    assert!(owner.get("since").unwrap() == "today");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
@@ -445,7 +437,7 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -457,10 +449,10 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "owner",
-            "__typename props{since} dst{...on User{__typename name}}",
+            "__typename since dst{...on User{__typename name}}",
             Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
-            &json!({"props": {"since": "today"}}),
+            &json!({"since": "today"}),
         )
         .await
         .unwrap();
@@ -475,12 +467,8 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() != "yesterday"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() == "today"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() != "yesterday"));
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
@@ -488,7 +476,7 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -503,8 +491,8 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
-    assert!(owner.get("props").unwrap().get("since").unwrap() != "yesterday");
+    assert!(owner.get("since").unwrap() == "today");
+    assert!(owner.get("since").unwrap() != "yesterday");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
@@ -519,7 +507,7 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                   }
             }),
@@ -531,10 +519,10 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "owner",
-            "__typename props {since} dst {...on User{__typename name}}",
+            "__typename since dst {...on User{__typename name}}",
             Some("1234"),
             Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
-            &json!({"props": {"since": "today"}}),
+            &json!({"since": "today"}),
         )
         .await
         .unwrap();
@@ -549,12 +537,8 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("__typename").unwrap() == "User"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(owner
-        .iter()
-        .all(|o| o.get("props").unwrap().get("since").unwrap() != "yesterday"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() == "today"));
+    assert!(owner.iter().all(|o| o.get("since").unwrap() != "yesterday"));
     assert!(owner
         .iter()
         .all(|o| o.get("dst").unwrap().get("name").unwrap() == "User Zero"));
@@ -562,7 +546,7 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -577,8 +561,8 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
-    assert!(owner.get("props").unwrap().get("since").unwrap() != "yesterday");
+    assert!(owner.get("since").unwrap() == "today");
+    assert!(owner.get("since").unwrap() != "yesterday");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
 
@@ -593,7 +577,7 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                      "props": {"since": "yesterday"},
+                      "since": "yesterday",
                       "dst": {"User": {"NEW": {"name": "User Zero"}}}
                     }
             }),
@@ -606,7 +590,7 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "owner",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
+            Some(&json!({"since": {"EQ": "yesterday"}})),
             None,
             None,
         )
@@ -616,7 +600,7 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -645,7 +629,7 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -668,7 +652,7 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             None,
         )
@@ -697,7 +681,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {"since": "yesterday"},
+                    "since": "yesterday",
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
@@ -713,7 +697,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project One",
                 "owner": {
-                    "props": {"since": "today"},
+                    "since": "today",
                     "dst": {"User": {"NEW": {"name": "User One"}}}
                 }
             }),
@@ -736,7 +720,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects0 = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
@@ -746,7 +730,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "owner{__typename props{since} dst{...on User{__typename name}}}",
+            "owner{__typename since dst{...on User{__typename name}}}",
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
@@ -773,6 +757,6 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "today");
+    assert!(owner.get("since").unwrap() == "today");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User One");
 }

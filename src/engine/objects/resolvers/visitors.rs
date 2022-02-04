@@ -143,7 +143,6 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                             node_var.clone(),
                                             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                         ),
-                                        None,
                                         val,
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
                                         partition_key_opt,
@@ -162,7 +161,6 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                         node_var.clone(),
                                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                     ),
-                                    None,
                                     v,
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
                                     partition_key_opt,
@@ -751,7 +749,6 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
             visit_rel_create_mutation_input::<RequestCtx>(
                 src_fragment,
                 rel_var,
-                None,
                 v,
                 &Info::new(
                     itd.property("ADD")?.type_name().to_owned(),
@@ -788,7 +785,6 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
             visit_rel_update_input::<RequestCtx>(
                 Some(src_fragment),
                 rel_var,
-                None,
                 v,
                 &Info::new(
                     itd.property("UPDATE")?.type_name().to_owned(),
@@ -815,7 +811,6 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
 pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
     src_var: &NodeQueryVar,
     rel_name: &str,
-    props_type_name: Option<&str>,
     mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -889,7 +884,6 @@ pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
                 visit_rel_create_mutation_input::<RequestCtx>(
                     src_fragment,
                     &rel_var,
-                    props_type_name,
                     create_input,
                     &Info::new(
                         itd.property("CREATE")?.type_name().to_owned(),
@@ -915,7 +909,6 @@ pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
                         &mut visit_rel_create_mutation_input::<RequestCtx>(
                             src_fragment.clone(),
                             &rel_var,
-                            props_type_name,
                             create_input_value,
                             &Info::new(
                                 itd.property("CREATE")?.type_name().to_owned(),
@@ -942,7 +935,6 @@ pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
 async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
-    props_type_name: Option<&str>,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -950,8 +942,8 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-    trace!("visit_rel_create_mutation_input called -- src_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
-            src_fragment, rel_var, props_type_name, input, info.name());
+    trace!("visit_rel_create_mutation_input called -- src_fragment: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
+            src_fragment, rel_var, input, info.name());
 
     if let Value::Map(mut m) = input {
         let dst_prop = info.type_def()?.property("dst")?;
@@ -971,12 +963,6 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
         )
         .await?;
 
-        let props = match m.remove("props") {
-            None => HashMap::new(),
-            Some(Value::Map(hm)) => hm,
-            Some(_) => return Err(Error::TypeNotExpected { details: None }),
-        };
-
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
@@ -985,9 +971,9 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                 dst_fragment,
                 rel_var,
                 m.remove("id"),
-                props,
-                props_type_name,
+                m,
                 partition_key_opt,
+                info,
                 sg,
             )
             .await?;
@@ -1072,7 +1058,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .read_rels(fragment, rel_var, None, partition_key_opt)
+            .read_rels(fragment, rel_var, partition_key_opt, info)
             .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
@@ -1338,22 +1324,6 @@ pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
     let dst_prop = itd.property("dst")?;
 
     if let Some(Value::Map(mut m)) = input_opt {
-        let mut props = if let Some(Value::Map(rel_props)) = m.remove("props") {
-            rel_props
-        } else {
-            HashMap::new()
-        };
-
-        // uses remove in order to take ownership
-        if let Some(id) = m.remove("id") {
-            props.insert("id".to_owned(), id);
-        }
-
-        let mut value_props: HashMap<String, Comparison> = HashMap::new();
-        for (k, v) in props.drain() {
-            value_props.insert(k.to_string(), Comparison::try_from(v)?);
-        }
-
         // Remove used to take ownership
         let src_fragment_opt = if let Some(src) = m.remove("src") {
             visit_rel_src_query_input::<RequestCtx>(
@@ -1384,6 +1354,10 @@ pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
             None
         };
 
+        let mut value_props: HashMap<String, Comparison> = HashMap::new();
+        for (k, v) in m.drain() {
+            value_props.insert(k.to_string(), Comparison::try_from(v)?);
+        }
         transaction.rel_read_fragment(src_fragment_opt, dst_query_opt, rel_var, value_props, sg)
     } else {
         transaction.rel_read_fragment(None, None, rel_var, HashMap::new(), sg)
@@ -1514,7 +1488,6 @@ async fn visit_rel_src_query_input<RequestCtx: RequestContext>(
 pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
-    props_type_name: Option<&str>,
     mut input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -1523,8 +1496,8 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error> {
     trace!(
-         "visit_rel_update_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
-         src_fragment_opt, rel_var, props_type_name, input, info.name());
+         "visit_rel_update_input called -- src_fragment_opt: {:#?}, rel_var: {:#?}, input: {:#?}, info.name: {}",
+         src_fragment_opt, rel_var, input, info.name());
 
     let rel_label = rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
     let input = if let Some(handlers) = context.event_handlers().before_rel_update(&rel_label) {
@@ -1572,7 +1545,6 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
             visit_rel_update_mutation_input::<RequestCtx>(
                 fragment,
                 rel_var,
-                props_type_name,
                 update,
                 &Info::new(
                     itd.property("SET")?.type_name().to_owned(),
@@ -1598,7 +1570,6 @@ pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
 async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     rel_var: &RelQueryVar,
-    props_type_name: Option<&str>,
     input: Value,
     info: &Info,
     partition_key_opt: Option<&Value>,
@@ -1607,29 +1578,19 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
     context: &GraphQLContext<RequestCtx>,
 ) -> Result<Vec<Rel<RequestCtx>>, Error> {
     trace!(
-         "visit_rel_update_mutation_input called -- query_fragment: {:#?}, rel_var: {:#?}, props_type_name: {:#?}, input: {:#?}, info.name: {}",
-         query_fragment, rel_var, props_type_name, input, info.name());
+         "visit_rel_update_mutation_input called -- query_fragment: {:#?}, rel_var: {:#?}: input: {:#?}, info.name: {}",
+         query_fragment, rel_var, input, info.name());
 
     if let Value::Map(mut m) = input {
         let itd = info.type_def()?;
 
-        let props = if let Some(Value::Map(props)) = m.remove("props") {
-            props
-        } else {
-            HashMap::new()
-        };
+        let src_opt = m.remove("src");
+        let dst_opt = m.remove("dst");
 
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .update_rels(
-                query_fragment,
-                rel_var,
-                props,
-                props_type_name,
-                partition_key_opt,
-                sg,
-            )
+            .update_rels(query_fragment, rel_var, m, partition_key_opt, info, sg)
             .await?;
         if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
             for f in handlers.iter() {
@@ -1654,7 +1615,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
 
         let id_fragment = transaction.rel_read_by_ids_fragment(rel_var, &rels)?;
 
-        if let Some(src) = m.remove("src") {
+        if let Some(src) = src_opt {
             // calling remove to take ownership
             visit_rel_src_update_mutation_input::<RequestCtx>(
                 id_fragment.clone(),
@@ -1672,7 +1633,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
             .await?;
         }
 
-        if let Some(dst) = m.remove("dst") {
+        if let Some(dst) = dst_opt {
             // calling remove to take ownership
             visit_rel_dst_update_mutation_input::<RequestCtx>(
                 id_fragment,

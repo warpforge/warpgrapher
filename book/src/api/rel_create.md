@@ -15,15 +15,13 @@ mutation {
     input: {
       MATCH: { name: { EQ: "Warpforge" } }
       CREATE: {
-        props: { joinDate: "2022-01-28" }
+        joinDate: "2022-01-28",
         dst: { User: { EXISTING: { email: { EQ: "alistair@example.com" } } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -46,9 +44,7 @@ The output is as follows.
     "OrganizationMembersCreate": [
       {
         "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
-        "props": {
-          "joinDate": "2022-01-28"
-        },
+        "joinDate": "2022-01-28",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -73,15 +69,13 @@ mutation {
     input: {
       MATCH: { name: { EQ: "Warpforge" } }
       CREATE: {
-        props: { joinDate: "2022-01-28" }
+        joinDate: "2022-01-28",
         dst: { User: { NEW: { email: "constantine@example.com" } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -104,9 +98,7 @@ The output is as follows.
     "OrganizationMembersCreate": [
       {
         "id": "3ab33be6-16a3-4e50-87b5-3bb7d195ea54",
-        "props": {
-          "joinDate": "2022-01-28"
-        },
+        "joinDate": "2022-01-28",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"

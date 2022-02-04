@@ -475,7 +475,6 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(p.type_name())?;
         let src_var =
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
@@ -484,10 +483,6 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_create_input::<RequestCtx>(
             &src_var,
             rel_name,
-            // The conversion from Error to None using ok() is actually okay here,
-            // as it's expected that some relationship types may not have props defined
-            // in their schema, in which case the missing property is fine.
-            rtd.property("props").map(|pp| pp.type_name()).ok(),
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -564,30 +559,6 @@ impl<'r> Resolver<'r> {
         std::mem::drop(transaction);
 
         executor.resolve_with_ctx(&(), &results?)
-    }
-
-    pub(super) async fn resolve_rel_props<RequestCtx: RequestContext>(
-        &mut self,
-        info: &Info,
-        field_name: &str,
-        props: &Node<RequestCtx>,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-            "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
-            info.name(),
-            field_name,
-        );
-
-        let td = info.type_def()?;
-        let p = td.property(field_name)?;
-
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                props,
-            )
-            .await
     }
 
     #[tracing::instrument(
@@ -669,12 +640,7 @@ impl<'r> Resolver<'r> {
         .await?;
 
         let mut results = transaction
-            .read_rels(
-                query_fragment,
-                &rel_var,
-                Some(p.type_name()),
-                self.partition_key_opt,
-            )
+            .read_rels(query_fragment, &rel_var, self.partition_key_opt, info)
             .await?;
 
         if let Some(handlers) = executor.context().event_handlers().after_rel_read(
@@ -723,7 +689,7 @@ impl<'r> Resolver<'r> {
                             if i > 0 {
                                 ids.push_str(", ");
                             }
-                            let id: String = r.id().clone().try_into()?;
+                            let id: String = r.id()?.clone().try_into()?;
                             ids.push_str(&id);
                             Ok(ids)
                         },
@@ -763,8 +729,6 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(p.type_name())?;
-        let props_prop = rtd.property("props");
         let rel_var = RelQueryVar::new(
             rel_name.to_string(),
             sg.suffix(),
@@ -777,7 +741,6 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_update_input::<RequestCtx>(
             None,
             &rel_var,
-            props_prop.map(|_| p.type_name()).ok(),
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,

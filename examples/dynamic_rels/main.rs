@@ -52,8 +52,12 @@ fn resolve_project_top_contributor(
 
         // create dynamic rel
         let rel_id = "1234567890".to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            "topdev",
+            HashMap::new(),
+            top_contributor,
+        )?;
 
         facade.resolve_rel(&top_contributor_rel).await
     })

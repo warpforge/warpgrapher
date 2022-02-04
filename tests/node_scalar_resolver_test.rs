@@ -100,7 +100,10 @@ async fn scalar_lists_no_array_neo4j() {
     scalar_lists_no_array_test(client).await;
 }
 
-/// Passes if the create mutation and the read query both succeed.
+/// Passes if the create mutation and the read query both succeed. Note, if you want an
+/// array/list on a node, and you're starting with a single element, you still have to send
+/// and array of one element. Sending a single element not wrapped as a list will and should
+/// fail, as it sets a scalar property value rather than a list and is returned as such.
 #[allow(clippy::float_cmp, dead_code)]
 async fn scalar_lists_no_array_test<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let result = client
@@ -113,10 +116,10 @@ async fn scalar_lists_no_array_test<RequestCtx: RequestContext>(mut client: Clie
             ",
             Some("1234"),
             &json!({
-                "string_list": "string0",
-                "bool_list": false,
-                "int_list": 0,
-                "float_list": 0.0,
+                "string_list": ["string0"],
+                "bool_list": [false],
+                "int_list": [0],
+                "float_list": [0.0],
             }),
         )
         .await

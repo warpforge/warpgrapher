@@ -177,12 +177,47 @@ impl Configuration {
                     });
                 }
 
+                // Used by Gremlin return format to return the label itself
+                if t.props.iter().any(|p| p.name().to_uppercase() == "LABEL") {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "label".to_string(),
+                    });
+                }
+
                 if t.rels
                     .iter()
                     .any(|r| r.props.iter().any(|p| p.name().to_uppercase() == "ID"))
                 {
                     return Err(Error::ConfigItemReserved {
                         type_name: "ID".to_string(),
+                    });
+                }
+
+                // Used by Gremlin return format to return the label itself
+                if t.rels
+                    .iter()
+                    .any(|r| r.props.iter().any(|p| p.name().to_uppercase() == "LABEL"))
+                {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "label".to_string(),
+                    });
+                }
+
+                if t.rels
+                    .iter()
+                    .any(|r| r.props.iter().any(|p| p.name().to_uppercase() == "SRC"))
+                {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "src".to_string(),
+                    });
+                }
+
+                if t.rels
+                    .iter()
+                    .any(|r| r.props.iter().any(|p| p.name().to_uppercase() == "DST"))
+                {
+                    return Err(Error::ConfigItemReserved {
+                        type_name: "dst".to_string(),
                     });
                 }
 
@@ -2183,6 +2218,42 @@ mod tests {
             };
 
         match rel_prop_name_id_config.validate() {
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
+        }
+    }
+
+    #[allow(clippy::match_wild_err_arm)]
+    #[test]
+    fn config_prop_name_src_test() {
+        let rel_prop_name_src_config: Configuration =
+            match File::open("tests/fixtures/config-validation/test_config_rel_prop_name_src.yml")
+                .expect("Couldn't open file")
+                .try_into()
+            {
+                Err(e) => panic!("{}", e),
+                Ok(wgc) => wgc,
+            };
+
+        match rel_prop_name_src_config.validate() {
+            Err(Error::ConfigItemReserved { type_name: _ }) => (),
+            _ => panic!(),
+        }
+    }
+
+    #[allow(clippy::match_wild_err_arm)]
+    #[test]
+    fn config_prop_name_dst_test() {
+        let rel_prop_name_dst_config: Configuration =
+            match File::open("tests/fixtures/config-validation/test_config_rel_prop_name_dst.yml")
+                .expect("Couldn't open file")
+                .try_into()
+            {
+                Err(e) => panic!("{}", e),
+                Ok(wgc) => wgc,
+            };
+
+        match rel_prop_name_dst_config.validate() {
             Err(Error::ConfigItemReserved { type_name: _ }) => (),
             _ => panic!(),
         }

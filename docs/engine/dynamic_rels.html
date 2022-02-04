@@ -178,16 +178,20 @@ model:
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
-
-        facade.resolve_rel(&amp;top_contributor_rel).await
-    })
-}
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 </code></pre>
 <h2 id="add-the-resolver-to-the-engine"><a class="header" href="#add-the-resolver-to-the-engine">Add the Resolver to the Engine</a></h2>
 <p>The resolver is added to a map associated with the name used in the configuration, above. The map is then passed to the Warpgrapher engine. This allows the engine to find the Rust function implementing the custom resolver when it is needed.</p>
-<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<pre><code class="language-rust no_run noplayground">        .await
+        .expect(&quot;Failed to create neo4j database pool&quot;);
+
+    // define resolvers
+    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -195,14 +199,14 @@ model:
 
     // create warpgrapher engine
     let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
-        .with_resolvers(resolvers)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
-
 </code></pre>
 <h2 id="example-api-call"><a class="header" href="#example-api-call">Example API Call</a></h2>
 <p>The following GraphQL query uses the dynamic resolver defined above.</p>
-<pre><code class="language-rust no_run noplayground">    let query = &quot;
+<pre><code class="language-rust no_run noplayground">        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
+    // create new project
+    let query = &quot;
         mutation {
             ProjectCreate(input: {
                 name: \&quot;Project1\&quot;
@@ -218,10 +222,6 @@ model:
                 }
             }
         }
-    &quot;
-    .to_string();
-    let metadata = HashMap::new();
-    let result = engine.execute(query, None, metadata).await.unwrap();
 </code></pre>
 <h2 id="full-example-source"><a class="header" href="#full-example-source">Full Example Source</a></h2>
 <p>See below for the full source code to the example above.</p>
@@ -279,8 +279,12 @@ fn resolve_project_top_contributor(
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 
         facade.resolve_rel(&amp;top_contributor_rel).await
     })

@@ -14,13 +14,11 @@ mutation {
         src: { Organization: { name: "Warpforge" } }
         dst: { User: { email: "alistair@example.com" } }
       }
-      SET: { props: { joinDate: "2021-12-31" } }
+      SET: { joinDate: "2021-12-31" }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -43,9 +41,7 @@ The output is as follows.
     "OrganizationMembersUpdate": [
       {
         "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
-        "props": {
-          "joinDate": "2021-12-31"
-        },
+        "joinDate": "2021-12-31",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"

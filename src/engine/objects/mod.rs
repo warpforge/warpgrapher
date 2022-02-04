@@ -724,7 +724,7 @@ pub enum NodeRef<RequestCtx: RequestContext> {
 ///         // return rel
 ///         facade.resolve_rel(&facade.create_rel(
 ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-///             Some(hm1), node_id, "DstNodeLabel")?).await
+///             "members", hm1, node_id, "DstNodeLabel")?).await
 ///     })
 /// }
 /// ```
@@ -733,9 +733,8 @@ pub struct Rel<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    id: Value,
-    partition_key: Option<Value>,
-    props: Option<Node<RequestCtx>>,
+    rel_name: String,
+    fields: HashMap<String, Value>,
     src_ref: NodeRef<RequestCtx>,
     dst_ref: NodeRef<RequestCtx>,
     _rctx: PhantomData<RequestCtx>,
@@ -746,36 +745,34 @@ where
     RequestCtx: RequestContext,
 {
     pub(crate) fn new(
-        id: Value,
-        partition_key: Option<Value>,
-        props: Option<Node<RequestCtx>>,
+        rel_name: String,
+        fields: HashMap<String, Value>,
         src_ref: NodeRef<RequestCtx>,
         dst_ref: NodeRef<RequestCtx>,
     ) -> Rel<RequestCtx> {
         Rel {
-            id,
-            partition_key,
-            props,
+            rel_name,
+            fields,
             src_ref,
             dst_ref,
             _rctx: PhantomData,
         }
     }
 
-    pub fn id(&self) -> &Value {
-        &self.id
+    pub fn id(&self) -> Result<&Value, Error> {
+        self.fields
+            .get(&"id".to_string())
+            .ok_or_else(|| Error::ResponseItemNotFound {
+                name: "id".to_string(),
+            })
     }
 
-    pub fn dst(&self) -> &NodeRef<RequestCtx> {
-        &self.dst_ref
+    pub fn rel_name(&self) -> &String {
+        &self.rel_name
     }
 
-    pub fn src(&self) -> &NodeRef<RequestCtx> {
-        &self.src_ref
-    }
-
-    pub fn props(&self) -> &Option<Node<RequestCtx>> {
-        &self.props
+    pub fn fields(&self) -> &HashMap<String, Value> {
+        &self.fields
     }
 }
 
@@ -885,8 +882,7 @@ where
             let arg_partition_key = args.get("partitionKey");
             let partition_key_opt: Option<&Value> = arg_partition_key
                 .as_ref()
-                .or_else(|| self.partition_key.as_ref());
-
+                .or_else(|| self.fields.get("partitionKey"));
             let mut resolver = Resolver::new(partition_key_opt);
 
             match (p.kind(), &field_name) {
@@ -902,17 +898,6 @@ where
                         )
                         .await
                 }
-                (PropertyKind::Object, &"props") => match &self.props {
-                    Some(p) => {
-                        resolver
-                            .resolve_rel_props(info, field_name, p, executor)
-                            .await
-                    }
-                    None => Err(Error::TypeNotExpected {
-                        details: Some("Object is missing props".to_string()),
-                    }
-                    .into()),
-                },
                 (PropertyKind::Object, &"src") => match &self.src_ref {
                     NodeRef::Identifier { id, label: _ } => {
                         let mut hm = HashMap::new();
@@ -933,12 +918,9 @@ where
                 }
                 .into()),
                 (PropertyKind::Scalar, _) => {
-                    if field_name == "id" {
-                        executor
-                            .resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
-                    } else {
-                        executor.resolve_with_ctx(&(), &None::<String>)
-                    }
+                    resolver
+                        .resolve_scalar_field(info, field_name, &self.fields, executor)
+                        .await
                 }
                 (PropertyKind::Union, _) => match &self.dst_ref {
                     NodeRef::Identifier { id, label } => {

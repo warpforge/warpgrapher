@@ -371,19 +371,13 @@ fn generate_update_props(props: &[crate::engine::config::Property]) -> HashMap<S
 /// Takes a vector of WG Properties and returns a map of Property structs that
 /// represent the property fields in a graphql schema component for an object to be returned by the
 /// API
-fn generate_output_props(
-    props: &[crate::engine::config::Property],
-    id: bool,
-) -> HashMap<String, Property> {
+fn generate_output_props(props: &[crate::engine::config::Property]) -> HashMap<String, Property> {
     let mut hm = HashMap::new();
 
-    if id {
-        hm.insert(
-            "id".to_string(),
-            Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string())
-                .with_required(true),
-        );
-    }
+    hm.insert(
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
+    );
 
     // insert properties into hashmap
     props.iter().for_each(|p| {
@@ -428,19 +422,16 @@ fn generate_output_props(
 /// comparison operations available to the scalar type.
 fn generate_query_props(
     props: &[crate::engine::config::Property],
-    id: bool,
 ) -> Result<HashMap<String, Property>, Error> {
     let mut query_props = HashMap::new();
-    if id {
-        query_props.insert(
+    query_props.insert(
+        "id".to_string(),
+        Property::new(
             "id".to_string(),
-            Property::new(
-                "id".to_string(),
-                PropertyKind::ScalarComp,
-                fmt_string_query_input_name(),
-            ),
-        );
-    }
+            PropertyKind::ScalarComp,
+            fmt_string_query_input_name(),
+        ),
+    );
     for p in props.iter() {
         query_props.insert(
             p.name().to_string(),
@@ -501,7 +492,7 @@ fn fmt_node_object_name(t: &Type) -> String {
 ///     owner: ProjectOwnerRel
 /// }
 fn generate_node_object(t: &Type) -> NodeType {
-    let mut props = generate_output_props(t.props_as_slice(), true);
+    let mut props = generate_output_props(t.props_as_slice());
 
     t.rels().for_each(|r| {
         let mut arguments = HashMap::new();
@@ -560,7 +551,7 @@ fn fmt_node_query_input_name(t: &Type) -> String {
 ///     owner: ProjectOwnerQueryInput
 /// }
 fn generate_node_query_input(t: &Type) -> Result<NodeType, Error> {
-    let mut props = generate_query_props(t.props_as_slice(), true)?;
+    let mut props = generate_query_props(t.props_as_slice())?;
     t.rels().for_each(|r| {
         props.insert(
             r.name().to_string(),
@@ -993,7 +984,7 @@ fn fmt_rel_name(r: &Relationship) -> String {
 /// Format:
 /// type GqlRelObject {
 ///     id: ID
-///     props: <GqlRelPropsObject>
+///     prop[n]: <Scalar>
 ///     dst: <GqlRelNodesUnion>
 ///     src: <GqlNodeObject>
 /// }
@@ -1001,27 +992,13 @@ fn fmt_rel_name(r: &Relationship) -> String {
 /// Ex:
 /// type ProjectOwnerRel {
 ///     id: ID
-///     props: ProjectOwnerProps
+///     since: String
 ///     dst: ProjectOwnerNodesUnion
 ///     src: Project
 /// }
 fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
-    let mut props = HashMap::new();
-    props.insert(
-        "id".to_string(),
-        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
-    );
+    let mut props = generate_output_props(r.props_as_slice());
 
-    if !r.props_as_slice().is_empty() {
-        props.insert(
-            "props".to_string(),
-            Property::new(
-                "props".to_string(),
-                PropertyKind::Object,
-                fmt_rel_props_object_name(t, r),
-            ),
-        );
-    }
     props.insert(
         "src".to_string(),
         Property::new(
@@ -1031,6 +1008,7 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
         )
         .with_required(true),
     );
+
     props.insert(
         "dst".to_string(),
         Property::new(
@@ -1040,35 +1018,8 @@ fn generate_rel_object(t: &Type, r: &Relationship) -> NodeType {
         )
         .with_required(true),
     );
+
     NodeType::new(fmt_rel_object_name(t, r), TypeKind::Rel, props)
-}
-
-/// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsObject
-fn fmt_rel_props_object_name(t: &Type, r: &Relationship) -> String {
-    t.name().to_string()
-        + &*((&r.name().to_string().to_title_case())
-            .split_whitespace()
-            .collect::<String>())
-        + "Props"
-}
-
-/// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsObject
-///
-/// Format:
-/// type GqlRelPropsObject {
-///     prop[n]: <Scalar>
-/// }
-///
-/// Ex:
-/// type ProjectOwnerProps {
-///     since: String
-/// }
-fn generate_rel_props_object(t: &Type, r: &Relationship) -> NodeType {
-    NodeType::new(
-        fmt_rel_props_object_name(t, r),
-        TypeKind::Object,
-        generate_output_props(r.props_as_slice(), false),
-    )
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelNodesUnion
@@ -1111,7 +1062,7 @@ fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
 /// Format:
 /// input GqlRelQueryInput {
 ///      id: ID
-///      props: <GqlRelPropsInput>
+///      prop[n]: <Scalar>
 ///      src: <GqlNodeQueryInput>
 ///      dst: <GqlRelDstQueryInput>
 /// }
@@ -1119,30 +1070,12 @@ fn fmt_rel_query_input_name(t: &Type, r: &Relationship) -> String {
 /// Ex:
 /// input ProjectOwnerQueryInput {
 ///     id: ID
-///     props: ProjectOwnerPropsInput
+///     since: String
 ///     src: ProjectQueryInput
 ///     dst: ProjectOwnerNodesQueryInputUnion  
 /// }
-fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
-    let mut props = HashMap::new();
-    props.insert(
-        "id".to_string(),
-        Property::new(
-            "id".to_string(),
-            PropertyKind::ScalarComp,
-            fmt_string_query_input_name(),
-        ),
-    );
-    if !r.props_as_slice().is_empty() {
-        props.insert(
-            "props".to_string(),
-            Property::new(
-                "props".to_string(),
-                PropertyKind::Input,
-                fmt_rel_props_query_input_name(t, r),
-            ),
-        );
-    }
+fn generate_rel_query_input(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    let mut props = generate_query_props(r.props_as_slice())?;
     props.insert(
         "src".to_string(),
         Property::new(
@@ -1159,7 +1092,11 @@ fn generate_rel_query_input(t: &Type, r: &Relationship) -> NodeType {
             fmt_rel_dst_query_input_name(t, r),
         ),
     );
-    NodeType::new(fmt_rel_query_input_name(t, r), TypeKind::Input, props)
+    Ok(NodeType::new(
+        fmt_rel_query_input_name(t, r),
+        TypeKind::Input,
+        props,
+    ))
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelCreateMutationInput
@@ -1175,34 +1112,18 @@ fn fmt_rel_create_mutation_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelCreateMutationInput {
-///     props: <GqlRelPropsInput>
+///     prop[n]: <Scalar>
 ///     dst: <GqlRelNodesMutationInputUnion>
 /// }
 ///
 /// Ex:
 /// input ProjectOwnerCreateMutationInput  {
 ///     id: ID
-///     props: ProjectOwnerPropsInput
+///     since: String
 ///     dst: ProjectOwnerNodesMutationInputUnion  
 /// }
 fn generate_rel_create_mutation_input(t: &Type, r: &Relationship) -> NodeType {
-    let mut props = HashMap::new();
-    props.insert(
-        "id".to_string(),
-        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string())
-            .with_required(false),
-    );
-
-    if !r.props_as_slice().is_empty() {
-        props.insert(
-            "props".to_string(),
-            Property::new(
-                "props".to_string(),
-                PropertyKind::Input,
-                fmt_rel_props_input_name(t, r),
-            ),
-        );
-    }
+    let mut props = generate_create_props(r.props_as_slice());
     props.insert(
         "dst".to_string(),
         Property::new(
@@ -1284,29 +1205,19 @@ fn fmt_rel_update_mutation_input_name(t: &Type, r: &Relationship) -> String {
 ///
 /// Format:
 /// input GqlRelUpdateMutationInput {
-///     props: GqlRelPropsInput
+///     prop[n]: <Scalar>
 ///     src: GqlRelSrcMutationInput
 ///     dst: GqlRelDstMutationInput
 /// }
 ///
 /// Ex:
 /// input ProjectOwnerUpdateMutationInput {
-///     props: ProjectOwnerPropsInput
+///     since: String
 ///     src: ProjectOwnerSrcUpdateMutationInput
 ///     dst: ProjectOwnerDstUpdateMutationInput
 /// }
 fn generate_rel_update_mutation_input(t: &Type, r: &Relationship) -> NodeType {
-    let mut props = HashMap::new();
-    if !r.props_as_slice().is_empty() {
-        props.insert(
-            "props".to_string(),
-            Property::new(
-                "props".to_string(),
-                PropertyKind::Input,
-                fmt_rel_props_input_name(t, r),
-            ),
-        );
-    }
+    let mut props = generate_update_props(r.props_as_slice());
     props.insert(
         "src".to_string(),
         Property::new(
@@ -1404,62 +1315,6 @@ fn generate_rel_dst_update_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
         TypeKind::Input,
         props,
     )
-}
-
-/// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsInput
-fn fmt_rel_props_input_name(t: &Type, r: &Relationship) -> String {
-    t.name().to_string()
-        + &*((&r.name().to_string().to_title_case())
-            .split_whitespace()
-            .collect::<String>())
-        + "PropsInput"
-}
-
-/// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsInput
-///
-/// Format:
-/// input GqlRelPropsInput {
-///     prop[n]: <Scalar>
-/// }
-///
-/// Ex:
-/// input ProjectOwnerPropsInput   {
-///     since: String
-/// }
-fn generate_rel_props_input(t: &Type, r: &Relationship) -> NodeType {
-    NodeType::new(
-        fmt_rel_props_input_name(t, r),
-        TypeKind::Input,
-        generate_update_props(r.props_as_slice()),
-    )
-}
-
-/// Takes a WG type and rel and returns the name of the corresponding GqlRelPropsQueryInput
-fn fmt_rel_props_query_input_name(t: &Type, r: &Relationship) -> String {
-    t.name().to_string()
-        + &*((&r.name().to_string().to_title_case())
-            .split_whitespace()
-            .collect::<String>())
-        + "PropsQueryInput"
-}
-
-/// Takes a WG Type and Rel and returns a NodeType representing a GqlRelPropsQueryInput
-///
-/// Format:
-/// input GqlRelPropsQueryInput {
-///     prop[n]: <ScalarQueryInput>
-/// }
-///
-/// Ex:
-/// input ProjectOwnerPropsInput   {
-///     since: StringQueryInput
-/// }
-fn generate_rel_props_query_input(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
-    Ok(NodeType::new(
-        fmt_rel_props_query_input_name(t, r),
-        TypeKind::Input,
-        generate_query_props(r.props_as_slice(), false)?,
-    ))
 }
 
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelSrcQueryInput
@@ -1584,7 +1439,7 @@ fn fmt_rel_create_input_name(t: &Type, r: &Relationship) -> String {
 /// Format:
 /// input GqlRelCreateInput {
 ///     MATCH: <GqlNodeQueryInput>
-///     create: <GqlRelCreateMutationInput>
+///     CREATE: <GqlRelCreateMutationInput>
 /// }
 ///
 /// Ex:
@@ -2243,16 +2098,12 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
             let rel_object = generate_rel_object(t, r);
             nthm.insert(rel_object.type_name.to_string(), rel_object);
 
-            // GqlRelPropsObject
-            let rel_props_object = generate_rel_props_object(t, r);
-            nthm.insert(rel_props_object.type_name.to_string(), rel_props_object);
-
             // GqlRelNodesUnion
             let rel_nodes_union = generate_rel_nodes_union(t, r);
             nthm.insert(rel_nodes_union.type_name.to_string(), rel_nodes_union);
 
             // GqlRelQueryInput
-            let rel_query_input = generate_rel_query_input(t, r);
+            let rel_query_input = generate_rel_query_input(t, r)?;
             nthm.insert(rel_query_input.type_name.to_string(), rel_query_input);
 
             // GqlRelCreateMutationInput
@@ -2285,17 +2136,6 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
             nthm.insert(
                 rel_dst_update_mutation_input.type_name.to_string(),
                 rel_dst_update_mutation_input,
-            );
-
-            // GqlRelPropsInput
-            let rel_props_input = generate_rel_props_input(t, r);
-            nthm.insert(rel_props_input.type_name.to_string(), rel_props_input);
-
-            // GqlRelPropsQueryInput
-            let rel_props_query_input = generate_rel_props_query_input(t, r)?;
-            nthm.insert(
-                rel_props_query_input.type_name.to_string(),
-                rel_props_query_input,
             );
 
             // GqlRelSrcQueryInput
@@ -2490,7 +2330,6 @@ pub(crate) fn rel_name_variants(t: &Type, r: &Relationship) -> HashSet<String> {
 
     hs.insert(fmt_rel_object_name(t, r));
     hs.insert(fmt_rel_name(r));
-    hs.insert(fmt_rel_props_object_name(t, r));
     hs.insert(fmt_rel_nodes_union_name(t, r));
     hs.insert(fmt_rel_query_input_name(t, r));
     hs.insert(fmt_rel_create_mutation_input_name(t, r));
@@ -2498,7 +2337,6 @@ pub(crate) fn rel_name_variants(t: &Type, r: &Relationship) -> HashSet<String> {
     hs.insert(fmt_rel_update_mutation_input_name(t, r));
     hs.insert(fmt_rel_src_update_mutation_input_name(t, r));
     hs.insert(fmt_rel_dst_update_mutation_input_name(t, r));
-    hs.insert(fmt_rel_props_input_name(t, r));
     hs.insert(fmt_rel_src_query_input_name(t, r));
     hs.insert(fmt_rel_dst_query_input_name(t, r));
     hs.insert(fmt_rel_nodes_mutation_input_union_name(t, r));
@@ -2528,11 +2366,10 @@ mod tests {
         fmt_rel_delete_input_name, fmt_rel_dst_delete_mutation_input_name,
         fmt_rel_dst_query_input_name, fmt_rel_dst_update_mutation_input_name,
         fmt_rel_nodes_mutation_input_union_name, fmt_rel_nodes_union_name, fmt_rel_object_name,
-        fmt_rel_props_input_name, fmt_rel_props_object_name, fmt_rel_query_input_name,
-        fmt_rel_read_endpoint_name, fmt_rel_src_delete_mutation_input_name,
-        fmt_rel_src_query_input_name, fmt_rel_src_update_mutation_input_name,
-        fmt_rel_update_endpoint_name, fmt_rel_update_input_name,
-        fmt_rel_update_mutation_input_name, generate_custom_endpoint,
+        fmt_rel_query_input_name, fmt_rel_read_endpoint_name,
+        fmt_rel_src_delete_mutation_input_name, fmt_rel_src_query_input_name,
+        fmt_rel_src_update_mutation_input_name, fmt_rel_update_endpoint_name,
+        fmt_rel_update_input_name, fmt_rel_update_mutation_input_name, generate_custom_endpoint,
         generate_node_create_endpoint, generate_node_create_mutation_input,
         generate_node_delete_endpoint, generate_node_delete_input,
         generate_node_delete_mutation_input, generate_node_input, generate_node_object,
@@ -2543,11 +2380,11 @@ mod tests {
         generate_rel_delete_input, generate_rel_dst_delete_mutation_input,
         generate_rel_dst_query_input, generate_rel_dst_update_mutation_input,
         generate_rel_nodes_mutation_input_union, generate_rel_nodes_union, generate_rel_object,
-        generate_rel_props_input, generate_rel_props_object, generate_rel_query_input,
-        generate_rel_read_endpoint, generate_rel_src_delete_mutation_input,
-        generate_rel_src_update_mutation_input, generate_rel_update_endpoint,
-        generate_rel_update_input, generate_rel_update_mutation_input, generate_schema,
-        ArgumentKind, Info, NodeType, Property, PropertyKind, TypeKind,
+        generate_rel_query_input, generate_rel_read_endpoint,
+        generate_rel_src_delete_mutation_input, generate_rel_src_update_mutation_input,
+        generate_rel_update_endpoint, generate_rel_update_input,
+        generate_rel_update_mutation_input, generate_schema, ArgumentKind, Info, NodeType,
+        Property, PropertyKind, TypeKind,
     };
     use crate::engine::config::{
         mock_config, mock_endpoint_one, mock_endpoint_three, mock_endpoint_two,
@@ -3032,7 +2869,7 @@ mod tests {
         /*
             input ProjectDeleteInput {
                 MATCH: ProjectQueryInput
-                delete: ProjectDeleteMutationInput
+                DELETE: ProjectDeleteMutationInput
             }
         */
         let project_type = mock_project_type();
@@ -3253,13 +3090,13 @@ mod tests {
         assert!(project_owner_id.required);
         assert!(!project_owner_id.list);
         assert!(project_owner_id.arguments.is_empty());
-        let project_owner_props = project_owner_object.props.get("props").unwrap();
-        assert!(project_owner_props.name == "props");
-        assert!(project_owner_props.kind == PropertyKind::Object);
-        assert!(project_owner_props.type_name == "ProjectOwnerProps");
-        assert!(!project_owner_props.required);
-        assert!(!project_owner_props.list);
-        assert!(project_owner_props.arguments.is_empty());
+        let project_owner_since = project_owner_object.props.get("since").unwrap();
+        assert!(project_owner_since.name == "since");
+        assert!(project_owner_since.kind == PropertyKind::Scalar);
+        assert!(project_owner_since.type_name == "String");
+        assert!(!project_owner_since.required);
+        assert!(!project_owner_since.list);
+        assert!(project_owner_since.arguments.is_empty());
         let project_owner_dst = project_owner_object.props.get("dst").unwrap();
         assert!(project_owner_dst.name == "dst");
         assert!(project_owner_dst.kind == PropertyKind::Union);
@@ -3292,8 +3129,6 @@ mod tests {
         assert!(project_board_id.required);
         assert!(!project_board_id.list);
         assert!(project_board_id.arguments.is_empty());
-        let project_board_props = project_board_object.props.get("props");
-        assert!(project_board_props.is_none());
         let project_board_dst = project_board_object.props.get("dst").unwrap();
         assert!(project_board_dst.name == "dst");
         assert!(project_board_dst.kind == PropertyKind::Union);
@@ -3308,38 +3143,6 @@ mod tests {
         assert!(project_board_src.required);
         assert!(!project_board_src.list);
         assert!(project_board_src.arguments.is_empty());
-    }
-
-    /// Passes if the right schema elements are generated
-    #[test]
-    fn test_fmt_rel_props_object_name() {
-        let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
-        assert!(fmt_rel_props_object_name(&project_type, project_owner_rel) == "ProjectOwnerProps");
-    }
-
-    /// Passes if the right schema elements are generated
-    #[allow(clippy::cognitive_complexity)]
-    #[test]
-    fn test_generate_rel_props_object() {
-        /*
-            type ProjectOwnerProps {
-                since: String
-            }
-        */
-        let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
-        let project_owner_props_object =
-            generate_rel_props_object(&project_type, project_owner_rel);
-        println!("{:#?}", project_owner_props_object.props);
-        assert!(project_owner_props_object.props.len() == 1);
-        let project_owner_props_name = project_owner_props_object.props.get("since").unwrap();
-        assert!(project_owner_props_name.name == "since");
-        assert!(project_owner_props_name.kind == PropertyKind::Scalar);
-        assert!(project_owner_props_name.type_name == "String");
-        assert!(!project_owner_props_name.required);
-        assert!(!project_owner_props_name.list);
-        assert!(project_owner_props_name.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -3399,14 +3202,15 @@ mod tests {
         /*
             input ProjectOwnerQueryInput {
                 id: ID
-                props: ProjectOwnerPropsInput
+                since: String
                 src: ProjectOwnerSrcQueryInput
                 dst: ProjectOwnerDstQueryInput
             }
         */
         let project_type = mock_project_type();
         let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
-        let project_owner_query_input = generate_rel_query_input(&project_type, project_owner_rel);
+        let project_owner_query_input =
+            generate_rel_query_input(&project_type, project_owner_rel).unwrap();
         // id
         let project_owner_id = project_owner_query_input.props.get("id").unwrap();
         assert!(project_owner_id.name == "id");
@@ -3415,40 +3219,40 @@ mod tests {
         assert!(!project_owner_id.required);
         assert!(!project_owner_id.list);
         assert!(project_owner_id.arguments.is_empty());
-        // properties
-        let project_owner_props = project_owner_query_input.props.get("props").unwrap();
-        assert!(project_owner_props.name == "props");
-        assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerPropsQueryInput");
-        assert!(!project_owner_props.required);
-        assert!(!project_owner_props.list);
-        assert!(project_owner_props.arguments.is_empty());
+        // since
+        let project_owner_since = project_owner_query_input.props.get("since").unwrap();
+        assert!(project_owner_since.name == "since");
+        assert!(project_owner_since.kind == PropertyKind::ScalarComp);
+        assert!(project_owner_since.type_name == "StringQueryInput");
+        assert!(!project_owner_since.required);
+        assert!(!project_owner_since.list);
+        assert!(project_owner_since.arguments.is_empty());
         // src
-        let project_owner_props = project_owner_query_input.props.get("src").unwrap();
-        assert!(project_owner_props.name == "src");
-        assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerSrcQueryInput");
-        assert!(!project_owner_props.required);
-        assert!(!project_owner_props.list);
-        assert!(project_owner_props.arguments.is_empty());
+        let project_owner_src = project_owner_query_input.props.get("src").unwrap();
+        assert!(project_owner_src.name == "src");
+        assert!(project_owner_src.kind == PropertyKind::Input);
+        assert!(project_owner_src.type_name == "ProjectOwnerSrcQueryInput");
+        assert!(!project_owner_src.required);
+        assert!(!project_owner_src.list);
+        assert!(project_owner_src.arguments.is_empty());
         // dst
-        let project_owner_props = project_owner_query_input.props.get("dst").unwrap();
-        assert!(project_owner_props.name == "dst");
-        assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerDstQueryInput");
-        assert!(!project_owner_props.required);
-        assert!(!project_owner_props.list);
-        assert!(project_owner_props.arguments.is_empty());
+        let project_owner_dst = project_owner_query_input.props.get("dst").unwrap();
+        assert!(project_owner_dst.name == "dst");
+        assert!(project_owner_dst.kind == PropertyKind::Input);
+        assert!(project_owner_dst.type_name == "ProjectOwnerDstQueryInput");
+        assert!(!project_owner_dst.required);
+        assert!(!project_owner_dst.list);
+        assert!(project_owner_dst.arguments.is_empty());
         /*
             input ProjectBoardQueryInput {
                 id: ID
-                props: ProjectBoardPropsInput
                 src: ProjectBoardSrcQueryInput
                 dst: ProjectBoardDstQueryInput
             }
         */
         let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
-        let project_board_query_input = generate_rel_query_input(&project_type, project_board_rel);
+        let project_board_query_input =
+            generate_rel_query_input(&project_type, project_board_rel).unwrap();
         // id
         let project_board_id = project_board_query_input.props.get("id").unwrap();
         assert!(project_board_id.name == "id");
@@ -3457,8 +3261,6 @@ mod tests {
         assert!(!project_board_id.required);
         assert!(!project_board_id.list);
         assert!(project_board_id.arguments.is_empty());
-        // properties
-        assert!(project_board_query_input.props.get("props").is_none());
         // src
         let project_board_src = project_board_query_input.props.get("src").unwrap();
         assert!(project_board_src.name == "src");
@@ -3493,7 +3295,7 @@ mod tests {
     fn test_generate_rel_create_mutation_input() {
         /*
             input ProjectOwnerCreateMutationInput {
-                props: ProjectOwnerPropsInput
+                since: String
                 dst: ProjectOwnerNodesMutationInputUnion
             }
         */
@@ -3503,13 +3305,13 @@ mod tests {
             generate_rel_create_mutation_input(&project_type, project_owner_rel);
         assert!(project_owner_mutation_input.type_name == "ProjectOwnerCreateMutationInput");
         // properties
-        let project_owner_props = project_owner_mutation_input.props.get("props").unwrap();
-        assert!(project_owner_props.name == "props");
-        assert!(project_owner_props.kind == PropertyKind::Input);
-        assert!(project_owner_props.type_name == "ProjectOwnerPropsInput");
-        assert!(!project_owner_props.required);
-        assert!(!project_owner_props.list);
-        assert!(project_owner_props.arguments.is_empty());
+        let project_owner_since = project_owner_mutation_input.props.get("since").unwrap();
+        assert!(project_owner_since.name == "since");
+        assert!(project_owner_since.kind == PropertyKind::Scalar);
+        assert!(project_owner_since.type_name == "String");
+        assert!(!project_owner_since.required);
+        assert!(!project_owner_since.list);
+        assert!(project_owner_since.arguments.is_empty());
         // dst
         let project_owner_dst = project_owner_mutation_input.props.get("dst").unwrap();
         assert!(project_owner_dst.name == "dst");
@@ -3608,7 +3410,7 @@ mod tests {
     fn test_generate_rel_update_mutation_input() {
         /*
             input ProjectOwnerUpdateMutationInput {
-                props: ProjectOwnerPropsInput
+                since: String
                 src: ProjectOwnerSrcUpdateMutationInput
                 dst: ProjectOwnerDstUpdateMutationInput
             }
@@ -3619,16 +3421,16 @@ mod tests {
             generate_rel_update_mutation_input(&project_type, project_owner_rel);
         assert!(project_owner_update_mutation_input.type_name == "ProjectOwnerUpdateMutationInput");
         // properties
-        let props = project_owner_update_mutation_input
+        let since = project_owner_update_mutation_input
             .props
-            .get("props")
+            .get("since")
             .unwrap();
-        assert!(props.name == "props");
-        assert!(props.kind == PropertyKind::Input);
-        assert!(props.type_name == "ProjectOwnerPropsInput");
-        assert!(!props.required);
-        assert!(!props.list);
-        assert!(props.arguments.is_empty());
+        assert!(since.name == "since");
+        assert!(since.kind == PropertyKind::Scalar);
+        assert!(since.type_name == "String");
+        assert!(!since.required);
+        assert!(!since.list);
+        assert!(since.arguments.is_empty());
         // src
         let src = project_owner_update_mutation_input
             .props
@@ -3789,34 +3591,6 @@ mod tests {
         assert!(!feature.required);
         assert!(!feature.list);
         assert!(feature.arguments.is_empty());
-    }
-
-    /// Passes if the right schema elements are generated
-    #[test]
-    fn test_fmt_rel_props_input_name() {
-        let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
-        assert!(
-            fmt_rel_props_input_name(&project_type, project_owner_rel) == "ProjectOwnerPropsInput"
-        );
-    }
-
-    /// Passes if the right schema elements are generated
-    #[test]
-    fn test_generate_rel_props_input() {
-        let project_type = mock_project_type();
-        let project_owner_rel = project_type.rels().find(|&r| r.name() == "owner").unwrap();
-        let project_owner_props_input = generate_rel_props_input(&project_type, project_owner_rel);
-        assert!(project_owner_props_input.type_name == "ProjectOwnerPropsInput");
-        assert!(project_owner_props_input.type_kind == TypeKind::Input);
-        assert!(project_owner_props_input.props.len() == 1);
-        let project_owner_since = project_owner_props_input.props.get("since").unwrap();
-        assert!(project_owner_since.name == "since");
-        assert!(project_owner_since.kind == PropertyKind::Scalar);
-        assert!(project_owner_since.type_name == "String");
-        assert!(!project_owner_since.required);
-        assert!(!project_owner_since.list);
-        assert!(project_owner_since.arguments.is_empty());
     }
 
     /// Passes if the right schema elements are generated
@@ -4014,7 +3788,7 @@ mod tests {
         /*
             input ProjectOwnerCreateInput {
                 MATCH: ProjectQueryInput
-                create: ProjectOwnerCreateMutationInput
+                CREATE: ProjectOwnerCreateMutationInput
             }
         */
         let project_type = mock_project_type();
@@ -4041,7 +3815,7 @@ mod tests {
         /*
             input ProjectBoardCreateInput {
                 MATCH: ProjectQueryInput
-                create: ProjectBoardCreateMutationInput
+                CREATE: ProjectBoardCreateMutationInput
             }
         */
         let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
@@ -4089,7 +3863,7 @@ mod tests {
         /*
             input ProjectOwnerUpdateInput {
                 MATCH: ProjectOwnerQueryInput
-                update: ProjectOwnerUpdateMutationInput!
+                UPDATE: ProjectOwnerUpdateMutationInput!
             }
         */
         let project_type = mock_project_type();
@@ -4116,7 +3890,7 @@ mod tests {
         /*
             input ProjectBoardUpdateInput {
                 MATCH: ProjectBoardQueryInput
-                update: ProjectBoardUpdateMutationInput!
+                UPDATE: ProjectBoardUpdateMutationInput!
             }
         */
         let project_board_rel = project_type.rels().find(|&r| r.name() == "board").unwrap();
@@ -4536,7 +4310,6 @@ mod tests {
         assert!(schema.contains_key("ProjectInput"));
         assert!(schema.contains_key("ProjectUpdateInput"));
         assert!(schema.contains_key("ProjectOwnerRel"));
-        assert!(schema.contains_key("ProjectOwnerProps"));
         assert!(schema.contains_key("Query"));
         assert!(schema.contains_key("Mutation"));
     }

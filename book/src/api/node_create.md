@@ -42,7 +42,7 @@ mutation {
     input: {
       name: "Just Us League"
       members: {
-        props: { joinDate: "2020-02-20" }
+        joinDate: "2020-02-20",
         dst: { User: { NEW: { email: "alistair@example.com" } } }
       }
     }
@@ -51,9 +51,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -76,9 +74,7 @@ The output is as follows.
       "members": [
         {
           "id": "295d191f-0d66-484c-b1eb-39494f0ae8a0",
-          "props": {
-            "joinDate": "2020-02-20"
-          },
+          "joinDate": "2020-02-20",
           "dst": {
             "id": "5ca84494-dd14-468e-812f-cb2da07157db",
             "email": "alistair@example.com"
@@ -100,7 +96,7 @@ mutation {
     input: {
       name: "Consortia Unlimited"
       members: {
-        props: { joinDate: "2020-02-20" }
+        joinDate: "2020-02-20",
         dst: { User: { EXISTING: { email: "alistair@example.com" } } }
       }
     }
@@ -109,9 +105,7 @@ mutation {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -134,9 +128,7 @@ The output is as follows:
       "members": [
         {
           "id": "008fdc43-f3cf-48eb-a9e9-c5c753c65ee9",
-          "props": {
-            "joinDate": "2020-02-20"
-          },
+          "joinDate": "2020-02-20",
           "dst": {
             "id": "5ca84494-dd14-468e-812f-cb2da07157db",
             "email": "alistair@example.com"

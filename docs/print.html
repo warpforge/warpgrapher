@@ -1022,16 +1022,12 @@ model:
 </code></pre>
 <h3 id="querying-for-a-relationship"><a class="header" href="#querying-for-a-relationship">Querying for a Relationship</a></h3>
 <p>In the top level GraphQL query, note that a new query, called <code>OrganizationMembers</code> has been generated for the relationship. This query has an input parameter, <code>OrganizationMembersQueryInput</code> that provides search query arguments to select the set of relationships to be returned.</p>
-<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>OrganizationMembersPropsQueryInput</code> allows queries based on the properties on the relationship itself. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
+<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>joinDate</code> attribute allows queries based on the properties on the relationship. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
 <pre><code>input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
-  src: OrganizationMembersSrcQueryInput
-}
-
-input OrganizationMembersPropsQueryInput {
   joinDate: StringQueryInput
+  src: OrganizationMembersSrcQueryInput
 }
 </code></pre>
 <p>The two input objects for the <code>src</code> and <code>dst</code> input objects are shown below. Note that for the source query input, the only attribute is an <code>Organization</code> attribute that is an <code>OrganizationQueryInput</code> and that for the destination, the only attribute is a <code>User</code> attribute that is a <code>UserQueryInput</code>. There are two important observations here.  First, the reason for having the <code>OrganizationMembersDstQueryInput</code> object is that a relationship might have more than one node type as a possible destination. When building the GraphQL schema, Warpgrapher has to allow for the client to query any of those possible destination nodes. In this example, the only type of destination node is a <code>User</code>, so that's the only possibility shown below. If the nodes list had more types of nodes, any of those node types could be queried through the <code>OrganizationMembersDstQueryInput</code>.  The second observation is that both the <code>OrganizationQueryInput</code> and the <code>UserQueryInput</code> inputs are the same input parameters used to query for a set of nodes in the <code>Organization</code> and <code>User</code> root level GraphQL queries shown above.</p>
@@ -1043,16 +1039,12 @@ input OrganizationMembersDstQueryInput {
   User: UserQueryInput
 }
 </code></pre>
-<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, a bad of properties <code>props</code> which includes the <code>joinDate</code> relationship property, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
+<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, <code>joinDate</code> for the property configured on the relationship, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
 <pre><code>type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
-  src: Organization!
-}
-
-type OrganizationMembersProps {
   joinDate: String
+  src: Organization!
 }
 </code></pre>
 <p>The <code>src</code> attribute in the <code>OrganizationMembersRel</code> output type is an <code>Organization</code> type, which is exactly the same output type used for node queries, and so will be covered in the section on querying for nodes, below.  The <code>dst</code> attribute is a little more complex. Recall from the description of the configuration schema that Warpgrapher may connect from a source node type to a destination that can be one of many node types. A GraphQL union type is used to represent the multiple destination node types that may exist.  As shown in the schema snippet below, in this example of <code>OrganizationMembersNodesUnion</code>, there is only a single destination node type of User. A more complex configuration might have multiple node types in the union.</p>
@@ -1111,14 +1103,10 @@ type OrganizationMembersProps {
   MATCH: OrganizationQueryInput
 }
 </code></pre>
-<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It has a <code>props</code> object that includes the joinDate attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
+<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It includes the <code>joinDate</code> attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
 <pre><code>input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
-}
-
-input OrganizationMembersPropsInput {
   joinDate: String
 }
 </code></pre>
@@ -1141,10 +1129,10 @@ input OrganizationMembersPropsInput {
   SET: OrganizationMembersUpdateMutationInput!
 }
 </code></pre>
-<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>props</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
+<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>joinDate</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
 <pre><code>input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 </code></pre>
@@ -1342,20 +1330,16 @@ input OrganizationUpdateInput {
   SET: OrganizationUpdateMutationInput
 }
 
-input OrganizationMembersPropsQueryInput {
-  joinDate: StringQueryInput
-}
-
 type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
+  joinDate: String
   src: Organization!
 }
 
 input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 
@@ -1371,7 +1355,7 @@ input UserQueryInput {
 input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
+  joinDate: StringQueryInput
   src: OrganizationMembersSrcQueryInput
 }
 
@@ -1395,7 +1379,7 @@ type Subscription
 input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
+  joinDate: String
 }
 
 input UserDeleteMutationInput
@@ -1409,16 +1393,8 @@ type User {
   id: ID!
 }
 
-input OrganizationMembersPropsInput {
-  joinDate: String
-}
-
 input OrganizationMembersDstQueryInput {
   User: UserQueryInput
-}
-
-type OrganizationMembersProps {
-  joinDate: String
 }
 
 input UserCreateMutationInput {
@@ -1480,7 +1456,7 @@ input OrganizationDeleteInput {
     input: {
       name: &quot;Just Us League&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { NEW: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -1489,9 +1465,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1511,9 +1485,7 @@ input OrganizationDeleteInput {
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;295d191f-0d66-484c-b1eb-39494f0ae8a0&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1531,7 +1503,7 @@ input OrganizationDeleteInput {
     input: {
       name: &quot;Consortia Unlimited&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { EXISTING: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -1540,9 +1512,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1562,9 +1532,7 @@ input OrganizationDeleteInput {
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;008fdc43-f3cf-48eb-a9e9-c5c753c65ee9&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1638,14 +1606,12 @@ input OrganizationDeleteInput {
 <p>The GraphQL query below lists all organizations with members that joined in 2020.</p>
 <pre><code>query {
   Organization(
-    input: { members: { props: { joinDate: { CONTAINS: &quot;2020&quot; } } } }
+    input: { members: { joinDate: { CONTAINS: &quot;2020&quot; } } }
   ) {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1665,9 +1631,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1680,9 +1644,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1705,9 +1667,7 @@ input OrganizationDeleteInput {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1727,9 +1687,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1742,9 +1700,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1807,9 +1763,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1830,9 +1784,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;78acc7ac-2153-413d-a8d7-688e472340d5&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2021-01-02&quot;
-            },
+            &quot;joinDate&quot;: &quot;2021-01-02&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;ea2a1b68-fda2-4adb-9c80-554761a1c97b&quot;,
               &quot;email&quot;: &quot;balthazar@example.com&quot;
@@ -1840,9 +1792,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;00051bc1-133c-445d-b00c-4faf61b2bffa&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1863,7 +1813,7 @@ input OrganizationDeleteInput {
       SET: {
         members: {
           ADD: {
-            props: { joinDate: &quot;2018-01-08&quot; }
+            joinDate: &quot;2018-01-08&quot;,
             dst: { User: { NEW: { email: &quot;constantine@example.com&quot; } } }
           }
         }
@@ -1874,9 +1824,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1897,9 +1845,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;constantine@example.com&quot;
@@ -1907,9 +1853,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;bd302b7f-8a3f-49ab-aac3-c3348d8b8d94&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1943,9 +1887,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1966,9 +1908,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;javier@example.com&quot;
@@ -1976,9 +1916,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;bd302b7f-8a3f-49ab-aac3-c3348d8b8d94&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -2009,9 +1947,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -2032,9 +1968,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;javier@example.com&quot;
@@ -2079,15 +2013,13 @@ input OrganizationDeleteInput {
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { EXISTING: { email: { EQ: &quot;alistair@example.com&quot; } } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2107,9 +2039,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2130,15 +2060,13 @@ input OrganizationDeleteInput {
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { NEW: { email: &quot;constantine@example.com&quot; } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2158,9 +2086,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2184,11 +2110,9 @@ input OrganizationDeleteInput {
 <h2 id="by-relationship-properties"><a class="header" href="#by-relationship-properties">By Relationship Properties</a></h2>
 <p>The GraphQL query below retrieves all the members who joined organizations on 2018-01-08.</p>
 <pre><code>query {
-  OrganizationMembers(input: { props: { joinDate: { EQ: &quot;2018-01-08&quot; } } }) {
+  OrganizationMembers(input: { joinDate: { EQ: &quot;2018-01-08&quot; } }) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2208,9 +2132,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2231,9 +2153,7 @@ input OrganizationDeleteInput {
     input: { src: { Organization: { name: { EQ: &quot;Warpforge&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2253,9 +2173,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2267,9 +2185,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2281,9 +2197,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2304,9 +2218,7 @@ input OrganizationDeleteInput {
     input: { dst: { User: { email: { EQ: &quot;alistair@example.com&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2326,9 +2238,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2340,9 +2250,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;00051bc1-133c-445d-b00c-4faf61b2bffa&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2020-02-20&quot;
-        },
+        &quot;joinDate&quot;: &quot;2020-02-20&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;5692bd2a-2bc9-4497-8285-1f7860478cd6&quot;,
           &quot;name&quot;: &quot;Prophet and Loss Inc.&quot;
@@ -2369,13 +2277,11 @@ input OrganizationDeleteInput {
         src: { Organization: { name: &quot;Warpforge&quot; } }
         dst: { User: { email: &quot;alistair@example.com&quot; } }
       }
-      SET: { props: { joinDate: &quot;2021-12-31&quot; } }
+      SET: { joinDate: &quot;2021-12-31&quot; }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2395,9 +2301,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersUpdate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2021-12-31&quot;
-        },
+        &quot;joinDate&quot;: &quot;2021-12-31&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2836,16 +2740,20 @@ model:
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
-
-        facade.resolve_rel(&amp;top_contributor_rel).await
-    })
-}
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 </code></pre>
 <h2 id="add-the-resolver-to-the-engine"><a class="header" href="#add-the-resolver-to-the-engine">Add the Resolver to the Engine</a></h2>
 <p>The resolver is added to a map associated with the name used in the configuration, above. The map is then passed to the Warpgrapher engine. This allows the engine to find the Rust function implementing the custom resolver when it is needed.</p>
-<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<pre><code class="language-rust no_run noplayground">        .await
+        .expect(&quot;Failed to create neo4j database pool&quot;);
+
+    // define resolvers
+    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -2853,14 +2761,14 @@ model:
 
     // create warpgrapher engine
     let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
-        .with_resolvers(resolvers)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
-
 </code></pre>
 <h2 id="example-api-call-1"><a class="header" href="#example-api-call-1">Example API Call</a></h2>
 <p>The following GraphQL query uses the dynamic resolver defined above.</p>
-<pre><code class="language-rust no_run noplayground">    let query = &quot;
+<pre><code class="language-rust no_run noplayground">        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
+    // create new project
+    let query = &quot;
         mutation {
             ProjectCreate(input: {
                 name: \&quot;Project1\&quot;
@@ -2876,10 +2784,6 @@ model:
                 }
             }
         }
-    &quot;
-    .to_string();
-    let metadata = HashMap::new();
-    let result = engine.execute(query, None, metadata).await.unwrap();
 </code></pre>
 <h2 id="full-example-source-2"><a class="header" href="#full-example-source-2">Full Example Source</a></h2>
 <p>See below for the full source code to the example above.</p>
@@ -2937,8 +2841,12 @@ fn resolve_project_top_contributor(
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 
         facade.resolve_rel(&amp;top_contributor_rel).await
     })

@@ -74,8 +74,8 @@ impl Transaction for NoTransaction {
         _rel_var: &RelQueryVar,
         _id_opt: Option<Value>,
         _props: HashMap<String, Value>,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
+        _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
@@ -132,8 +132,8 @@ impl Transaction for NoTransaction {
         &mut self,
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
+        _info: &Info,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -155,8 +155,8 @@ impl Transaction for NoTransaction {
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
         _props: HashMap<String, Value>,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
+        _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
