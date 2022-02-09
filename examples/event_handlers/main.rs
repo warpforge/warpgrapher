@@ -4,7 +4,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use warpgrapher::engine::config::{Configuration, Property, UsesFilter};
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::CrudOperation;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
@@ -30,7 +30,7 @@ pub struct Rctx {
 impl Rctx {}
 
 impl RequestContext for Rctx {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
 
     fn new() -> Self {
         Rctx {
@@ -177,11 +177,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
+    let db = CypherEndpoint::from_env()
+        .expect("Failed to parse cypher endpoint from environment")
         .pool()
         .await
-        .expect("Failed to create neo4j database pool");
+        .expect("Failed to create cypher database pool");
 
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(insert_user_profile);

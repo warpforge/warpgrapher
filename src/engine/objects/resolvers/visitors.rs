@@ -973,7 +973,6 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                 m.remove("id"),
                 m,
                 partition_key_opt,
-                info,
                 sg,
             )
             .await?;
@@ -1058,7 +1057,7 @@ pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .read_rels(fragment, rel_var, partition_key_opt, info)
+            .read_rels(fragment, rel_var, partition_key_opt)
             .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
@@ -1590,7 +1589,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .update_rels(query_fragment, rel_var, m, partition_key_opt, info, sg)
+            .update_rels(query_fragment, rel_var, m, partition_key_opt, sg)
             .await?;
         if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
             for f in handlers.iter() {

@@ -6,13 +6,13 @@ This quickstart assumes a working knowledge of Rust, GraphQL, and at least one g
 
 ## Configuration
 
-First, set up the `Cargo.toml` file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the `gremlin` feature to support Gremlin-based databases such as Apache Tinkerpop, AWS Neptune, and Azure CosmosDB. Use `neo4j` to support Neo4J. This tutorial example uses Neo4J.
+First, set up the `Cargo.toml` file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the `gremlin` feature to support Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB. Use `cypher` to support Cypher-based databases, such as AWS Neptune and Neo4J. This tutorial example uses Neo4J.
 
 `Cargo.toml`
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.9.1", features = ["neo4j"] }
+warpgrapher = { version = "0.9.1", features = ["cypher"] }
 ```
 
 The `src/main.rs` file begins with a definition of the data model for the example:
@@ -33,7 +33,7 @@ Altogether, this configuration defines a very simple data model. That data model
 
 Once the configuration describing the data model is in place, it takes relatively little code to get a Warpgrapher engine up and running, ready to handle all the basic CRUD operations for that data.
 
-The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a `DBEndpointType` of `Neo4jEndpoint`.
+The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a `DBEndpointType` of `CypherEndpoint`.
 
 ```rust,no_run,noplayground
 {{#include ../../../examples/quickstart/main.rs:19:26}}
@@ -74,16 +74,16 @@ At this point, the Warpgrapher engine is created and ready to field queries. The
 Configure database settings using the following environment variables:
 
 ```bash
-export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 ```
 
 Start a 4.1 Neo4j database:
 
 ```bash
-docker run --rm -p 7687:7687 -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" neo4j:4.4
+docker run --rm -p 7687:7687 -e NEO4J_AUTH="${WG_CYPHER_USER}/${WG_CYPHER_PASS}" neo4j:4.4
 ```
 
 ## Run

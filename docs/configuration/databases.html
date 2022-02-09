@@ -147,7 +147,7 @@
 <p>Warppgrapher supports several database back-ends for graph data:</p>
 <ol>
 <li>Apache Tinkerpop</li>
-<li>AWS Neptune (Gremlin variant)</li>
+<li>AWS Neptune (Cypher variant)</li>
 <li>Azure Cosmos DB (Gremlin variant)</li>
 <li>Neo4J</li>
 </ol>
@@ -160,7 +160,7 @@ connection pool:</p>
 number of CPUs detected. If the number of CPUs cannot be detected, Warpgrapher defaults to a pool
 of 8 connections. </p>
 <h2 id="gremlin-based-databases"><a class="header" href="#gremlin-based-databases">Gremlin-Based Databases</a></h2>
-<p>For all gremlin-based databases, such as Apache Tinkerpop, AWS Neptune, and Azure Cosmos DB the
+<p>For all gremlin-based databases, such as Apache Tinkerpop and Azure Cosmos DB the
 following environment variables control connection to the database.</p>
 <ul>
 <li>WG_GREMLIN_HOST is the host name for the database to which to connect.</li>
@@ -175,9 +175,6 @@ connection, and <code>false</code> if not using TLS. Defaults to <code>true</cod
 <li>WG_GREMLIN_VALIDATE_CERTS is set to <code>true</code> if Warpgrapher should validate the certificate used
 for a TLS connection, and <code>false</code>. Defaults to <code>true</code>. Should only be set to false in non-production
 environments.</li>
-<li>WG_GREMLIN_BINDINGS is set is <code>true</code> if Warpgrapher should use Gremlin bindings to send values 
-in queries, providing query parameterization, and <code>false</code> if values should be sanitized and sent
-inline in the query string itself. Defaults to <code>true</code>. Should only be set to false for databases that do not support bindings, like AWS Neptune.</li>
 <li>WG_GREMLIN_LONG_IDS is set to <code>true</code> if Warpgrapher should use long integers for vertex and edge
 identifiers. If <code>false</code>, Warpgrapher uses strings. Defaults to <code>false</code>. Consult your graph database's documentation to determine what values are valid for identifiers.</li>
 <li>WG_GREMLIN_PARTITIONS is set to <code>true</code> if Warpgrapher should require a partition ID, and false if 
@@ -223,16 +220,14 @@ docker run -i --net=host --rm gremlin-console:latest
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neptune DB:</p>
-<pre><code class="language-bash">export WG_GREMLIN_HOST=[neptune-rw-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_READ_REPLICAS=[neptune-ro-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_PORT=443
-export WG_GREMLIN_USE_TLS=true
-export WG_GREMLIN_VALIDATE_CERTS=true
-export WG_GREMLIN_BINDINGS=false
-export WG_GREMLIN_SESSIONS=true
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=
+export WG_CYPHER_PASS=
 </code></pre>
 <h3 id="azure-cosmos-db"><a class="header" href="#azure-cosmos-db">Azure Cosmos DB</a></h3>
 <p>Add Warpgrapher to your project config:</p>
@@ -262,21 +257,21 @@ could leave partially applied results behind.</p>
 <h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB.</p>
-<pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_READ_REPLICAS=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 </code></pre>
-<p>Note that the <code>WG_NEO4J_READ_REPLICAS</code> variable is optional. It is used for Neo4J cluster 
+<p>Note that the <code>WG_CYPHER_READ_REPLICAS</code> variable is optional. It is used for Neo4J cluster 
 configurations in which there are both read/write nodes and read-only replicas. If the 
-<code>WG_NEO4J_READ_REPLICAS</code> variable is set, read-only queries will be directed to the read replicas,
-whereas mutations will be sent to the instance(s) at <code>WG_NEO4J_HOST</code>.</p>
+<code>WG_CYPHER_READ_REPLICAS</code> variable is set, read-only queries will be directed to the read replicas,
+whereas mutations will be sent to the instance(s) at <code>WG_CYPHER_HOST</code>.</p>
 <p>If you do not already have a Neo4J database running, you can run one using Docker:</p>
-<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_NEO4J_USER}:${WG_NEO4J_PASS}&quot; neo4j:4.4
+<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_CYPHER_USER}:${WG_CYPHER_PASS}&quot; neo4j:4.4
 </code></pre>
 
                     </main>

@@ -8,8 +8,9 @@ use std::fmt::{Display, Formatter};
 use uuid::Uuid;
 
 /// Intermediate data structure for serialized values, allowing for translation between the values
-/// returned by the back-end database (serde_json for Neo4j, and a library-specific seralized
-/// format for Cosmos and Gremlin DBs), and the serde_json format used to return data to the client.
+/// returned by the back-end database (serde_json for cypher-based databases, and a
+/// library-specific seralized format for Cosmos and Gremlin DBs), and the serde_json format used
+/// to return data to the client.
 ///
 /// # Examples
 ///
@@ -29,34 +30,6 @@ pub enum Value {
     String(String),
     UInt64(u64),
     Uuid(Uuid),
-}
-
-impl Value {
-    #[cfg(feature = "gremlin")]
-    pub(crate) fn to_property_value(&self) -> Result<String, Error> {
-        match self {
-            Value::Array(a) => Ok(a
-                .iter()
-                .map(|v| v.to_property_value())
-                .collect::<Result<Vec<String>, Error>>()?
-                .join(", ")),
-            Value::Bool(bool) => Ok(bool.to_string()),
-            Value::Float64(f) => Ok(f.to_string() + "f"),
-            Value::Int64(i) => Ok(i.to_string() + "L"),
-            Value::Map(_) => Err(Error::TypeNotExpected {
-                details: Some("Expected scalar, not a map.".to_string()),
-            }),
-            Value::Null => Ok("''".to_string()),
-            Value::String(s) => Ok("'".to_string() + &*Value::sanitize(s) + "'"),
-            Value::UInt64(u) => Ok(u.to_string()),
-            Value::Uuid(uuid) => Ok(format!("'{}'", uuid)),
-        }
-    }
-
-    #[cfg(feature = "gremlin")]
-    fn sanitize(s: &str) -> String {
-        s.replace("\\", "\\\\").replace("'", "\\'")
-    }
 }
 
 impl Display for Value {

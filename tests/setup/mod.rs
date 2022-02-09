@@ -2,48 +2,48 @@
 use gremlin_client::TlsOptions;
 #[cfg(feature = "gremlin")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
-#[cfg(any(feature = "neo4j"))]
+#[cfg(any(feature = "cypher"))]
 use log::trace;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use std::collections::HashMap;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use std::convert::TryFrom;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use std::convert::TryInto;
 #[cfg(feature = "gremlin")]
 use std::env::var_os;
 use std::fs::File;
 use std::io::BufReader;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use warpgrapher::engine::context::RequestContext;
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::database::cypher::CypherEndpoint;
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::database::cypher::CypherTransaction;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::env_bool;
 #[cfg(feature = "gremlin")]
 use warpgrapher::engine::database::gremlin::GremlinEndpoint;
-#[cfg(feature = "neo4j")]
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-#[cfg(feature = "neo4j")]
-use warpgrapher::engine::database::neo4j::Neo4jTransaction;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use warpgrapher::engine::database::DatabaseEndpoint;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::database::QueryResult;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::database::{DatabasePool, Transaction};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::events::EventHandlerBag;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::resolvers::ExecutionResult;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::resolvers::ResolverFacade;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::resolvers::Resolvers;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::juniper::BoxFuture;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use warpgrapher::{Client, Engine};
 use warpgrapher::{Configuration, Error};
 
@@ -96,9 +96,9 @@ fn gremlin_accept_invalid_tls() -> bool {
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-pub(crate) async fn bolt_transaction() -> Result<Neo4jTransaction, Error> {
-    let endpoint = Neo4jEndpoint::from_env()?;
+#[cfg(feature = "cypher")]
+pub(crate) async fn bolt_transaction() -> Result<CypherTransaction, Error> {
+    let endpoint = CypherEndpoint::from_env()?;
     let pool = endpoint.pool().await?;
 
     pool.transaction().await
@@ -112,27 +112,27 @@ fn load_config(config: &str) -> Configuration {
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-pub(crate) async fn neo4j_test_client(config_path: &str) -> Client<Neo4jRequestCtx> {
-    neo4j_test_client_with_events(config_path, EventHandlerBag::new()).await
+#[cfg(feature = "cypher")]
+pub(crate) async fn cypher_test_client(config_path: &str) -> Client<CypherRequestCtx> {
+    cypher_test_client_with_events(config_path, EventHandlerBag::new()).await
 }
 
 #[allow(dead_code)]
-#[cfg(feature = "neo4j")]
-pub(crate) async fn neo4j_test_client_with_events(
+#[cfg(feature = "cypher")]
+pub(crate) async fn cypher_test_client_with_events(
     config_path: &str,
-    ehb: EventHandlerBag<Neo4jRequestCtx>,
-) -> Client<Neo4jRequestCtx> {
+    ehb: EventHandlerBag<CypherRequestCtx>,
+) -> Client<CypherRequestCtx> {
     // load config
     let config: Configuration = File::open(config_path)
         .expect("Failed to load config file")
         .try_into()
         .unwrap();
 
-    let database_pool = Neo4jEndpoint::from_env().unwrap().pool().await.unwrap();
+    let database_pool = CypherEndpoint::from_env().unwrap().pool().await.unwrap();
 
     // load resolvers
-    let mut resolvers: Resolvers<Neo4jRequestCtx> = Resolvers::new();
+    let mut resolvers: Resolvers<CypherRequestCtx> = Resolvers::new();
     resolvers.insert("GlobalTopDev".to_owned(), Box::new(global_top_dev));
     resolvers.insert("GlobalTopTags".to_owned(), Box::new(global_top_tags));
     resolvers.insert("ProjectCount".to_owned(), Box::new(project_count));
@@ -146,10 +146,10 @@ pub(crate) async fn neo4j_test_client_with_events(
     validators.insert("NameValidator".to_string(), Box::new(name_validator));
 
     // initialize extensions
-    //let metadata_extension: MetadataExtension<Neo4jRequestCtx> = MetadataExtension::new();
-    //let extensions: Extensions<Neo4jRequestCtx> = vec![Arc::new(metadata_extension)];
+    //let metadata_extension: MetadataExtension<CypherRequestCtx> = MetadataExtension::new();
+    //let extensions: Extensions<CypherRequestCtx> = vec![Arc::new(metadata_extension)];
 
-    let engine = Engine::<Neo4jRequestCtx>::new(config, database_pool)
+    let engine = Engine::<CypherRequestCtx>::new(config, database_pool)
         .with_version("1.0".to_string())
         .with_resolvers(resolvers.clone())
         .with_validators(validators.clone())
@@ -215,13 +215,13 @@ fn clear_gremlin_db() {
     let _ = client.execute("g.V().drop()", &[]);
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[allow(dead_code)]
-async fn clear_neo4j_db() {
+async fn clear_cypher_db() {
     bolt_transaction()
         .await
         .expect("Failed to get database client")
-        .execute_query::<Neo4jRequestCtx>(
+        .execute_query::<CypherRequestCtx>(
             "MATCH (n) DETACH DELETE (n);".to_string(),
             HashMap::new(),
         )
@@ -234,8 +234,8 @@ pub(crate) async fn clear_db() {
     #[cfg(feature = "gremlin")]
     clear_gremlin_db();
 
-    #[cfg(feature = "neo4j")]
-    clear_neo4j_db().await;
+    #[cfg(feature = "cypher")]
+    clear_cypher_db().await;
 }
 
 #[derive(Clone, Debug)]
@@ -246,18 +246,18 @@ pub struct Metadata {
     pub(crate) src_useragent: String,
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[derive(Clone, Debug)]
-pub struct Neo4jRequestCtx {
+pub struct CypherRequestCtx {
     #[allow(dead_code)]
     metadata: Metadata,
 }
 
-#[cfg(feature = "neo4j")]
-impl RequestContext for Neo4jRequestCtx {
-    type DBEndpointType = Neo4jEndpoint;
-    fn new() -> Neo4jRequestCtx {
-        Neo4jRequestCtx {
+#[cfg(feature = "cypher")]
+impl RequestContext for CypherRequestCtx {
+    type DBEndpointType = CypherEndpoint;
+    fn new() -> CypherRequestCtx {
+        CypherRequestCtx {
             metadata: Metadata {
                 src_ip: "".to_string(),
                 src_useragent: "".to_string(),
@@ -331,14 +331,16 @@ fn name_validator(value: &Value) -> Result<(), Error> {
     }
 }
 
-#[cfg(feature = "neo4j")]
-pub(crate) fn project_count(facade: ResolverFacade<Neo4jRequestCtx>) -> BoxFuture<ExecutionResult> {
+#[cfg(feature = "cypher")]
+pub(crate) fn project_count(
+    facade: ResolverFacade<CypherRequestCtx>,
+) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         let query = "MATCH (n:Project) RETURN (n);".to_string();
         let mut transaction = facade.executor().context().pool().transaction().await?;
         transaction.begin().await?;
-        if let QueryResult::Neo4j(records) = transaction
-            .execute_query::<Neo4jRequestCtx>(query, HashMap::new())
+        if let QueryResult::Cypher(records) = transaction
+            .execute_query::<CypherRequestCtx>(query, HashMap::new())
             .await?
         {
             transaction.commit().await?;
@@ -351,9 +353,9 @@ pub(crate) fn project_count(facade: ResolverFacade<Neo4jRequestCtx>) -> BoxFutur
 }
 
 /// custom endpoint returning scalar_list:
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn global_top_tags(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         facade.resolve_scalar_list(vec!["web", "database", "rust", "python", "graphql"])
@@ -361,9 +363,9 @@ pub(crate) fn global_top_tags(
 }
 
 /// custom endpoint returning node
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn global_top_dev(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         trace!("global_top_dev called");
@@ -374,36 +376,36 @@ pub(crate) fn global_top_dev(
 }
 
 /// custom field returning scalar
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn project_points(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move { facade.resolve_scalar(138) })
 }
 
 /// custom field returning scalar_list
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn project_top_tags(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move { facade.resolve_scalar_list(vec!["cypher", "sql", "neo4j"]) })
 }
 
 /// custom rel returning rel
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn project_top_dev(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         let mut transaction = facade.executor().context().pool().transaction().await?;
         transaction.begin().await?;
         let query = "MATCH (n:User) RETURN (n);".to_string();
         let qr = transaction
-            .execute_query::<Neo4jRequestCtx>(query, HashMap::new())
+            .execute_query::<CypherRequestCtx>(query, HashMap::new())
             .await
             .expect("Expected successful query run.");
 
-        if let QueryResult::Neo4j(result) = qr {
+        if let QueryResult::Cypher(result) = qr {
             let dev_id = if let bolt_proto::value::Value::Node(n) =
                 &result.get(0).expect("Expected result").fields()[0]
             {
@@ -424,7 +426,6 @@ pub(crate) fn project_top_dev(
                             "topdev",
                             HashMap::new(),
                             dev_id,
-                            "User",
                         )
                         .expect("Expected new rel"),
                 )
@@ -436,9 +437,9 @@ pub(crate) fn project_top_dev(
 }
 
 /// custom rel returning rel_list
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub(crate) fn project_top_issues(
-    facade: ResolverFacade<Neo4jRequestCtx>,
+    facade: ResolverFacade<CypherRequestCtx>,
 ) -> BoxFuture<ExecutionResult> {
     Box::pin(async move {
         let mut transaction = facade.executor().context().pool().transaction().await?;
@@ -446,10 +447,10 @@ pub(crate) fn project_top_issues(
         let query = "MATCH (n:Bug) RETURN (n);".to_string();
 
         let qr = transaction
-            .execute_query::<Neo4jRequestCtx>(query, HashMap::new())
+            .execute_query::<CypherRequestCtx>(query, HashMap::new())
             .await?;
 
-        let bug_id = if let QueryResult::Neo4j(records) = qr {
+        let bug_id = if let QueryResult::Cypher(records) = qr {
             if let bolt_proto::value::Value::Node(n) =
                 &records.get(0).expect("Expected result").fields()[0]
             {
@@ -461,15 +462,15 @@ pub(crate) fn project_top_issues(
             }
         } else {
             transaction.rollback().await?;
-            panic!("Expected Neo4j records");
+            panic!("Expected Cypher records");
         };
 
         let query = "MATCH (n:Feature) RETURN (n);".to_string();
         let qr = transaction
-            .execute_query::<Neo4jRequestCtx>(query, HashMap::new())
+            .execute_query::<CypherRequestCtx>(query, HashMap::new())
             .await?;
 
-        let feature_id = if let QueryResult::Neo4j(records) = qr {
+        let feature_id = if let QueryResult::Cypher(records) = qr {
             if let bolt_proto::value::Value::Node(n) =
                 &records.get(0).expect("Expected result").fields()[0]
             {
@@ -481,7 +482,7 @@ pub(crate) fn project_top_issues(
             }
         } else {
             transaction.rollback().await?;
-            panic!("Expected Neo4j records");
+            panic!("Expected Cypher records");
         };
 
         transaction.commit().await?;
@@ -495,7 +496,6 @@ pub(crate) fn project_top_issues(
                         "topissues",
                         HashMap::new(),
                         bug_id,
-                        "Bug",
                     )
                     .expect("Expected rel"),
                 &facade
@@ -504,7 +504,6 @@ pub(crate) fn project_top_issues(
                         "topissues",
                         HashMap::new(),
                         feature_id,
-                        "Feature",
                     )
                     .expect("Expected rel"),
             ])

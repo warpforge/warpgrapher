@@ -146,10 +146,10 @@
 <p>This guide will walk through creating a brand new project using the Warpgrapher engine. The quickstart example will create a very simple service. It will store email addresses for users. Warpgrapher is far more capable, allowing storage and retrieval of complex data models with many relationships. But for now, to get started quickly, begin with as simple a data model as possible.</p>
 <p>This quickstart assumes a working knowledge of Rust, GraphQL, and at least one graph database. For example, we don't cover creating a new Rust project using <code>cargo init</code>.</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop, AWS Neptune, and Azure CosmosDB. Use <code>neo4j</code> to support Neo4J. This tutorial example uses Neo4J.</p>
+<p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB. Use <code>cypher</code> to support Cypher-based databases, such as AWS Neptune and Neo4J. This tutorial example uses Neo4J.</p>
 <p><code>Cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The <code>src/main.rs</code> file begins with a definition of the data model for the example:</p>
 <pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
@@ -167,11 +167,11 @@ model:
 <p>Altogether, this configuration defines a very simple data model. That data model keeps records about users, and the one property tracked for users is their email address.</p>
 <h2 id="source-code"><a class="header" href="#source-code">Source Code</a></h2>
 <p>Once the configuration describing the data model is in place, it takes relatively little code to get a Warpgrapher engine up and running, ready to handle all the basic CRUD operations for that data.</p>
-<p>The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a <code>DBEndpointType</code> of <code>Neo4jEndpoint</code>.</p>
+<p>The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a <code>DBEndpointType</code> of <code>CypherEndpoint</code>.</p>
 <pre><code class="language-rust no_run noplayground">struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -187,11 +187,11 @@ async fn main() {
 </code></pre>
 <p>Next, the databse endpoint is configured using a set of environment variables. See below for the correct environment variables and values.</p>
 <pre><code class="language-rust no_run noplayground">    // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 </code></pre>
 <p>The configuration and database created above are passed to the Warpgrapher engine, as follows.</p>
 <pre><code class="language-rust no_run noplayground">    // create warpgrapher engine
@@ -220,13 +220,13 @@ async fn main() {
 </code></pre>
 <h2 id="database"><a class="header" href="#database">Database</a></h2>
 <p>Configure database settings using the following environment variables:</p>
-<pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 </code></pre>
 <p>Start a 4.1 Neo4j database:</p>
-<pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_NEO4J_USER}/${WG_NEO4J_PASS}&quot; neo4j:4.4
+<pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_CYPHER_USER}/${WG_CYPHER_PASS}&quot; neo4j:4.4
 </code></pre>
 <h2 id="run"><a class="header" href="#run">Run</a></h2>
 <p>Run the example using <code>cargo</code> as follows.</p>
@@ -254,7 +254,7 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::Engine;
 
@@ -271,7 +271,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -283,11 +283,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // create warpgrapher engine
     let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)

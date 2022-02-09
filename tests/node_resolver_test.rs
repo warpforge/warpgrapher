@@ -2,13 +2,13 @@ mod setup;
 
 use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{bolt_transaction, clear_db, init, neo4j_test_client, Neo4jRequestCtx};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
+use setup::{bolt_transaction, clear_db, cypher_test_client, init, CypherRequestCtx};
+#[cfg(feature = "cypher")]
 use std::collections::HashMap;
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::database::Transaction;
 use warpgrapher_macros::wg_test;
 
@@ -157,7 +157,7 @@ async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) 
 }
 
 /// Passes if resolvers can handle a shape that reads a property that is not
-/// present on the Neo4J model object.
+/// present on the model object.
 #[wg_test]
 #[allow(dead_code)]
 async fn handle_missing_properties<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
@@ -470,9 +470,9 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(after_projects_a.len(), 0);
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
-async fn error_on_node_missing_id_neo4j() {
+async fn error_on_node_missing_id_cypher() {
     init();
     clear_db().await;
 
@@ -480,14 +480,14 @@ async fn error_on_node_missing_id_neo4j() {
         .await
         .expect("Could not get database client.");
     graph
-        .execute_query::<Neo4jRequestCtx>(
+        .execute_query::<CypherRequestCtx>(
             "CREATE (n:Project { name: 'Project One' })".to_string(),
             HashMap::new(),
         )
         .await
         .expect("Expected successful query run.");
 
-    let client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    let client = cypher_test_client("./tests/fixtures/minimal.yml").await;
     error_on_node_missing_id(client).await;
 }
 

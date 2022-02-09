@@ -1,24 +1,25 @@
 //! Traits and helper structs for interacting with the graph storage database
 
+#[cfg(feature = "cypher")]
+pub mod cypher;
 #[cfg(feature = "gremlin")]
 pub mod gremlin;
-#[cfg(feature = "neo4j")]
-pub mod neo4j;
 pub mod no_database;
 
 use crate::engine::context::RequestContext;
+use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
 use async_trait::async_trait;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use bolt_proto::message::Record;
 #[cfg(feature = "gremlin")]
 use gremlin_client::GValue;
 use std::collections::HashMap;
 use std::convert::TryFrom;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use std::env::var_os;
 use std::fmt::Debug;
 
@@ -27,7 +28,7 @@ pub fn env_bool(var_name: &str) -> Result<bool, Error> {
     Ok(env_string(var_name)?.parse::<bool>()?)
 }
 
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 fn env_string(var_name: &str) -> Result<String, Error> {
     var_os(var_name)
         .map(|osstr| osstr.to_string_lossy().into_owned())
@@ -36,7 +37,7 @@ fn env_string(var_name: &str) -> Result<String, Error> {
         })
 }
 
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 fn env_u16(var_name: &str) -> Result<u16, Error> {
     Ok(env_string(var_name)?.parse::<u16>()?)
 }
@@ -63,18 +64,18 @@ pub trait DatabaseEndpoint {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
     /// # use tokio::runtime::Runtime;
     /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// # #[cfg(feature = "cypher")]
+    /// # use warpgrapher::engine::database::cypher::CypherEndpoint;
     /// #
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
     /// let mut runtime = Runtime::new()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let endpoint = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
+    /// let endpoint = CypherEndpoint::from_env()?;
+    /// # #[cfg(feature = "cypher")]
     /// let pool = runtime.block_on(endpoint.pool())?;
     /// # Ok(())
     /// # }
@@ -107,16 +108,16 @@ pub trait DatabasePool: Clone + Sync + Send {
     /// ```rust,no_run
     /// # use tokio::main;
     /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// # #[cfg(feature = "cypher")]
+    /// # use warpgrapher::engine::database::cypher::CypherEndpoint;
     /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let endpoint = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
+    /// let endpoint = CypherEndpoint::from_env()?;
+    /// # #[cfg(feature = "cypher")]
     /// let pool = endpoint.pool().await?;
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
     /// let transaction = pool.read_transaction().await?;
     /// # Ok(())
     /// # }
@@ -139,16 +140,16 @@ pub trait DatabasePool: Clone + Sync + Send {
     /// ```rust,no_run
     /// # use tokio::main;
     /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool};
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+    /// # #[cfg(feature = "cypher")]
+    /// # use warpgrapher::engine::database::cypher::CypherEndpoint;
     /// #
     /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let endpoint = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
+    /// let endpoint = CypherEndpoint::from_env()?;
+    /// # #[cfg(feature = "cypher")]
     /// let pool = endpoint.pool().await?;
-    /// # #[cfg(feature = "neo4j")]
+    /// # #[cfg(feature = "cypher")]
     /// let transaction = pool.transaction().await?;
     /// # Ok(())
     /// # }
@@ -184,7 +185,6 @@ pub trait Transaction: Send + Sync {
         id_opt: Option<Value>,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
-        info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
@@ -201,6 +201,12 @@ pub trait Transaction: Send + Sync {
         props: HashMap<String, Comparison>,
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
+
+    async fn load_nodes<RequestCtx: RequestContext>(
+        &mut self,
+        keys: &[NodeLoaderKey],
+        info: &Info,
+    ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
     async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
@@ -225,12 +231,16 @@ pub trait Transaction: Send + Sync {
         sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error>;
 
+    async fn load_rels<RequestCtx: RequestContext>(
+        &mut self,
+        keys: &[RelLoaderKey],
+    ) -> Result<Vec<Rel<RequestCtx>>, Error>;
+
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         partition_key_opt: Option<&Value>,
-        info: &Info,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     async fn update_nodes<RequestCtx: RequestContext>(
@@ -250,7 +260,6 @@ pub trait Transaction: Send + Sync {
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
         partition_key_opt: Option<&Value>,
-        info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
@@ -277,8 +286,8 @@ pub enum QueryResult {
     #[cfg(feature = "gremlin")]
     Gremlin(Vec<GValue>),
 
-    #[cfg(feature = "neo4j")]
-    Neo4j(Vec<Record>),
+    #[cfg(feature = "cypher")]
+    Cypher(Vec<Record>),
 
     NoDatabsae(),
 }
@@ -395,7 +404,7 @@ pub struct QueryFragment {
 }
 
 impl QueryFragment {
-    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "cypher"))]
     pub(crate) fn new(
         match_fragment: String,
         where_fragment: String,
@@ -408,17 +417,17 @@ impl QueryFragment {
         }
     }
 
-    #[cfg(feature = "neo4j")]
+    #[cfg(feature = "cypher")]
     pub(crate) fn match_fragment(&self) -> &str {
         &self.match_fragment
     }
 
-    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "cypher"))]
     pub(crate) fn where_fragment(&self) -> &str {
         &self.where_fragment
     }
 
-    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "cypher"))]
     pub(crate) fn params(self) -> HashMap<String, Value> {
         self.params
     }
@@ -458,7 +467,7 @@ impl NodeQueryVar {
         &self.suffix
     }
 
-    #[cfg(any(feature = "gremlin", feature = "neo4j"))]
+    #[cfg(any(feature = "gremlin", feature = "cypher"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }
@@ -495,7 +504,7 @@ impl RelQueryVar {
         &self.label
     }
 
-    #[cfg(any(feature = "neo4j"))]
+    #[cfg(any(feature = "cypher"))]
     pub(crate) fn name(&self) -> &str {
         &self.name
     }

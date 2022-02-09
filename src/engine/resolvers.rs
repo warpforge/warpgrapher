@@ -327,7 +327,7 @@ where
         .await?;
 
         let results = transaction
-            .read_rels(query_fragment, &rel_var, partition_key_opt, &info)
+            .read_rels(query_fragment, &rel_var, partition_key_opt)
             .await?;
 
         Ok(results)
@@ -571,7 +571,7 @@ where
     ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
     ///         let rel = facade.
-    ///             create_rel(rel_id, rel_name, rel_props, node_id, "DstNodeLabel")?;
+    ///             create_rel(rel_id, rel_name, rel_props, node_id)?;
     ///         facade.resolve_rel(&rel).await
     ///     })
     /// }
@@ -582,7 +582,6 @@ where
         rel_name: &str,
         mut props: HashMap<String, Value>,
         dst_id: Value,
-        dst_label: &str,
     ) -> Result<Rel<RequestCtx>, Error> {
         props.insert("id".to_string(), id);
         self.partition_key_opt
@@ -592,14 +591,8 @@ where
             Ok(Rel::new(
                 rel_name.to_string(),
                 props,
-                NodeRef::Identifier {
-                    id: parent_node.id()?.clone(),
-                    label: parent_node.type_name().to_string(),
-                },
-                NodeRef::Identifier {
-                    id: dst_id,
-                    label: dst_label.to_string(),
-                },
+                NodeRef::Identifier(parent_node.id()?.clone()),
+                NodeRef::Identifier(dst_id),
             ))
         } else {
             Err(Error::TypeNotExpected {
@@ -659,10 +652,7 @@ where
             Ok(Rel::new(
                 rel_name.to_string(),
                 props,
-                NodeRef::Identifier {
-                    id: parent_node.id()?.clone(),
-                    label: parent_node.type_name().to_string(),
-                },
+                NodeRef::Identifier(parent_node.id()?.clone()),
                 NodeRef::Node(dst),
             ))
         } else {
@@ -915,7 +905,7 @@ where
     ///         // return rel
     ///         facade.resolve_rel(&facade.create_rel(
     ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             "members", hm1, node_id, "DstNodeLabel")?).await
+    ///             "members", hm1, node_id)?).await
     ///     })
     /// }
     /// ```
@@ -959,10 +949,10 @@ where
     ///         facade.resolve_rel_list(vec![
     ///             &facade.create_rel(
     ///                 Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 "members", hm1, node_id1, "DstNodeLabel")?,
+    ///                 "members", hm1, node_id1)?,
     ///             &facade.create_rel(
     ///                 Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 "members", hm2, node_id2, "DstNodeLabel")?
+    ///                 "members", hm2, node_id2)?
     ///         ]).await
     ///     })
     /// }

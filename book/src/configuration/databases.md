@@ -5,7 +5,7 @@ Warpgrapher translates GraphQL queries into CRUD operations against a back-end d
 Warppgrapher supports several database back-ends for graph data:
 
 1. Apache Tinkerpop
-2. AWS Neptune (Gremlin variant)
+2. AWS Neptune (Cypher variant)
 3. Azure Cosmos DB (Gremlin variant)
 4. Neo4J
 
@@ -24,7 +24,7 @@ of 8 connections.
 
 ## Gremlin-Based Databases
 
-For all gremlin-based databases, such as Apache Tinkerpop, AWS Neptune, and Azure Cosmos DB the
+For all gremlin-based databases, such as Apache Tinkerpop and Azure Cosmos DB the
 following environment variables control connection to the database.
 
 - WG_GREMLIN_HOST is the host name for the database to which to connect.
@@ -39,9 +39,6 @@ connection, and `false` if not using TLS. Defaults to `true`.
 - WG_GREMLIN_VALIDATE_CERTS is set to `true` if Warpgrapher should validate the certificate used
 for a TLS connection, and `false`. Defaults to `true`. Should only be set to false in non-production
 environments.
-- WG_GREMLIN_BINDINGS is set is `true` if Warpgrapher should use Gremlin bindings to send values 
-in queries, providing query parameterization, and `false` if values should be sanitized and sent
-inline in the query string itself. Defaults to `true`. Should only be set to false for databases that do not support bindings, like AWS Neptune.
 - WG_GREMLIN_LONG_IDS is set to `true` if Warpgrapher should use long integers for vertex and edge
 identifiers. If `false`, Warpgrapher uses strings. Defaults to `false`. Consult your graph database's documentation to determine what values are valid for identifiers.
 - WG_GREMLIN_PARTITIONS is set to `true` if Warpgrapher should require a partition ID, and false if 
@@ -110,19 +107,17 @@ Add Warpgrapher to your project config:
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.9.1", features = ["gremlin"] }
+warpgrapher = { version = "0.9.1", features = ["cypher"] }
 ```
 
 Then set up environment variables to contact your Neptune DB:
 
 ```bash
-export WG_GREMLIN_HOST=[neptune-rw-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_READ_REPLICAS=[neptune-ro-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_PORT=443
-export WG_GREMLIN_USE_TLS=true
-export WG_GREMLIN_VALIDATE_CERTS=true
-export WG_GREMLIN_BINDINGS=false
-export WG_GREMLIN_SESSIONS=true
+export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=
+export WG_CYPHER_PASS=
 ```
 
 ### Azure Cosmos DB
@@ -167,26 +162,26 @@ Add Warpgrapher to your project config.
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.9.1", features = ["neo4j"] }
+warpgrapher = { version = "0.9.1", features = ["cypher"] }
 ```
 
 Then set up environment variables to contact your Neo4J DB.
 
 ```bash
-export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_READ_REPLICAS=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 ```
 
-Note that the `WG_NEO4J_READ_REPLICAS` variable is optional. It is used for Neo4J cluster 
+Note that the `WG_CYPHER_READ_REPLICAS` variable is optional. It is used for Neo4J cluster 
 configurations in which there are both read/write nodes and read-only replicas. If the 
-`WG_NEO4J_READ_REPLICAS` variable is set, read-only queries will be directed to the read replicas,
-whereas mutations will be sent to the instance(s) at `WG_NEO4J_HOST`.
+`WG_CYPHER_READ_REPLICAS` variable is set, read-only queries will be directed to the read replicas,
+whereas mutations will be sent to the instance(s) at `WG_CYPHER_HOST`.
 
 If you do not already have a Neo4J database running, you can run one using Docker:
 
 ```bash
-docker run -e NEO4JAUTH="${WG_NEO4J_USER}:${WG_NEO4J_PASS}" neo4j:4.4
+docker run -e NEO4JAUTH="${WG_CYPHER_USER}:${WG_CYPHER_PASS}" neo4j:4.4
 ```

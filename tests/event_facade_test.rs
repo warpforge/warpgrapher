@@ -1,34 +1,34 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client_with_events};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client_with_events, init};
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 //use warpgrapher::engine::objects::{Node, Rel};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use std::collections::HashMap;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::value::Value;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::juniper::BoxFuture;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::Client;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::Error;
-#[cfg(feature = "neo4j")]
-type Rctx = setup::Neo4jRequestCtx;
+#[cfg(feature = "cypher")]
+type Rctx = setup::CypherRequestCtx;
 
 // convenience function that will trigger event handler
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 async fn read_projects(client: &mut Client<Rctx>) -> Result<serde_json::Value, Error> {
     client
         .read_node("Project", "id name description status", None, None)
         .await
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn mock_handler(
     r: Rctx,
     mut ef: EventFacade<Rctx>,
@@ -157,13 +157,13 @@ fn mock_handler(
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_event_facade_ops() {
     init();
     clear_db().await;
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(mock_handler);
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/config.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/config.yml", ehb).await;
     let _result = read_projects(&mut client).await;
 }

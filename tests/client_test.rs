@@ -1,16 +1,16 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client};
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client, init};
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn client_node_crud() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/minimal.yml").await;
 
     let p0 = client
         .create_node(
@@ -87,12 +87,12 @@ async fn client_node_crud() {
     assert_eq!(d_projects_a.len(), 0);
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn client_rel_crud() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/minimal.yml").await;
 
     client
         .create_node(

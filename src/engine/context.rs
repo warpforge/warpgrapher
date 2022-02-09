@@ -1,68 +1,28 @@
 //! This module provides a Juniper Context for Warpgrapher GraphQL queries. The
-//! context contains a connection pool for the Neo4J database.
+//! context contains a connection pool for the database.
 use crate::engine::database::no_database::NoDatabaseEndpoint;
 use crate::engine::database::DatabaseEndpoint;
 use crate::engine::events::EventHandlerBag;
+use crate::engine::loader::{NodeLoader, RelLoader};
 use crate::engine::resolvers::{ResolverFunc, Resolvers};
+use crate::engine::schema::Info;
 use crate::engine::validators::Validators;
 use crate::Error;
 use juniper::Context;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use ultra_batch::Batcher;
 
 /// Juniper Context for Warpgrapher's GraphQL queries. The ['GraphQLContext'] is
 /// used to pass a connection pool for the database in to the resolvers.
 ///
 /// ['GraphQLContext']: ./struct.GraphQLContext.html
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// # use std::collections::HashMap;
-/// # use tokio::main;
-/// # use warpgrapher::engine::context::RequestContext;
-/// # #[cfg(feature = "neo4j")]
-/// # use warpgrapher::engine::database::DatabaseEndpoint;
-/// # #[cfg(feature = "neo4j")]
-/// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-/// # use warpgrapher::engine::resolvers::Resolvers;
-/// # use warpgrapher::engine::validators::Validators;
-/// # use warpgrapher::engine::context::GraphQLContext;
-/// # use warpgrapher::engine::events::EventHandlerBag;
-///
-/// # #[derive(Clone, Debug)]
-/// # struct AppCtx {}
-/// #
-/// # #[cfg(feature = "neo4j")]
-/// # impl RequestContext for AppCtx {
-/// #   type DBEndpointType = Neo4jEndpoint;
-/// #   fn new() -> Self {AppCtx{}}
-/// # }
-/// #
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # #[cfg(feature = "neo4j")]
-/// let ne = Neo4jEndpoint::from_env()?;
-/// # #[cfg(feature = "neo4j")]
-/// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-/// let validators: Validators = Validators::new();
-/// # #[cfg(feature = "neo4j")]
-/// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-///     ne.pool().await?,
-///     resolvers,
-///     validators,
-///     EventHandlerBag::<AppCtx>::new(),
-///     Some(AppCtx::new()),
-///     None,
-///     HashMap::new()
-/// );
-/// # Ok(())
-/// # }
-/// ```
 #[allow(clippy::upper_case_acronyms)]
 pub struct GraphQLContext<RequestCtx: RequestContext> {
     pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
+    node_batcher: Batcher<NodeLoader<RequestCtx>>,
+    rel_batcher: Batcher<RelLoader<RequestCtx>>,
     resolvers: Resolvers<RequestCtx>,
     validators: Validators,
     event_handlers: EventHandlerBag<RequestCtx>,
@@ -99,53 +59,8 @@ where
     /// [`RequestContext`]: ./trait.RequestContext.html
     /// [`Resolvers`]: ../resolvers/type.Resolvers.html
     /// [`Validators`]: ../validators/type.Validators.html
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    /// # Ok(())
-    /// # }
-    /// ```
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub(crate) fn new(
         pool: <<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType,
         resolvers: Resolvers<RequestCtx>,
         validators: Validators,
@@ -153,9 +68,14 @@ where
         request_ctx: Option<RequestCtx>,
         version: Option<String>,
         metadata: HashMap<String, String>,
+        info: Info,
     ) -> GraphQLContext<RequestCtx> {
+        let node_batcher = Batcher::new(NodeLoader::<RequestCtx>::new(pool.clone(), info)).build();
+        let rel_batcher = Batcher::new(RelLoader::<RequestCtx>::new(pool.clone())).build();
         GraphQLContext {
             pool,
+            node_batcher,
+            rel_batcher,
             resolvers,
             validators,
             event_handlers,
@@ -166,54 +86,6 @@ where
     }
 
     /// Returns a pool of database connections
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let db_pool = gqlctx.pool();
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn pool(
         &self,
     ) -> &<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType {
@@ -229,82 +101,6 @@ where
     ///
     /// [`Error`]: ../../enum.Error.html
     /// [`ResolverNotFound`]: ../../enum.Error.html#variant.ResolverNotFound
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # #[cfg(feature = "neo4j")]
-    /// use bolt_proto::Message;
-    /// use std::collections::HashMap;
-    /// use std::iter::FromIterator;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::{DatabaseEndpoint, DatabasePool, Transaction, QueryResult};
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::{Resolvers, ResolverFacade};
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::resolvers::ExecutionResult;
-    /// # use warpgrapher::juniper::BoxFuture;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    /// # use warpgrapher::Error;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # pub struct AppCtx {}
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #    type DBEndpointType = Neo4jEndpoint;
-    /// #    fn new() -> Self {AppCtx{}}
-    /// # }
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// pub fn project_count(facade: ResolverFacade<AppCtx>) -> BoxFuture<ExecutionResult> {
-    ///     Box::pin(async move {
-    ///         let mut transaction = facade.executor().context().pool().transaction().await?;
-    ///         transaction.begin().await?;
-    ///         let query = "MATCH (n:Project) RETURN (n)".to_string();
-    ///         let qr = transaction.execute_query::<AppCtx>(query, HashMap::new()).await?;
-    ///
-    ///         if let QueryResult::Neo4j(records) = qr {
-    ///             transaction.commit().await?;
-    ///             std::mem::drop(transaction);
-    ///             facade.resolve_scalar(records.len() as i32)
-    ///         } else {
-    ///             transaction.rollback().await?;
-    ///             Err(warpgrapher::Error::TypeNotExpected { details: None }.into())
-    ///         }
-    ///     })
-    /// }
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let mut resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// resolvers.insert("ProjectCount".to_string(), Box::new(project_count));
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx = gqlctx.resolver("CustomResolver");
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn resolver(&self, name: &str) -> Result<&ResolverFunc<RequestCtx>, Error> {
         self.resolvers
             .get(name)
@@ -315,226 +111,36 @@ where
     }
 
     /// Returns the set of custom input validation functions
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let validators = gqlctx.validators();
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn validators(&self) -> &Validators {
         &self.validators
     }
 
     /// Returns the collection of event handlers providing business logic for before and after
     /// Warpgrapher's auto-generated CRUD operations.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     None,
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let event_handlers = gqlctx.event_handlers();
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn event_handlers(&self) -> &EventHandlerBag<RequestCtx> {
         &self.event_handlers
     }
 
     /// Returns an optional string for the version of the GraphQL service
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// # use tokio::main;
-    /// # use warpgrapher::engine::context::RequestContext;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::GraphQLContext;
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// # #[derive(Clone, Debug)]
-    /// # struct AppCtx {}
-    /// #
-    /// # #[cfg(feature = "neo4j")]
-    /// # impl RequestContext for AppCtx {
-    /// #   type DBEndpointType = Neo4jEndpoint;
-    /// #   fn new() -> Self {AppCtx{}}
-    /// # }
-    /// #
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppCtx>::new(),
-    ///     Some(AppCtx::new()),
-    ///     Some("0.0.0".to_string()),
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// assert_eq!(Some(&"0.0.0".to_string()), gqlctx.version());
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn version(&self) -> Option<&String> {
         self.version.as_ref()
     }
 
     /// Returns the request-specific context
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use std::collections::HashMap;
-    /// use tokio::main;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::DatabaseEndpoint;
-    /// # #[cfg(feature = "neo4j")]
-    /// # use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
-    /// # use warpgrapher::engine::resolvers::Resolvers;
-    /// # use warpgrapher::engine::validators::Validators;
-    /// # use warpgrapher::engine::context::{GraphQLContext, RequestContext};
-    /// # use warpgrapher::engine::events::EventHandlerBag;
-    ///
-    /// #[derive(Clone, Debug)]
-    /// pub struct AppRequestCtx {
-    ///     request_id: String,
-    /// }
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// impl RequestContext for AppRequestCtx {
-    ///    type DBEndpointType = Neo4jEndpoint;
-    ///    fn new() -> AppRequestCtx {
-    ///        AppRequestCtx {
-    ///            request_id: "".to_string()    
-    ///        }
-    ///    }
-    /// }
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let ne = Neo4jEndpoint::from_env()?;
-    /// # #[cfg(feature = "neo4j")]
-    /// let resolvers: Resolvers<AppRequestCtx> = Resolvers::new();
-    /// let validators: Validators = Validators::new();
-    /// # #[cfg(feature = "neo4j")]
-    /// let gqlctx: GraphQLContext<AppRequestCtx> = GraphQLContext::new(
-    ///     ne.pool().await?,
-    ///     resolvers,
-    ///     validators,
-    ///     EventHandlerBag::<AppRequestCtx>::new(),
-    ///     Some(AppRequestCtx::new()),
-    ///     Some("0.0.0".to_string()),
-    ///     HashMap::new()
-    /// );
-    ///
-    /// # #[cfg(feature = "neo4j")]
-    /// let request_context = gqlctx.request_context();
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn request_context(&self) -> Option<&RequestCtx> {
         self.request_ctx.as_ref()
     }
 
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
+    }
+
+    pub fn node_batcher(&self) -> &Batcher<NodeLoader<RequestCtx>> {
+        &self.node_batcher
+    }
+
+    pub fn rel_batcher(&self) -> &Batcher<RelLoader<RequestCtx>> {
+        &self.rel_batcher
     }
 }
 
@@ -593,8 +199,10 @@ mod tests {
     use crate::engine::database::DatabaseEndpoint;
     use crate::engine::events::EventHandlerBag;
     use crate::engine::resolvers::Resolvers;
+    use crate::engine::schema::Info;
     use crate::engine::validators::Validators;
     use std::collections::HashMap;
+    use std::sync::Arc;
 
     /// Passes if the pool can be created without panicking
     #[tokio::test]
@@ -605,13 +213,14 @@ mod tests {
         let _gqlctx: GraphQLContext<()> = GraphQLContext::new(
             ne.pool()
                 .await
-                .expect("Expected to unwrap Neo4J database pool."),
+                .expect("Expected to unwrap Cypher database pool."),
             resolvers,
             validators,
             EventHandlerBag::new(),
             Some(()),
             None,
             HashMap::<String, String>::new(),
+            Info::new(String::new(), Arc::new(HashMap::new())),
         );
     }
 }

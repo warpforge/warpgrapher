@@ -2,11 +2,11 @@ mod setup;
 
 use assert_approx_eq::assert_approx_eq;
 use serde_json::json;
+#[cfg(feature = "cypher")]
+use setup::cypher_test_client;
 #[cfg(feature = "gremlin")]
 use setup::gremlin_test_client;
-#[cfg(feature = "neo4j")]
-use setup::neo4j_test_client;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
+#[cfg(any(feature = "gremlin", feature = "cypher"))]
 use setup::{clear_db, init};
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
@@ -21,13 +21,13 @@ async fn scalar_lists_test_gremlin() {
     scalar_lists_test(client).await;
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
-async fn scalar_lists_test_neo4j() {
+async fn scalar_lists_test_cypher() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
+    let client = cypher_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_test(client).await;
 }
 
@@ -90,13 +90,13 @@ async fn scalar_lists_no_array_gremlin() {
     scalar_lists_no_array_test(client).await;
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
-async fn scalar_lists_no_array_neo4j() {
+async fn scalar_lists_no_array_cypher() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
+    let client = cypher_test_client("./tests/fixtures/scalars/scalar_list.yml").await;
     scalar_lists_no_array_test(client).await;
 }
 
@@ -152,13 +152,13 @@ async fn scalar_no_lists_gremlin() {
     scalar_no_lists_test(client).await;
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
-async fn scalar_no_lists_neo4j() {
+async fn scalar_no_lists_cypher() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
+    let client = cypher_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_test(client).await;
 }
 
@@ -224,13 +224,13 @@ async fn scalar_no_lists_no_array_gremlin() {
     scalar_no_lists_no_array_test(client).await;
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
-async fn scalar_no_lists_no_array_neo4j() {
+async fn scalar_no_lists_no_array_cypher() {
     init();
     clear_db().await;
 
-    let client = neo4j_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
+    let client = cypher_test_client("./tests/fixtures/scalars/scalar_no_list.yml").await;
     scalar_no_lists_no_array_test(client).await;
 }
 

@@ -1,17 +1,17 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client};
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client, init};
 
 /// Passes if the custom resolvers executes correctly
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_endpoint_returning_scalar() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     // create new projects
     let _ = client
@@ -51,12 +51,12 @@ async fn custom_endpoint_returning_scalar() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_endpoint_returning_scalar_list() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let result = client
         .graphql(
@@ -79,12 +79,12 @@ async fn custom_endpoint_returning_scalar_list() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_endpoint_returning_node() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let result = client
         .graphql(
@@ -106,12 +106,12 @@ async fn custom_endpoint_returning_node() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_field_resolver_returning_scalar() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     // create new projects
     let _ = client
@@ -142,12 +142,12 @@ async fn custom_field_resolver_returning_scalar() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_field_returning_scalar_list() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(
@@ -186,12 +186,12 @@ async fn custom_field_returning_scalar_list() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_rel_returning_rel() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(
@@ -241,12 +241,12 @@ async fn custom_rel_returning_rel() {
     // shutdown server
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_rel_returning_rel_list() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node(

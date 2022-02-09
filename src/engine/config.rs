@@ -1189,7 +1189,7 @@ impl Relationship {
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Type {
-    /// Name of this GraphQL type, also used as the Neo4J label for nodes
+    /// Name of this GraphQL type, also used as the label for nodes
     name: String,
 
     /// Vector of properties on this type

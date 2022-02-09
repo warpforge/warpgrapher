@@ -19,9 +19,9 @@ use std::str::ParseBoolError;
 /// ```
 #[derive(Debug)]
 pub enum Error {
-    /// Returned to wrap an error from the Neo4J bolt client. Most likely indicates something like
+    /// Returned to wrap an error from the bolt client. Most likely indicates something like
     /// a network connection failure
-    #[cfg(feature = "neo4j")]
+    #[cfg(feature = "cypher")]
     BoltClientFailed {
         source: bolt_client::error::CommunicationError,
     },
@@ -125,23 +125,23 @@ pub enum Error {
     /// the Warpgrapher project.
     LabelNotFound,
 
-    /// Returned if the Neo4J database driver suffers an internal value type conversation failure.
+    /// Returned if the Bolt database driver suffers an internal value type conversation failure.
     /// The source error contains additional information.
-    #[cfg(feature = "neo4j")]
-    Neo4jConversionFailed {
+    #[cfg(feature = "cypher")]
+    CypherConversionFailed {
         source: bolt_proto::error::ConversionError,
     },
 
-    /// Returned if a Neo4J pool cannot be built or cannot return a client transaction. The source
+    /// Returned if a bolt pool cannot be built or cannot return a client transaction. The source
     /// error contains additional information.
-    #[cfg(feature = "neo4j")]
-    Neo4jPoolFailed {
+    #[cfg(feature = "cypher")]
+    CypherPoolFailed {
         source: mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>,
     },
 
-    /// Returned if a Neo4J query fails to execute correctly
-    #[cfg(feature = "neo4j")]
-    Neo4jQueryFailed {
+    /// Returned if a cypher query fails to execute correctly
+    #[cfg(feature = "cypher")]
+    CypherQueryFailed {
         message: bolt_proto::message::Message,
     },
 
@@ -274,9 +274,9 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            #[cfg(feature = "neo4j")]
+            #[cfg(feature = "cypher")]
             Error::BoltClientFailed { source } => {
-                write!(f, "Neo4j client failed. Source error: {}.", source)
+                write!(f, "Bolt client failed. Source error: {}.", source)
             }
             Error::ClientRequestFailed { source } => {
                 write!(f, "Client request failed. Source error: {}", source)
@@ -306,7 +306,7 @@ impl Display for Error {
                 )
             }
             Error::DatabaseNotFound => {
-                write!(f, "Use of resolvers required a database back-end. Please select either cosmos or neo4j.")
+                write!(f, "Use of resolvers required a database back-end. Please select either cypher or gremlin.")
             }
             Error::EnvironmentVariableNotFound { name } => {
                 write!(f, "Could not find environment variable: {}", name)
@@ -355,19 +355,19 @@ impl Display for Error {
             Error::JsonDeserializationFailed { source } => {
                 write!(f, "Failed to deserialize JSON into struct: {}", source)
             }
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jConversionFailed { source } => {
-                write!(f, "Neo4j value conversion failure: {}", source)
+            #[cfg(feature = "cypher")]
+            Error::CypherConversionFailed { source } => {
+                write!(f, "cypher value conversion failure: {}", source)
             }
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolFailed { source } => {
-                write!(f, "Could not get Neo4J transaction from pool: {}", source)
+            #[cfg(feature = "cypher")]
+            Error::CypherPoolFailed { source } => {
+                write!(f, "Could not get cypher transaction from pool: {}", source)
             }
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jQueryFailed { message } => {
+            #[cfg(feature = "cypher")]
+            Error::CypherQueryFailed { message } => {
                 write!(
                     f,
-                    "Neo4j query execution failed. Error message: {:#?}.",
+                    "Cypher query execution failed. Error message: {:#?}.",
                     message
                 )
             }
@@ -472,7 +472,7 @@ impl Display for Error {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            #[cfg(feature = "neo4j")]
+            #[cfg(feature = "cypher")]
             Error::BoltClientFailed { source } => Some(source),
             Error::ClientRequestFailed { source } => Some(source),
             Error::ConfigItemDuplicated { type_name: _ } => None,
@@ -494,12 +494,12 @@ impl std::error::Error for Error {
             Error::InvalidHeaderValue { source } => Some(source),
             Error::JsonDeserializationFailed { source } => Some(source),
             Error::LabelNotFound => None,
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jConversionFailed { source } => Some(source),
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jPoolFailed { source } => Some(source),
-            #[cfg(feature = "neo4j")]
-            Error::Neo4jQueryFailed { message: _ } => None,
+            #[cfg(feature = "cypher")]
+            Error::CypherConversionFailed { source } => Some(source),
+            #[cfg(feature = "cypher")]
+            Error::CypherPoolFailed { source } => Some(source),
+            #[cfg(feature = "cypher")]
+            Error::CypherQueryFailed { message: _ } => None,
             Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
             Error::RelDuplicated {
@@ -530,14 +530,14 @@ impl From<Box<dyn std::error::Error + Sync + Send>> for Error {
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 impl From<bolt_client::error::CommunicationError> for Error {
     fn from(e: bolt_client::error::CommunicationError) -> Self {
         Error::BoltClientFailed { source: e }
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 impl From<bolt_proto::error::Error> for Error {
     fn from(_e: bolt_proto::error::Error) -> Self {
         Error::TypeConversionFailed {
@@ -556,17 +556,17 @@ impl From<GremlinError> for Error {
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 impl From<bolt_proto::error::ConversionError> for Error {
     fn from(e: bolt_proto::error::ConversionError) -> Self {
-        Error::Neo4jConversionFailed { source: e }
+        Error::CypherConversionFailed { source: e }
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 impl From<mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>> for Error {
     fn from(e: mobc::Error<<mobc_bolt::Manager as mobc::Manager>::Error>) -> Self {
-        Error::Neo4jPoolFailed { source: e }
+        Error::CypherPoolFailed { source: e }
     }
 }
 

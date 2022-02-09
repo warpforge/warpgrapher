@@ -205,7 +205,7 @@
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::juniper::BoxFuture;
@@ -227,7 +227,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -248,11 +248,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();

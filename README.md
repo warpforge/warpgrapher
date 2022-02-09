@@ -9,9 +9,8 @@ As a developer you can focus on defining your application's data model, and Warp
 
 Supported Databases:
 
-* CosmosDB
-* Gremlin-based Databases (e.g. Apache Tinkerpop and AWS Neptune)
-* Neo4j
+* Gremlin-based Databases (e.g. Apache Tinkerpop and CosmosDB)
+* Cypher-based Databases (e.g. AWS Neptune and Neo4j)
 
 ## Quickstart
 

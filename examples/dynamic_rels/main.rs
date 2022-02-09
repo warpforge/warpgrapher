@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use uuid::Uuid;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
@@ -31,7 +31,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -> AppRequestContext {
         AppRequestContext {}
     }
@@ -69,11 +69,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
+    let db = CypherEndpoint::from_env()
+        .expect("Failed to parse cypher endpoint from environment")
         .pool()
         .await
-        .expect("Failed to create neo4j database pool");
+        .expect("Failed to create cypher database pool");
 
     // define resolvers
     let mut resolvers = Resolvers::<AppRequestContext>::new();
