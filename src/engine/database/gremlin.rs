@@ -1268,7 +1268,7 @@ impl<RequestCtx: RequestContext> TryFrom<(GValue, &Info)> for Node<RequestCtx> {
                 })
                 .collect::<Result<HashMap<String, Value>, Error>>()?;
             properties.insert("id".to_string(), id);
-            Ok(Node::new(type_name.to_string(), properties))
+            Ok(Node::new(type_name, properties))
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -1316,7 +1316,7 @@ impl<RequestCtx: RequestContext> TryFrom<GValue> for Rel<RequestCtx> {
                 let properties = rel_map
                     .into_iter()
                     .filter(|(k, _v)| k != &GKey::String("label".to_string()))
-                    .map(|(k, v)| Ok((k.clone().try_into()?, v.try_into()?)))
+                    .map(|(k, v)| Ok((k.try_into()?, v.try_into()?)))
                     .collect::<Result<HashMap<String, Value>, Error>>()?;
                 Ok(Rel::new(label, properties, src_ref, dst_ref))
             } else {
@@ -1335,7 +1335,7 @@ impl<RequestCtx: RequestContext> TryFrom<GValue> for Rel<RequestCtx> {
                 .map(|(k, v)| Ok((k, v.value().clone().try_into()?)))
                 .collect::<Result<HashMap<String, Value>, Error>>()?;
             properties.insert("id".to_string(), id);
-            Ok(Rel::new(rel_name.to_string(), properties, src_ref, dst_ref))
+            Ok(Rel::new(rel_name, properties, src_ref, dst_ref))
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
@@ -1356,7 +1356,7 @@ impl<RequestCtx: RequestContext> TryFrom<GValue> for NodeRef<RequestCtx> {
         } else if let GValue::Int64(i) = value {
             Ok(NodeRef::Identifier(Value::String(i.to_string())))
         } else if let GValue::String(s) = value {
-            Ok(NodeRef::Identifier(Value::String(s.to_string())))
+            Ok(NodeRef::Identifier(Value::String(s)))
         } else {
             Err(Error::TypeConversionFailed {
                 src: format!("{:#?}", value),
