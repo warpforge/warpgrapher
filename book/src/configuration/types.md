@@ -44,7 +44,7 @@ By default, all `uses` boolean attributes are true, meaning that the property is
 
 The `type` attribute of the property definition is a String value that must take on a value of `Boolean`, `Float`, `ID`, `Int`, or `String`, defining type of the property.
 
-If the `required` attribute of the property definition is true, the property is required. It must be provided when nodes of this type are created (unless hidden from the `create` use) and it must be present (non-null) when retrieving the node from Warpgrapher (again, unless hidden from the `output` use).
+If the `required` attribute of the property definition is false, the property is not required (it is optional). By default this attribute is true, which means it must be provided when nodes of this type are created (unless hidden from the `create` use) and it must be present (non-null) when retrieving the node from Warpgrapher (again, unless hidden from the `output` use).
 
 If the `list` attribute of the property definition is true, the property is a list of scalar values of `type`. If `list` is false, the property is only a single value of that scalar type.
 
