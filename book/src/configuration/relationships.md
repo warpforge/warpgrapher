@@ -9,14 +9,20 @@ model:
     props:
       - name: email
         type: String
+        required: false
   - name: Organization
     props:
       - name: name
         type: String
+        required: false
     rels:
       - name: members
         nodes: [User]
         list: true
+        props:
+          - name: joinDate
+            type: String
+            required: false
 ```
 
 The configuration above adds a second type, called `Organization`. The definition of the organization type contains the `rels` attribute, which was not seen in the earlier example. The `rels` attribute contains a list of permissible relationships between nodes. In this case, the configuration adds a `members` relationship from nodes of of the `Organization` type to nodes of the `User` type, indicating that certain users are members of an organization. The `name` attribute in the configuration is the name of the relationship and must be unique within the scope of that type. The `nodes` attribute is a list of other types that may be at the destination end of the relationship. In this case, the only type at may be a member is the `User` type, but in other use cases, the destination node might be allowed to be one of several types.  Lastly, the `list` attribute is `true`, indicating that an `Organization` may have more than one member.

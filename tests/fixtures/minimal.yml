@@ -19,6 +19,7 @@ model:
         props:
             - name: repo
               type: String
+              required: false
         list: true
         
   # Project

@@ -13,6 +13,7 @@ model:
     props:
       - name: email
         type: String
+        required: false
 ";
 
 #[derive(Clone, Debug)]

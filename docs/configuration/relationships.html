@@ -150,14 +150,20 @@ model:
     props:
       - name: email
         type: String
+        required: false
   - name: Organization
     props:
       - name: name
         type: String
+        required: false
     rels:
       - name: members
         nodes: [User]
         list: true
+        props:
+          - name: joinDate
+            type: String
+            required: false
 </code></pre>
 <p>The configuration above adds a second type, called <code>Organization</code>. The definition of the organization type contains the <code>rels</code> attribute, which was not seen in the earlier example. The <code>rels</code> attribute contains a list of permissible relationships between nodes. In this case, the configuration adds a <code>members</code> relationship from nodes of of the <code>Organization</code> type to nodes of the <code>User</code> type, indicating that certain users are members of an organization. The <code>name</code> attribute in the configuration is the name of the relationship and must be unique within the scope of that type. The <code>nodes</code> attribute is a list of other types that may be at the destination end of the relationship. In this case, the only type at may be a member is the <code>User</code> type, but in other use cases, the destination node might be allowed to be one of several types.  Lastly, the <code>list</code> attribute is <code>true</code>, indicating that an <code>Organization</code> may have more than one member.</p>
 <h2 id="relationship-configuration"><a class="header" href="#relationship-configuration">Relationship Configuration</a></h2>
