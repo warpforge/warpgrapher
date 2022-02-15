@@ -26,37 +26,47 @@ model:
     props:
       - name: name
         type: String
+        required: false
       - name: description
         type: String
+        required: false
       - name: status
         type: String
+        required: false
       - name: priority
         type: Int
+        required: false
       - name: estimate
         type: Float
+        required: false
       - name: active
         type: Boolean
+        required: false
     rels:
       - name: owner
         props:
           - name: since
             type: String
+            required: false
         nodes: [User]
       - name: board
         nodes: [KanbanBoard, ScrumBoard]
         props:
           - name: publicized
             type: Boolean
+            required: false
       - name: activity
         nodes: [Commit]
         props:
-            - name: repo
-              type: String
+          - name: repo
+            type: String
+            required: false
         list: true
       - name: issues
         props:
           - name: since
             type: String
+            required: false
         nodes: [Feature, Bug]
         list: true
   
@@ -65,31 +75,38 @@ model:
     props:
       - name: name
         type: String
+        required: false
       - name: points
         type: Int
+        required: false
   
   # Bug
   - name: Bug
     props:
       - name: name
         type: String
+        required: false
       - name: critical
         type: Boolean
+        required: false
   
   # KanbanBoard
   - name: KanbanBoard
     props:
       - name: name
         type: String
+        required: false
   
   # ScrumBoard
   - name: ScrumBoard
     props:
       - name: name
         type: String
+        required: false
   
   # Commit
   - name: Commit
     props:
       - name: hash
         type: String
+        required: false
