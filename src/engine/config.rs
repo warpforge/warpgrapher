@@ -809,7 +809,7 @@ pub struct Property {
 
     /// True if this property is required to be present on this type; false if the property is
     /// optional
-    #[serde(default = "get_false")]
+    #[serde(default = "get_true")]
     required: bool,
 
     /// True if this property is a list

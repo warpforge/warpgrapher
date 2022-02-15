@@ -14,23 +14,31 @@ model:
     props:
       - name: name
         type: String
+        required: false
       - name: description
         type: String
+        required: false
       - name: status
         type: String
+        required: false
       - name: priority
         type: Int
+        required: false
       - name: estimate
         type: Float
+        required: false
       - name: active
         type: Boolean
+        required: false
       - name: points
         type: Int
         resolver: ProjectPoints
+        required: false
       - name: toptags
         type: String
         list: true
         resolver: ProjectTopTags
+        required: false
     rels:
       - name: owner
         props:
