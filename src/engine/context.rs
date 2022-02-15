@@ -70,8 +70,9 @@ where
         metadata: HashMap<String, String>,
         info: Info,
     ) -> GraphQLContext<RequestCtx> {
-        let node_batcher = Batcher::new(NodeLoader::<RequestCtx>::new(pool.clone(), info)).build();
-        let rel_batcher = Batcher::new(RelLoader::<RequestCtx>::new(pool.clone())).build();
+        let node_batcher =
+            Batcher::build(NodeLoader::<RequestCtx>::new(pool.clone(), info)).finish();
+        let rel_batcher = Batcher::build(RelLoader::<RequestCtx>::new(pool.clone())).finish();
         GraphQLContext {
             pool,
             node_batcher,
