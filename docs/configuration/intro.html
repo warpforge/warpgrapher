@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Configuration - Warpgrapher Book (0.9.1)</title>
+        <title>Configuration - Warpgrapher Book (0.10.0)</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.9.1)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.10.0)</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -145,11 +145,11 @@
                         <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
 <p>Warpgrapher is published as a Rust crate. There are crate features for each of the databases supported as a back-end. For Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB, use the <code>gremlin</code> feature.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.10.0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>For Cypher-based databases, such as AWS Neptune and Neo4j, use the cypher feature.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0.10.0&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The database features are not mutually exclusive, so building with both features enabled will not do any harm. However, only one database may be used for an instance of the Warpgrapher engine. Compiling with no database features selected will succeed, but the resulting engine will have sharply limited functionality, as it will have no ability to connect to a back-end storage mechanism.</p>
 <p>Continue for a tutorial on using Warpgrapher to build a web service.</p>

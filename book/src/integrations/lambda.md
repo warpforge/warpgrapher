@@ -11,7 +11,7 @@ serde = "1.0.57"
 serde_json = "1.0.57"
 serde_derive = "1.0.57"
 tokio = { version="1.4.0", features=["rt-multi-thread", "macros"] }
-warpgrapher = { version="0.9.1", features = ["gremlin"] }
+warpgrapher = { version="0.10.0", features = ["gremlin"] }
 ```
 
 In the `main.rs` source file, include the following code to include structs and functions that are needed from dependencies.

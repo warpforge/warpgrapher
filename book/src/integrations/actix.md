@@ -13,7 +13,7 @@ actix-web = "4.0.0-beta.6"
 actix-cors = "0.6.0-beta.2"
 serde = "1.0.135"
 serde_json = "1.0.78"
-warpgrapher = { version="0.9.1", features=["cypher"]}
+warpgrapher = { version="0.10.0", features=["cypher"]}
 ```
 
 The rest of the code necessary to accomplish the integration is contained within the single source code file below. First, a number of structs and functions are imported from the Actix and Warpgrapher crates.
