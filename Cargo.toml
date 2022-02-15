@@ -28,7 +28,7 @@ reqwest = { version = "0.11.9", features = ["json"] }
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 serde_yaml = "0.8.23"
-ultra-batch = { git = "https://github.com/maldrake/ultra-batch.git", rev = "bc80511161b307a5e216d628ccc172ddd4706a6b" }
+ultra-batch = "0.2.0" 
 uuid = { version = "0.8.2", features = ["serde", "v4"] }
 tracing = {version="0.1.29"}
 tracing-futures = {version="0.2.5"}
