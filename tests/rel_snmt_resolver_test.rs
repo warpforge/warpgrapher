@@ -33,9 +33,9 @@ async fn create_snmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"props": {"publicized": true}, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
+            &json!({"publicized": true, "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -47,15 +47,15 @@ async fn create_snmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
+    assert!(b0.get("publicized").unwrap() == true);
 
     let b1a = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project One"}}),
-            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"publicized": false, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -67,12 +67,12 @@ async fn create_snmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(b1.get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -87,12 +87,12 @@ async fn create_snmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
+    assert!(board.get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -107,7 +107,7 @@ async fn create_snmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(board.get("publicized").unwrap() == false);
 }
 
 #[wg_test]
@@ -157,10 +157,10 @@ async fn create_snmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({
-                "props": {"publicized": true}, 
+                "publicized": true, 
                 "dst": {"KanbanBoard": {"EXISTING": {"name": {"EQ": "KanbanBoard Zero"}}}}
             }))
         .await
@@ -173,16 +173,16 @@ async fn create_snmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(b0.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b0.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(b0.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(b0.get("props").unwrap().get("publicized").unwrap() == true);
+    assert!(b0.get("publicized").unwrap() == true);
 
     let b1a = client
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project One"}}),
             &json!({
-                "props": {"publicized": false}, 
+                "publicized": false, 
                 "dst": {"ScrumBoard": {"EXISTING": {"name": {"EQ": "ScrumBoard Zero"}}}}
             }))
         .await
@@ -195,12 +195,12 @@ async fn create_snmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(b1.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(b1.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(b1.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(b1.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(b1.get("publicized").unwrap() == false);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -213,12 +213,12 @@ async fn create_snmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
+    assert!(board.get("publicized").unwrap() == true);
 
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -231,7 +231,7 @@ async fn create_snmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(board.get("publicized").unwrap() == false);
 }
 
 #[wg_test]
@@ -245,7 +245,7 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -261,7 +261,7 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -273,8 +273,8 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
-            Some(&json!({"props": {"publicized": true}})),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            Some(&json!({"publicized": true})),
         )
         .await
         .unwrap();
@@ -286,9 +286,7 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -300,8 +298,8 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234"),
-            Some(&json!({"props": {"publicized": false}})),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{ __typename name}}", Some("1234"),
+            Some(&json!({"publicized": false})),
         )
         .await
         .unwrap();
@@ -313,9 +311,7 @@ async fn read_snmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -335,7 +331,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -351,7 +347,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -363,7 +359,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
         .await
@@ -376,9 +372,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
+    assert!(board.iter().any(|b| b.get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -390,7 +384,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", 
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", 
             Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project One"}}}})),
         )
@@ -404,9 +398,7 @@ async fn read_snmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -426,7 +418,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -442,7 +434,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -454,7 +446,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"ScrumBoard": {"name": {"EQ": "ScrumBoard Zero"}}}})),
         )
         .await
@@ -467,9 +459,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
@@ -481,7 +471,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", 
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", 
             Some("1234"),
             Some(&json!({"dst": {"KanbanBoard": {"name": {"EQ": "KanbanBoard Zero"}}}})),
         )
@@ -495,9 +485,7 @@ async fn read_snmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(board
         .iter()
         .all(|b| b.get("__typename").unwrap() == "ProjectBoardRel"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
@@ -517,7 +505,7 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                  "props": {"publicized": true},
+                  "publicized": true,
                   "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -533,7 +521,7 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project One",
                 "board": {
-                  "props": {"publicized": false},
+                  "publicized": false,
                   "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -545,9 +533,9 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
-            Some(&json!({"props": {"publicized": true}})),
-            &json!({"props": {"publicized": false}}),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            Some(&json!({"publicized": true})),
+            &json!({"publicized": false}),
         )
         .await
         .unwrap();
@@ -562,12 +550,8 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
-    assert!(board
-        .iter()
-        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
+    assert!(board.iter().any(|b| b.get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -575,7 +559,7 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", 
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", 
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
@@ -590,17 +574,17 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
+    assert!(board.get("publicized").unwrap() != true);
+    assert!(board.get("publicized").unwrap() == false);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero");
 
     let b1 = client
         .update_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
-            Some(&json!({"props": {"publicized": false}})),
-            &json!({"props": {"publicized": true}}),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            Some(&json!({"publicized": false})),
+            &json!({"publicized": true}),
         )
         .await
         .unwrap();
@@ -618,12 +602,8 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
-    assert!(board
-        .iter()
-        .any(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
+    assert!(board.iter().any(|b| b.get("publicized").unwrap() == true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .any(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -634,7 +614,7 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", 
+            "board{__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}}", 
             Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
@@ -649,8 +629,8 @@ async fn update_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board.is_object());
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() != false);
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == true);
+    assert!(board.get("publicized").unwrap() != false);
+    assert!(board.get("publicized").unwrap() == true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero");
 }
 
@@ -665,7 +645,7 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                 }
             }),
@@ -681,7 +661,7 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -693,9 +673,9 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
-            &json!({"props": {"publicized": false}}),
+            &json!({"publicized": false}),
         )
         .await
         .unwrap();
@@ -710,12 +690,8 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
@@ -724,9 +700,9 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project One"}}}})),
-            &json!({"props": {"publicized": true}}),
+            &json!({"publicized": true}),
         )
         .await
         .unwrap();
@@ -741,12 +717,8 @@ async fn update_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -763,7 +735,7 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                   }
             }),
@@ -779,7 +751,7 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}
                   }
             }),
@@ -791,10 +763,10 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "board",
-            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", 
+            "__typename publicized dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", 
             Some("1234"),
             Some(&json!({"dst": {"KanbanBoard": {"name": {"EQ": "KanbanBoard Zero"}}}})),
-            &json!({"props": {"publicized": true}}),
+            &json!({"publicized": true}),
         )
         .await
         .unwrap();
@@ -809,12 +781,8 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "KanbanBoard"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != false));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == true));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "KanbanBoard Zero"));
@@ -823,9 +791,9 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "board",
-            "__typename props {publicized} dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst {...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}", Some("1234"),
             Some(&json!({"dst": {"ScrumBoard": {"name": {"EQ": "ScrumBoard Zero"}}}})),
-            &json!({"props": {"publicized": false}}),
+            &json!({"publicized": false}),
         )
         .await
         .unwrap();
@@ -840,12 +808,8 @@ async fn update_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard"));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() != true));
-    assert!(board
-        .iter()
-        .all(|b| b.get("props").unwrap().get("publicized").unwrap() == false));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() != true));
+    assert!(board.iter().all(|b| b.get("publicized").unwrap() == false));
     assert!(board
         .iter()
         .all(|b| b.get("dst").unwrap().get("name").unwrap() == "ScrumBoard Zero"));
@@ -862,7 +826,7 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                      "props": {"publicized": true},
+                      "publicized": true,
                       "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                     }
             }),
@@ -875,7 +839,7 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "board",
             Some("1234"),
-            Some(&json!({"props": {"publicized": true}})),
+            Some(&json!({"publicized": true})),
             None,
             None,
         )
@@ -885,7 +849,7 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -905,9 +869,9 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"publicized": false, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -917,7 +881,7 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "board",
             Some("1234"),
-            Some(&json!({"props": {"publicized": false}})),
+            Some(&json!({"publicized": false})),
             None,
             None,
         )
@@ -926,7 +890,7 @@ async fn delete_snmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -954,7 +918,7 @@ async fn delete_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -977,7 +941,7 @@ async fn delete_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "__typename name board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -997,9 +961,9 @@ async fn delete_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_rel(
             "Project",
             "board",
-            "__typename props{publicized} dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
+            "__typename publicized dst{...on KanbanBoard{__typename name} ...on ScrumBoard{__typename name}}", Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!({"props": {"publicized": false}, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
+            &json!({"publicized": false, "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard Zero"}}}}),
         )
         .await
         .unwrap();
@@ -1018,7 +982,7 @@ async fn delete_snmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "__typename name board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -1046,7 +1010,7 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "board": {
-                    "props": {"publicized": true},
+                    "publicized": true,
                     "dst": {"KanbanBoard": {"NEW": {"name": "KanbanBoard Zero"}}}
                 }
             }),
@@ -1062,7 +1026,7 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project One",
                 "board": {
-                    "props": {"publicized": false},
+                    "publicized": false,
                     "dst": {"ScrumBoard": {"NEW": {"name": "ScrumBoard One"}}}
                 }
             }),
@@ -1085,7 +1049,7 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "__typename name board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -1094,7 +1058,7 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "__typename name board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -1121,8 +1085,8 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(board.get("__typename").unwrap() == "ProjectBoardRel");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() == "ScrumBoard");
     assert!(board.get("dst").unwrap().get("__typename").unwrap() != "KanbanBoard");
-    assert!(board.get("props").unwrap().get("publicized").unwrap() == false);
-    assert!(board.get("props").unwrap().get("publicized").unwrap() != true);
+    assert!(board.get("publicized").unwrap() == false);
+    assert!(board.get("publicized").unwrap() != true);
     assert!(board.get("dst").unwrap().get("name").unwrap() == "ScrumBoard One");
     assert!(board.get("dst").unwrap().get("name").unwrap() != "KanbanBoard One");
 
@@ -1141,7 +1105,7 @@ async fn delete_snmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects2 = client
         .read_node(
             "Project",
-            "__typename name board{__typename props{publicized} dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
+            "__typename name board{__typename publicized dst{...on ScrumBoard{__typename name} ...on KanbanBoard{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await

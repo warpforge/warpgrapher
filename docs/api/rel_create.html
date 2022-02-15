@@ -155,15 +155,13 @@
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { EXISTING: { email: { EQ: &quot;alistair@example.com&quot; } } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -183,9 +181,7 @@
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -206,15 +202,13 @@
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { NEW: { email: &quot;constantine@example.com&quot; } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -234,9 +228,7 @@
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;

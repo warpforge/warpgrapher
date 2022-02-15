@@ -16,10 +16,7 @@ async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
             name
             owner{
                 __typename 
-                props{
-                    __typename 
-                    since
-                } 
+                since
                 dst{
                     ...on User{
                         __typename 
@@ -31,7 +28,7 @@ async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": { "since": "yesterday" },
+                    "since": "yesterday",
                     "dst": {
                         "User": { "NEW": { "name": "User Zero" } }
                     }
@@ -48,11 +45,7 @@ async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
     let owner0 = p0.get("owner").unwrap();
     assert!(owner0.is_object());
     assert!(owner0.get("__typename").unwrap() == "ProjectOwnerRel");
-
-    let props0 = owner0.get("props").unwrap();
-    assert!(props0.is_object());
-    assert!(props0.get("__typename").unwrap() == "ProjectOwnerProps");
-    assert!(props0.get("since").unwrap() == "yesterday");
+    assert!(owner0.get("since").unwrap() == "yesterday");
 
     let dst0 = owner0.get("dst").unwrap();
     assert!(dst0.is_object());
@@ -66,10 +59,7 @@ async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
             name 
             owner { 
                 __typename 
-                props { 
-                    __typename 
-                    since 
-                } 
+                since 
                 dst { 
                     ...on User { 
                         __typename 
@@ -90,7 +80,7 @@ async fn create_snst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
     let owner = project.get("owner").unwrap();
 
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
@@ -371,9 +361,7 @@ async fn read_snst_node_by_rel_props<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -394,9 +382,7 @@ async fn read_snst_node_by_rel_props<RequestCtx: RequestContext>(mut client: Cli
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -407,9 +393,7 @@ async fn read_snst_node_by_rel_props<RequestCtx: RequestContext>(mut client: Cli
             Some("1234"),
             Some(&json!({
                 "owner": {
-                    "props": {
-                        "since": {"EQ": "yesterday"}
-                    }
+                    "since": {"EQ": "yesterday"}
                 }
             })),
         )
@@ -426,7 +410,7 @@ async fn read_snst_node_by_rel_props<RequestCtx: RequestContext>(mut client: Cli
 
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
@@ -454,9 +438,7 @@ async fn read_snst_node_by_dst_props<RequestCtx: RequestContext>(mut client: Cli
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -477,9 +459,7 @@ async fn read_snst_node_by_dst_props<RequestCtx: RequestContext>(mut client: Cli
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -511,7 +491,7 @@ async fn read_snst_node_by_dst_props<RequestCtx: RequestContext>(mut client: Cli
 
     assert!(owner.is_object());
     assert!(owner.get("__typename").unwrap() == "ProjectOwnerRel");
-    assert!(owner.get("props").unwrap().get("since").unwrap() == "yesterday");
+    assert!(owner.get("since").unwrap() == "yesterday");
     assert!(owner.get("dst").unwrap().get("__typename").unwrap() == "User");
     assert!(owner.get("dst").unwrap().get("name").unwrap() == "User Zero");
 }
@@ -539,9 +519,7 @@ async fn update_snst_node_with_new_rel<RequestCtx: RequestContext>(mut client: C
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -562,9 +540,7 @@ async fn update_snst_node_with_new_rel<RequestCtx: RequestContext>(mut client: C
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -579,9 +555,7 @@ async fn update_snst_node_with_new_rel<RequestCtx: RequestContext>(mut client: C
             &json!({
                 "owner": {
                     "ADD": {
-                        "props": {
-                            "since": "today"
-                        },
+                        "since": "today",
                         "dst": {
                             "User": {
                                 "NEW": {
@@ -663,9 +637,7 @@ async fn update_snst_node_with_existing_rel<RequestCtx: RequestContext>(
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -686,9 +658,7 @@ async fn update_snst_node_with_existing_rel<RequestCtx: RequestContext>(
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -703,9 +673,7 @@ async fn update_snst_node_with_existing_rel<RequestCtx: RequestContext>(
             &json!({
                 "owner": {
                     "ADD": {
-                        "props": {
-                            "since": "today"
-                        },
+                        "since": "today",
                         "dst": {
                             "User": {
                                 "EXISTING": {
@@ -769,9 +737,7 @@ async fn delete_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Cl
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -792,9 +758,7 @@ async fn delete_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Cl
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -878,9 +842,7 @@ async fn delete_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Cl
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -901,9 +863,7 @@ async fn delete_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Cl
             name
             owner { 
                 __typename 
-                props {
-                    since
-                }
+                since
                 dst { 
                     ... on User {
                         __typename 
@@ -919,9 +879,7 @@ async fn delete_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Cl
                 "owner": {
                     "DELETE": {
                         "MATCH": {
-                            "props": {
-                                "since": {"EQ": "yesterday"}
-                            }
+                            "since": {"EQ": "yesterday"}
                         }
                     }
                 }
@@ -985,9 +943,7 @@ async fn delete_snst_node_by_dst_prop<RequestCtx: RequestContext>(mut client: Cl
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -1030,9 +986,7 @@ async fn delete_snst_node_by_dst_prop<RequestCtx: RequestContext>(mut client: Cl
             name
             owner {
                 __typename
-                props {
-                    since
-                }
+                since
                 dst {
                     ...on User {
                         __typename
@@ -1093,9 +1047,7 @@ async fn delete_snst_node_by_rel_prop<RequestCtx: RequestContext>(mut client: Cl
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -1115,9 +1067,7 @@ async fn delete_snst_node_by_rel_prop<RequestCtx: RequestContext>(mut client: Cl
             Some("1234"),
             Some(&json!({
                 "owner": {
-                    "props": {
-                        "since": {"EQ": "yesterday"}
-                    }
+                    "since": {"EQ": "yesterday"}
                 }
             })),
             Some(&json!({
@@ -1136,9 +1086,7 @@ async fn delete_snst_node_by_rel_prop<RequestCtx: RequestContext>(mut client: Cl
             name
             owner {
                 __typename
-                props {
-                    since
-                }
+                since
                 dst {
                     ...on User {
                         __typename
@@ -1199,9 +1147,7 @@ async fn detach_snst_rel_by_dst_delete<RequestCtx: RequestContext>(mut client: C
             &json!({
                 "name": "Project Zero",
                 "owner": {
-                    "props": {
-                        "since": "yesterday"
-                    },
+                    "since": "yesterday",
                     "dst": {
                         "User": {
                             "EXISTING": {
@@ -1234,9 +1180,7 @@ async fn detach_snst_rel_by_dst_delete<RequestCtx: RequestContext>(mut client: C
             name
             owner {
                 __typename
-                props {
-                    since
-                }
+                since
                 dst {
                     ...on User {
                         __typename

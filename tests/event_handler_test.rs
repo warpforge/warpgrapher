@@ -1,25 +1,25 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::Neo4jRequestCtx;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client_with_events};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
+use setup::CypherRequestCtx;
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client_with_events, init};
+#[cfg(feature = "cypher")]
 use std::collections::HashMap;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::objects::{Node, Rel};
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::engine::value::Value;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::juniper::BoxFuture;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use warpgrapher::Error;
-#[cfg(feature = "neo4j")]
-type Rctx = Neo4jRequestCtx;
+#[cfg(feature = "cypher")]
+type Rctx = CypherRequestCtx;
 
 #[derive(Debug)]
 struct TestError {}
@@ -32,7 +32,7 @@ impl std::fmt::Display for TestError {
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn breqf(
     _r: Rctx,
     _ef: EventFacade<Rctx>,
@@ -45,7 +45,7 @@ fn breqf(
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn areqf(
     _ef: EventFacade<Rctx>,
     _output: serde_json::Value,
@@ -57,8 +57,8 @@ fn areqf(
     })
 }
 
-#[cfg(feature = "neo4j")]
-fn bmef(_v: Value, _ef: EventFacade<Neo4jRequestCtx>) -> BoxFuture<Result<Value, Error>> {
+#[cfg(feature = "cypher")]
+fn bmef(_v: Value, _ef: EventFacade<CypherRequestCtx>) -> BoxFuture<Result<Value, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -66,10 +66,10 @@ fn bmef(_v: Value, _ef: EventFacade<Neo4jRequestCtx>) -> BoxFuture<Result<Value,
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn bqef(
     _v_opt: Option<Value>,
-    _ef: EventFacade<Neo4jRequestCtx>,
+    _ef: EventFacade<CypherRequestCtx>,
 ) -> BoxFuture<Result<Option<Value>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
@@ -78,11 +78,11 @@ fn bqef(
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn anef(
-    _v: Vec<Node<Neo4jRequestCtx>>,
-    _ef: EventFacade<Neo4jRequestCtx>,
-) -> BoxFuture<Result<Vec<Node<Neo4jRequestCtx>>, Error>> {
+    _v: Vec<Node<CypherRequestCtx>>,
+    _ef: EventFacade<CypherRequestCtx>,
+) -> BoxFuture<Result<Vec<Node<CypherRequestCtx>>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -90,11 +90,11 @@ fn anef(
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 fn aref(
-    _v: Vec<Rel<Neo4jRequestCtx>>,
-    _ef: EventFacade<Neo4jRequestCtx>,
-) -> BoxFuture<Result<Vec<Rel<Neo4jRequestCtx>>, Error>> {
+    _v: Vec<Rel<CypherRequestCtx>>,
+    _ef: EventFacade<CypherRequestCtx>,
+) -> BoxFuture<Result<Vec<Rel<CypherRequestCtx>>, Error>> {
     Box::pin(async move {
         Err(Error::UserDefinedError {
             source: Box::new(TestError {}),
@@ -102,7 +102,7 @@ fn aref(
     })
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_request_handler() {
     init();
@@ -111,7 +111,7 @@ async fn test_before_request_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(breqf);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let result = client
         .create_node(
@@ -128,7 +128,7 @@ async fn test_before_request_handler() {
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_request_handler() {
     init();
@@ -137,7 +137,7 @@ async fn test_after_request_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_request(areqf);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let result = client
         .create_node(
@@ -154,7 +154,7 @@ async fn test_after_request_handler() {
     }
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_node_create_handler() {
     init();
@@ -163,7 +163,7 @@ async fn test_before_node_create_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_node_create(vec!["Project".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -178,7 +178,7 @@ async fn test_before_node_create_handler() {
     assert!(p0.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_node_read_handler() {
     init();
@@ -187,7 +187,7 @@ async fn test_before_node_read_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_node_read(vec!["Project".to_string()], bqef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -211,7 +211,7 @@ async fn test_before_node_read_handler() {
     assert!(projects.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_node_update_handler() {
     init();
@@ -220,7 +220,7 @@ async fn test_before_node_update_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_node_update(vec!["Project".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -250,7 +250,7 @@ async fn test_before_node_update_handler() {
     assert!(pu.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_node_delete_handler() {
     init();
@@ -259,7 +259,7 @@ async fn test_before_node_delete_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_node_delete(vec!["Project".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -287,7 +287,7 @@ async fn test_before_node_delete_handler() {
     assert!(pd.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_node_create_handler() {
     init();
@@ -296,7 +296,7 @@ async fn test_after_node_create_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_node_create(vec!["Project".to_string()], anef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -311,7 +311,7 @@ async fn test_after_node_create_handler() {
     assert!(p0.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_node_read_handler() {
     init();
@@ -320,7 +320,7 @@ async fn test_after_node_read_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_node_read(vec!["Project".to_string()], anef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -344,7 +344,7 @@ async fn test_after_node_read_handler() {
     assert!(projects.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_node_update_handler() {
     init();
@@ -353,7 +353,7 @@ async fn test_after_node_update_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_node_update(vec!["Project".to_string()], anef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -383,7 +383,7 @@ async fn test_after_node_update_handler() {
     assert!(pu.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_node_delete_handler() {
     init();
@@ -392,7 +392,7 @@ async fn test_after_node_delete_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_node_delete(vec!["Project".to_string()], anef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     let p0 = client
         .create_node(
@@ -420,7 +420,7 @@ async fn test_after_node_delete_handler() {
     assert!(pd.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_rel_create_handler() {
     init();
@@ -429,7 +429,7 @@ async fn test_before_rel_create_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_rel_create(vec!["ProjectIssuesRel".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -449,11 +449,11 @@ async fn test_before_rel_create_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -463,7 +463,7 @@ async fn test_before_rel_create_handler() {
     assert!(results.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_rel_read_handler() {
     init();
@@ -472,7 +472,7 @@ async fn test_before_rel_read_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_rel_read(vec!["ProjectIssuesRel".to_string()], bqef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -492,11 +492,11 @@ async fn test_before_rel_read_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -506,25 +506,19 @@ async fn test_before_rel_read_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
     assert!(rels.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_rel_update_handler() {
     init();
@@ -533,7 +527,7 @@ async fn test_before_rel_update_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_rel_update(vec!["ProjectIssuesRel".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -553,11 +547,11 @@ async fn test_before_rel_update_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -567,7 +561,7 @@ async fn test_before_rel_update_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -575,10 +569,10 @@ async fn test_before_rel_update_handler() {
         .update_rel(
             "Project",
             "issues",
-            "id props { since }",
+            "id since",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2000"}}})),
-            &json!({"props": {"since": "2010"}}),
+            Some(&json!({"since": {"EQ": "2000"}})),
+            &json!({"since": "2010"}),
         )
         .await
         .unwrap();
@@ -586,7 +580,7 @@ async fn test_before_rel_update_handler() {
     assert!(ru.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_before_rel_delete_handler() {
     init();
@@ -595,7 +589,7 @@ async fn test_before_rel_delete_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_rel_delete(vec!["ProjectIssuesRel".to_string()], bmef);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -615,11 +609,11 @@ async fn test_before_rel_delete_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -629,7 +623,7 @@ async fn test_before_rel_delete_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -638,7 +632,7 @@ async fn test_before_rel_delete_handler() {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
+            Some(&json!({"since": {"EQ": "2010"}})),
             None,
             None,
         )
@@ -648,7 +642,7 @@ async fn test_before_rel_delete_handler() {
     assert!(rd.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_rel_create_handler() {
     init();
@@ -657,7 +651,7 @@ async fn test_after_rel_create_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_rel_create(vec!["ProjectIssuesRel".to_string()], aref);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -677,11 +671,11 @@ async fn test_after_rel_create_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -691,7 +685,7 @@ async fn test_after_rel_create_handler() {
     assert!(results.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_rel_read_handler() {
     init();
@@ -700,7 +694,7 @@ async fn test_after_rel_read_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_rel_read(vec!["ProjectIssuesRel".to_string()], aref);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -720,11 +714,11 @@ async fn test_after_rel_read_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
         )
@@ -734,25 +728,19 @@ async fn test_after_rel_read_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
     assert!(rels.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_rel_update_handler() {
     init();
@@ -761,7 +749,7 @@ async fn test_after_rel_update_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_rel_update(vec!["ProjectIssuesRel".to_string()], aref);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -781,11 +769,11 @@ async fn test_after_rel_update_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
         )
@@ -795,7 +783,7 @@ async fn test_after_rel_update_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -803,10 +791,10 @@ async fn test_after_rel_update_handler() {
         .update_rel(
             "Project",
             "issues",
-            "id props { since }",
+            "id since",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2000"}}})),
-            &json!({"props": {"since": "2010"}}),
+            Some(&json!({"since": {"EQ": "2000"}})),
+            &json!({"since": "2010"}),
         )
         .await
         .unwrap();
@@ -814,7 +802,7 @@ async fn test_after_rel_update_handler() {
     assert!(ru.is_null());
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn test_after_rel_delete_handler() {
     init();
@@ -823,7 +811,7 @@ async fn test_after_rel_delete_handler() {
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_rel_delete(vec!["ProjectIssuesRel".to_string()], aref);
 
-    let mut client = neo4j_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
         .create_node(
@@ -843,11 +831,11 @@ async fn test_after_rel_delete_handler() {
         .create_rel(
             "Project",
             "issues",
-            "__typename id props { since } src { id name } dst { ...on Bug { id name } }",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
             Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
-                "props": {"since": "2000"},
+                "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
         )
@@ -857,7 +845,7 @@ async fn test_after_rel_delete_handler() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
@@ -866,7 +854,7 @@ async fn test_after_rel_delete_handler() {
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
+            Some(&json!({"since": {"EQ": "2010"}})),
             None,
             None,
         )

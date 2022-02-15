@@ -14,9 +14,9 @@
 
 #![doc(html_root_url = "https://docs.rs/warpgrapher/0.9.1")]
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub use bolt_client;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 pub use bolt_proto;
 #[cfg(feature = "gremlin")]
 pub use gremlin_client;

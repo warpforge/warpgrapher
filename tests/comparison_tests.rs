@@ -418,9 +418,7 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
             &json!({
                 "issues": {
                     "ADD": {
-                        "props": {
-                            "since": "5 BBY"
-                        },
+                        "since": "5 BBY",
                         "dst": {
                             "Feature": {
                                 "EXISTING": {
@@ -448,9 +446,7 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
             Some(&json!({
                 "issues":
                     {
-                        "props": {
-                            "since": { "IN": ["5 BBY", "10 BBY", "15 BBY"]}
-                        }
+                        "since": { "IN": ["5 BBY", "10 BBY", "15 BBY"]}
                     }
             })),
         )
@@ -473,9 +469,7 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
             }",
             None,
             Some(&json!({
-                "props": {
-                    "since": { "EQ": "5 BBY" }
-                }
+                "since": { "EQ": "5 BBY" }
             })),
         )
         .await
@@ -513,9 +507,7 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "issues": {
                     "ADD": {
-                        "props": {
-                            "since": "5 BBY"
-                        },
+                        "since": "5 BBY",
                         "dst": {
                             "Feature": {
                                 "EXISTING": {
@@ -545,14 +537,10 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
             }",
             None,
             Some(&json!({
-                "props": {
-                    "since": { "EQ": "5 BBY" }
-                }
+                "since": { "EQ": "5 BBY" }
             })),
             &json!({
-                "props": {
-                    "since": "0 BBY"
-                }
+                "since": "0 BBY"
             }),
         )
         .await
@@ -563,9 +551,7 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "issues",
             "__typename
-            props {
-                since
-            }
+            since
             dst {
                 ... on Feature {
                     __typename
@@ -587,11 +573,11 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(results_array.len(), 2);
     assert!(results_array.iter().any(|i| {
         i.get("dst").unwrap().get("name").unwrap() == "Kyber Refractor"
-            && i.get("props").unwrap().get("since").unwrap() == "0 BBY"
+            && i.get("since").unwrap() == "0 BBY"
     }));
     assert!(results_array.iter().any(|i| {
         i.get("dst").unwrap().get("name").unwrap() == "Kyber Prism"
-            && i.get("props").unwrap().get("since").unwrap() == "0 BBY"
+            && i.get("since").unwrap() == "0 BBY"
     }));
 }
 
@@ -619,9 +605,7 @@ async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
             &json!({
                 "issues": {
                     "ADD": {
-                        "props": {
-                            "since": "5 BBY"
-                        },
+                        "since": "5 BBY",
                         "dst": {
                             "Feature": {
                                 "EXISTING": {
@@ -645,9 +629,7 @@ async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
             "issues",
             None,
             Some(&json!({
-                "props": {
-                    "since": { "CONTAINS": "BBY" }
-                }
+                "since": { "CONTAINS": "BBY" }
             })),
             None,
             None,

@@ -175,7 +175,7 @@
     input: {
       name: &quot;Just Us League&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { NEW: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -184,9 +184,7 @@
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -206,9 +204,7 @@
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;295d191f-0d66-484c-b1eb-39494f0ae8a0&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -226,7 +222,7 @@
     input: {
       name: &quot;Consortia Unlimited&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { EXISTING: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -235,9 +231,7 @@
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -257,9 +251,7 @@
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;008fdc43-f3cf-48eb-a9e9-c5c753c65ee9&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;

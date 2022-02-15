@@ -152,7 +152,7 @@ actix-web = &quot;4.0.0-beta.6&quot;
 actix-cors = &quot;0.6.0-beta.2&quot;
 serde = &quot;1.0.135&quot;
 serde_json = &quot;1.0.78&quot;
-warpgrapher = { version=&quot;0.9.1&quot;, features=[&quot;neo4j&quot;]}
+warpgrapher = { version=&quot;0.9.1&quot;, features=[&quot;cypher&quot;]}
 </code></pre>
 <p>The rest of the code necessary to accomplish the integration is contained within the single source code file below. First, a number of structs and functions are imported from the Actix and Warpgrapher crates.</p>
 <p><code>src/main.rs</code></p>
@@ -169,7 +169,7 @@ use std::fs::File;
 
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::juniper::http::playground::playground_source;
 use warpgrapher::Engine;
@@ -186,12 +186,12 @@ impl AppData {
     }
 }
 </code></pre>
-<p>Just like the <a href="../warpgrapher/quickstart.html">Quickstart</a> tutorial, this integration creates a <code>RequestContext</code> that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The <code>Rctx</code> struct does contain on associated type, which selects Neo4J as the database to be used for this Warpgrapher engine.</p>
+<p>Just like the <a href="../warpgrapher/quickstart.html">Quickstart</a> tutorial, this integration creates a <code>RequestContext</code> that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The <code>Rctx</code> struct does contain on associated type, which selects Cypher as the database type to be used for this Warpgrapher engine.</p>
 <pre><code>#[derive(Clone, Debug)]
 struct Rctx {}
 
 impl RequestContext for Rctx {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
 
     fn new() -&gt; Self {
         Rctx {}
@@ -230,9 +230,9 @@ struct GraphqlRequest {
         .body(html)
 }
 </code></pre>
-<p>The <code>create_engine</code> function pulls data from environment variables to determine how to connect to a Neo4J database. These are the same environment variables described in the <a href="../warpgrapher/quickstart.html">Quickstart</a> and the Neo4J section of the <a href="../configuration/databases.html">Databases</a> book.</p>
+<p>The <code>create_engine</code> function pulls data from environment variables to determine how to connect to a Cypher-based database. These are the same environment variables described in the <a href="../warpgrapher/quickstart.html">Quickstart</a> and the Neo4J section of the <a href="../configuration/databases.html">Databases</a> book.</p>
 <pre><code>async fn create_engine(config: Configuration) -&gt; Engine&lt;Rctx&gt; {
-    let db = Neo4jEndpoint::from_env()
+    let db = CypherEndpoint::from_env()
         .expect(&quot;Failed to parse endpoint from environment&quot;)
         .pool()
         .await

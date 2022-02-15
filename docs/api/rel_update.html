@@ -155,13 +155,11 @@
         src: { Organization: { name: &quot;Warpforge&quot; } }
         dst: { User: { email: &quot;alistair@example.com&quot; } }
       }
-      SET: { props: { joinDate: &quot;2021-12-31&quot; } }
+      SET: { joinDate: &quot;2021-12-31&quot; }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -181,9 +179,7 @@
     &quot;OrganizationMembersUpdate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2021-12-31&quot;
-        },
+        &quot;joinDate&quot;: &quot;2021-12-31&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;

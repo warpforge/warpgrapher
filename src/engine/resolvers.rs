@@ -327,7 +327,7 @@ where
         .await?;
 
         let results = transaction
-            .read_rels(query_fragment, &rel_var, None, partition_key_opt)
+            .read_rels(query_fragment, &rel_var, partition_key_opt)
             .await?;
 
         Ok(results)
@@ -543,8 +543,9 @@ where
         result
     }
 
-    /// Creates a [`Rel`], with a id, properties, and destination node id and label. The src node
-    /// of the relationship is the parent node on which the field is being resolved.
+    /// Creates a [`Rel`], with a id, relationship name, properties, and destination node id and
+    /// label. The src node of the relationship is the parent node on which the field is being
+    /// resolved.
     ///
     /// # Error
     ///
@@ -564,13 +565,13 @@ where
     /// fn custom_resolve(facade: ResolverFacade<()>) -> BoxFuture<ExecutionResult> {
     ///     Box::pin(async move {
     ///         let node_id = Value::String("12345678-1234-1234-1234-1234567890ab".to_string());
-    ///
     ///         let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///         let rel_name = "owner";
     ///         let mut rel_props = HashMap::new();
     ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
     ///         let rel = facade.
-    ///             create_rel(rel_id, Some(rel_props), node_id, "DstNodeLabel")?;
+    ///             create_rel(rel_id, rel_name, rel_props, node_id)?;
     ///         facade.resolve_rel(&rel).await
     ///     })
     /// }
@@ -578,23 +579,20 @@ where
     pub fn create_rel(
         &self,
         id: Value,
-        props: Option<HashMap<String, Value>>,
+        rel_name: &str,
+        mut props: HashMap<String, Value>,
         dst_id: Value,
-        dst_label: &str,
     ) -> Result<Rel<RequestCtx>, Error> {
+        props.insert("id".to_string(), id);
+        self.partition_key_opt
+            .map(|pk| props.insert("partitionKey".to_string(), Value::String(pk.to_string())));
+
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
-                id,
-                self.partition_key_opt.cloned(),
-                props.map(|p| Node::new("props".to_string(), p)),
-                NodeRef::Identifier {
-                    id: parent_node.id()?.clone(),
-                    label: parent_node.type_name().to_string(),
-                },
-                NodeRef::Identifier {
-                    id: dst_id,
-                    label: dst_label.to_string(),
-                },
+                rel_name.to_string(),
+                props,
+                NodeRef::Identifier(parent_node.id()?.clone()),
+                NodeRef::Identifier(dst_id),
             ))
         } else {
             Err(Error::TypeNotExpected {
@@ -630,10 +628,11 @@ where
     ///         let n = facade.node(typename, props);
     ///
     ///         let rel_id = Value::String("1e2ac081-b0a6-4f68-bc88-99bdc4111f00".to_string());
+    ///         let rel_name = "owns";
     ///         let mut rel_props = HashMap::new();
     ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
-    ///         let rel = facade.create_rel_with_dst_node(rel_id, Some(rel_props), n)?;
+    ///         let rel = facade.create_rel_with_dst_node(rel_id, rel_name, rel_props, n)?;
     ///         facade.resolve_rel(&rel).await
     ///     })
     /// }
@@ -641,18 +640,19 @@ where
     pub fn create_rel_with_dst_node(
         &self,
         id: Value,
-        props: Option<HashMap<String, Value>>,
+        rel_name: &str,
+        mut props: HashMap<String, Value>,
         dst: Node<RequestCtx>,
     ) -> Result<Rel<RequestCtx>, Error> {
+        props.insert("id".to_string(), id);
+        self.partition_key_opt
+            .map(|pk| props.insert("partitionKey".to_string(), Value::String(pk.to_string())));
+
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
-                id,
-                self.partition_key_opt.cloned(),
-                props.map(|p| Node::new("props".to_string(), p)),
-                NodeRef::Identifier {
-                    id: parent_node.id()?.clone(),
-                    label: parent_node.type_name().to_string(),
-                },
+                rel_name.to_string(),
+                props,
+                NodeRef::Identifier(parent_node.id()?.clone()),
                 NodeRef::Node(dst),
             ))
         } else {
@@ -905,7 +905,7 @@ where
     ///         // return rel
     ///         facade.resolve_rel(&facade.create_rel(
     ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             Some(hm1), node_id, "DstNodeLabel")?).await
+    ///             "members", hm1, node_id)?).await
     ///     })
     /// }
     /// ```
@@ -949,10 +949,10 @@ where
     ///         facade.resolve_rel_list(vec![
     ///             &facade.create_rel(
     ///                 Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 Some(hm1), node_id1, "DstNodeLabel")?,
+    ///                 "members", hm1, node_id1)?,
     ///             &facade.create_rel(
     ///                 Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 Some(hm2), node_id2, "DstNodeLabel")?
+    ///                 "members", hm2, node_id2)?
     ///         ]).await
     ///     })
     /// }

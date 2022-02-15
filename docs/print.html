@@ -163,10 +163,10 @@ GraphQL configuration and invoke your custom resolvers when appropriate.</p>
 <p>This guide will walk through creating a brand new project using the Warpgrapher engine. The quickstart example will create a very simple service. It will store email addresses for users. Warpgrapher is far more capable, allowing storage and retrieval of complex data models with many relationships. But for now, to get started quickly, begin with as simple a data model as possible.</p>
 <p>This quickstart assumes a working knowledge of Rust, GraphQL, and at least one graph database. For example, we don't cover creating a new Rust project using <code>cargo init</code>.</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
-<p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop, AWS Neptune, and Azure CosmosDB. Use <code>neo4j</code> to support Neo4J. This tutorial example uses Neo4J.</p>
+<p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB. Use <code>cypher</code> to support Cypher-based databases, such as AWS Neptune and Neo4J. This tutorial example uses Neo4J.</p>
 <p><code>Cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The <code>src/main.rs</code> file begins with a definition of the data model for the example:</p>
 <pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
@@ -176,6 +176,7 @@ model:
     props:
       - name: email
         type: String
+        required: false
 &quot;;
 </code></pre>
 <p>Configurations are written in YAML. Although this example uses a static string for convenience, configurations may be stored in standalone files, or assembled from multiple parts.</p>
@@ -184,11 +185,11 @@ model:
 <p>Altogether, this configuration defines a very simple data model. That data model keeps records about users, and the one property tracked for users is their email address.</p>
 <h2 id="source-code"><a class="header" href="#source-code">Source Code</a></h2>
 <p>Once the configuration describing the data model is in place, it takes relatively little code to get a Warpgrapher engine up and running, ready to handle all the basic CRUD operations for that data.</p>
-<p>The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a <code>DBEndpointType</code> of <code>Neo4jEndpoint</code>.</p>
+<p>The example creates a request context for the engine. The request context does two things. First, it tells the engine which type of database endpoint to use, which is Neo4J in this case. Second, the context provides a way for systems built on Warpgrapher to pass application-specific data into the engine for later use by custom-written endpoints and resolvers. In this example, there's no such custom data, so the context is empty other than designating a <code>DBEndpointType</code> of <code>CypherEndpoint</code>.</p>
 <pre><code class="language-rust no_run noplayground">struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -204,11 +205,11 @@ async fn main() {
 </code></pre>
 <p>Next, the databse endpoint is configured using a set of environment variables. See below for the correct environment variables and values.</p>
 <pre><code class="language-rust no_run noplayground">    // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 </code></pre>
 <p>The configuration and database created above are passed to the Warpgrapher engine, as follows.</p>
 <pre><code class="language-rust no_run noplayground">    // create warpgrapher engine
@@ -237,13 +238,13 @@ async fn main() {
 </code></pre>
 <h2 id="database"><a class="header" href="#database">Database</a></h2>
 <p>Configure database settings using the following environment variables:</p>
-<pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 </code></pre>
 <p>Start a 4.1 Neo4j database:</p>
-<pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_NEO4J_USER}/${WG_NEO4J_PASS}&quot; neo4j:4.4
+<pre><code class="language-bash">docker run --rm -p 7687:7687 -e NEO4J_AUTH=&quot;${WG_CYPHER_USER}/${WG_CYPHER_PASS}&quot; neo4j:4.4
 </code></pre>
 <h2 id="run"><a class="header" href="#run">Run</a></h2>
 <p>Run the example using <code>cargo</code> as follows.</p>
@@ -271,7 +272,7 @@ export WG_NEO4J_PASS=*MY-DB-PASSWORD*
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::Engine;
 
@@ -282,13 +283,14 @@ model:
     props:
       - name: email
         type: String
+        required: false
 &quot;;
 
 #[derive(Clone, Debug)]
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -300,11 +302,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // create warpgrapher engine
     let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
@@ -342,7 +344,7 @@ actix-web = &quot;4.0.0-beta.6&quot;
 actix-cors = &quot;0.6.0-beta.2&quot;
 serde = &quot;1.0.135&quot;
 serde_json = &quot;1.0.78&quot;
-warpgrapher = { version=&quot;0.9.1&quot;, features=[&quot;neo4j&quot;]}
+warpgrapher = { version=&quot;0.9.1&quot;, features=[&quot;cypher&quot;]}
 </code></pre>
 <p>The rest of the code necessary to accomplish the integration is contained within the single source code file below. First, a number of structs and functions are imported from the Actix and Warpgrapher crates.</p>
 <p><code>src/main.rs</code></p>
@@ -359,7 +361,7 @@ use std::fs::File;
 
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::juniper::http::playground::playground_source;
 use warpgrapher::Engine;
@@ -376,12 +378,12 @@ impl AppData {
     }
 }
 </code></pre>
-<p>Just like the <a href="integrations/../warpgrapher/quickstart.html">Quickstart</a> tutorial, this integration creates a <code>RequestContext</code> that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The <code>Rctx</code> struct does contain on associated type, which selects Neo4J as the database to be used for this Warpgrapher engine.</p>
+<p>Just like the <a href="integrations/../warpgrapher/quickstart.html">Quickstart</a> tutorial, this integration creates a <code>RequestContext</code> that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The <code>Rctx</code> struct does contain on associated type, which selects Cypher as the database type to be used for this Warpgrapher engine.</p>
 <pre><code>#[derive(Clone, Debug)]
 struct Rctx {}
 
 impl RequestContext for Rctx {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
 
     fn new() -&gt; Self {
         Rctx {}
@@ -420,9 +422,9 @@ struct GraphqlRequest {
         .body(html)
 }
 </code></pre>
-<p>The <code>create_engine</code> function pulls data from environment variables to determine how to connect to a Neo4J database. These are the same environment variables described in the <a href="integrations/../warpgrapher/quickstart.html">Quickstart</a> and the Neo4J section of the <a href="integrations/../configuration/databases.html">Databases</a> book.</p>
+<p>The <code>create_engine</code> function pulls data from environment variables to determine how to connect to a Cypher-based database. These are the same environment variables described in the <a href="integrations/../warpgrapher/quickstart.html">Quickstart</a> and the Neo4J section of the <a href="integrations/../configuration/databases.html">Databases</a> book.</p>
 <pre><code>async fn create_engine(config: Configuration) -&gt; Engine&lt;Rctx&gt; {
-    let db = Neo4jEndpoint::from_env()
+    let db = CypherEndpoint::from_env()
         .expect(&quot;Failed to parse endpoint from environment&quot;)
         .pool()
         .await
@@ -584,13 +586,13 @@ async fn main() -&gt; Result&lt;(), Error&gt; {
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
-<p>Warpgrapher is published as a Rust crate. There are crate features for each of the databases supported as a back-end. For Gremlin-based databases such as Apache Tinkerpop, AWS Neptune, and Azure CosmosDB, use the <code>gremlin</code> feature.</p>
+<p>Warpgrapher is published as a Rust crate. There are crate features for each of the databases supported as a back-end. For Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB, use the <code>gremlin</code> feature.</p>
 <pre><code class="language-toml">[dependencies]
 warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
-<p>For Neo4j, use the Neo4j feature.</p>
+<p>For Cypher-based databases, such as AWS Neptune and Neo4j, use the cypher feature.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The database features are not mutually exclusive, so building with both features enabled will not do any harm. However, only one database may be used for an instance of the Warpgrapher engine. Compiling with no database features selected will succeed, but the resulting engine will have sharply limited functionality, as it will have no ability to connect to a back-end storage mechanism.</p>
 <p>Continue for a tutorial on using Warpgrapher to build a web service.</p>
@@ -599,7 +601,7 @@ warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
 <p>Warppgrapher supports several database back-ends for graph data:</p>
 <ol>
 <li>Apache Tinkerpop</li>
-<li>AWS Neptune (Gremlin variant)</li>
+<li>AWS Neptune (Cypher variant)</li>
 <li>Azure Cosmos DB (Gremlin variant)</li>
 <li>Neo4J</li>
 </ol>
@@ -612,7 +614,7 @@ connection pool:</p>
 number of CPUs detected. If the number of CPUs cannot be detected, Warpgrapher defaults to a pool
 of 8 connections. </p>
 <h2 id="gremlin-based-databases"><a class="header" href="#gremlin-based-databases">Gremlin-Based Databases</a></h2>
-<p>For all gremlin-based databases, such as Apache Tinkerpop, AWS Neptune, and Azure Cosmos DB the
+<p>For all gremlin-based databases, such as Apache Tinkerpop and Azure Cosmos DB the
 following environment variables control connection to the database.</p>
 <ul>
 <li>WG_GREMLIN_HOST is the host name for the database to which to connect.</li>
@@ -627,9 +629,6 @@ connection, and <code>false</code> if not using TLS. Defaults to <code>true</cod
 <li>WG_GREMLIN_VALIDATE_CERTS is set to <code>true</code> if Warpgrapher should validate the certificate used
 for a TLS connection, and <code>false</code>. Defaults to <code>true</code>. Should only be set to false in non-production
 environments.</li>
-<li>WG_GREMLIN_BINDINGS is set is <code>true</code> if Warpgrapher should use Gremlin bindings to send values 
-in queries, providing query parameterization, and <code>false</code> if values should be sanitized and sent
-inline in the query string itself. Defaults to <code>true</code>. Should only be set to false for databases that do not support bindings, like AWS Neptune.</li>
 <li>WG_GREMLIN_LONG_IDS is set to <code>true</code> if Warpgrapher should use long integers for vertex and edge
 identifiers. If <code>false</code>, Warpgrapher uses strings. Defaults to <code>false</code>. Consult your graph database's documentation to determine what values are valid for identifiers.</li>
 <li>WG_GREMLIN_PARTITIONS is set to <code>true</code> if Warpgrapher should require a partition ID, and false if 
@@ -675,16 +674,14 @@ docker run -i --net=host --rm gremlin-console:latest
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neptune DB:</p>
-<pre><code class="language-bash">export WG_GREMLIN_HOST=[neptune-rw-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_READ_REPLICAS=[neptune-ro-hostname].[region].neptune.amazonaws.com
-export WG_GREMLIN_PORT=443
-export WG_GREMLIN_USE_TLS=true
-export WG_GREMLIN_VALIDATE_CERTS=true
-export WG_GREMLIN_BINDINGS=false
-export WG_GREMLIN_SESSIONS=true
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=
+export WG_CYPHER_PASS=
 </code></pre>
 <h3 id="azure-cosmos-db"><a class="header" href="#azure-cosmos-db">Azure Cosmos DB</a></h3>
 <p>Add Warpgrapher to your project config:</p>
@@ -714,21 +711,21 @@ could leave partially applied results behind.</p>
 <h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;neo4j&quot;] }
+warpgrapher = { version = &quot;0.9.1&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB.</p>
-<pre><code class="language-bash">export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_READ_REPLICAS=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASSWORD*
+<pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASSWORD*
 </code></pre>
-<p>Note that the <code>WG_NEO4J_READ_REPLICAS</code> variable is optional. It is used for Neo4J cluster 
+<p>Note that the <code>WG_CYPHER_READ_REPLICAS</code> variable is optional. It is used for Neo4J cluster 
 configurations in which there are both read/write nodes and read-only replicas. If the 
-<code>WG_NEO4J_READ_REPLICAS</code> variable is set, read-only queries will be directed to the read replicas,
-whereas mutations will be sent to the instance(s) at <code>WG_NEO4J_HOST</code>.</p>
+<code>WG_CYPHER_READ_REPLICAS</code> variable is set, read-only queries will be directed to the read replicas,
+whereas mutations will be sent to the instance(s) at <code>WG_CYPHER_HOST</code>.</p>
 <p>If you do not already have a Neo4J database running, you can run one using Docker:</p>
-<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_NEO4J_USER}:${WG_NEO4J_PASS}&quot; neo4j:4.4
+<pre><code class="language-bash">docker run -e NEO4JAUTH=&quot;${WG_CYPHER_USER}:${WG_CYPHER_PASS}&quot; neo4j:4.4
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="warpgrapher-config"><a class="header" href="#warpgrapher-config">Warpgrapher Config</a></h1>
 <p>The <a href="configuration/../warpgrapher/quickstart.html">Quickstart</a> demonstrated using a string constant to hold the Warpgrapher configuration. It is also possible to read the configuration from a YAML file or to build a configuration programmatically using the configuration module's API. The following three configurations are all equivalent.</p>
@@ -741,6 +738,7 @@ model:
     props:
       - name: email
         type: String
+        required: false
 &quot;;
 </code></pre>
 <h2 id="yaml-file-configuration"><a class="header" href="#yaml-file-configuration">YAML File Configuration</a></h2>
@@ -792,6 +790,7 @@ model:
     props:
       - name: email
         type: String
+        required: false
 &quot;;
 </code></pre>
 <h2 id="type-configuration"><a class="header" href="#type-configuration">Type Configuration</a></h2>
@@ -822,7 +821,7 @@ model:
 <p>The <code>uses</code> attribute is an object that contains four fields within it, <code>create</code>, <code>query</code>, <code>update</code>, and <code>output</code>, each a boolean value. The fields within the <code>uses</code> attribute control whether the property is present in various parts of the GraphQL schema. If the <code>create</code> attribute is true, then the property will be included in the GraphQL input for creation operations. If false, the property will be omitted from creation operations. If the <code>query</code> attribute is true, the property will be included in the GraphQL schema for search query input. If false, the property will be omitted from search query operations. If the <code>update</code> attribute is true, the property will be included in the GraphQL schema input for updating existing nodes. If false, the property will be omitted from the update schema. Lastly, if the <code>output</code> attribute is true, the property will be included in the GraphQL schema for nodes returned to the client. If false, the property will be omitted from the output.</p>
 <p>By default, all <code>uses</code> boolean attributes are true, meaning that the property is included in all relevant areas of the GraphQL schema. Selectively setting some of the <code>uses</code> attributes handles uses cases where a property should not be available for some operations. For example, one might set the <code>create</code> attribute to false if a property is a calculated value that should never be set directly.  One might set <code>update</code> to false to make an attribute immutable -- for example, the <code>email</code> property of the <code>User</code> type might have <code>update</code> set to false if GraphQL clients should not be able to tamper with the identities of users.  One might set <code>output</code> to false for properties that should never be read through the GraphQL interface, such as for keeping people from reading out a password property.</p>
 <p>The <code>type</code> attribute of the property definition is a String value that must take on a value of <code>Boolean</code>, <code>Float</code>, <code>ID</code>, <code>Int</code>, or <code>String</code>, defining type of the property.</p>
-<p>If the <code>required</code> attribute of the property definition is true, the property is required. It must be provided when nodes of this type are created (unless hidden from the <code>create</code> use) and it must be present (non-null) when retrieving the node from Warpgrapher (again, unless hidden from the <code>output</code> use).</p>
+<p>If the <code>required</code> attribute of the property definition is false, the property is not required (it is optional). By default this attribute is true, which means it must be provided when nodes of this type are created (unless hidden from the <code>create</code> use) and it must be present (non-null) when retrieving the node from Warpgrapher (again, unless hidden from the <code>output</code> use).</p>
 <p>If the <code>list</code> attribute of the property definition is true, the property is a list of scalar values of <code>type</code>. If <code>list</code> is false, the property is only a single value of that scalar type.</p>
 <p>The <code>resolver</code> attribute is a text key that is used to identify a custom-written resolver function. Warpgrapher allows applications to define custom resolvers that do more or different things than the default CRUD operations automatically provided by Warpgrapher itself.  For example, a custom resolver might dynamically calculate a value, such as a total or average, rather than just returning a value from the database.  Custom resolvers for <a href="configuration/../engine/dynamic_props.html">dynamic properties</a> are covered in greater detail later in the book.</p>
 <p>The <code>validator</code> attribute is a text key that is used to identify a fuction that validates an input. For example, a validation function might check an email against and email validation regex. <a href="configuration/../engine/validators.html">Validation functions</a> are covered in greater detail later in the book.</p>
@@ -961,14 +960,20 @@ model:
     props:
       - name: email
         type: String
+        required: false
   - name: Organization
     props:
       - name: name
         type: String
+        required: false
     rels:
       - name: members
         nodes: [User]
         list: true
+        props:
+          - name: joinDate
+            type: String
+            required: false
 </code></pre>
 <p>The configuration above adds a second type, called <code>Organization</code>. The definition of the organization type contains the <code>rels</code> attribute, which was not seen in the earlier example. The <code>rels</code> attribute contains a list of permissible relationships between nodes. In this case, the configuration adds a <code>members</code> relationship from nodes of of the <code>Organization</code> type to nodes of the <code>User</code> type, indicating that certain users are members of an organization. The <code>name</code> attribute in the configuration is the name of the relationship and must be unique within the scope of that type. The <code>nodes</code> attribute is a list of other types that may be at the destination end of the relationship. In this case, the only type at may be a member is the <code>User</code> type, but in other use cases, the destination node might be allowed to be one of several types.  Lastly, the <code>list</code> attribute is <code>true</code>, indicating that an <code>Organization</code> may have more than one member.</p>
 <h2 id="relationship-configuration"><a class="header" href="#relationship-configuration">Relationship Configuration</a></h2>
@@ -1022,16 +1027,12 @@ model:
 </code></pre>
 <h3 id="querying-for-a-relationship"><a class="header" href="#querying-for-a-relationship">Querying for a Relationship</a></h3>
 <p>In the top level GraphQL query, note that a new query, called <code>OrganizationMembers</code> has been generated for the relationship. This query has an input parameter, <code>OrganizationMembersQueryInput</code> that provides search query arguments to select the set of relationships to be returned.</p>
-<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>OrganizationMembersPropsQueryInput</code> allows queries based on the properties on the relationship itself. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
+<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>joinDate</code> attribute allows queries based on the properties on the relationship. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
 <pre><code>input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
-  src: OrganizationMembersSrcQueryInput
-}
-
-input OrganizationMembersPropsQueryInput {
   joinDate: StringQueryInput
+  src: OrganizationMembersSrcQueryInput
 }
 </code></pre>
 <p>The two input objects for the <code>src</code> and <code>dst</code> input objects are shown below. Note that for the source query input, the only attribute is an <code>Organization</code> attribute that is an <code>OrganizationQueryInput</code> and that for the destination, the only attribute is a <code>User</code> attribute that is a <code>UserQueryInput</code>. There are two important observations here.  First, the reason for having the <code>OrganizationMembersDstQueryInput</code> object is that a relationship might have more than one node type as a possible destination. When building the GraphQL schema, Warpgrapher has to allow for the client to query any of those possible destination nodes. In this example, the only type of destination node is a <code>User</code>, so that's the only possibility shown below. If the nodes list had more types of nodes, any of those node types could be queried through the <code>OrganizationMembersDstQueryInput</code>.  The second observation is that both the <code>OrganizationQueryInput</code> and the <code>UserQueryInput</code> inputs are the same input parameters used to query for a set of nodes in the <code>Organization</code> and <code>User</code> root level GraphQL queries shown above.</p>
@@ -1043,16 +1044,12 @@ input OrganizationMembersDstQueryInput {
   User: UserQueryInput
 }
 </code></pre>
-<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, a bad of properties <code>props</code> which includes the <code>joinDate</code> relationship property, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
+<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, <code>joinDate</code> for the property configured on the relationship, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
 <pre><code>type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
-  src: Organization!
-}
-
-type OrganizationMembersProps {
   joinDate: String
+  src: Organization!
 }
 </code></pre>
 <p>The <code>src</code> attribute in the <code>OrganizationMembersRel</code> output type is an <code>Organization</code> type, which is exactly the same output type used for node queries, and so will be covered in the section on querying for nodes, below.  The <code>dst</code> attribute is a little more complex. Recall from the description of the configuration schema that Warpgrapher may connect from a source node type to a destination that can be one of many node types. A GraphQL union type is used to represent the multiple destination node types that may exist.  As shown in the schema snippet below, in this example of <code>OrganizationMembersNodesUnion</code>, there is only a single destination node type of User. A more complex configuration might have multiple node types in the union.</p>
@@ -1111,14 +1108,10 @@ type OrganizationMembersProps {
   MATCH: OrganizationQueryInput
 }
 </code></pre>
-<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It has a <code>props</code> object that includes the joinDate attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
+<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It includes the <code>joinDate</code> attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
 <pre><code>input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
-}
-
-input OrganizationMembersPropsInput {
   joinDate: String
 }
 </code></pre>
@@ -1141,10 +1134,10 @@ input OrganizationMembersPropsInput {
   SET: OrganizationMembersUpdateMutationInput!
 }
 </code></pre>
-<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>props</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
+<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>joinDate</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
 <pre><code>input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 </code></pre>
@@ -1342,20 +1335,16 @@ input OrganizationUpdateInput {
   SET: OrganizationUpdateMutationInput
 }
 
-input OrganizationMembersPropsQueryInput {
-  joinDate: StringQueryInput
-}
-
 type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
+  joinDate: String
   src: Organization!
 }
 
 input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 
@@ -1371,7 +1360,7 @@ input UserQueryInput {
 input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
+  joinDate: StringQueryInput
   src: OrganizationMembersSrcQueryInput
 }
 
@@ -1395,7 +1384,7 @@ type Subscription
 input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
+  joinDate: String
 }
 
 input UserDeleteMutationInput
@@ -1409,16 +1398,8 @@ type User {
   id: ID!
 }
 
-input OrganizationMembersPropsInput {
-  joinDate: String
-}
-
 input OrganizationMembersDstQueryInput {
   User: UserQueryInput
-}
-
-type OrganizationMembersProps {
-  joinDate: String
 }
 
 input UserCreateMutationInput {
@@ -1480,7 +1461,7 @@ input OrganizationDeleteInput {
     input: {
       name: &quot;Just Us League&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { NEW: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -1489,9 +1470,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1511,9 +1490,7 @@ input OrganizationDeleteInput {
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;295d191f-0d66-484c-b1eb-39494f0ae8a0&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1531,7 +1508,7 @@ input OrganizationDeleteInput {
     input: {
       name: &quot;Consortia Unlimited&quot;
       members: {
-        props: { joinDate: &quot;2020-02-20&quot; }
+        joinDate: &quot;2020-02-20&quot;,
         dst: { User: { EXISTING: { email: &quot;alistair@example.com&quot; } } }
       }
     }
@@ -1540,9 +1517,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1562,9 +1537,7 @@ input OrganizationDeleteInput {
       &quot;members&quot;: [
         {
           &quot;id&quot;: &quot;008fdc43-f3cf-48eb-a9e9-c5c753c65ee9&quot;,
-          &quot;props&quot;: {
-            &quot;joinDate&quot;: &quot;2020-02-20&quot;
-          },
+          &quot;joinDate&quot;: &quot;2020-02-20&quot;,
           &quot;dst&quot;: {
             &quot;id&quot;: &quot;5ca84494-dd14-468e-812f-cb2da07157db&quot;,
             &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1638,14 +1611,12 @@ input OrganizationDeleteInput {
 <p>The GraphQL query below lists all organizations with members that joined in 2020.</p>
 <pre><code>query {
   Organization(
-    input: { members: { props: { joinDate: { CONTAINS: &quot;2020&quot; } } } }
+    input: { members: { joinDate: { CONTAINS: &quot;2020&quot; } } }
   ) {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1665,9 +1636,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1680,9 +1649,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1705,9 +1672,7 @@ input OrganizationDeleteInput {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1727,9 +1692,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1742,9 +1705,7 @@ input OrganizationDeleteInput {
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1807,9 +1768,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1830,9 +1789,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;78acc7ac-2153-413d-a8d7-688e472340d5&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2021-01-02&quot;
-            },
+            &quot;joinDate&quot;: &quot;2021-01-02&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;ea2a1b68-fda2-4adb-9c80-554761a1c97b&quot;,
               &quot;email&quot;: &quot;balthazar@example.com&quot;
@@ -1840,9 +1797,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;00051bc1-133c-445d-b00c-4faf61b2bffa&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1863,7 +1818,7 @@ input OrganizationDeleteInput {
       SET: {
         members: {
           ADD: {
-            props: { joinDate: &quot;2018-01-08&quot; }
+            joinDate: &quot;2018-01-08&quot;,
             dst: { User: { NEW: { email: &quot;constantine@example.com&quot; } } }
           }
         }
@@ -1874,9 +1829,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1897,9 +1850,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;constantine@example.com&quot;
@@ -1907,9 +1858,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;bd302b7f-8a3f-49ab-aac3-c3348d8b8d94&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -1943,9 +1892,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -1966,9 +1913,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;javier@example.com&quot;
@@ -1976,9 +1921,7 @@ input OrganizationDeleteInput {
           },
           {
             &quot;id&quot;: &quot;bd302b7f-8a3f-49ab-aac3-c3348d8b8d94&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -2009,9 +1952,7 @@ input OrganizationDeleteInput {
     name
     members {
       id
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -2032,9 +1973,7 @@ input OrganizationDeleteInput {
         &quot;members&quot;: [
           {
             &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2018-01-08&quot;
-            },
+            &quot;joinDate&quot;: &quot;2018-01-08&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;f2e894bf-e98e-48a7-b16a-adc95cd34ac3&quot;,
               &quot;email&quot;: &quot;javier@example.com&quot;
@@ -2079,15 +2018,13 @@ input OrganizationDeleteInput {
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { EXISTING: { email: { EQ: &quot;alistair@example.com&quot; } } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2107,9 +2044,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2130,15 +2065,13 @@ input OrganizationDeleteInput {
     input: {
       MATCH: { name: { EQ: &quot;Warpforge&quot; } }
       CREATE: {
-        props: { joinDate: &quot;2022-01-28&quot; }
+        joinDate: &quot;2022-01-28&quot;,
         dst: { User: { NEW: { email: &quot;constantine@example.com&quot; } } }
       }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2158,9 +2091,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersCreate&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2184,11 +2115,9 @@ input OrganizationDeleteInput {
 <h2 id="by-relationship-properties"><a class="header" href="#by-relationship-properties">By Relationship Properties</a></h2>
 <p>The GraphQL query below retrieves all the members who joined organizations on 2018-01-08.</p>
 <pre><code>query {
-  OrganizationMembers(input: { props: { joinDate: { EQ: &quot;2018-01-08&quot; } } }) {
+  OrganizationMembers(input: { joinDate: { EQ: &quot;2018-01-08&quot; } }) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2208,9 +2137,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2231,9 +2158,7 @@ input OrganizationDeleteInput {
     input: { src: { Organization: { name: { EQ: &quot;Warpforge&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2253,9 +2178,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2267,9 +2190,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2281,9 +2202,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2304,9 +2223,7 @@ input OrganizationDeleteInput {
     input: { dst: { User: { email: { EQ: &quot;alistair@example.com&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2326,9 +2243,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2340,9 +2255,7 @@ input OrganizationDeleteInput {
       },
       {
         &quot;id&quot;: &quot;00051bc1-133c-445d-b00c-4faf61b2bffa&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2020-02-20&quot;
-        },
+        &quot;joinDate&quot;: &quot;2020-02-20&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;5692bd2a-2bc9-4497-8285-1f7860478cd6&quot;,
           &quot;name&quot;: &quot;Prophet and Loss Inc.&quot;
@@ -2369,13 +2282,11 @@ input OrganizationDeleteInput {
         src: { Organization: { name: &quot;Warpforge&quot; } }
         dst: { User: { email: &quot;alistair@example.com&quot; } }
       }
-      SET: { props: { joinDate: &quot;2021-12-31&quot; } }
+      SET: { joinDate: &quot;2021-12-31&quot; }
     }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -2395,9 +2306,7 @@ input OrganizationDeleteInput {
     &quot;OrganizationMembersUpdate&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2021-12-31&quot;
-        },
+        &quot;joinDate&quot;: &quot;2021-12-31&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -2559,7 +2468,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
@@ -2587,7 +2496,7 @@ endpoints:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -2614,11 +2523,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
@@ -2710,7 +2619,7 @@ async fn main() {
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::juniper::BoxFuture;
@@ -2732,7 +2641,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -2753,11 +2662,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
@@ -2836,16 +2745,20 @@ model:
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
-
-        facade.resolve_rel(&amp;top_contributor_rel).await
-    })
-}
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 </code></pre>
 <h2 id="add-the-resolver-to-the-engine"><a class="header" href="#add-the-resolver-to-the-engine">Add the Resolver to the Engine</a></h2>
 <p>The resolver is added to a map associated with the name used in the configuration, above. The map is then passed to the Warpgrapher engine. This allows the engine to find the Rust function implementing the custom resolver when it is needed.</p>
-<pre><code class="language-rust no_run noplayground">    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
+<pre><code class="language-rust no_run noplayground">        .await
+        .expect(&quot;Failed to create cypher database pool&quot;);
+
+    // define resolvers
+    let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
     resolvers.insert(
         &quot;resolve_project_top_contributor&quot;.to_string(),
         Box::new(resolve_project_top_contributor),
@@ -2853,14 +2766,14 @@ model:
 
     // create warpgrapher engine
     let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
-        .with_resolvers(resolvers)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
-
 </code></pre>
 <h2 id="example-api-call-1"><a class="header" href="#example-api-call-1">Example API Call</a></h2>
 <p>The following GraphQL query uses the dynamic resolver defined above.</p>
-<pre><code class="language-rust no_run noplayground">    let query = &quot;
+<pre><code class="language-rust no_run noplayground">        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
+    // create new project
+    let query = &quot;
         mutation {
             ProjectCreate(input: {
                 name: \&quot;Project1\&quot;
@@ -2876,10 +2789,6 @@ model:
                 }
             }
         }
-    &quot;
-    .to_string();
-    let metadata = HashMap::new();
-    let result = engine.execute(query, None, metadata).await.unwrap();
 </code></pre>
 <h2 id="full-example-source-2"><a class="header" href="#full-example-source-2">Full Example Source</a></h2>
 <p>See below for the full source code to the example above.</p>
@@ -2888,7 +2797,7 @@ use std::convert::TryFrom;
 use uuid::Uuid;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
@@ -2916,7 +2825,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -2937,8 +2846,12 @@ fn resolve_project_top_contributor(
 
         // create dynamic rel
         let rel_id = &quot;1234567890&quot;.to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            &quot;topdev&quot;,
+            HashMap::new(),
+            top_contributor,
+        )?;
 
         facade.resolve_rel(&amp;top_contributor_rel).await
     })
@@ -2950,11 +2863,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
@@ -3005,7 +2918,7 @@ struct AppRequestContext {
 }
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         // generate random request id
         let request_id = &quot;1234&quot;.to_string();
@@ -3036,7 +2949,7 @@ impl RequestContext for AppRequestContext {
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::juniper::BoxFuture;
@@ -3063,7 +2976,7 @@ struct AppRequestContext {
 }
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         // generate random request id
         let request_id = &quot;1234&quot;.to_string();
@@ -3085,11 +2998,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();
@@ -3206,7 +3119,7 @@ model:
 use std::convert::TryFrom;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::validators::Validators;
 use warpgrapher::engine::value::Value;
@@ -3228,7 +3141,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -&gt; AppRequestContext {
         AppRequestContext {}
     }
@@ -3271,11 +3184,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     // load validators
     let mut validators: Validators = Validators::new();
@@ -3503,7 +3416,7 @@ use std::convert::TryFrom;
 use std::convert::TryInto;
 use warpgrapher::engine::config::{Configuration, Property, UsesFilter};
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::CrudOperation;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
@@ -3529,7 +3442,7 @@ pub struct Rctx {
 impl Rctx {}
 
 impl RequestContext for Rctx {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
 
     fn new() -&gt; Self {
         Rctx {
@@ -3676,11 +3589,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect(&quot;Failed to parse neo4j endpoint from environment&quot;)
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
         .pool()
         .await
-        .expect(&quot;Failed to create neo4j database pool&quot;);
+        .expect(&quot;Failed to create cypher database pool&quot;);
 
     let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(insert_user_profile);

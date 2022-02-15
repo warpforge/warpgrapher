@@ -12,11 +12,9 @@ The GraphQL query below retrieves all the members who joined organizations on 20
 
 ```
 query {
-  OrganizationMembers(input: { props: { joinDate: { EQ: "2018-01-08" } } }) {
+  OrganizationMembers(input: { joinDate: { EQ: "2018-01-08" } }) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -39,9 +37,7 @@ The output is as follows.
     "OrganizationMembers": [
       {
         "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
-        "props": {
-          "joinDate": "2018-01-08"
-        },
+        "joinDate": "2018-01-08",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -66,9 +62,7 @@ query {
     input: { src: { Organization: { name: { EQ: "Warpforge" } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -91,9 +85,7 @@ The output is as follows.
     "OrganizationMembers": [
       {
         "id": "3ab33be6-16a3-4e50-87b5-3bb7d195ea54",
-        "props": {
-          "joinDate": "2022-01-28"
-        },
+        "joinDate": "2022-01-28",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -105,9 +97,7 @@ The output is as follows.
       },
       {
         "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
-        "props": {
-          "joinDate": "2022-01-28"
-        },
+        "joinDate": "2022-01-28",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -119,9 +109,7 @@ The output is as follows.
       },
       {
         "id": "38cd72c8-75b5-4547-9829-38d6a6854eb9",
-        "props": {
-          "joinDate": "2018-01-08"
-        },
+        "joinDate": "2018-01-08",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -146,9 +134,7 @@ query {
     input: { dst: { User: { email: { EQ: "alistair@example.com" } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -171,9 +157,7 @@ The output is as follows.
     "OrganizationMembers": [
       {
         "id": "21173765-b2a3-4bb1-bfa7-5787ef17d6a8",
-        "props": {
-          "joinDate": "2022-01-28"
-        },
+        "joinDate": "2022-01-28",
         "src": {
           "id": "85faa40f-04a8-4f0a-ae44-804604b4ef4c",
           "name": "Warpforge"
@@ -185,9 +169,7 @@ The output is as follows.
       },
       {
         "id": "00051bc1-133c-445d-b00c-4faf61b2bffa",
-        "props": {
-          "joinDate": "2020-02-20"
-        },
+        "joinDate": "2020-02-20",
         "src": {
           "id": "5692bd2a-2bc9-4497-8285-1f7860478cd6",
           "name": "Prophet and Loss Inc."

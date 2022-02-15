@@ -152,11 +152,9 @@
 <h2 id="by-relationship-properties"><a class="header" href="#by-relationship-properties">By Relationship Properties</a></h2>
 <p>The GraphQL query below retrieves all the members who joined organizations on 2018-01-08.</p>
 <pre><code>query {
-  OrganizationMembers(input: { props: { joinDate: { EQ: &quot;2018-01-08&quot; } } }) {
+  OrganizationMembers(input: { joinDate: { EQ: &quot;2018-01-08&quot; } }) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -176,9 +174,7 @@
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -199,9 +195,7 @@
     input: { src: { Organization: { name: { EQ: &quot;Warpforge&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -221,9 +215,7 @@
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;3ab33be6-16a3-4e50-87b5-3bb7d195ea54&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -235,9 +227,7 @@
       },
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -249,9 +239,7 @@
       },
       {
         &quot;id&quot;: &quot;38cd72c8-75b5-4547-9829-38d6a6854eb9&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2018-01-08&quot;
-        },
+        &quot;joinDate&quot;: &quot;2018-01-08&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -272,9 +260,7 @@
     input: { dst: { User: { email: { EQ: &quot;alistair@example.com&quot; } } } }
   ) {
     id
-    props {
-      joinDate
-    }
+    joinDate
     src {
       id
       name
@@ -294,9 +280,7 @@
     &quot;OrganizationMembers&quot;: [
       {
         &quot;id&quot;: &quot;21173765-b2a3-4bb1-bfa7-5787ef17d6a8&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2022-01-28&quot;
-        },
+        &quot;joinDate&quot;: &quot;2022-01-28&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;85faa40f-04a8-4f0a-ae44-804604b4ef4c&quot;,
           &quot;name&quot;: &quot;Warpforge&quot;
@@ -308,9 +292,7 @@
       },
       {
         &quot;id&quot;: &quot;00051bc1-133c-445d-b00c-4faf61b2bffa&quot;,
-        &quot;props&quot;: {
-          &quot;joinDate&quot;: &quot;2020-02-20&quot;
-        },
+        &quot;joinDate&quot;: &quot;2020-02-20&quot;,
         &quot;src&quot;: {
           &quot;id&quot;: &quot;5692bd2a-2bc9-4497-8285-1f7860478cd6&quot;,
           &quot;name&quot;: &quot;Prophet and Loss Inc.&quot;

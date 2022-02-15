@@ -1,16 +1,16 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client};
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client, init};
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn client_node_crud() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/minimal.yml").await;
 
     let p0 = client
         .create_node(
@@ -87,12 +87,12 @@ async fn client_node_crud() {
     assert_eq!(d_projects_a.len(), 0);
 }
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn client_rel_crud() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/minimal.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/minimal.yml").await;
 
     client
         .create_node(
@@ -113,9 +113,7 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             "id 
-        props { 
-            since 
-        } 
+        since 
         src { 
             id 
             name 
@@ -132,7 +130,7 @@ async fn client_rel_crud() {
             }),
             &json!([
                 {
-                    "props": {"since": "2000"},
+                    "since": "2000",
                     "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}} }}
                 }
             ]),
@@ -143,37 +141,28 @@ async fn client_rel_crud() {
     assert!(results.is_array());
     let r0 = &results[0];
     assert!(r0.is_object());
-    assert_eq!(r0.get("props").unwrap().get("since").unwrap(), "2000");
+    assert_eq!(r0.get("since").unwrap(), "2000");
     assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
     assert!(rels.is_array());
     let rels_a = rels.as_array().unwrap();
     assert_eq!(rels_a.len(), 1);
-    assert_eq!(
-        rels_a[0].get("props").unwrap().get("since").unwrap(),
-        "2000"
-    );
+    assert_eq!(rels_a[0].get("since").unwrap(), "2000");
 
     let ru = client
         .update_rel(
             "Project",
             "issues",
-            "id props { since }",
+            "id since",
             Some("1234"),
-            Some(&json!({"props": {"since": { "EQ": "2000"}}})),
-            &json!({"props": {"since": "2010"}}),
+            Some(&json!({"since": { "EQ": "2000"}})),
+            &json!({"since": "2010"}),
         )
         .await
         .unwrap();
@@ -181,33 +170,24 @@ async fn client_rel_crud() {
     assert!(ru.is_array());
     let ru_a = ru.as_array().unwrap();
     assert_eq!(ru_a.len(), 1);
-    assert_eq!(ru_a[0].get("props").unwrap().get("since").unwrap(), "2010");
+    assert_eq!(ru_a[0].get("since").unwrap(), "2010");
 
     let u_rels = client
-        .read_rel(
-            "Project",
-            "issues",
-            "id props { since }",
-            Some("1234"),
-            None,
-        )
+        .read_rel("Project", "issues", "id since", Some("1234"), None)
         .await
         .unwrap();
 
     assert!(u_rels.is_array());
     let u_rels_a = u_rels.as_array().unwrap();
     assert_eq!(u_rels_a.len(), 1);
-    assert_eq!(
-        u_rels_a[0].get("props").unwrap().get("since").unwrap(),
-        "2010"
-    );
+    assert_eq!(u_rels_a[0].get("since").unwrap(), "2010");
 
     let rd = client
         .delete_rel(
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "2010"}}})),
+            Some(&json!({"since": {"EQ": "2010"}})),
             None,
             None,
         )

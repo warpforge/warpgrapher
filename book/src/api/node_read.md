@@ -78,14 +78,12 @@ The GraphQL query below lists all organizations with members that joined in 2020
 ```
 query {
   Organization(
-    input: { members: { props: { joinDate: { CONTAINS: "2020" } } } }
+    input: { members: { joinDate: { CONTAINS: "2020" } } }
   ) {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -108,9 +106,7 @@ The output is as follows:
         "name": "Just Us League",
         "members": [
           {
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -123,9 +119,7 @@ The output is as follows:
         "name": "Consortia Unlimited",
         "members": [
           {
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -152,9 +146,7 @@ query {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -177,9 +169,7 @@ The output is as follows:
         "name": "Just Us League",
         "members": [
           {
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"
@@ -192,9 +182,7 @@ The output is as follows:
         "name": "Consortia Unlimited",
         "members": [
           {
-            "props": {
-              "joinDate": "2020-02-20"
-            },
+            "joinDate": "2020-02-20",
             "dst": {
               "id": "de5e58cd-eb5e-4bf8-8a7a-9656999f4013",
               "email": "alistair@example.com"

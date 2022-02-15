@@ -7,7 +7,7 @@ The [Quickstart](../warpgrapher/quickstart.html) demonstrated using a string con
 The following is the string constant from the [Quickstart](../warpgrapher/quickstart.html).
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/quickstart/main.rs:9:16}}
+{{#include ../../../examples/quickstart/main.rs:9:17}}
 ```
 
 ## YAML File Configuration

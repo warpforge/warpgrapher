@@ -13,7 +13,7 @@ actix-web = "4.0.0-beta.6"
 actix-cors = "0.6.0-beta.2"
 serde = "1.0.135"
 serde_json = "1.0.78"
-warpgrapher = { version="0.9.1", features=["neo4j"]}
+warpgrapher = { version="0.9.1", features=["cypher"]}
 ```
 
 The rest of the code necessary to accomplish the integration is contained within the single source code file below. First, a number of structs and functions are imported from the Actix and Warpgrapher crates.
@@ -34,7 +34,7 @@ use std::fs::File;
 
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::juniper::http::playground::playground_source;
 use warpgrapher::Engine;
@@ -56,14 +56,14 @@ impl AppData {
 }
 ```
 
-Just like the [Quickstart](../warpgrapher/quickstart.html) tutorial, this integration creates a `RequestContext` that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The `Rctx` struct does contain on associated type, which selects Neo4J as the database to be used for this Warpgrapher engine.
+Just like the [Quickstart](../warpgrapher/quickstart.html) tutorial, this integration creates a `RequestContext` that could be used to pass data into the Warpgrapher engine for custom resolvers or endpoints, but is left empty in this example. The `Rctx` struct does contain on associated type, which selects Cypher as the database type to be used for this Warpgrapher engine.
 
 ```
 #[derive(Clone, Debug)]
 struct Rctx {}
 
 impl RequestContext for Rctx {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
 
     fn new() -> Self {
         Rctx {}
@@ -112,11 +112,11 @@ async fn playground(_data: Data<AppData>) -> impl Responder {
 }
 ```
 
-The `create_engine` function pulls data from environment variables to determine how to connect to a Neo4J database. These are the same environment variables described in the [Quickstart](../warpgrapher/quickstart.html) and the Neo4J section of the [Databases](../configuration/databases.html) book.
+The `create_engine` function pulls data from environment variables to determine how to connect to a Cypher-based database. These are the same environment variables described in the [Quickstart](../warpgrapher/quickstart.html) and the Neo4J section of the [Databases](../configuration/databases.html) book.
 
 ```
 async fn create_engine(config: Configuration) -> Engine<Rctx> {
-    let db = Neo4jEndpoint::from_env()
+    let db = CypherEndpoint::from_env()
         .expect("Failed to parse endpoint from environment")
         .pool()
         .await

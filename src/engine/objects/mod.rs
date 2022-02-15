@@ -239,7 +239,6 @@ where
     }
 
     pub fn id(&self) -> Result<&Value, Error> {
-        trace!("Node::id called");
         self.fields
             .get(&"id".to_string())
             .ok_or_else(|| Error::ResponseItemNotFound {
@@ -509,9 +508,13 @@ where
             // work correctly, as each node carries its own partition, for any recursion to fill out the
             // other rels and nodes loaded by the shape.
             let arg_partition_key = args.get("partitionKey");
-            let partition_key_opt: Option<&Value> = arg_partition_key
-                .as_ref()
-                .or_else(|| self.fields.get("partitionKey"));
+            let partition_key_opt: Option<&Value> = if let Some(Value::Null) = arg_partition_key {
+                None
+            } else {
+                arg_partition_key
+                    .as_ref()
+                    .or_else(|| self.fields.get("partitionKey"))
+            };
 
             let mut resolver = Resolver::new(partition_key_opt);
 
@@ -585,24 +588,56 @@ where
                         .await
                 }
                 PropertyKind::Rel { rel_name } => {
-                    let io = match sn {
-                        "Mutation" | "Query" => input_opt,
-                        _ => {
-                            let mut src_node = HashMap::new();
-                            src_node.insert("id".to_string(), self.id()?.clone());
-                            let mut src = HashMap::new();
-                            src.insert(
-                                info.type_def()?.type_name().to_string(),
-                                Value::Map(src_node),
-                            );
-                            let mut hm = HashMap::new();
-                            hm.insert("src".to_string(), Value::Map(src));
-                            Some(Input::new(Value::Map(hm)))
-                        }
-                    };
-                    resolver
-                        .resolve_rel_read_query(field_name, rel_name, info, io, executor)
-                        .await
+                    if sn == "Mutation" || sn == "Query" {
+                        // if the sn is Mutation or Query, then this is a root query as opposed to a
+                        // relationship reference
+
+                        resolver
+                            .resolve_rel_read_query(field_name, rel_name, info, input_opt, executor)
+                            .await
+                    } else {
+                        // If it's not a root query, then it's a relationship reference. Merge the
+                        // src node id into the search query input, if the client has added
+                        // additional searching / filtering criteria to a query input in the shape,
+                        // because we allow filtering on relationships at every nested relationship
+                        // in the shape.
+                        let mut hm = if let Some(Value::Map(input_map)) = input_opt.map(|i| i.value)
+                        {
+                            input_map
+                        } else {
+                            HashMap::new()
+                        };
+                        let mut src = if let Some(Value::Map(src_map)) = hm.remove("src") {
+                            src_map
+                        } else {
+                            HashMap::new()
+                        };
+                        let mut src_node = if let Some(Value::Map(src_node_map)) =
+                            src.remove(info.type_def()?.type_name())
+                        {
+                            src_node_map
+                        } else {
+                            HashMap::new()
+                        };
+                        let mut comparison = HashMap::new();
+                        comparison.insert("EQ".to_string(), self.id()?.clone());
+                        src_node.insert("id".to_string(), Value::Map(comparison));
+                        src.insert(
+                            info.type_def()?.type_name().to_string(),
+                            Value::Map(src_node),
+                        );
+                        hm.insert("src".to_string(), Value::Map(src));
+
+                        resolver
+                            .resolve_rel_read_query(
+                                field_name,
+                                rel_name,
+                                info,
+                                Some(Input::new(Value::Map(hm))),
+                                executor,
+                            )
+                            .await
+                    }
                 }
                 PropertyKind::RelCreateMutation {
                     src_label,
@@ -698,7 +733,7 @@ where
 /// containing a type and id, or a complete [`Node`] struct.
 #[derive(Clone, Debug)]
 pub enum NodeRef<RequestCtx: RequestContext> {
-    Identifier { id: Value, label: String },
+    Identifier(Value),
     Node(Node<RequestCtx>),
 }
 
@@ -724,7 +759,7 @@ pub enum NodeRef<RequestCtx: RequestContext> {
 ///         // return rel
 ///         facade.resolve_rel(&facade.create_rel(
 ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-///             Some(hm1), node_id, "DstNodeLabel")?).await
+///             "members", hm1, node_id)?).await
 ///     })
 /// }
 /// ```
@@ -733,9 +768,8 @@ pub struct Rel<RequestCtx>
 where
     RequestCtx: RequestContext,
 {
-    id: Value,
-    partition_key: Option<Value>,
-    props: Option<Node<RequestCtx>>,
+    rel_name: String,
+    fields: HashMap<String, Value>,
     src_ref: NodeRef<RequestCtx>,
     dst_ref: NodeRef<RequestCtx>,
     _rctx: PhantomData<RequestCtx>,
@@ -746,36 +780,48 @@ where
     RequestCtx: RequestContext,
 {
     pub(crate) fn new(
-        id: Value,
-        partition_key: Option<Value>,
-        props: Option<Node<RequestCtx>>,
+        rel_name: String,
+        fields: HashMap<String, Value>,
         src_ref: NodeRef<RequestCtx>,
         dst_ref: NodeRef<RequestCtx>,
     ) -> Rel<RequestCtx> {
         Rel {
-            id,
-            partition_key,
-            props,
+            rel_name,
+            fields,
             src_ref,
             dst_ref,
             _rctx: PhantomData,
         }
     }
 
-    pub fn id(&self) -> &Value {
-        &self.id
+    pub fn id(&self) -> Result<&Value, Error> {
+        self.fields
+            .get(&"id".to_string())
+            .ok_or_else(|| Error::ResponseItemNotFound {
+                name: "id".to_string(),
+            })
     }
 
-    pub fn dst(&self) -> &NodeRef<RequestCtx> {
-        &self.dst_ref
+    pub fn rel_name(&self) -> &String {
+        &self.rel_name
     }
 
-    pub fn src(&self) -> &NodeRef<RequestCtx> {
-        &self.src_ref
+    pub fn fields(&self) -> &HashMap<String, Value> {
+        &self.fields
     }
 
-    pub fn props(&self) -> &Option<Node<RequestCtx>> {
-        &self.props
+    pub fn src_id(&self) -> Result<&Value, Error> {
+        match &self.src_ref {
+            NodeRef::Identifier(id) => Ok(id),
+            NodeRef::Node(n) => n.id(),
+        }
+    }
+
+    pub fn dst_id(&self) -> Result<&Value, Error> {
+        match &self.dst_ref {
+            NodeRef::Identifier(id) => Ok(id),
+            NodeRef::Node(n) => n.id(),
+        }
     }
 }
 
@@ -883,10 +929,13 @@ where
             );
             let p = info.type_def()?.property(field_name)?;
             let arg_partition_key = args.get("partitionKey");
-            let partition_key_opt: Option<&Value> = arg_partition_key
-                .as_ref()
-                .or_else(|| self.partition_key.as_ref());
-
+            let partition_key_opt: Option<&Value> = if let Some(Value::Null) = arg_partition_key {
+                None
+            } else {
+                arg_partition_key
+                    .as_ref()
+                    .or_else(|| self.fields.get("partitionKey"))
+            };
             let mut resolver = Resolver::new(partition_key_opt);
 
             match (p.kind(), &field_name) {
@@ -902,21 +951,12 @@ where
                         )
                         .await
                 }
-                (PropertyKind::Object, &"props") => match &self.props {
-                    Some(p) => {
-                        resolver
-                            .resolve_rel_props(info, field_name, p, executor)
-                            .await
-                    }
-                    None => Err(Error::TypeNotExpected {
-                        details: Some("Object is missing props".to_string()),
-                    }
-                    .into()),
-                },
                 (PropertyKind::Object, &"src") => match &self.src_ref {
-                    NodeRef::Identifier { id, label: _ } => {
+                    NodeRef::Identifier(id) => {
+                        let mut comparison = HashMap::new();
+                        comparison.insert("EQ".to_string(), id.clone());
                         let mut hm = HashMap::new();
-                        hm.insert("id".to_string(), id.clone());
+                        hm.insert("id".to_string(), Value::Map(comparison));
                         let input = Input::new(Value::Map(hm));
                         resolver
                             .resolve_node_read_query(field_name, info, Some(input), executor)
@@ -933,22 +973,24 @@ where
                 }
                 .into()),
                 (PropertyKind::Scalar, _) => {
-                    if field_name == "id" {
-                        executor
-                            .resolve_with_ctx(&(), &TryInto::<String>::try_into(self.id.clone())?)
-                    } else {
-                        executor.resolve_with_ctx(&(), &None::<String>)
-                    }
+                    resolver
+                        .resolve_scalar_field(info, field_name, &self.fields, executor)
+                        .await
                 }
                 (PropertyKind::Union, _) => match &self.dst_ref {
-                    NodeRef::Identifier { id, label } => {
+                    NodeRef::Identifier(id) => {
+                        let mut comparison = HashMap::new();
+                        comparison.insert("EQ".to_string(), id.clone());
+                        let mut hm = HashMap::new();
+                        hm.insert("id".to_string(), Value::Map(comparison));
+                        let input = Input::new(Value::Map(hm));
                         resolver
-                            .resolve_union_field(info, label, field_name, id, executor)
+                            .resolve_node_read_query(field_name, info, Some(input), executor)
                             .await
                     }
                     NodeRef::Node(n) => {
-                        resolver
-                            .resolve_union_field_node(info, field_name, n, executor)
+                        executor
+                            .resolve_async(&Info::new(n.type_name().clone(), info.type_defs()), &n)
                             .await
                     }
                 },

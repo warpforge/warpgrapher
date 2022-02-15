@@ -204,14 +204,12 @@
 <p>The GraphQL query below lists all organizations with members that joined in 2020.</p>
 <pre><code>query {
   Organization(
-    input: { members: { props: { joinDate: { CONTAINS: &quot;2020&quot; } } } }
+    input: { members: { joinDate: { CONTAINS: &quot;2020&quot; } } }
   ) {
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -231,9 +229,7 @@
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -246,9 +242,7 @@
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -271,9 +265,7 @@
     id
     name
     members {
-      props {
-        joinDate
-      }
+      joinDate
       dst {
         ... on User {
           id
@@ -293,9 +285,7 @@
         &quot;name&quot;: &quot;Just Us League&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;
@@ -308,9 +298,7 @@
         &quot;name&quot;: &quot;Consortia Unlimited&quot;,
         &quot;members&quot;: [
           {
-            &quot;props&quot;: {
-              &quot;joinDate&quot;: &quot;2020-02-20&quot;
-            },
+            &quot;joinDate&quot;: &quot;2020-02-20&quot;,
             &quot;dst&quot;: {
               &quot;id&quot;: &quot;de5e58cd-eb5e-4bf8-8a7a-9656999f4013&quot;,
               &quot;email&quot;: &quot;alistair@example.com&quot;

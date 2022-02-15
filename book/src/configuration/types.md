@@ -3,7 +3,7 @@
 The [Quickstart](../warpgrapher/quickstart.html) presented a first example of a Warpgrapher configuration, shown again here.
 
 ```rust,no_run,noplayground
-{{#include ../../../examples/quickstart/main.rs:9:16}}
+{{#include ../../../examples/quickstart/main.rs:9:17}}
 ```
 
 ## Type Configuration

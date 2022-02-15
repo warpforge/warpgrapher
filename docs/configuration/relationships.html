@@ -150,14 +150,20 @@ model:
     props:
       - name: email
         type: String
+        required: false
   - name: Organization
     props:
       - name: name
         type: String
+        required: false
     rels:
       - name: members
         nodes: [User]
         list: true
+        props:
+          - name: joinDate
+            type: String
+            required: false
 </code></pre>
 <p>The configuration above adds a second type, called <code>Organization</code>. The definition of the organization type contains the <code>rels</code> attribute, which was not seen in the earlier example. The <code>rels</code> attribute contains a list of permissible relationships between nodes. In this case, the configuration adds a <code>members</code> relationship from nodes of of the <code>Organization</code> type to nodes of the <code>User</code> type, indicating that certain users are members of an organization. The <code>name</code> attribute in the configuration is the name of the relationship and must be unique within the scope of that type. The <code>nodes</code> attribute is a list of other types that may be at the destination end of the relationship. In this case, the only type at may be a member is the <code>User</code> type, but in other use cases, the destination node might be allowed to be one of several types.  Lastly, the <code>list</code> attribute is <code>true</code>, indicating that an <code>Organization</code> may have more than one member.</p>
 <h2 id="relationship-configuration"><a class="header" href="#relationship-configuration">Relationship Configuration</a></h2>
@@ -211,16 +217,12 @@ model:
 </code></pre>
 <h3 id="querying-for-a-relationship"><a class="header" href="#querying-for-a-relationship">Querying for a Relationship</a></h3>
 <p>In the top level GraphQL query, note that a new query, called <code>OrganizationMembers</code> has been generated for the relationship. This query has an input parameter, <code>OrganizationMembersQueryInput</code> that provides search query arguments to select the set of relationships to be returned.</p>
-<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>OrganizationMembersPropsQueryInput</code> allows queries based on the properties on the relationship itself. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
+<p>The <code>OrganizationMembersQueryInput</code> query parameter, defined below, provides a means to search for a given instance of a relationship.  It is possible to search based on an <code>id</code> or set of IDs, and the <code>joinDate</code> attribute allows queries based on the properties on the relationship. In addition to using the <code>id</code> or another property on the relationship, the <code>OrganizationMembersQueryInput</code> parameter also includes a <code>src</code> and a <code>dst</code> attribute. These attributes allow Warpgrapher clients to search for relationships based on properties of the source or destination nodes joined by the relationship.</p>
 <pre><code>input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
-  src: OrganizationMembersSrcQueryInput
-}
-
-input OrganizationMembersPropsQueryInput {
   joinDate: StringQueryInput
+  src: OrganizationMembersSrcQueryInput
 }
 </code></pre>
 <p>The two input objects for the <code>src</code> and <code>dst</code> input objects are shown below. Note that for the source query input, the only attribute is an <code>Organization</code> attribute that is an <code>OrganizationQueryInput</code> and that for the destination, the only attribute is a <code>User</code> attribute that is a <code>UserQueryInput</code>. There are two important observations here.  First, the reason for having the <code>OrganizationMembersDstQueryInput</code> object is that a relationship might have more than one node type as a possible destination. When building the GraphQL schema, Warpgrapher has to allow for the client to query any of those possible destination nodes. In this example, the only type of destination node is a <code>User</code>, so that's the only possibility shown below. If the nodes list had more types of nodes, any of those node types could be queried through the <code>OrganizationMembersDstQueryInput</code>.  The second observation is that both the <code>OrganizationQueryInput</code> and the <code>UserQueryInput</code> inputs are the same input parameters used to query for a set of nodes in the <code>Organization</code> and <code>User</code> root level GraphQL queries shown above.</p>
@@ -232,16 +234,12 @@ input OrganizationMembersDstQueryInput {
   User: UserQueryInput
 }
 </code></pre>
-<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, a bad of properties <code>props</code> which includes the <code>joinDate</code> relationship property, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
+<p>We'll come back to the node-based query input in a moment, in the section below on Querying for a Node. First, the code snippet below shows the schema for output from the relationship query. The relationship includes four attributes, a unique identifier for the relationship called <code>id</code>, <code>joinDate</code> for the property configured on the relationship, and <code>src</code> and <code>dst</code> attributes that represent the source and destination nodes respectively.</p>
 <pre><code>type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
-  src: Organization!
-}
-
-type OrganizationMembersProps {
   joinDate: String
+  src: Organization!
 }
 </code></pre>
 <p>The <code>src</code> attribute in the <code>OrganizationMembersRel</code> output type is an <code>Organization</code> type, which is exactly the same output type used for node queries, and so will be covered in the section on querying for nodes, below.  The <code>dst</code> attribute is a little more complex. Recall from the description of the configuration schema that Warpgrapher may connect from a source node type to a destination that can be one of many node types. A GraphQL union type is used to represent the multiple destination node types that may exist.  As shown in the schema snippet below, in this example of <code>OrganizationMembersNodesUnion</code>, there is only a single destination node type of User. A more complex configuration might have multiple node types in the union.</p>
@@ -300,14 +298,10 @@ type OrganizationMembersProps {
   MATCH: OrganizationQueryInput
 }
 </code></pre>
-<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It has a <code>props</code> object that includes the joinDate attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
+<p>The <code>CREATE</code> attribute has a type of <code>OrganizationMembersCreateMutationInput</code>. That input structure is shown in the schema snippet below. It includes the <code>joinDate</code> attribute on the relationship. The <code>id</code> object is accepted as an input to facilitate offline operation, in which the client may need to choose the unique identifier for the relationship. If the client does not choose the identifier, it will be randomly assigned by the Warpgrapher service.</p>
 <pre><code>input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
-}
-
-input OrganizationMembersPropsInput {
   joinDate: String
 }
 </code></pre>
@@ -330,10 +324,10 @@ input OrganizationMembersPropsInput {
   SET: OrganizationMembersUpdateMutationInput!
 }
 </code></pre>
-<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>props</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
+<p>The <code>SET</code> input is of type <code>OrganizationMembersUpdateMutationInput</code>, shown in the snippet below. The <code>joinDate</code> attribute is the same input type used during relationship creation operations, described in the section above. The <code>src</code> and <code>dst</code> attributes allow a single update to provide new values not only for the relationship properties, but also properties on the source and destination nodes at the ends of the relationship.</p>
 <pre><code>input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 </code></pre>
@@ -531,20 +525,16 @@ input OrganizationUpdateInput {
   SET: OrganizationUpdateMutationInput
 }
 
-input OrganizationMembersPropsQueryInput {
-  joinDate: StringQueryInput
-}
-
 type OrganizationMembersRel {
   dst: OrganizationMembersNodesUnion!
   id: ID!
-  props: OrganizationMembersProps
+  joinDate: String
   src: Organization!
 }
 
 input OrganizationMembersUpdateMutationInput {
   dst: OrganizationMembersDstUpdateMutationInput
-  props: OrganizationMembersPropsInput
+  joinDate: String
   src: OrganizationMembersSrcUpdateMutationInput
 }
 
@@ -560,7 +550,7 @@ input UserQueryInput {
 input OrganizationMembersQueryInput {
   dst: OrganizationMembersDstQueryInput
   id: StringQueryInput
-  props: OrganizationMembersPropsQueryInput
+  joinDate: StringQueryInput
   src: OrganizationMembersSrcQueryInput
 }
 
@@ -584,7 +574,7 @@ type Subscription
 input OrganizationMembersCreateMutationInput {
   dst: OrganizationMembersNodesMutationInputUnion!
   id: ID
-  props: OrganizationMembersPropsInput
+  joinDate: String
 }
 
 input UserDeleteMutationInput
@@ -598,16 +588,8 @@ type User {
   id: ID!
 }
 
-input OrganizationMembersPropsInput {
-  joinDate: String
-}
-
 input OrganizationMembersDstQueryInput {
   User: UserQueryInput
-}
-
-type OrganizationMembersProps {
-  joinDate: String
 }
 
 input UserCreateMutationInput {
