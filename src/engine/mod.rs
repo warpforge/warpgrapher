@@ -455,7 +455,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 
@@ -503,7 +502,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 
