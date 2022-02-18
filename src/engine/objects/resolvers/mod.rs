@@ -16,6 +16,7 @@ use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use ultra_batch::LoadError;
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
@@ -321,7 +322,7 @@ impl<'r> Resolver<'r> {
             input_opt.map(|i| i.value)
         };
 
-        let mut ids_for_loader_opt = None;
+        let mut id_for_loader_opt = None;
         if let Some(Value::Map(im)) = &input_value_opt {
             if im.keys().len() == 1 {
                 if let Some(Value::Map(comparison)) = im.get("id") {
@@ -333,35 +334,35 @@ impl<'r> Resolver<'r> {
                     // If so, this is a a basic node read (the most common case
                     // in a shape) and we should use the loader to avoid the
                     // N+1 problem.
+                    //
+                    // Unlike the rel loader, we don't handle the "IN" condition of multiple ids
+                    // because errors aren't returned for each id being loaded, only one error if
+                    // any of the operations fails. That means we can't return all found ids if
+                    // even one id isn't found.
                     if let Some(id_val) = comparison.get("EQ") {
-                        ids_for_loader_opt = Some(vec![NodeLoaderKey::new(
+                        id_for_loader_opt = Some(NodeLoaderKey::new(
                             id_val.to_string(),
                             self.partition_key_opt.map(|pk| pk.to_string()),
-                        )]);
-                    } else if let Some(Value::Array(ids)) = comparison.get("IN") {
-                        ids_for_loader_opt = Some(
-                            ids.iter()
-                                .map(|id| {
-                                    Ok(NodeLoaderKey::new(
-                                        id.to_string(),
-                                        self.partition_key_opt.map(|pk| pk.to_string()),
-                                    ))
-                                })
-                                .collect::<Result<Vec<NodeLoaderKey>, Error>>()?,
-                        );
+                        ));
                     }
                 }
             }
         }
 
-        let mut results = if let Some(ids_for_loader) = ids_for_loader_opt {
+        let mut results = if let Some(id_for_loader) = id_for_loader_opt {
             executor
                 .context()
                 .node_batcher()
-                .load_many(&ids_for_loader)
-                .await?
-                .into_iter()
-                .collect()
+                .load(id_for_loader)
+                .await
+                .map(|n| vec![n])
+                .or_else(|e| {
+                    if let LoadError::NotFound = e {
+                        Ok(vec![])
+                    } else {
+                        Err(e)
+                    }
+                })?
         } else {
             let itd = if info.name() == "Query" {
                 p.input_type_definition(info)?
