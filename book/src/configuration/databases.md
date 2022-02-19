@@ -183,5 +183,5 @@ whereas mutations will be sent to the instance(s) at `WG_CYPHER_HOST`.
 If you do not already have a Neo4J database running, you can run one using Docker:
 
 ```bash
-docker run -e NEO4JAUTH="${WG_CYPHER_USER}:${WG_CYPHER_PASS}" neo4j:4.4
+docker run -e NEO4J_AUTH="${WG_CYPHER_USER}/${WG_CYPHER_PASS}" neo4j:4.4
 ```
