@@ -225,24 +225,12 @@ impl DatabasePool for GremlinPool {
     }
 
     async fn transaction(&self) -> Result<Self::TransactionType, Error> {
-        Ok(if self.sessions {
-            GremlinTransaction::new(
-                self.rw_pool
-                    .clone()
-                    .create_session(Uuid::new_v4().to_hyphenated().to_string())
-                    .await?,
-                self.long_ids,
-                self.partitions,
-                self.sessions,
-            )
-        } else {
-            GremlinTransaction::new(
-                self.rw_pool.clone(),
-                self.long_ids,
-                self.partitions,
-                self.sessions,
-            )
-        })
+        Ok(GremlinTransaction::new(
+            self.rw_pool.clone(),
+            self.long_ids,
+            self.partitions,
+            self.sessions,
+        ))
     }
 }
 
@@ -332,6 +320,12 @@ impl GremlinTransaction {
 #[async_trait]
 impl Transaction for GremlinTransaction {
     async fn begin(&mut self) -> Result<(), Error> {
+        if self.sessions {
+            self.client = self
+                .client
+                .create_session(Uuid::new_v4().to_hyphenated().to_string())
+                .await?;
+        }
         Ok(())
     }
 

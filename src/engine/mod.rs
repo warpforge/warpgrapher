@@ -3,7 +3,7 @@
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::{CrudOperation, DatabaseEndpoint, DatabasePool, Transaction};
+use database::{CrudOperation, DatabaseEndpoint, DatabasePool};
 use events::{EventFacade, EventHandlerBag};
 use juniper::http::GraphQLRequest;
 use log::debug;
@@ -455,7 +455,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 
@@ -503,7 +502,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 

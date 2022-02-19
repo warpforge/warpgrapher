@@ -156,6 +156,25 @@ async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) 
     assert_eq!(projects_a[0].get("name").unwrap(), "Project1");
 }
 
+/// Passes if reading a non-existent node returns an empty array rather than an error
+#[wg_test]
+#[allow(dead_code)]
+async fn read_with_no_result<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let projects = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            Some("1234"),
+            Some(&json!({"id": {"EQ": "1234"}})),
+        )
+        .await
+        .unwrap();
+
+    assert!(projects.is_array());
+    let projects_a = projects.as_array().unwrap();
+    assert!(projects_a.is_empty());
+}
+
 /// Passes if resolvers can handle a shape that reads a property that is not
 /// present on the model object.
 #[wg_test]
