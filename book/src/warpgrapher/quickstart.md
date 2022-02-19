@@ -12,7 +12,7 @@ First, set up the `Cargo.toml` file to import Warpgrapher as a dependency. There
 
 ```toml
 [dependencies]
-warpgrapher = { version = "0.10.0", features = ["cypher"] }
+warpgrapher = { version = "0.10.1", features = ["cypher"] }
 ```
 
 The `src/main.rs` file begins with a definition of the data model for the example:
