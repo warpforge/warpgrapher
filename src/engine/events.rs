@@ -1118,6 +1118,10 @@ where
         self.context
     }
 
+    pub fn set_context(&self, context: GraphQLContext<RequestCtx>) {
+        self.context = &context;
+    }
+
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the
     /// recommended way to read data in a database-agnostic way that ensures the event handlers
     /// are portable across different databases.
