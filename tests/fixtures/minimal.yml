@@ -19,13 +19,9 @@ model:
         props:
             - name: repo
               type: String
-<<<<<<< HEAD
-        list: true
-=======
               required: false
         list: true
         
->>>>>>> 43ec8a92e16c208ecec1ae203678dff4e762feab
   # Project
   - name: Project
     props:
