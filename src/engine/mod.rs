@@ -3,7 +3,7 @@
 use super::error::Error;
 use config::Configuration;
 use context::{GraphQLContext, RequestContext};
-use database::{CrudOperation, DatabaseEndpoint, DatabasePool, Transaction};
+use database::{CrudOperation, DatabaseEndpoint, DatabasePool};
 use events::{EventFacade, EventHandlerBag};
 use juniper::http::GraphQLRequest;
 use log::debug;
@@ -19,6 +19,7 @@ pub mod config;
 pub mod context;
 pub mod database;
 pub mod events;
+pub mod loader;
 pub mod objects;
 pub mod resolvers;
 pub mod schema;
@@ -428,13 +429,14 @@ where
         // create new request context
         let mut rctx = RequestCtx::new();
 
+        let gql_schema: HashMap<String, NodeType> =
+            crate::engine::schema::generate_schema(&self.config)?;
+        let info = Info::new("".to_string(), Arc::new(gql_schema));
+
         // execute before_request handlers
         let before_request_handlers = self.event_handlers.before_request();
         if !before_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
-            let gql_schema: HashMap<String, NodeType> =
-                crate::engine::schema::generate_schema(&self.config)?;
-            let info = Info::new("".to_string(), Arc::new(gql_schema));
             let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
                 self.db_pool.clone(),
                 self.resolvers.clone(),
@@ -443,6 +445,7 @@ where
                 Some(rctx.clone()),
                 self.version.clone(),
                 metadata.clone(),
+                info.clone(),
             );
             for handler in before_request_handlers {
                 rctx = handler(
@@ -452,7 +455,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 
@@ -471,6 +473,7 @@ where
             Some(rctx.clone()),
             self.version.clone(),
             metadata.clone(),
+            info.clone(),
         );
         let req = GraphQLRequest::new(query, None, input_value);
         let res = req.execute(&self.root_node, &gqlctx).await;
@@ -482,9 +485,6 @@ where
         let after_request_handlers = self.event_handlers.after_request();
         if !after_request_handlers.is_empty() {
             let mut dbtx = self.db_pool.transaction().await?;
-            let gql_schema: HashMap<String, NodeType> =
-                crate::engine::schema::generate_schema(&self.config)?;
-            let info = Info::new("".to_string(), Arc::new(gql_schema));
             let gqlctx_tmp = GraphQLContext::<RequestCtx>::new(
                 self.db_pool.clone(),
                 self.resolvers.clone(),
@@ -493,6 +493,7 @@ where
                 Some(rctx.clone()),
                 self.version.clone(),
                 metadata.clone(),
+                info.clone(),
             );
             for handler in self.event_handlers.after_request() {
                 ret_value = handler(
@@ -501,7 +502,6 @@ where
                 )
                 .await?;
             }
-            dbtx.commit().await?;
             std::mem::drop(dbtx);
         }
 

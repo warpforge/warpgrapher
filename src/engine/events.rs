@@ -1423,13 +1423,7 @@ where
 
         let results = self
             .transaction
-            .read_rels(
-                query_fragment,
-                &rel_var,
-                //Some(p.type_name()),
-                None,
-                partition_key_opt,
-            )
+            .read_rels(query_fragment, &rel_var, partition_key_opt)
             .await?;
 
         Ok(results)

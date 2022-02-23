@@ -1,4 +1,3 @@
-
 # Contributing
 
 Note that the steps below are for doing development on the Warpgrapher itself,
@@ -13,17 +12,16 @@ git clone https://github.com/warpforge/warpgrapher.git
 
 ## Build Warpgrapher
 
-To build for use with a Gremlin-based database, such as Apache Tinkerpop, AWS Neptune, or Azure 
-CosmosDB:
+To build for use with Cypher-based databases, such as AWS Neptune and Neo4J:
+
+```bash
+cargo build --features cypher
+```
+
+To build for use with a Gremlin-based database, such as Apache Tinkerpop or Azure CosmosDB:
 
 ```bash
 cargo build --features gremlin
-```
-
-To build for use with Neo4J:
-
-```bash
-cargo build --features neo4j
 ```
 
 ## Test
@@ -37,6 +35,16 @@ export WG_POOL_SIZE=1
 Setting the pool size to one during testing helps assure that Warpgrapher will continue to operate 
 correctly with constrianed connection pools, even when recursing through resolvers.
 
+For Cypher-based databases:
+
+```bash
+export WG_CYPHER_HOST=127.0.0.1
+export WG_CYPHER_READ_REPLICAS=127.0.0.1
+export WG_CYPHER_PORT=7687
+export WG_CYPHER_USER=neo4j
+export WG_CYPHER_PASS=*MY-DB-PASS*
+```
+
 For Gremlin-based DB graphs:
 
 ```bash
@@ -45,39 +53,27 @@ export WG_GREMLIN_READ_REPLICAS=localhost
 export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_USE_TLS=false
 export WG_GREMLIN_VALIDATE_CERTS=false
-export WG_GREMLIN_BINDINGS=true
 export WG_GREMLIN_LONG_IDS=true
 export WG_GREMLIN_PARTITION=false
 export WG_GREMLIN_SESSIONS=false
 ```
 
-For Neo4J:
+### Run the Database
+
+For Cypher-based databases:
+
+Start your database in accordance with its instructions. For example, for Neo4J, run:
 
 ```bash
-export WG_NEO4J_HOST=127.0.0.1
-export WG_NEO4J_READ_REPLICAS=127.0.0.1
-export WG_NEO4J_PORT=7687
-export WG_NEO4J_USER=neo4j
-export WG_NEO4J_PASS=*MY-DB-PASS*
+docker run --rm -e NEO4J_AUTH="${WG_CYPHER_USER}/${WG_CYPHER_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.4
 ```
-
-### Run the Database
 
 For Gremlin-based databases:
 
-Start your database in accordance with it's instructions.  For example, for the Apache Tinkerpop 
-reference implementation, run:
+Start your database in accordance with it's instructions.  For example, for Apache Tinkerpop, run:
 
 ```bash
 docker run -it --rm -p 8182:8182 tinkerpop/gremlin-server:latest
-```
-
-For neo4j:
-
-Note that Warpgrapher is only compatible with version 4.0 and later of Neo4J.
-
-```bash
-docker run --rm -e NEO4J_AUTH="${WG_NEO4J_USER}/${WG_NEO4J_PASS}" -p 7474:7474 -p 7687:7687 neo4j:4.1
 ```
 
 ### Run Tests
@@ -90,16 +86,16 @@ cargo test --lib
 
 Run all tests (unit and integration).
 
+For Cypher-based DBs:
+
+```bash
+cargo test --features cypher -- --test-threads=1
+```
+
 For Gremlin-based DBs:
 
 ```bash
 cargo test --features gremlin --tests -- --test-threads=1
-```
-
-For Neo4J:
-
-```bash
-cargo test --features neo4j -- --test-threads=1
 ```
 
 For all databases:
@@ -160,9 +156,13 @@ https://rust-lang.github.io/api-guidelines/checklist.html
 
 ## Updating version prior to release
 
+Open an rc-X.Y.Z branch.
+
+Update version in `Cargo.toml.`
+
 ```bash
-export OLD_VERSION=0.8.4
-export NEW_VERSION=0.9.0
+export OLD_VERSION=0.10.0
+export NEW_VERSION=0.10.1
 ```
 
 ```bash
@@ -176,3 +176,5 @@ find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERS
 cd ./book
 ./build.sh
 ```
+
+Commit and merge the rc-X.Y.Z branch. Add a release version tag using the GitHub UI.

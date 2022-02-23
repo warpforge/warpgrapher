@@ -2,7 +2,6 @@
 mod setup;
 
 use serde_json::json;
-#[cfg(any(feature = "gremlin", feature = "neo4j"))]
 use warpgrapher::client::Client;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher_macros::wg_test;
@@ -362,9 +361,7 @@ async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
             &json!({
                 "name": "ORION",
                 "board": {
-                    "props": {
-                        "publicized": false
-                    },
+                    "publicized": false,
                     "dst": {
                         "ScrumBoard": {
                             "NEW": {
@@ -386,9 +383,7 @@ async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
             &json!({
                 "name": "SPARTAN",
                 "board": {
-                    "props": {
-                        "publicized": true
-                    },
+                    "publicized": true,
                     "dst": {
                         "ScrumBoard": {
                             "NEW": {
@@ -412,9 +407,7 @@ async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
             name 
             board { 
                 __typename 
-                props {
-                    publicized
-                }
+                publicized
                 dst { 
                     ... on ScrumBoard {
                         __typename 
@@ -426,9 +419,7 @@ async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
             Some("1234"),
             Some(&json!({
                 "board": {
-                    "props": {
-                        "publicized": true
-                    }
+                    "publicized": true
                 }
             })),
         )
@@ -466,9 +457,7 @@ async fn read_node_with_matching_props_on_rel<RequestCtx: RequestContext>(
             Some("1234"),
             Some(&json!({
                 "board": {
-                    "props": {
-                        "publicized": false
-                    }
+                    "publicized": false
                 }
             })),
         )
@@ -503,9 +492,7 @@ async fn read_node_with_matching_props_on_rel_dst_node<RequestCtx: RequestContex
             &json!({
                 "name": "ORION",
                 "board": {
-                    "props": {
-                        "publicized": false
-                    },
+                    "publicized": false,
                     "dst": {
                         "ScrumBoard": {
                             "NEW": {
@@ -526,9 +513,7 @@ async fn read_node_with_matching_props_on_rel_dst_node<RequestCtx: RequestContex
             &json!({
                 "name": "SPARTAN",
                 "board": {
-                    "props": {
-                        "publicized": false
-                    },
+                    "publicized": false,
                     "dst": {
                         "ScrumBoard": {
                             "NEW": {

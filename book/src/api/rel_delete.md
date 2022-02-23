@@ -1,28 +1,30 @@
 # Relationship Delete
 
-* [Delete relationships](#delete-relationships)
+* [Delete Relationship](#delete-relationship)
 
-### Delete relationships
+## Delete relationship
+
+The GraphQL
 
 ```
 mutation {
-    ProjectOwnerDelete(input: {
-        MATCH: {
-            src: {
-                Project: {
-                    name: "Project0"
-                }
-            }
-        }
-    })
+  OrganizationMembersDelete(
+    input: {
+      MATCH: {
+        src: { Organization: { name: { EQ: "Warpforge" } } }
+        dst: { User: { email: { EQ: "constantine@example.com" } } }
+      }
+    }
+  )
 }
 ```
 
-Output:
+The output is as follows.
+
 ```json
 {
-    "data": {
-        "ProjectOwnerDelete": 1
-    }
+  "data": {
+    "OrganizationMembersDelete": 1
+  }
 }
 ```

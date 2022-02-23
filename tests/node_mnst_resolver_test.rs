@@ -229,7 +229,9 @@ async fn read_mnst_by_rel_props<RequestCtx: RequestContext>(mut client: Client<R
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            &json!({"name": "Project Zero", 
+                    "activity": [ {"repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                  {"repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -240,8 +242,8 @@ async fn read_mnst_by_rel_props<RequestCtx: RequestContext>(mut client: Client<R
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
-            Some(&json!({"activity": {"props": {"repo": {"EQ": "Repo Zero"}}}}))
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            Some(&json!({"activity": {"repo": {"EQ": "Repo Zero"}}}))
         )
         .await
         .unwrap();
@@ -265,7 +267,7 @@ async fn read_mnst_by_rel_props<RequestCtx: RequestContext>(mut client: Client<R
         .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo Zero"));
+        .any(|a| a.get("repo").unwrap() == "Repo Zero"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
@@ -282,7 +284,8 @@ async fn read_mnst_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -293,7 +296,7 @@ async fn read_mnst_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"activity": {"dst": {"Commit": {"hash": {"EQ": "11111"}}}}}))
         )
         .await
@@ -318,13 +321,49 @@ async fn read_mnst_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .all(|a| a.get("__typename").unwrap() == "ProjectActivityRel"));
     assert!(activity
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
     assert!(activity
         .iter()
         .all(|a| a.get("dst").unwrap().get("__typename").unwrap() == "Commit"));
     assert!(activity
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+}
+
+/// Passes if the create mutation succeeds and the rel query returns an empty list. Added because
+/// of a bug that caused all rels with the same edge label to be returned, even if the source node
+/// type was different, under Gremlin.
+#[wg_test]
+#[allow(dead_code)]
+async fn read_rel_by_edge_label<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    client
+        .create_node(
+            "Portfolio",
+            "__typename id",
+            Some("1234"),
+            &json!({
+                "activity": {
+                    "dst": {
+                        "Commit": {
+                            "NEW": {
+                                "hash": "111111"
+                            }
+                        }
+                    }
+                }
+            }),
+        )
+        .await
+        .unwrap();
+
+    let activities = client
+        .read_rel("Project", "activity", "__typename id", Some("1234"), None)
+        .await
+        .unwrap();
+
+    assert!(activities.is_array());
+    let activities_a = activities.as_array().unwrap();
+    assert_eq!(activities_a.len(), 0);
 }
 
 /// Passes if warpgrapher can query for a relationship by the properties of a relationship
@@ -335,14 +374,15 @@ async fn update_mnst_new_node<RequestCtx: RequestContext>(mut client: Client<Req
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"NEW": {"hash": "22222"}}}}}})
         )
@@ -387,7 +427,8 @@ async fn update_mnst_existing_node<RequestCtx: RequestContext>(mut client: Clien
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -404,7 +445,7 @@ async fn update_mnst_existing_node<RequestCtx: RequestContext>(mut client: Clien
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
             &json!({"activity": {"ADD": {"dst": {"Commit": {"EXISTING": {"hash": {"EQ": "22222"}}}}}}})
         )
@@ -449,16 +490,17 @@ async fn update_mnst_relationship<RequestCtx: RequestContext>(mut client: Client
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
-            &json!({"activity": {"UPDATE": {"MATCH": {"dst": {"Commit": {"hash": {"EQ": "00000"}}}}, "SET": {"props": {"repo": "Repo 0"}}}}})
+            &json!({"activity": {"UPDATE": {"MATCH": {"dst": {"Commit": {"hash": {"EQ": "00000"}}}}, "SET": {"repo": "Repo 0"}}}})
         )
         .await
         .unwrap();
@@ -488,12 +530,10 @@ async fn update_mnst_relationship<RequestCtx: RequestContext>(mut client: Client
     assert!(activityu
         .iter()
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
+    assert!(activityu.iter().any(|a| a.get("repo").unwrap() == "Repo 0"));
     assert!(activityu
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo 0"));
-    assert!(activityu
-        .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
 }
 
 /// Passes if warpgrapher can delete a relationship by its properties
@@ -505,8 +545,9 @@ async fn delete_mnst_relationship_by_rel_props<RequestCtx: RequestContext>(
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One", "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -521,9 +562,9 @@ async fn delete_mnst_relationship_by_rel_props<RequestCtx: RequestContext>(
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
-            &json!({"activity": {"DELETE": {"MATCH": {"props": {"repo": {"EQ": "Repo Zero"}}}}}})
+            &json!({"activity": {"DELETE": {"MATCH": {"repo": {"EQ": "Repo Zero"}}}}})
         )
         .await
         .unwrap();
@@ -555,10 +596,10 @@ async fn delete_mnst_relationship_by_rel_props<RequestCtx: RequestContext>(
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activityu
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activityu
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
 }
 
 /// Passes if warpgrapher can delete a relationship by the properties of the dst object
@@ -570,8 +611,9 @@ async fn delete_mnst_relationship_by_dst_props<RequestCtx: RequestContext>(
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -586,7 +628,7 @@ async fn delete_mnst_relationship_by_dst_props<RequestCtx: RequestContext>(
     let pu = client
         .update_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             Some(&json!({"name": {"EQ":"Project Zero"}})),
             &json!({"activity": {"DELETE": {"MATCH": {"dst": {"Commit": {"hash": {"EQ": "00000"}}}}}}})
         )
@@ -620,10 +662,10 @@ async fn delete_mnst_relationship_by_dst_props<RequestCtx: RequestContext>(
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
     assert!(activityu
         .iter()
-        .all(|a| a.get("props").unwrap().get("repo").unwrap() != "Repo Zero"));
+        .all(|a| a.get("repo").unwrap() != "Repo Zero"));
     assert!(activityu
         .iter()
-        .any(|a| a.get("props").unwrap().get("repo").unwrap() == "Repo One"));
+        .any(|a| a.get("repo").unwrap() == "Repo One"));
 }
 
 /// Passes if warpgrapher can delete a node by the properties of a relationship
@@ -635,8 +677,9 @@ async fn delete_node_by_mnst_rel_property<RequestCtx: RequestContext>(
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -661,7 +704,7 @@ async fn delete_node_by_mnst_rel_property<RequestCtx: RequestContext>(
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }",  Some("1234"),
             None,
         )
         .await
@@ -681,8 +724,9 @@ async fn delete_node_by_mnst_dst_property<RequestCtx: RequestContext>(
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }",  Some("1234"),
-            &json!({"name": "Project Zero", "activity": [ { "props": { "repo": "Repo Zero" }, "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, { "props": { "repo": "Repo One" },  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }",  Some("1234"),
+            &json!({"name": "Project Zero", "activity": [ { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                                                          { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}} ] }))
         .await
         .unwrap();
 
@@ -707,7 +751,7 @@ async fn delete_node_by_mnst_dst_property<RequestCtx: RequestContext>(
     let projects = client
         .read_node(
             "Project",
-            "__typename id name activity { __typename id props { repo } dst { ...on Commit { __typename id hash } } }", Some("1234"),
+            "__typename id name activity { __typename id repo dst { ...on Commit { __typename id hash } } }", Some("1234"),
             None,
         )
         .await

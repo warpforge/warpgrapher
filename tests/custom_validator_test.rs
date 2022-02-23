@@ -1,19 +1,19 @@
 mod setup;
 
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use log::trace;
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 use serde_json::json;
-#[cfg(feature = "neo4j")]
-use setup::{clear_db, init, neo4j_test_client};
+#[cfg(feature = "cypher")]
+use setup::{clear_db, cypher_test_client, init};
 
 /// Passes if the custom validator executes correctly on create mutation
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_input_validator_create() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     // Test validator on create
     // Validator pass
@@ -41,12 +41,12 @@ async fn custom_input_validator_create() {
 }
 
 /// Passes if the custom validator executes correctly on update mutation
-#[cfg(feature = "neo4j")]
+#[cfg(feature = "cypher")]
 #[tokio::test]
 async fn custom_input_validator_update() {
     init();
     clear_db().await;
-    let mut client = neo4j_test_client("./tests/fixtures/config.yml").await;
+    let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
         .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))

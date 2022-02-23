@@ -9,9 +9,8 @@ As a developer you can focus on defining your application's data model, and Warp
 
 Supported Databases:
 
-* CosmosDB
-* Gremlin-based Databases (e.g. Apache Tinkerpop and AWS Neptune)
-* Neo4j
+* Gremlin-based Databases (e.g. Apache Tinkerpop and CosmosDB)
+* Cypher-based Databases (e.g. AWS Neptune and Neo4j)
 
 ## Quickstart
 
@@ -23,7 +22,9 @@ To get started right away, visit the [Quickstart](https://warpforge.github.io/wa
 
 ## Documentation
 
-See the [Warpgrapher Book](https://warpforge.github.io/warpgrapher/) for in-depth usage documentation. 
+See the [Warpgrapher Book](https://warpforge.github.io/warpgrapher/) for an introduction, tutorials, and reference information.
+
+See the [API Documentation](https://docs.rs/warpgrapher/latest/warpgrapher/) for in-depth usage documentation.
 
 ## Contributing
 

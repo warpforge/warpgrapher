@@ -23,10 +23,10 @@ jobs:
       WG_GREMLIN_USE_TLS: false
       WG_GREMLIN_VALIDATE_CERTS: false
       WG_GREMLIN_LONG_IDS: true
-      WG_NEO4J_HOST: 127.0.0.1
-      WG_NEO4J_PORT: 7687
-      WG_NEO4J_USER: neo4j
-      WG_NEO4J_PASS: testpass
+      WG_CYPHER_HOST: 127.0.0.1
+      WG_CYPHER_PORT: 7687
+      WG_CYPHER_USER: neo4j
+      WG_CYPHER_PASS: testpass
       RUST_BACKTRACE: full
       
     steps:
@@ -65,11 +65,11 @@ jobs:
     - name: Check Gremlin Build
       run: cargo check --features gremlin
 
-    - name: Check Neo4J Build
-      run: cargo check --features neo4j
+    - name: Check Cypher Build
+      run: cargo check --features cypher
 
     - name: Check Examples
-      run: cargo check --examples --features neo4j
+      run: cargo check --examples --features cypher
 
     - name: Install Clippy
       run: rustup component add clippy

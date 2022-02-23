@@ -1,0 +1,598 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Event Handlers - Warpgrapher Book (0.10.1)</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="../warpgrapher/intro.html"><strong aria-hidden="true">1.</strong> Warpgrapher</a></li><li class="chapter-item expanded "><a href="../warpgrapher/quickstart.html"><strong aria-hidden="true">2.</strong> Quickstart</a></li><li class="chapter-item expanded "><a href="../integrations/intro.html"><strong aria-hidden="true">3.</strong> Server Integration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../integrations/actix.html"><strong aria-hidden="true">3.1.</strong> Actix Web</a></li><li class="chapter-item expanded "><a href="../integrations/lambda.html"><strong aria-hidden="true">3.2.</strong> AWS Lambda</a></li></ol></li><li class="chapter-item expanded "><a href="../configuration/intro.html"><strong aria-hidden="true">4.</strong> Configuration</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../configuration/databases.html"><strong aria-hidden="true">4.1.</strong> Databases</a></li><li class="chapter-item expanded "><a href="../configuration/formats.html"><strong aria-hidden="true">4.2.</strong> Formats</a></li><li class="chapter-item expanded "><a href="../configuration/types.html"><strong aria-hidden="true">4.3.</strong> Types</a></li><li class="chapter-item expanded "><a href="../configuration/relationships.html"><strong aria-hidden="true">4.4.</strong> Relationships</a></li></ol></li><li class="chapter-item expanded "><a href="../api/intro.html"><strong aria-hidden="true">5.</strong> CRUD API Usage Examples</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../api/node_create.html"><strong aria-hidden="true">5.1.</strong> Node Create</a></li><li class="chapter-item expanded "><a href="../api/node_read.html"><strong aria-hidden="true">5.2.</strong> Node Read</a></li><li class="chapter-item expanded "><a href="../api/node_update.html"><strong aria-hidden="true">5.3.</strong> Node Update</a></li><li class="chapter-item expanded "><a href="../api/node_delete.html"><strong aria-hidden="true">5.4.</strong> Node Delete</a></li><li class="chapter-item expanded "><a href="../api/rel_create.html"><strong aria-hidden="true">5.5.</strong> Relationship Create</a></li><li class="chapter-item expanded "><a href="../api/rel_read.html"><strong aria-hidden="true">5.6.</strong> Relationship Read</a></li><li class="chapter-item expanded "><a href="../api/rel_update.html"><strong aria-hidden="true">5.7.</strong> Relationship Update</a></li><li class="chapter-item expanded "><a href="../api/rel_delete.html"><strong aria-hidden="true">5.8.</strong> Relationship Delete</a></li></ol></li><li class="chapter-item expanded "><a href="../engine/intro.html"><strong aria-hidden="true">6.</strong> Engine Features</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../engine/endpoints_static.html"><strong aria-hidden="true">6.1.</strong> Static Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/endpoints_defined.html"><strong aria-hidden="true">6.2.</strong> Defined Endpoints</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_props.html"><strong aria-hidden="true">6.3.</strong> Dynamic Props</a></li><li class="chapter-item expanded "><a href="../engine/dynamic_rels.html"><strong aria-hidden="true">6.4.</strong> Dynamic Relationships</a></li><li class="chapter-item expanded "><a href="../engine/context_request.html"><strong aria-hidden="true">6.5.</strong> Request Context</a></li><li class="chapter-item expanded "><a href="../engine/input_validation.html"><strong aria-hidden="true">6.6.</strong> Input Validation</a></li><li class="chapter-item expanded "><a href="../engine/event_handlers.html" class="active"><strong aria-hidden="true">6.7.</strong> Event Handlers</a></li></ol></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Warpgrapher Book (0.10.1)</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="event-handlers"><a class="header" href="#event-handlers">Event Handlers</a></h1>
+<p>The earlier sections of the book covered a great many options for customizing the behavior of Warpgrapher, including input validation, request context, custom endpoints, and dynamic properties and relationships. Warpgrapher offers an additional API, the event handling API, to modify Warpgrapher's behavior at almost every point in the lifecycle of a request. Event handlers may be added before <code>Engine</code> creation, before or after request handling, and before or after nodes ore relationsihps are created, read, updated, or deleted. This section will introduce the event handling API using an extended example of implementing a very simple authorization model. Each data record will be owned by one user, and only that user is entitled to read or modify that record.</p>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<p>Unlike some of the other customization points in the Warpgrapher engine, no special configuration is required for event handlers. They are created and added to the <code>Engine</code> using only Rust code. The data model used for this section's example is as follows.</p>
+<pre><code class="language-rust no_run noplayground">version: 1
+model:
+  - name: Record
+    props:
+      - name: content
+        type: String
+</code></pre>
+<h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
+<p>The example introduces four event hooks illustrating different lifecycle events. One event handler is set up for before the engine is built. It takes in the configuration and modifies it to insert an additional property allowing the system to track the owner of a given <code>Record</code>.  A second event handler runs before every request, inserting the current username into a request context so that the system can determine who is making a request, and thus whether that current user matches the ownership of the records being affected.  The remaining event handlers run after node read events and before node modification events, in order to enforce the access control rules.</p>
+<h3 id="before-engine-build"><a class="header" href="#before-engine-build">Before Engine Build</a></h3>
+<p>The following function is run before the engine is built. It takes in a mutable copy of the configuration to be used to set up Warpgrapher <code>Engine</code>. This allows before engine build event handlers to make any concievable modification to the configuration. They can add or remove endpoints, types, properties, relationships, dynamic resolvers, validation, or anything else that can be included in a configuration.</p>
+<pre><code class="language-rust no_run noplayground">/// before_build_engine event hook
+/// Adds owner meta fields to all types in the model (though in this example, there's only one,
+/// the record type)
+fn add_owner_field(config: &amp;mut Configuration) -&gt; Result&lt;(), Error&gt; {
+    for t in config.model.iter_mut() {
+        let mut_props: &amp;mut Vec&lt;Property&gt; = t.mut_props();
+        mut_props.push(Property::new(
+            &quot;owner&quot;.to_string(),
+            UsesFilter::none(),
+            &quot;String&quot;.to_string(),
+            false,
+            false,
+            None,
+            None,
+        ));
+    }
+    Ok(())
+}
+</code></pre>
+<p>In this example, the handler is iterating through the configuration, finding every type declared in the data model. To each type, the handler is adding a new owner property that will record the identity of the owner of the record. This will later be used to validate that only the owner can read and modify the data.</p>
+<h3 id="before-request-processing"><a class="header" href="#before-request-processing">Before Request Processing</a></h3>
+<p>The following event hook function is run before every request that is processed by the Warpgrapher engine. In a full system implementation, it would likely pull information from the <code>metadata</code> parameter, such as request headers like a JWT, that might be parsed to pull out user identity information. That data might then be used to look up a user profile in the database. In this case, the example simply hard-codes a username. It does, however, demonstrate the use of an application-specific request context as a means of passing data in for use by other event handlers or by custom resolvers.</p>
+<pre><code class="language-rust no_run noplayground">/// This event handler executes at the beginning of every request and attempts to insert the
+/// current user's profile into the request context.
+fn insert_user_profile(
+    mut rctx: Rctx,
+    mut _ef: EventFacade&lt;Rctx&gt;,
+    _metadata: HashMap&lt;String, String&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Rctx, Error&gt;&gt; {
+    Box::pin(async move {
+        // A real implementation would likely pull a user identity from an authentication token in
+        // metadata, or use that token to look up a full user profile in a database. In this
+        // example, the identify is hard-coded.
+        rctx.username = &quot;user-from-JWT&quot;.to_string();
+        Ok(rctx)
+    })
+}
+</code></pre>
+<h3 id="before-node-creation"><a class="header" href="#before-node-creation">Before Node Creation</a></h3>
+<p>The <code>insert_owner</code> event hook is run prior to the creation of any new nodes. The <code>Value</code> passed to the function is the GraphQL input type in the form of a Warpgrapher <code>Value</code>. In this case, the function modifies the input value to insert an additional property, the owner of the node about to be created, which is set to be the username of the current user. </p>
+<pre><code class="language-rust no_run noplayground">/// before_create event hook
+/// Inserts an owner meta property into every new node containing the id of the creator
+fn insert_owner(mut v: Value, ef: EventFacade&lt;'_, Rctx&gt;) -&gt; BoxFuture&lt;Result&lt;Value, Error&gt;&gt; {
+    Box::pin(async move {
+        if let CrudOperation::CreateNode(_) = ef.op() {
+            if let Value::Map(ref mut input) = v {
+                let user_name = ef
+                    .context()
+                    .request_context()
+                    .expect(&quot;Expect context&quot;)
+                    .username
+                    .to_string();
+                input.insert(&quot;owner&quot;.to_string(), Value::String(user_name));
+            }
+        }
+        Ok(v)
+    })
+}
+</code></pre>
+<p>The modified input value is returned from the event hook, and when Warpgrapher continues executing the node creation operation, the owner property is included in the node creation operation, alongside all the other input properties.</p>
+<h3 id="after-node-read"><a class="header" href="#after-node-read">After Node Read</a></h3>
+<p>The <code>enforce_read_access</code> event hook, defined below, is set to run after each node read operation. The Rust function is passed a <code>Vec</code> of nodes that that were read. The event hook function iterates through the nodes that were read, pulling out their owner property. That owner property is compared with the current logged in username. If the two match, the node belongs to the user, and the node is retained in the results list.  If the two do not match, then the current logged in user is not the owner of the record, and the node is discarded from the results list without ever being passed back to the user.</p>
+<pre><code class="language-rust no_run noplayground">/// after_read event hook
+/// Filters the read nodes to those that are authorized to be read
+fn enforce_read_access(
+    mut nodes: Vec&lt;Node&lt;Rctx&gt;&gt;,
+    ef: EventFacade&lt;'_, Rctx&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Vec&lt;Node&lt;Rctx&gt;&gt;, Error&gt;&gt; {
+    Box::pin(async move {
+        nodes.retain(|node| {
+            let node_owner: String = node
+                .fields()
+                .get(&quot;owner&quot;)
+                .unwrap()
+                .clone()
+                .try_into()
+                .expect(&quot;Expect to find owner field.&quot;);
+
+            node_owner
+                == ef
+                    .context()
+                    .request_context()
+                    .expect(&quot;Context expected&quot;)
+                    .username
+        });
+        Ok(nodes)
+    })
+}
+</code></pre>
+<h3 id="before-node-update-and-delete"><a class="header" href="#before-node-update-and-delete">Before Node Update and Delete</a></h3>
+<p>The <code>enforce_write_access</code> event hook, shown below, is set to run before each node update or delete operation. The Rust function is passed the <code>input</code> value that corresponds to the GraphQL schema <code>input</code> argument type for the update or delete operation. In this example implementation, the function executes the <code>MATCH</code> portion of the update or delete query, reading all the nodes that are intended to be modified. For each of the nodes read, the event handler tests whether the owner attribute is the current logged in username. If the two match, the node belongs to the current user, and it is kept in the result set. If the username does not match the owner property on the object, then the node is discarded.</p>
+<p>Once the node list is filtered, the event handler constructs a new <code>MATCH</code> query that will match the unique identifiers of all the nodes remaining in the filtered list. This new <code>MATCH</code> query is returned from the event handler and used subsequently in Warpgrapher's automatically generated resolvers to do the update or deletion operation.</p>
+<pre><code class="language-rust no_run noplayground">/// before_update event hook
+/// Filters out nodes that the user is not authorized to modify
+fn enforce_write_access(
+    v: Value,
+    mut ef: EventFacade&lt;'_, Rctx&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Value, Error&gt;&gt; {
+    Box::pin(async move {
+        if let Value::Map(mut m) = v.clone() {
+            if let Some(input_match) = m.remove(&quot;MATCH&quot;) {
+                let nodes = &amp;ef.read_nodes(&quot;Record&quot;, input_match, None).await?;
+
+                // filter nodes that are authorized
+                let filtered_node_ids: Vec&lt;Value&gt; = nodes
+                    .iter()
+                    .filter(|n| {
+                        let node_owner: String =
+                            n.fields().get(&quot;owner&quot;).unwrap().clone().try_into().unwrap();
+
+                        node_owner
+                            == ef
+                                .context()
+                                .request_context()
+                                .expect(&quot;Expect context.&quot;)
+                                .username
+                    })
+                    .map(|n| Ok(n.id()?.clone()))
+                    .collect::&lt;Result&lt;Vec&lt;Value&gt;, Error&gt;&gt;()?;
+
+                // replace MATCH input with filtered nodes
+                m.insert(
+                    &quot;MATCH&quot;.to_string(),
+                    Value::Map(hashmap! {
+                        &quot;id&quot;.to_string() =&gt; Value::Map(hashmap! {
+                            &quot;IN&quot;.to_string() =&gt; Value::Array(filtered_node_ids)
+                        })
+                    }),
+                );
+
+                // return modified input
+                Ok(Value::Map(m))
+            } else {
+                // Return original input unmodified
+                Ok(v)
+            }
+        } else {
+            // Return original input unmodified
+            Ok(v)
+        }
+    })
+}
+</code></pre>
+<p>Although not necessary for this use case, the event handler could have just east as easily modified the <code>SET</code> portion of the update query as the <code>MATCH</code>, in some way adjusting the values used to update an existing node.</p>
+<h2 id="add-handlers-to-the-engine"><a class="header" href="#add-handlers-to-the-engine">Add Handlers to the Engine</a></h2>
+<p>The event handlers are all added to an <code>EventHandlerBag</code> which is then passed to the Warpgrapher engine.  The registration function determines where in the life cycle the hook will be called, and in some cases, such as before and after node and relationship CRUD operation handlers, there are arguments to specify which nodes or relationships should be affected.</p>
+<pre><code class="language-rust no_run noplayground">    let mut ehb = EventHandlerBag::new();
+    ehb.register_before_request(insert_user_profile);
+    ehb.register_before_engine_build(add_owner_field);
+    ehb.register_before_node_create(vec![&quot;Record&quot;.to_string()], insert_owner);
+    ehb.register_after_node_read(vec![&quot;Record&quot;.to_string()], enforce_read_access);
+    ehb.register_before_node_update(vec![&quot;Record&quot;.to_string()], enforce_write_access);
+    ehb.register_before_node_delete(vec![&quot;Record&quot;.to_string()], enforce_write_access);
+
+    // create warpgrapher engine
+    let engine: Engine&lt;Rctx&gt; = Engine::new(config, db)
+        .with_event_handlers(ehb)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
+</code></pre>
+<h2 id="example-api-call"><a class="header" href="#example-api-call">Example API Call</a></h2>
+<p>The following GraphQL query triggers at least the first several event handlers in the call. Other queries and mutations would be needed to exercise all of them.</p>
+<pre><code class="language-rust no_run noplayground">    let query = &quot;
+        mutation {
+            RecordCreate(input: {
+                content: \&quot;Test Content\&quot;
+            }) {
+                id
+                name
+            }
+        }
+    &quot;
+    .to_string();
+    let metadata = HashMap::new();
+    let result = engine.execute(query, None, metadata).await.unwrap();
+</code></pre>
+<h2 id="full-example-source"><a class="header" href="#full-example-source">Full Example Source</a></h2>
+<p>See below for the full source code to the example above.</p>
+<pre><code class="language-rust no_run noplayground">use maplit::hashmap;
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use warpgrapher::engine::config::{Configuration, Property, UsesFilter};
+use warpgrapher::engine::context::RequestContext;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
+use warpgrapher::engine::database::CrudOperation;
+use warpgrapher::engine::database::DatabaseEndpoint;
+use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
+use warpgrapher::engine::objects::Node;
+use warpgrapher::engine::value::Value;
+use warpgrapher::juniper::BoxFuture;
+use warpgrapher::{Engine, Error};
+
+static CONFIG: &amp;str = &quot;
+version: 1
+model:
+  - name: Record
+    props:
+      - name: content
+        type: String
+&quot;;
+
+#[derive(Clone, Debug)]
+pub struct Rctx {
+    pub username: String,
+}
+
+impl Rctx {}
+
+impl RequestContext for Rctx {
+    type DBEndpointType = CypherEndpoint;
+
+    fn new() -&gt; Self {
+        Rctx {
+            username: String::new(),
+        }
+    }
+}
+
+/// This event handler executes at the beginning of every request and attempts to insert the
+/// current user's profile into the request context.
+fn insert_user_profile(
+    mut rctx: Rctx,
+    mut _ef: EventFacade&lt;Rctx&gt;,
+    _metadata: HashMap&lt;String, String&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Rctx, Error&gt;&gt; {
+    Box::pin(async move {
+        // A real implementation would likely pull a user identity from an authentication token in
+        // metadata, or use that token to look up a full user profile in a database. In this
+        // example, the identify is hard-coded.
+        rctx.username = &quot;user-from-JWT&quot;.to_string();
+        Ok(rctx)
+    })
+}
+
+/// before_build_engine event hook
+/// Adds owner meta fields to all types in the model (though in this example, there's only one,
+/// the record type)
+fn add_owner_field(config: &amp;mut Configuration) -&gt; Result&lt;(), Error&gt; {
+    for t in config.model.iter_mut() {
+        let mut_props: &amp;mut Vec&lt;Property&gt; = t.mut_props();
+        mut_props.push(Property::new(
+            &quot;owner&quot;.to_string(),
+            UsesFilter::none(),
+            &quot;String&quot;.to_string(),
+            false,
+            false,
+            None,
+            None,
+        ));
+    }
+    Ok(())
+}
+
+/// before_create event hook
+/// Inserts an owner meta property into every new node containing the id of the creator
+fn insert_owner(mut v: Value, ef: EventFacade&lt;'_, Rctx&gt;) -&gt; BoxFuture&lt;Result&lt;Value, Error&gt;&gt; {
+    Box::pin(async move {
+        if let CrudOperation::CreateNode(_) = ef.op() {
+            if let Value::Map(ref mut input) = v {
+                let user_name = ef
+                    .context()
+                    .request_context()
+                    .expect(&quot;Expect context&quot;)
+                    .username
+                    .to_string();
+                input.insert(&quot;owner&quot;.to_string(), Value::String(user_name));
+            }
+        }
+        Ok(v)
+    })
+}
+
+/// after_read event hook
+/// Filters the read nodes to those that are authorized to be read
+fn enforce_read_access(
+    mut nodes: Vec&lt;Node&lt;Rctx&gt;&gt;,
+    ef: EventFacade&lt;'_, Rctx&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Vec&lt;Node&lt;Rctx&gt;&gt;, Error&gt;&gt; {
+    Box::pin(async move {
+        nodes.retain(|node| {
+            let node_owner: String = node
+                .fields()
+                .get(&quot;owner&quot;)
+                .unwrap()
+                .clone()
+                .try_into()
+                .expect(&quot;Expect to find owner field.&quot;);
+
+            node_owner
+                == ef
+                    .context()
+                    .request_context()
+                    .expect(&quot;Context expected&quot;)
+                    .username
+        });
+        Ok(nodes)
+    })
+}
+
+/// before_update event hook
+/// Filters out nodes that the user is not authorized to modify
+fn enforce_write_access(
+    v: Value,
+    mut ef: EventFacade&lt;'_, Rctx&gt;,
+) -&gt; BoxFuture&lt;Result&lt;Value, Error&gt;&gt; {
+    Box::pin(async move {
+        if let Value::Map(mut m) = v.clone() {
+            if let Some(input_match) = m.remove(&quot;MATCH&quot;) {
+                let nodes = &amp;ef.read_nodes(&quot;Record&quot;, input_match, None).await?;
+
+                // filter nodes that are authorized
+                let filtered_node_ids: Vec&lt;Value&gt; = nodes
+                    .iter()
+                    .filter(|n| {
+                        let node_owner: String =
+                            n.fields().get(&quot;owner&quot;).unwrap().clone().try_into().unwrap();
+
+                        node_owner
+                            == ef
+                                .context()
+                                .request_context()
+                                .expect(&quot;Expect context.&quot;)
+                                .username
+                    })
+                    .map(|n| Ok(n.id()?.clone()))
+                    .collect::&lt;Result&lt;Vec&lt;Value&gt;, Error&gt;&gt;()?;
+
+                // replace MATCH input with filtered nodes
+                m.insert(
+                    &quot;MATCH&quot;.to_string(),
+                    Value::Map(hashmap! {
+                        &quot;id&quot;.to_string() =&gt; Value::Map(hashmap! {
+                            &quot;IN&quot;.to_string() =&gt; Value::Array(filtered_node_ids)
+                        })
+                    }),
+                );
+
+                // return modified input
+                Ok(Value::Map(m))
+            } else {
+                // Return original input unmodified
+                Ok(v)
+            }
+        } else {
+            // Return original input unmodified
+            Ok(v)
+        }
+    })
+}
+
+#[tokio::main]
+async fn main() {
+    // parse warpgrapher config
+    let config = Configuration::try_from(CONFIG.to_string()).expect(&quot;Failed to parse CONFIG&quot;);
+
+    // define database endpoint
+    let db = CypherEndpoint::from_env()
+        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
+        .pool()
+        .await
+        .expect(&quot;Failed to create cypher database pool&quot;);
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_before_request(insert_user_profile);
+    ehb.register_before_engine_build(add_owner_field);
+    ehb.register_before_node_create(vec![&quot;Record&quot;.to_string()], insert_owner);
+    ehb.register_after_node_read(vec![&quot;Record&quot;.to_string()], enforce_read_access);
+    ehb.register_before_node_update(vec![&quot;Record&quot;.to_string()], enforce_write_access);
+    ehb.register_before_node_delete(vec![&quot;Record&quot;.to_string()], enforce_write_access);
+
+    // create warpgrapher engine
+    let engine: Engine&lt;Rctx&gt; = Engine::new(config, db)
+        .with_event_handlers(ehb)
+        .build()
+        .expect(&quot;Failed to build engine&quot;);
+
+    let query = &quot;
+        mutation {
+            RecordCreate(input: {
+                content: \&quot;Test Content\&quot;
+            }) {
+                id
+                name
+            }
+        }
+    &quot;
+    .to_string();
+    let metadata = HashMap::new();
+    let result = engine.execute(query, None, metadata).await.unwrap();
+
+    println!(&quot;result: {:#?}&quot;, result);
+}
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../engine/input_validation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../engine/input_validation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </body>
+</html>

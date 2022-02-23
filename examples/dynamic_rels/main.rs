@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use uuid::Uuid;
 use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
-use warpgrapher::engine::database::neo4j::Neo4jEndpoint;
+use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
@@ -31,7 +31,7 @@ model:
 struct AppRequestContext {}
 
 impl RequestContext for AppRequestContext {
-    type DBEndpointType = Neo4jEndpoint;
+    type DBEndpointType = CypherEndpoint;
     fn new() -> AppRequestContext {
         AppRequestContext {}
     }
@@ -52,8 +52,12 @@ fn resolve_project_top_contributor(
 
         // create dynamic rel
         let rel_id = "1234567890".to_string();
-        let top_contributor_rel =
-            facade.create_rel_with_dst_node(Value::from(rel_id), None, top_contributor)?;
+        let top_contributor_rel = facade.create_rel_with_dst_node(
+            Value::from(rel_id),
+            "topdev",
+            HashMap::new(),
+            top_contributor,
+        )?;
 
         facade.resolve_rel(&top_contributor_rel).await
     })
@@ -65,11 +69,11 @@ async fn main() {
     let config = Configuration::try_from(CONFIG.to_string()).expect("Failed to parse CONFIG");
 
     // define database endpoint
-    let db = Neo4jEndpoint::from_env()
-        .expect("Failed to parse neo4j endpoint from environment")
+    let db = CypherEndpoint::from_env()
+        .expect("Failed to parse cypher endpoint from environment")
         .pool()
         .await
-        .expect("Failed to create neo4j database pool");
+        .expect("Failed to create cypher database pool");
 
     // define resolvers
     let mut resolvers = Resolvers::<AppRequestContext>::new();

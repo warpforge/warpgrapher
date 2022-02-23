@@ -8,7 +8,7 @@ pub fn wg_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let name = &input.sig.ident;
     let name_gremlin = format_ident!("{}{}", name, "_gremlin");
-    let name_neo4j = format_ident!("{}{}", name, "_neo4j");
+    let name_cypher = format_ident!("{}{}", name, "_cypher");
 
     let gen = quote! {
         #[cfg(feature = "gremlin")]
@@ -21,13 +21,13 @@ pub fn wg_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #name(client).await;
         }
 
-        #[cfg(feature = "neo4j")]
+        #[cfg(feature = "cypher")]
         #[tokio::test]
-        async fn #name_neo4j() {
+        async fn #name_cypher() {
             setup::init();
             setup::clear_db().await;
 
-            let client = setup::neo4j_test_client("./tests/fixtures/minimal.yml").await;
+            let client = setup::cypher_test_client("./tests/fixtures/minimal.yml").await;
             #name(client).await;
         }
 

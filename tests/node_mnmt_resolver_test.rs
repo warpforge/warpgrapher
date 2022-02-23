@@ -264,7 +264,8 @@ async fn read_mnmt_by_rel_props<RequestCtx: RequestContext>(mut client: Client<R
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "since": "today", "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, 
+                                                        { "since": "yesterday",  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -275,8 +276,8 @@ async fn read_mnmt_by_rel_props<RequestCtx: RequestContext>(mut client: Client<R
     let projects = client
         .read_node(
             "Project",             
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
-            Some(&json!({"issues": {"props": {"since": {"EQ": "today"}}}}))
+            "__typename id name issues { __typename id since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            Some(&json!({"issues": {"since": {"EQ": "today"}}}))
         )
         .await
         .unwrap();
@@ -326,7 +327,8 @@ async fn read_mnmt_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
+            &json!({"name": "Project Zero", "issues": [ { "since": "today", "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, 
+                                                        { "since": "yesterday",  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} ] }))
         .await
         .unwrap();
 
@@ -338,7 +340,8 @@ async fn read_mnmt_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .create_node(
             "Project",
             "__typename id name", Some("1234"),
-            &json!({"name": "Project One", "issues": [ { "props": { "since": "today" }, "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, { "props": { "since": "yesterday" },  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
+            &json!({"name": "Project One", "issues": [ { "since": "today", "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, 
+                                                       { "since": "yesterday",  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} ] }))
         .await
         .unwrap();
 
@@ -349,7 +352,7 @@ async fn read_mnmt_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
     let projects = client
         .read_node(
             "Project", 
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name issues { __typename id since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"issues": {"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}}}))
         )
         .await
@@ -579,9 +582,9 @@ async fn update_mnmt_relationship<RequestCtx: RequestContext>(mut client: Client
     let pu = client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name status issues { __typename since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
-            &json!({"issues": {"UPDATE": {"MATCH": {"dst": { "Feature": { "name": {"EQ": "Feature Zero"}}}}, "SET": {"props": {"since": "Forever"}}}}}),
+            &json!({"issues": {"UPDATE": {"MATCH": {"dst": { "Feature": { "name": {"EQ": "Feature Zero"}}}}, "SET": {"since": "Forever"}}}}),
         )
         .await
         .unwrap();
@@ -600,14 +603,12 @@ async fn update_mnmt_relationship<RequestCtx: RequestContext>(mut client: Client
     let issuesu = p1.get("issues").unwrap().as_array().unwrap();
     assert_eq!(issuesu.len(), 2);
 
-    assert!(issuesu
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "Forever"));
+    assert!(issuesu.iter().any(|i| i.get("since").unwrap() == "Forever"));
 
     let projects = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name issues { __typename id since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             None,
         )
         .await
@@ -649,7 +650,7 @@ async fn update_mnmt_relationship<RequestCtx: RequestContext>(mut client: Client
         .as_array()
         .unwrap()
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "Forever"));
+        .any(|i| i.get("since").unwrap() == "Forever"));
 }
 
 /// Passes if warpgrapher only updates the correct matching relationship
@@ -677,9 +678,9 @@ async fn update_only_correct_mnmt_relationship<RequestCtx: RequestContext>(
     client
         .update_node(
             "Project",
-            "__typename id name status issues { __typename props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name status issues { __typename since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
-            &json!({"issues": {"UPDATE": {"MATCH": {"dst": { "Feature": { "name": {"EQ":"Feature Zero"}}}}, "SET": {"props": {"since": "Forever"}}}}}),
+            &json!({"issues": {"UPDATE": {"MATCH": {"dst": { "Feature": { "name": {"EQ":"Feature Zero"}}}}, "SET": {"since": "Forever"}}}}),
         )
         .await
         .unwrap();
@@ -687,7 +688,7 @@ async fn update_only_correct_mnmt_relationship<RequestCtx: RequestContext>(
     let p_zero = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name issues { __typename id since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -708,12 +709,12 @@ async fn update_only_correct_mnmt_relationship<RequestCtx: RequestContext>(
         .as_array()
         .unwrap()
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "Forever"));
+        .any(|i| i.get("since").unwrap() == "Forever"));
 
     let p_one = client
         .read_node(
             "Project",
-            "__typename id name issues { __typename id props { since } dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
+            "__typename id name issues { __typename id since dst { ...on Bug { __typename id name } ...on Feature { __typename id name } } }", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -734,7 +735,7 @@ async fn update_only_correct_mnmt_relationship<RequestCtx: RequestContext>(
         .as_array()
         .unwrap()
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "Forever"));
+        .any(|i| i.get("since").unwrap() == "Forever"));
 }
 
 /// Passes if warpgrapher can update a node to delete a relationship
@@ -841,7 +842,7 @@ async fn delete_node_by_mnmt_rel_property<RequestCtx: RequestContext>(
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+            &json!({"name": "Project Zero", "issues": [ { "since": "never", "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
 
@@ -867,7 +868,7 @@ async fn delete_node_by_mnmt_rel_property<RequestCtx: RequestContext>(
         .delete_node(
             "Project",
             Some("1234"),
-            Some(&json!({"issues": {"props": {"since": {"EQ": "never"}}}})),
+            Some(&json!({"issues": {"since": {"EQ": "never"}}})),
             Some(&json!({"issues": [{"MATCH": {}}]})),
         )
         .await
@@ -895,7 +896,7 @@ async fn delete_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>)
         .create_node(
             "Project",
             "__typename id name issues { __typename id dst { ...on Bug { __typename id name } ...on Feature {__typename id name } } }", Some("1234"),
-            &json!({"name": "Project Zero", "issues": [ { "props": { "since": "never" }, "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
+            &json!({"name": "Project Zero", "issues": [ { "since": "never", "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } } ] }))
         .await
         .unwrap();
 

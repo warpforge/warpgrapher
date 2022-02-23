@@ -6,6 +6,7 @@ use crate::engine::database::{
     Comparison, DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryFragment, QueryResult,
     RelQueryVar, SuffixGenerator, Transaction,
 };
+use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
@@ -74,7 +75,6 @@ impl Transaction for NoTransaction {
         _rel_var: &RelQueryVar,
         _id_opt: Option<Value>,
         _props: HashMap<String, Value>,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
@@ -96,6 +96,14 @@ impl Transaction for NoTransaction {
         _props: HashMap<String, Comparison>,
         _sg: &mut SuffixGenerator,
     ) -> Result<QueryFragment, Error> {
+        Err(Error::DatabaseNotFound)
+    }
+
+    async fn load_nodes<RequestCtx: RequestContext>(
+        &mut self,
+        _keys: &[NodeLoaderKey],
+        _info: &Info,
+    ) -> Result<Vec<Node<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }
 
@@ -128,11 +136,17 @@ impl Transaction for NoTransaction {
         Err(Error::DatabaseNotFound)
     }
 
+    async fn load_rels<RequestCtx: RequestContext>(
+        &mut self,
+        _keys: &[RelLoaderKey],
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
+        Err(Error::DatabaseNotFound)
+    }
+
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
@@ -155,7 +169,6 @@ impl Transaction for NoTransaction {
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
         _props: HashMap<String, Value>,
-        _props_type_name: Option<&str>,
         _partition_key_opt: Option<&Value>,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {

@@ -1,1 +1,5 @@
 # Engine Features
+
+As shown in the previous chapters, Warpgrapher offers a considerable amount of power and flexibility out of the box. With a configuration describing a data model and a little bit of server integration code, it is possible to stand up a fully functional GraphQL service, with automatically generated CRUD operations for nodes and relationships. The recursive structure of the schema allows for single queries and mutations over arbitrarily deep sub-graphs.
+
+However, these features by themselves are still not enough for a production service. A robust production system will doubtless need to validate inputs. It will likely need to conduct authorization checks on requests as a security control. It will need to include business logic that does calculations over existing data or launches additional workflows. This chapter discusses the extensibility features of the Warpgrapher engine make it possible to build a real GraphQL API service on top of the foundation that Warpgrapher provides.

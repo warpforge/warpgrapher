@@ -1,10 +1,11 @@
-use super::{Input, Node};
+use super::Input;
 use crate::engine::context::{GraphQLContext, RequestContext};
-use crate::engine::database::{Comparison, DatabasePool};
+use crate::engine::database::DatabasePool;
 use crate::engine::database::{
     CrudOperation, NodeQueryVar, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::events::EventFacade;
+use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -15,6 +16,7 @@ use inflector::Inflector;
 use log::trace;
 use std::collections::HashMap;
 use std::convert::TryInto;
+use ultra_batch::LoadError;
 use visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
@@ -70,6 +72,11 @@ impl<'r> Resolver<'r> {
         .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "resolve_custom_field",
+        skip(self, info, resolver, parent, args, executor)
+    )]
     pub(super) async fn resolve_custom_field<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
@@ -102,6 +109,11 @@ impl<'r> Resolver<'r> {
         .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "resolve_custom_rel",
+        skip(self, info, resolver, parent, args, executor)
+    )]
     pub(super) async fn resolve_custom_rel<RequestCtx: RequestContext>(
         &mut self,
         info: &Info,
@@ -276,13 +288,6 @@ impl<'r> Resolver<'r> {
         let mut sg = SuffixGenerator::new();
 
         let p = info.type_def()?.property(field_name)?;
-        let itd = if info.name() == "Query" {
-            p.input_type_definition(info)?
-        } else {
-            info.type_def_by_name("Query")?
-                .property(p.type_name())?
-                .input_type_definition(info)?
-        };
         let node_var = NodeQueryVar::new(
             Some(p.type_name().to_string()),
             "node".to_string(),
@@ -317,26 +322,77 @@ impl<'r> Resolver<'r> {
             input_opt.map(|i| i.value)
         };
 
-        let query_fragment = visit_node_query_input::<RequestCtx>(
-            &node_var,
-            input_value_opt,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
-            &mut sg,
-            &mut transaction,
-        )
-        .await?;
-
-        let mut results = match transaction
-            .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-            .await
-        {
-            Err(e) => {
-                transaction.rollback().await?;
-                return Err(e.into());
+        let mut id_for_loader_opt = None;
+        if let Some(Value::Map(im)) = &input_value_opt {
+            if im.keys().len() == 1 {
+                if let Some(Value::Map(comparison)) = im.get("id") {
+                    // Okay, this is painful, but we're testing whether after
+                    // the possible additions of search criteria in the shape
+                    // and the possible changes made to the input query by
+                    // the before_node_read handler, we still have a query that
+                    // has nothing in it but the node id search criterion.
+                    // If so, this is a a basic node read (the most common case
+                    // in a shape) and we should use the loader to avoid the
+                    // N+1 problem.
+                    //
+                    // Unlike the rel loader, we don't handle the "IN" condition of multiple ids
+                    // because errors aren't returned for each id being loaded, only one error if
+                    // any of the operations fails. That means we can't return all found ids if
+                    // even one id isn't found.
+                    if let Some(id_val) = comparison.get("EQ") {
+                        id_for_loader_opt = Some(NodeLoaderKey::new(
+                            id_val.to_string(),
+                            self.partition_key_opt.map(|pk| pk.to_string()),
+                        ));
+                    }
+                }
             }
-            Ok(results) => results,
+        }
+
+        let mut results = if let Some(id_for_loader) = id_for_loader_opt {
+            executor
+                .context()
+                .node_batcher()
+                .load(id_for_loader)
+                .await
+                .map(|n| vec![n])
+                .or_else(|e| {
+                    if let LoadError::NotFound = e {
+                        Ok(vec![])
+                    } else {
+                        Err(e)
+                    }
+                })?
+        } else {
+            let itd = if info.name() == "Query" {
+                p.input_type_definition(info)?
+            } else {
+                info.type_def_by_name("Query")?
+                    .property(p.type_name())?
+                    .input_type_definition(info)?
+            };
+            let query_fragment = visit_node_query_input::<RequestCtx>(
+                &node_var,
+                input_value_opt,
+                &Info::new(itd.type_name().to_owned(), info.type_defs()),
+                self.partition_key_opt,
+                &mut sg,
+                &mut transaction,
+            )
+            .await?;
+
+            match transaction
+                .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+                .await
+            {
+                Err(e) => {
+                    transaction.rollback().await?;
+                    return Err(e.into());
+                }
+                Ok(results) => results,
+            }
         };
+
         let label = match node_var.label() {
             Err(e) => {
                 transaction.rollback().await?;
@@ -344,6 +400,7 @@ impl<'r> Resolver<'r> {
             }
             Ok(results) => results,
         };
+
         if let Some(handlers) = executor.context().event_handlers().after_node_read(label) {
             for f in handlers.iter() {
                 results = match f(
@@ -371,24 +428,18 @@ impl<'r> Resolver<'r> {
         }
         std::mem::drop(transaction);
 
-        trace!(
-            "Resolver::resolve_node_read_query -- results: {:#?}",
-            results
-        );
+        let type_name = results
+            .get(0)
+            .map(|n| n.type_name().to_string())
+            .unwrap_or_else(|| p.type_name().to_string());
 
         if p.list() {
             executor
-                .resolve_async(
-                    &Info::new(p.type_name().to_owned(), info.type_defs()),
-                    &results,
-                )
+                .resolve_async(&Info::new(type_name, info.type_defs()), &results)
                 .await
         } else {
             executor
-                .resolve_async(
-                    &Info::new(p.type_name().to_owned(), info.type_defs()),
-                    &results.first(),
-                )
+                .resolve_async(&Info::new(type_name, info.type_defs()), &results.first())
                 .await
         }
     }
@@ -475,7 +526,6 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(p.type_name())?;
         let src_var =
             NodeQueryVar::new(Some(src_label.to_string()), "src".to_string(), sg.suffix());
 
@@ -484,10 +534,6 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_create_input::<RequestCtx>(
             &src_var,
             rel_name,
-            // The conversion from Error to None using ok() is actually okay here,
-            // as it's expected that some relationship types may not have props defined
-            // in their schema, in which case the missing property is fine.
-            rtd.property("props").map(|pp| pp.type_name()).ok(),
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -566,30 +612,6 @@ impl<'r> Resolver<'r> {
         executor.resolve_with_ctx(&(), &results?)
     }
 
-    pub(super) async fn resolve_rel_props<RequestCtx: RequestContext>(
-        &mut self,
-        info: &Info,
-        field_name: &str,
-        props: &Node<RequestCtx>,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-            "Resolver::resolve_rel_props called -- info.name: {:#?}, field_name: {}",
-            info.name(),
-            field_name,
-        );
-
-        let td = info.type_def()?;
-        let p = td.property(field_name)?;
-
-        executor
-            .resolve_async(
-                &Info::new(p.type_name().to_owned(), info.type_defs()),
-                props,
-            )
-            .await
-    }
-
     #[tracing::instrument(
         level = "info",
         name = "read_rel",
@@ -657,25 +679,78 @@ impl<'r> Resolver<'r> {
             input_opt.map(|i| i.value)
         };
 
-        let query_fragment = visit_rel_query_input::<RequestCtx>(
-            None,
-            &rel_var,
-            input_value_opt,
-            &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
-            &mut sg,
-            &mut transaction,
-        )
-        .await?;
+        let mut ids_for_loader_opt = None;
+        if let Some(Value::Map(im)) = &input_value_opt {
+            if im.keys().len() == 1 {
+                if let Some(Value::Map(src_m)) = im.get("src") {
+                    if src_m.keys().len() == 1 {
+                        if let Some(Value::Map(src_node_m)) =
+                            src_m.get(info.type_def()?.type_name())
+                        {
+                            if src_node_m.keys().len() == 1 {
+                                if let Some(Value::Map(comparison)) = src_node_m.get("id") {
+                                    // Okay, this is painful, but we're testing whether after
+                                    // the possible additions of search criteria in the shape
+                                    // and the possible changes made to the input dquery by
+                                    // the before_rel_read handler, we still have a query that
+                                    // has nothing in it but the src node id search criterion.
+                                    // If so, this is a a basic rel read (the most common case
+                                    // in a shape) and we should use the loader to avoid the
+                                    // N+1 problem.
+                                    if let Some(id_val) = comparison.get("EQ") {
+                                        ids_for_loader_opt = Some(vec![RelLoaderKey::new(
+                                            id_val.to_string(),
+                                            rel_name.to_string(),
+                                            self.partition_key_opt.map(|pk| pk.to_string()),
+                                        )]);
+                                    } else if let Some(Value::Array(ids)) = comparison.get("IN") {
+                                        ids_for_loader_opt = Some(
+                                            ids.iter()
+                                                .map(|id| {
+                                                    Ok(RelLoaderKey::new(
+                                                        id.to_string(),
+                                                        rel_name.to_string(),
+                                                        self.partition_key_opt
+                                                            .map(|pk| pk.to_string()),
+                                                    ))
+                                                })
+                                                .collect::<Result<Vec<RelLoaderKey>, Error>>()?,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-        let mut results = transaction
-            .read_rels(
-                query_fragment,
+        let mut results = if let Some(ids_for_loader) = ids_for_loader_opt {
+            trace!("Resolver::resolve_rel_read_query about to call load.");
+            executor
+                .context()
+                .rel_batcher()
+                .load_many(&ids_for_loader)
+                .await?
+                .into_iter()
+                .flatten()
+                .collect()
+        } else {
+            let query_fragment = visit_rel_query_input::<RequestCtx>(
+                None,
                 &rel_var,
-                Some(p.type_name()),
+                input_value_opt,
+                &Info::new(itd.type_name().to_owned(), info.type_defs()),
                 self.partition_key_opt,
+                &mut sg,
+                &mut transaction,
             )
             .await?;
+
+            transaction
+                .read_rels(query_fragment, &rel_var, self.partition_key_opt)
+                .await?
+        };
 
         if let Some(handlers) = executor.context().event_handlers().after_rel_read(
             &(src_prop.type_name().to_string() + &*rel_var.label().to_title_case() + "Rel"),
@@ -723,7 +798,7 @@ impl<'r> Resolver<'r> {
                             if i > 0 {
                                 ids.push_str(", ");
                             }
-                            let id: String = r.id().clone().try_into()?;
+                            let id: String = r.id()?.clone().try_into()?;
                             ids.push_str(&id);
                             Ok(ids)
                         },
@@ -763,8 +838,6 @@ impl<'r> Resolver<'r> {
         let td = info.type_def()?;
         let p = td.property(field_name)?;
         let itd = p.input_type_definition(info)?;
-        let rtd = info.type_def_by_name(p.type_name())?;
-        let props_prop = rtd.property("props");
         let rel_var = RelQueryVar::new(
             rel_name.to_string(),
             sg.suffix(),
@@ -777,7 +850,6 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_update_input::<RequestCtx>(
             None,
             &rel_var,
-            props_prop.map(|_| p.type_name()).ok(),
             input.value,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
             self.partition_key_opt,
@@ -883,65 +955,5 @@ impl<'r> Resolver<'r> {
             Some(v) => Ok(juniper::Value::scalar(v.to_string())),
             None => Ok(juniper::Value::Null),
         }
-    }
-
-    pub(super) async fn resolve_union_field<RequestCtx: RequestContext>(
-        &mut self,
-        info: &Info,
-        dst_label: &str,
-        field_name: &str,
-        dst_id: &Value,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!(
-            "Resolver::resolve_union_field called -- info.name: {}, field_name: {}, dst_id: {:#?}",
-            info.name(),
-            field_name,
-            dst_id
-        );
-
-        let mut sg = SuffixGenerator::new();
-        let mut transaction = executor.context().pool().read_transaction().await?;
-
-        let results = match field_name {
-            "dst" => {
-                let node_var =
-                    NodeQueryVar::new(Some(dst_label.to_string()), "node".to_string(), sg.suffix());
-                let mut props = HashMap::new();
-                props.insert("id".to_string(), Comparison::default(dst_id.clone()));
-                let query_fragment =
-                    transaction.node_read_fragment(Vec::new(), &node_var, props, &mut sg)?;
-                transaction
-                    .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
-                    .await
-            }
-            _ => Err(Error::SchemaItemNotFound {
-                name: info.name().to_string() + "::" + field_name,
-            }),
-        }?;
-        std::mem::drop(transaction);
-        executor
-            .resolve_async(
-                &Info::new(dst_label.to_string(), info.type_defs()),
-                &results.first().ok_or(Error::ResponseSetNotFound)?,
-            )
-            .await
-    }
-
-    pub(super) async fn resolve_union_field_node<RequestCtx: RequestContext>(
-        &mut self,
-        info: &Info,
-        field_name: &str,
-        dst: &Node<RequestCtx>,
-        executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
-    ) -> ExecutionResult {
-        trace!("Resolver::resolve_union_field_node called -- info.name: {}, field_name: {}, dst: {:#?}", info.name(), field_name, dst);
-
-        executor
-            .resolve_async(
-                &Info::new(dst.type_name().to_string(), info.type_defs()),
-                dst,
-            )
-            .await
     }
 }

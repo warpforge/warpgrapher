@@ -23,10 +23,11 @@ async fn create_mnmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
+            "__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
-            &json!([{"props": {"since": "today"}, "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
-                    {"props": {"since": "yesterday"}, "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
+            &json!([{"since": "today", "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}},
+                    {"since": "yesterday", "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}}]),
         )
         .await
         .unwrap();
@@ -49,17 +50,15 @@ async fn create_mnmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
 
     let projects = client
         .read_node(
             "Project",
-            "issues {__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "issues {__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -86,12 +85,10 @@ async fn create_mnmt_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
 }
 
 #[wg_test]
@@ -139,11 +136,11 @@ async fn create_mnmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234"),
+            "__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}",  Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([
-                {"props": {"since": "today"}, "dst": {"Feature": {"EXISTING": {"name": {"EQ": "Feature Zero"}}}}},
-                {"props": {"since": "yesterday"}, "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}},
+                {"since": "today", "dst": {"Feature": {"EXISTING": {"name": {"EQ": "Feature Zero"}}}}},
+                {"since": "yesterday", "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}},
             ]))
         .await
         .unwrap();
@@ -166,17 +163,15 @@ async fn create_mnmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
 
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -205,10 +200,8 @@ async fn create_mnmt_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature Zero"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
 }
 
 #[wg_test]
@@ -223,11 +216,11 @@ async fn read_mnmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     }
                 ]
@@ -240,8 +233,9 @@ async fn read_mnmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}",Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
+            "__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            Some("1234"),
+            Some(&json!({"since": {"EQ": "yesterday"}})),
         )
         .await
         .unwrap();
@@ -255,7 +249,7 @@ async fn read_mnmt_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .all(|i| i.get("since").unwrap() == "yesterday"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
@@ -276,11 +270,11 @@ async fn read_mnmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     }
                 ]
@@ -293,7 +287,8 @@ async fn read_mnmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
+            "__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
         )
         .await
@@ -308,10 +303,8 @@ async fn read_mnmt_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
@@ -338,19 +331,19 @@ async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                        "props": {"since": "last week"},
+                        "since": "last week",
                         "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     },
                     {
-                        "props": {"since": "last month"},
+                        "since": "last month",
                         "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     }
                 ]
@@ -363,7 +356,8 @@ async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
+            "__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            Some("1234"),
             Some(&json!({"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
         )
         .await
@@ -378,7 +372,7 @@ async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .all(|i| i.get("since").unwrap() == "yesterday"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
@@ -390,7 +384,8 @@ async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .read_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}", Some("1234"),
+            "__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}",
+            Some("1234"),
             Some(&json!({"dst": {"Feature": {"name": {"EQ": "Feature Zero"}}}})),
         )
         .await
@@ -403,9 +398,7 @@ async fn read_mnmt_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
     assert!(issues
         .iter()
         .all(|i| i.get("__typename").unwrap() == "ProjectIssuesRel"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() == "today"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
@@ -426,19 +419,19 @@ async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                      "props": {"since": "yesterday"},
+                      "since": "yesterday",
                       "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                      "props": {"since": "today"},
+                      "since": "today",
                       "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                      "props": {"since": "last week"},
+                      "since": "last week",
                       "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                      "props": {"since": "last month"},
+                      "since": "last month",
                       "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -451,9 +444,10 @@ async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "yesterday"}}})),
-            &json!({"props": {"since": "tomorrow"}}),
+            "__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            Some("1234"),
+            Some(&json!({"since": {"EQ": "yesterday"}})),
+            &json!({"since": "tomorrow"}),
         )
         .await
         .unwrap();
@@ -468,12 +462,10 @@ async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() == "tomorrow"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "tomorrow"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "yesterday"));
+        .all(|i| i.get("since").unwrap() != "yesterday"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() == "Feature Zero"));
@@ -481,7 +473,7 @@ async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Feature{__typename name} ...on Bug{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -505,19 +497,15 @@ async fn update_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "yesterday"));
+        .all(|i| i.get("since").unwrap() != "yesterday"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "today"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "tomorrow"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "today"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "tomorrow"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
@@ -544,11 +532,11 @@ async fn update_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     }
                 ]
@@ -561,9 +549,10 @@ async fn update_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
+            "__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
-            &json!({"props": {"since": "tomorrow"}}),
+            &json!({"since": "tomorrow"}),
         )
         .await
         .unwrap();
@@ -581,15 +570,11 @@ async fn update_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() == "tomorrow"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() != "today"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "tomorrow"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "today"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "yesterday"));
+        .all(|i| i.get("since").unwrap() != "yesterday"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
@@ -610,19 +595,19 @@ async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                      "props": {"since": "yesterday"},
+                      "since": "yesterday",
                       "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                      "props": {"since": "today"},
+                      "since": "today",
                       "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                      "props": {"since": "last week"},
+                      "since": "last week",
                       "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                      "props": {"since": "last month"},
+                      "since": "last month",
                       "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -635,9 +620,10 @@ async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .update_rel(
             "Project",
             "issues",
-            "__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}", Some("1234"),
+            "__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}",
+            Some("1234"),
             Some(&json!({"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}})),
-            &json!({"props": {"since": "tomorrow"}}),
+            &json!({"since": "tomorrow"}),
         )
         .await
         .unwrap();
@@ -652,12 +638,8 @@ async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Bug"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "today"));
-    assert!(issues
-        .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() == "tomorrow"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() != "today"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() == "tomorrow"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
@@ -665,7 +647,7 @@ async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -687,21 +669,17 @@ async fn update_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() != "today"));
+    assert!(issues.iter().any(|i| i.get("since").unwrap() == "tomorrow"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "today"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "tomorrow"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug Zero"));
@@ -728,19 +706,19 @@ async fn delete_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                      "props": {"since": "yesterday"},
+                      "since": "yesterday",
                       "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                      "props": {"since": "today"},
+                      "since": "today",
                       "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                      "props": {"since": "last week"},
+                      "since": "last week",
                       "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                      "props": {"since": "last month"},
+                      "since": "last month",
                       "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -754,7 +732,7 @@ async fn delete_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "issues",
             Some("1234"),
-            Some(&json!({"props": {"since": {"EQ": "today"}}})),
+            Some(&json!({"since": {"EQ": "today"}})),
             None,
             None,
         )
@@ -764,7 +742,7 @@ async fn delete_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -786,18 +764,16 @@ async fn delete_mnmt_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() != "today"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "today"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() != "Bug Zero"));
@@ -824,19 +800,19 @@ async fn delete_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                      "props": {"since": "yesterday"},
+                      "since": "yesterday",
                       "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                      "props": {"since": "today"},
+                      "since": "today",
                       "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     },
                     {
-                      "props": {"since": "last week"},
+                      "since": "last week",
                       "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                      "props": {"since": "last month"},
+                      "since": "last month",
                       "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -860,7 +836,7 @@ async fn delete_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             None,
         )
         .await
@@ -882,18 +858,16 @@ async fn delete_mnmt_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
+    assert!(issues.iter().all(|i| i.get("since").unwrap() != "today"));
     assert!(issues
         .iter()
-        .all(|i| i.get("props").unwrap().get("since").unwrap() != "today"));
+        .any(|i| i.get("since").unwrap() == "yesterday"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "yesterday"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
-    assert!(issues
-        .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .all(|i| i.get("dst").unwrap().get("name").unwrap() != "Bug Zero"));
@@ -920,11 +894,11 @@ async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     }
                 ]
@@ -942,11 +916,11 @@ async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                 "name": "Project One",
                 "issues": [
                     {
-                        "props": {"since": "last week"},
+                        "since": "last week",
                         "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                        "props": {"since": "last month"},
+                        "since": "last month",
                         "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -970,7 +944,7 @@ async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -979,7 +953,7 @@ async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -1008,10 +982,10 @@ async fn delete_mnmt_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug One"));
@@ -1034,11 +1008,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
                 "name": "Project Zero",
                 "issues": [
                     {
-                        "props": {"since": "yesterday"},
+                        "since": "yesterday",
                         "dst": {"Feature": {"NEW": {"name": "Feature Zero"}}}
                     },
                     {
-                        "props": {"since": "today"},
+                        "since": "today",
                         "dst": {"Bug": {"NEW": {"name": "Bug Zero"}}}
                     }
                 ]
@@ -1056,11 +1030,11 @@ async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
                 "name": "Project One",
                 "issues": [
                     {
-                        "props": {"since": "last week"},
+                        "since": "last week",
                         "dst": {"Feature": {"NEW": {"name": "Feature One"}}}
                     },
                     {
-                        "props": {"since": "last month"},
+                        "since": "last month",
                         "dst": {"Bug": {"NEW": {"name": "Bug One"}}}
                     }
                 ]
@@ -1087,7 +1061,7 @@ async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
     let projects0 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
         )
         .await
@@ -1096,7 +1070,7 @@ async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
     let projects1 = client
         .read_node(
             "Project",
-            "__typename name issues{__typename props{since} dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
+            "__typename name issues{__typename since dst{...on Bug{__typename name} ...on Feature{__typename name}}}", Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
         )
         .await
@@ -1135,10 +1109,10 @@ async fn delete_mnmt_rel_by_src_and_dst_prop<RequestCtx: RequestContext>(
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last week"));
+        .any(|i| i.get("since").unwrap() == "last week"));
     assert!(issues
         .iter()
-        .any(|i| i.get("props").unwrap().get("since").unwrap() == "last month"));
+        .any(|i| i.get("since").unwrap() == "last month"));
     assert!(issues
         .iter()
         .any(|i| i.get("dst").unwrap().get("name").unwrap() == "Bug One"));
