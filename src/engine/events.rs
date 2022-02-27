@@ -6,7 +6,7 @@ use crate::engine::config::Configuration;
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::{CrudOperation, Transaction};
 use crate::engine::database::{
-    DatabaseEndpoint, DatabasePool, NodeQueryVar, RelQueryVar, SuffixGenerator,
+    DatabaseEndpoint, DatabasePool, NodeQueryVar, QueryResult, RelQueryVar, SuffixGenerator,
 };
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
@@ -1118,8 +1118,56 @@ where
         self.context
     }
 
-    pub fn set_context(&self, context: GraphQLContext<RequestCtx>) {
-        self.context = &context;
+    /// Provides a direct database query operation. This is recommended when it is necessary to
+    /// bypass the event handlers that will be triggered from a standard warpgrapher query.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - String of the query to execute.
+    /// * `params` - HashMap<String, Value> dictionary of parameters to pass to the query.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use std::collections::HashMap;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let query =  "MATCH (u:User) WHERE u.id IN $user_ids SET u.active = true RETURN u".to_string();
+    ///         let mut params = HashMap::new();
+    /// 
+    ///         if let Value::Map(hm) = &value {
+    ///           if let Value::Map(m) = hm.get("MATCH").unwrap() {
+    ///             if let Value::Map(i) = m.get("id").unwrap() {
+    ///               if let Value::Array(a) = i.get("IN").unwrap() {
+    ///                 params.insert("user_ids".to_string(), Value::Array(a.clone()));
+    ///               };
+    ///             };
+    ///           };
+    ///         };
+    /// 
+    ///         ef.execute_query(
+    ///             query,
+    ///             params,
+    ///         ).await?;
+    /// 
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn execute_query(
+        &mut self,
+        query: String,
+        params: HashMap<String, Value>,
+    ) -> Result<QueryResult, Error> {
+        self.transaction.execute_query::<RequestCtx>(
+            query,
+            params,
+        ).await
     }
 
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the

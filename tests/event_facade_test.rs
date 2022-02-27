@@ -8,6 +8,8 @@ use setup::{clear_db, cypher_test_client_with_events, init};
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 //use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "cypher")]
+use warpgrapher::engine::database::QueryResult;
+#[cfg(feature = "cypher")]
 use std::collections::HashMap;
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::value::Value;
@@ -151,6 +153,35 @@ fn mock_handler(
         assert_eq!(
             project.fields().get("description").unwrap(),
             &Value::String("shields".to_string())
+        );
+
+        #[cfg(feature = "cypher")]
+        let query =  "MATCH (p:Project) WHERE p.name = $project_name RETURN p".to_string();
+        // #[cfg(feature = "gremlin")]
+        // let query = "g.V().has('name', $project_name)".to_string();
+
+        let mut params = HashMap::new();
+        params.insert("project_name".to_string(), Value::String("Project01".to_string()));
+
+        let result: QueryResult = ef.execute_query(
+            query,
+            params,
+        ).await?;
+
+        let projects = match result {
+            QueryResult::Cypher(rs) => rs,
+            _ => panic!("Expected Cypher result"),
+        };
+
+        let project = match projects.first().unwrap().fields().first().unwrap() {
+            bolt_proto::Value::Node(n) => n,
+            _ => panic!("Expected Node"),
+        };
+
+        println!("{:#?}", project);
+        assert_eq!(
+            project.properties().get("name").unwrap(),
+            &bolt_proto::value::Value::String("Project01".to_string())
         );
 
         Ok(r)
