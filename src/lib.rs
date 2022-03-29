@@ -12,7 +12,7 @@
 //!
 //! To browse source code, report issues, or contribute to the project, see the [GitHub Repository](https://github.com/warpforge/warpgrapher).
 
-#![doc(html_root_url = "https://docs.rs/warpgrapher/0.10.2")]
+#![doc(html_root_url = "https://docs.rs/warpgrapher/0.10.3")]
 
 #[cfg(feature = "cypher")]
 pub use bolt_client;
