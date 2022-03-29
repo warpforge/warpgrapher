@@ -20,7 +20,7 @@ impl RequestContext for AppRequestContext {
 #[tokio::main]
 async fn main() {
     // parse warpgrapher config
-    let config_file = File::open("config.yaml".to_string()).expect("Could not read file");
+    let config_file = File::open("config.yaml").expect("Could not read file");
     let config = Configuration::try_from(config_file).expect("Failed to parse config file");
 
     // define database endpoint

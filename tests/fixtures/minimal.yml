@@ -16,11 +16,14 @@ model:
         list: true
       - name: activity
         nodes: [Commit]
-        props:
-            - name: repo
-              type: String
-              required: false
         list: true
+        props:
+          - name: repo
+            type: String
+            required: false
+          - name: list-index
+            type: Int
+            required: false
         
   # Project
   - name: Project
