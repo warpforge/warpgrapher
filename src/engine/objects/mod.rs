@@ -851,10 +851,26 @@ where
             .iter()
             .filter(|p| !p.hidden())
             .map(|p| match (p.type_name(), p.required(), p.list()) {
+                ("Boolean", false, false) => registry.field::<Option<bool>>(p.name(), &()),
+                ("Boolean", false, true) => registry.field::<Option<Vec<bool>>>(p.name(), &()),
+                ("Boolean", true, false) => registry.field::<bool>(p.name(), &()),
+                ("Boolean", true, true) => registry.field::<Vec<bool>>(p.name(), &()),
+                ("Float", false, false) => registry.field::<Option<f64>>(p.name(), &()),
+                ("Float", false, true) => registry.field::<Option<Vec<f64>>>(p.name(), &()),
+                ("Float", true, false) => registry.field::<f64>(p.name(), &()),
+                ("Float", true, true) => registry.field::<Vec<f64>>(p.name(), &()),
                 ("ID", false, false) => registry.field::<Option<ID>>(p.name(), &()),
                 ("ID", false, true) => registry.field::<Option<Vec<ID>>>(p.name(), &()),
                 ("ID", true, false) => registry.field::<ID>(p.name(), &()),
                 ("ID", true, true) => registry.field::<Vec<ID>>(p.name(), &()),
+                ("Int", false, false) => registry.field::<Option<i32>>(p.name(), &()),
+                ("Int", false, true) => registry.field::<Option<Vec<i32>>>(p.name(), &()),
+                ("Int", true, false) => registry.field::<i32>(p.name(), &()),
+                ("Int", true, true) => registry.field::<Vec<i32>>(p.name(), &()),
+                ("String", false, false) => registry.field::<Option<String>>(p.name(), &()),
+                ("String", false, true) => registry.field::<Option<Vec<String>>>(p.name(), &()),
+                ("String", true, false) => registry.field::<String>(p.name(), &()),
+                ("String", true, true) => registry.field::<Vec<String>>(p.name(), &()),
                 (_, false, false) => registry.field::<Option<Node<RequestCtx>>>(
                     p.name(),
                     &Info::new(p.type_name().to_string(), info.type_defs()),
