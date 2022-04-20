@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Databases - Warpgrapher Book (0.10.3)</title>
+        <title>Databases - Warpgrapher Book (0.10.4)</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.10.3)</h1>
+                    <h1 class="menu-title">Warpgrapher Book (0.10.4)</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -191,7 +191,7 @@ variables are omitted for each database where the defaults are correct.</p>
 <p>Add Warpgrapher to your project config with the gremlin feature enabled.</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.3&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -220,7 +220,7 @@ docker run -i --net=host --rm gremlin-console:latest
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.3&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neptune DB:</p>
 <pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
@@ -233,7 +233,7 @@ export WG_CYPHER_PASS=
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.3&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -257,7 +257,7 @@ could leave partially applied results behind.</p>
 <h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.3&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB.</p>
 <pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
