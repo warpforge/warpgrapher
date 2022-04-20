@@ -2186,25 +2186,28 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
             );
 
             // GqlRelReadEndpoint
-            if r.endpoints().read() {
+            // Temporarily filter out rels with custom resolvers, as the custom resolver only addresses recursive
+
+            // shape resolution through nodes, not the root level endpoints.
+            if r.endpoints().read() && r.resolver().is_none() {
                 let rel_read_endpoint = generate_rel_read_endpoint(t, r);
                 query_props.insert(rel_read_endpoint.name().to_string(), rel_read_endpoint);
             }
 
             // GqlRelCreateEndpoint
-            if r.endpoints().create() {
+            if r.endpoints().create() && r.resolver().is_none() {
                 let rel_create_endpoint = generate_rel_create_endpoint(t, r);
                 mutation_props.insert(rel_create_endpoint.name().to_string(), rel_create_endpoint);
             }
 
             // GqlRelUpdateEndpoint
-            if r.endpoints().update() {
+            if r.endpoints().update() && r.resolver().is_none() {
                 let rel_update_endpoint = generate_rel_update_endpoint(t, r);
                 mutation_props.insert(rel_update_endpoint.name().to_string(), rel_update_endpoint);
             }
 
             // GqlRelDelete Endpoint
-            if r.endpoints().delete() {
+            if r.endpoints().delete() && r.resolver().is_none() {
                 let rel_delete_endpoint = generate_rel_delete_endpoint(t, r);
                 mutation_props.insert(rel_delete_endpoint.name().to_string(), rel_delete_endpoint);
             }
