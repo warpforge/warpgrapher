@@ -10,7 +10,8 @@ use crate::engine::database::{
 };
 use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_delete_input, visit_node_query_input,
-    visit_node_update_input, visit_rel_query_input,
+    visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
+    visit_rel_update_input,
 };
 use crate::engine::objects::{Node, Rel};
 use crate::engine::schema::Info;
@@ -1139,7 +1140,7 @@ where
     ///     Box::pin(async move {
     ///         let query =  "MATCH (u:User) WHERE u.id IN $user_ids SET u.active = true RETURN u".to_string();
     ///         let mut params = HashMap::new();
-    /// 
+    ///
     ///         if let Value::Map(hm) = &value {
     ///           if let Value::Map(m) = hm.get("MATCH").unwrap() {
     ///             if let Value::Map(i) = m.get("id").unwrap() {
@@ -1149,12 +1150,12 @@ where
     ///             };
     ///           };
     ///         };
-    /// 
+    ///
     ///         ef.execute_query(
     ///             query,
     ///             params,
     ///         ).await?;
-    /// 
+    ///
     ///         Ok(value)
     ///     })
     /// }
@@ -1164,10 +1165,9 @@ where
         query: String,
         params: HashMap<String, Value>,
     ) -> Result<QueryResult, Error> {
-        self.transaction.execute_query::<RequestCtx>(
-            query,
-            params,
-        ).await
+        self.transaction
+            .execute_query::<RequestCtx>(query, params)
+            .await
     }
 
     /// Provides an abstracted database read operation using warpgrapher inputs. This is the
@@ -1303,7 +1303,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let new_node = ef.update_node(
+    ///         let new_node = ef.update_nodes(
     ///             "User",
     ///             json!({
     ///                 "MATCH": {"name": {"EQ": "alice"}},
@@ -1314,7 +1314,7 @@ where
     ///     })
     /// }
     /// ```
-    pub async fn update_node(
+    pub async fn update_nodes(
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
@@ -1360,7 +1360,7 @@ where
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let new_node = ef.delete_node(
+    ///         let new_node = ef.delete_nodes(
     ///             "User",
     ///             json!({
     ///                 "MATCH": {"name": {"EQ": "alice"}}
@@ -1370,7 +1370,7 @@ where
     ///     })
     /// }
     /// ```
-    pub async fn delete_node(
+    pub async fn delete_nodes(
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
@@ -1475,5 +1475,253 @@ where
             .await?;
 
         Ok(results)
+    }
+
+    /// Provides an abstracted database create operation using warpgrapher inputs. This is the
+    /// recommended way to create relationships in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `src_node_label` - String reference represing name of node type (ex: "User").
+    /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
+    /// * `input` - `Value` describing the relationship creation input
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let _new_rels = ef.create_rels(
+    ///             "User",
+    ///             "teams",
+    ///             json!({
+    ///                 "MATCH": {"name": {"EQ": "alice"}},
+    ///                 "CREATE": {
+    ///                     "sort_order": 1,
+    ///                     "dst": {
+    ///                         "Team": {
+    ///                             "NEW": {
+    ///                                 "name": "project_team_name"
+    ///                             }
+    ///                         }
+    ///                     }
+    ///                 }
+    ///             }),
+    ///             None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn create_rels(
+        &mut self,
+        src_node_label: &str,
+        rel_label: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let src_var = NodeQueryVar::new(
+            Some(src_node_label.to_string()),
+            "src".to_string(),
+            sg.suffix(),
+        );
+
+        let result = visit_rel_create_input(
+            &src_var,
+            rel_label,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!(
+                    "{}{}CreateInput",
+                    src_node_label,
+                    rel_label
+                        .to_title_case()
+                        .split_whitespace()
+                        .collect::<String>()
+                ),
+                self.info.type_defs(),
+            ),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+
+        result
+    }
+
+    /// Provides an abstracted database update operation using warpgrapher inputs. This is the
+    /// recommended way to update relationships in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `src_node_label` - String reference represing name of node type (ex: "User").
+    /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
+    /// * `input` - `Value` describing the relationship update input
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let _updated_rels = ef.update_rels(
+    ///             "User",
+    ///             "teams",
+    ///             json!({
+    ///                 "MATCH": {"src": {"name": {"EQ": "alice"}}, "dst": {"name": {"EQ": "project_team_name"}}},
+    ///                 "SET": {"sort_order": 2}
+    ///             }),
+    ///             None).await?;
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn update_rels(
+        &mut self,
+        src_node_label: &str,
+        rel_label: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<Vec<Rel<RequestCtx>>, Error> {
+        let mut sg = SuffixGenerator::new();
+        let rel_var = RelQueryVar::new(
+            rel_label.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(
+                Some(src_node_label.to_string()),
+                "src".to_string(),
+                sg.suffix(),
+            ),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
+
+        let result = visit_rel_update_input(
+            None,
+            &rel_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!(
+                    "{}{}UpdateInput",
+                    src_node_label,
+                    rel_label
+                        .to_title_case()
+                        .split_whitespace()
+                        .collect::<String>()
+                ),
+                self.info.type_defs(),
+            ),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+
+        result
+    }
+
+    /// Provides an abstracted database delete operation using warpgrapher inputs. This is the
+    /// recommended way to delete relationships in a database-agnostic way that ensures the event handlers
+    /// are portable across different databases.
+    ///
+    /// # Arguments
+    ///
+    /// * `src_node_label` - String reference represing name of src node type type (ex: "User").
+    /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
+    /// * `input` - `Value` describing the relationship delete input
+    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    ///
+    /// # Examples
+    ///
+    /// ```rust, no_run
+    /// # use serde_json::json;
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
+    ///     Box::pin(async move {
+    ///         let _deleted_rel_count = ef.delete_rels(
+    ///             "User",
+    ///             "teams",
+    ///             json!({
+    ///                 "MATCH": {"src": {"Card": {"name": {"EQ": "alice"}}},
+    ///                     "dst": {"Team": {"name": {"EQ": "project_team_name"}}}}
+    ///             }),
+    ///             None).await?;
+    ///
+    ///         Ok(value)
+    ///     })
+    /// }
+    /// ```
+    pub async fn delete_rels(
+        &mut self,
+        src_node_label: &str,
+        rel_label: &str,
+        input: impl TryInto<Value>,
+        partition_key_opt: Option<&Value>,
+    ) -> Result<i32, Error> {
+        let mut sg = SuffixGenerator::new();
+        let rel_var = RelQueryVar::new(
+            rel_label.to_string(),
+            sg.suffix(),
+            NodeQueryVar::new(
+                Some(src_node_label.to_string()),
+                "src".to_string(),
+                sg.suffix(),
+            ),
+            NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
+        );
+
+        let result = visit_rel_delete_input(
+            None,
+            &rel_var,
+            input.try_into().map_err(|_e| Error::TypeConversionFailed {
+                src: "".to_string(),
+                dst: "".to_string(),
+            })?,
+            &Info::new(
+                format!(
+                    "{}{}DeleteInput",
+                    src_node_label,
+                    rel_label
+                        .to_title_case()
+                        .split_whitespace()
+                        .collect::<String>()
+                ),
+                self.info.type_defs(),
+            ),
+            partition_key_opt,
+            &mut sg,
+            self.transaction,
+            self.context(),
+        )
+        .await;
+
+        result
     }
 }
