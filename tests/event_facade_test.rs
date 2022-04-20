@@ -8,9 +8,9 @@ use setup::{clear_db, cypher_test_client_with_events, init};
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
 //use warpgrapher::engine::objects::{Node, Rel};
 #[cfg(feature = "cypher")]
-use warpgrapher::engine::database::QueryResult;
-#[cfg(feature = "cypher")]
 use std::collections::HashMap;
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::database::QueryResult;
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "cypher")]
@@ -75,7 +75,7 @@ fn mock_handler(
 
         // update node
         let projects = ef
-            .update_node(
+            .update_nodes(
                 "Project",
                 json!({
                     "MATCH": {"name": {"EQ": "Project00"}},
@@ -127,7 +127,7 @@ fn mock_handler(
 
         // delete node
         let dr = ef
-            .delete_node(
+            .delete_nodes(
                 "Project",
                 json!({
                     "MATCH": {
@@ -156,17 +156,17 @@ fn mock_handler(
         );
 
         #[cfg(feature = "cypher")]
-        let query =  "MATCH (p:Project) WHERE p.name = $project_name RETURN p".to_string();
+        let query = "MATCH (p:Project) WHERE p.name = $project_name RETURN p".to_string();
         // #[cfg(feature = "gremlin")]
         // let query = "g.V().has('name', $project_name)".to_string();
 
         let mut params = HashMap::new();
-        params.insert("project_name".to_string(), Value::String("Project01".to_string()));
+        params.insert(
+            "project_name".to_string(),
+            Value::String("Project01".to_string()),
+        );
 
-        let result: QueryResult = ef.execute_query(
-            query,
-            params,
-        ).await?;
+        let result: QueryResult = ef.execute_query(query, params).await?;
 
         let projects = match result {
             QueryResult::Cypher(rs) => rs,
@@ -178,11 +178,151 @@ fn mock_handler(
             _ => panic!("Expected Node"),
         };
 
-        println!("{:#?}", project);
         assert_eq!(
             project.properties().get("name").unwrap(),
             &bolt_proto::value::Value::String("Project01".to_string())
         );
+
+        // create src
+        let project = ef
+            .create_node(
+                "Project",
+                json!({"name": "TestProject", "description": "Alchemy."}),
+                None,
+            )
+            .await?;
+        assert_eq!(project.type_name(), "Project");
+        assert_eq!(
+            project.fields().get("name").unwrap(),
+            &Value::String("TestProject".to_string())
+        );
+        assert_eq!(
+            project.fields().get("description").unwrap(),
+            &Value::String("Alchemy.".to_string())
+        );
+
+        // create dst
+        let user = ef
+            .create_node("User", json!({"name": "Alice"}), None)
+            .await?;
+        assert_eq!(user.type_name(), "User");
+        assert_eq!(
+            user.fields().get("name").unwrap(),
+            &Value::String("Alice".to_string())
+        );
+
+        // create rel
+        let po_create_return = ef
+            .create_rels(
+                "Project",
+                "owner",
+                json!({
+                    "MATCH": {"name": {"EQ": "TestProject"}},
+                    "CREATE": {"since": "2022-04-18", "dst": {"User": {"EXISTING": {"name": "Alice"}}}}
+                }),
+                None,
+            )
+            .await?;
+
+        // read created rel for verification
+        let po_created = ef
+            .read_rels(
+                "Project",
+                "owner",
+                json!({
+                    "src": {"name": {"EQ": "TestProject"}},
+                    "dst": {"User": {"name": {"EQ": "Alice"}}}
+                }),
+                None,
+            )
+            .await?;
+
+        assert_eq!(
+            po_create_return.first().unwrap().id()?,
+            po_created.first().unwrap().id()?
+        );
+        assert_eq!(
+            "2022-04-18",
+            &(po_created
+                .first()
+                .unwrap()
+                .fields()
+                .get("since")
+                .unwrap()
+                .to_string())
+        );
+
+        // update rel
+        let po_update_return = ef
+            .update_rels(
+                "Project",
+                "owner",
+                json!({
+                    "MATCH": {"id": {"EQ": po_created.first().unwrap().id()?}},
+                    "SET": {"since": "2022-04-19"}
+                }),
+                None,
+            )
+            .await?;
+
+        let po_updated = ef
+            .read_rels(
+                "Project",
+                "owner",
+                json!({
+                    "src": {"name": {"EQ": "TestProject"}},
+                    "dst": {"User": {"name": {"EQ": "Alice"}}}
+                }),
+                None,
+            )
+            .await?;
+
+        assert_eq!(
+            "2022-04-19",
+            &(po_update_return
+                .first()
+                .unwrap()
+                .fields()
+                .get("since")
+                .unwrap()
+                .to_string()),
+        );
+        assert_eq!(
+            "2022-04-19",
+            &(po_updated
+                .first()
+                .unwrap()
+                .fields()
+                .get("since")
+                .unwrap()
+                .to_string()),
+        );
+
+        let delete_count = ef
+            .delete_rels(
+                "Project",
+                "owner",
+                json!({
+                    "MATCH": {"id": {"EQ": po_updated.first().unwrap().id()?}}
+                }),
+                None,
+            )
+            .await?;
+
+        assert_eq!(1, delete_count);
+
+        let po_post_delete = ef
+            .read_rels(
+                "Project",
+                "owner",
+                json!({
+                    "id": {"EQ": po_updated.first().unwrap().id()?}
+                }),
+                None,
+            )
+            .await?;
+
+        assert!(po_post_delete.is_empty());
 
         Ok(r)
     })

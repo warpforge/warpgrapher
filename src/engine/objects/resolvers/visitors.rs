@@ -808,7 +808,7 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_create_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_rel_create_input<RequestCtx: RequestContext>(
     src_var: &NodeQueryVar,
     rel_name: &str,
     mut input: Value,
@@ -1002,7 +1002,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     mut input: Value,
@@ -1484,7 +1484,7 @@ async fn visit_rel_src_query_input<RequestCtx: RequestContext>(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) async fn visit_rel_update_input<RequestCtx: RequestContext>(
+pub(crate) async fn visit_rel_update_input<RequestCtx: RequestContext>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     mut input: Value,
