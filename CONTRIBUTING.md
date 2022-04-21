@@ -161,8 +161,8 @@ Open an rc-X.Y.Z branch.
 Update version in `Cargo.toml.`
 
 ```bash
-export OLD_VERSION=0.10.2
-export NEW_VERSION=0.10.3
+export OLD_VERSION=0.10.3
+export NEW_VERSION=0.10.4
 ```
 
 ```bash
