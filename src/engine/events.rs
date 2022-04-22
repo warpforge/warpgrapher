@@ -243,13 +243,16 @@ pub struct EventHandlerBag<RequestCtx: RequestContext> {
     after_request_handlers: Vec<AfterRequestFunc<RequestCtx>>,
     before_create_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_create_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
+    after_subgraph_create_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_create_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
     before_read_handlers: HashMap<String, Vec<BeforeQueryEventFunc<RequestCtx>>>,
     after_node_read_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_read_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
     before_update_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_update_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
+    after_node_subgraph_update_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_update_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
+    after_rel_subgraph_update_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
     before_delete_handlers: HashMap<String, Vec<BeforeMutationEventFunc<RequestCtx>>>,
     after_node_delete_handlers: HashMap<String, Vec<AfterNodeEventFunc<RequestCtx>>>,
     after_rel_delete_handlers: HashMap<String, Vec<AfterRelEventFunc<RequestCtx>>>,
@@ -272,13 +275,16 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
             after_request_handlers: vec![],
             before_create_handlers: HashMap::new(),
             after_node_create_handlers: HashMap::new(),
+            after_subgraph_create_handlers: HashMap::new(),
             after_rel_create_handlers: HashMap::new(),
             before_read_handlers: HashMap::new(),
             after_node_read_handlers: HashMap::new(),
             after_rel_read_handlers: HashMap::new(),
             before_update_handlers: HashMap::new(),
             after_node_update_handlers: HashMap::new(),
+            after_node_subgraph_update_handlers: HashMap::new(),
             after_rel_update_handlers: HashMap::new(),
+            after_rel_subgraph_update_handlers: HashMap::new(),
             before_delete_handlers: HashMap::new(),
             after_node_delete_handlers: HashMap::new(),
             after_rel_delete_handlers: HashMap::new(),
@@ -436,7 +442,11 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    /// Registers an event handler `f` to be called after a node of type `type_name` is created.
+    /// Registers an event handler `f` to be called after a node of type `type_name` is created. Note that this handler
+    /// is called immediately after the creation of the node. If the node creation input includes relationships and
+    /// destination nodes to be created at the same time, they will not yet have been created at the time this handler
+    /// is called. See the `register_after_subgraph_create` function handlers that are called after the entire
+    /// sub-graph is created.
     ///
     /// # Examples
     ///
@@ -467,6 +477,44 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
                 handlers.push(f);
             } else {
                 self.after_node_create_handlers.insert(name, vec![f]);
+            }
+        }
+    }
+
+    /// Registers an event handler `f` to be called after a node of type `type_name` is created. This handler is called
+    /// after all additional destination nodes and relationships bundled into the same creation operation input have
+    /// also been created. Use `register_after_node_create` for an event to be called after the node itself is created
+    /// but before the remainder of the nested sub-graph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn after_user_create(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///         // Normally work would be done here, resulting in some new value.
+    ///         Ok(nodes)
+    ///    })
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_subgraph_create(vec!["User".to_string()], after_user_create);
+    /// ```
+    pub fn register_after_subgraph_create(
+        &mut self,
+        names: Vec<String>,
+        f: AfterNodeEventFunc<RequestCtx>,
+    ) {
+        for name in names {
+            if let Some(handlers) = self.after_subgraph_create_handlers.get_mut(&name) {
+                handlers.push(f);
+            } else {
+                self.after_subgraph_create_handlers.insert(name, vec![f]);
             }
         }
     }
@@ -716,7 +764,11 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    /// Registers an event handler `f` to be called after a node of type `type_name` is updated.
+    /// Registers an event handler `f` to be called after a node of type `type_name` is updated. Note that this handler
+    /// is called immediately after the update of the node. If the node update input includes relationships and
+    /// destination nodes to be updated at the same time, they will not yet have been updated at the time this handler
+    /// is called. See the `register_after_node_subgraph_update` function handlers that are called after the entire
+    /// sub-graph is udpated.
     ///
     /// # Examples
     ///
@@ -751,7 +803,50 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         }
     }
 
-    /// Registers an event handler `f` to be called after a rel is updated.
+    /// Registers an event handler `f` to be called after a node of type `type_name` is updated. This handler is called
+    /// after all additional destination nodes and relationships bundled into the same update operation input have
+    /// also been updated. Use `register_after_node_update` for an event to be called after the node itself
+    /// is updated but before the remainder of the nested sub-graph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn after_user_update(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(nodes)
+    ///    })
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_subgraph_update(vec!["User".to_string()], after_user_update);
+    /// ```
+    pub fn register_after_node_subgraph_update(
+        &mut self,
+        type_names: Vec<String>,
+        f: AfterNodeEventFunc<RequestCtx>,
+    ) {
+        for type_name in type_names {
+            if let Some(handlers) = self.after_node_subgraph_update_handlers.get_mut(&type_name) {
+                handlers.push(f);
+            } else {
+                self.after_node_subgraph_update_handlers
+                    .insert(type_name, vec![f]);
+            }
+        }
+    }
+
+    /// Registers an event handler `f` to be called after a rel is updated.  Note that this handler
+    /// is called immediately after the update of the relationship. If the node update input includes source,
+    /// destination, or other relationship updates, they will not yet have been updated at the time this handler
+    /// is called. See the `register_after_rel_subgraph_update` function handlers that are called after the entire
+    /// sub-graph is updated.
     ///
     /// # Examples
     ///
@@ -784,6 +879,45 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
                 handlers.push(f);
             } else {
                 self.after_rel_update_handlers.insert(rel_name, vec![f]);
+            }
+        }
+    }
+
+    /// Registers an event handler `f` to be called after a relationship is updated. This handler is called
+    /// after all additional source nodes, destination nodes, and relationships bundled into the same update
+    /// operation input have also been updated. Use `register_after_rel_update` for an event to be
+    /// called after the node itself is updated but before the remainder of the nested sub-graph.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use warpgrapher::engine::events::{EventHandlerBag, EventFacade};
+    /// # use warpgrapher::Error;
+    /// # use warpgrapher::engine::value::Value;
+    /// # use warpgrapher::engine::objects::Node;
+    /// # use warpgrapher::juniper::BoxFuture;
+    ///
+    /// fn after_user_update(nodes: Vec<Node<()>>, ef: EventFacade<()>) -> BoxFuture<Result<Vec<Node<()>>, Error>> {
+    ///    Box::pin(async move {
+    ///        // Normally work would be done here, resulting in some new value.
+    ///        Ok(nodes)
+    ///    })
+    /// }
+    ///
+    /// let mut handlers = EventHandlerBag::<()>::new();
+    /// handlers.register_after_node_subgraph_update(vec!["User".to_string()], after_user_update);
+    /// ```
+    pub fn register_after_rel_subgraph_update(
+        &mut self,
+        rel_names: Vec<String>,
+        f: AfterRelEventFunc<RequestCtx>,
+    ) {
+        for rel_name in rel_names {
+            if let Some(handlers) = self.after_rel_subgraph_update_handlers.get_mut(&rel_name) {
+                handlers.push(f);
+            } else {
+                self.after_rel_subgraph_update_handlers
+                    .insert(rel_name, vec![f]);
             }
         }
     }
@@ -962,6 +1096,13 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_create_handlers.get(type_name)
     }
 
+    pub(crate) fn after_subgraph_create(
+        &self,
+        type_name: &str,
+    ) -> Option<&Vec<AfterNodeEventFunc<RequestCtx>>> {
+        self.after_subgraph_create_handlers.get(type_name)
+    }
+
     pub(crate) fn after_rel_create(
         &self,
         rel_name: &str,
@@ -1018,11 +1159,25 @@ impl<RequestCtx: RequestContext> EventHandlerBag<RequestCtx> {
         self.after_node_update_handlers.get(type_name)
     }
 
+    pub(crate) fn after_node_subgraph_update(
+        &self,
+        type_name: &str,
+    ) -> Option<&Vec<AfterNodeEventFunc<RequestCtx>>> {
+        self.after_node_subgraph_update_handlers.get(type_name)
+    }
+
     pub(crate) fn after_rel_update(
         &self,
         rel_name: &str,
     ) -> Option<&Vec<AfterRelEventFunc<RequestCtx>>> {
         self.after_rel_update_handlers.get(rel_name)
+    }
+
+    pub(crate) fn after_rel_subgraph_update(
+        &self,
+        rel_name: &str,
+    ) -> Option<&Vec<AfterRelEventFunc<RequestCtx>>> {
+        self.after_rel_subgraph_update_handlers.get(rel_name)
     }
 
     pub(crate) fn before_node_delete(
@@ -1062,13 +1217,16 @@ impl<RequestCtx: RequestContext> Default for EventHandlerBag<RequestCtx> {
             after_request_handlers: vec![],
             before_create_handlers: HashMap::new(),
             after_node_create_handlers: HashMap::new(),
+            after_subgraph_create_handlers: HashMap::new(),
             after_rel_create_handlers: HashMap::new(),
             before_read_handlers: HashMap::new(),
             after_node_read_handlers: HashMap::new(),
             after_rel_read_handlers: HashMap::new(),
             before_update_handlers: HashMap::new(),
             after_node_update_handlers: HashMap::new(),
+            after_node_subgraph_update_handlers: HashMap::new(),
             after_rel_update_handlers: HashMap::new(),
+            after_rel_subgraph_update_handlers: HashMap::new(),
             before_delete_handlers: HashMap::new(),
             after_node_delete_handlers: HashMap::new(),
             after_rel_delete_handlers: HashMap::new(),

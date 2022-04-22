@@ -1,6 +1,6 @@
 # Event Handlers
 
-The earlier sections of the book covered a great many options for customizing the behavior of Warpgrapher, including input validation, request context, custom endpoints, and dynamic properties and relationships. Warpgrapher offers an additional API, the event handling API, to modify Warpgrapher's behavior at almost every point in the lifecycle of a request. Event handlers may be added before `Engine` creation, before or after request handling, and before or after nodes ore relationsihps are created, read, updated, or deleted. This section will introduce the event handling API using an extended example of implementing a very simple authorization model. Each data record will be owned by one user, and only that user is entitled to read or modify that record.
+The earlier sections of the book covered a great many options for customizing the behavior of Warpgrapher, including input validation, request context, custom endpoints, and dynamic properties and relationships. Warpgrapher offers an additional API, the event handling API, to modify Warpgrapher's behavior at almost every point in the lifecycle of a request. Event handlers may be added before `Engine` creation, before or after request handling, and before or after nodes or relationships are created, read, updated, or deleted. This section will introduce the event handling API using an extended example of implementing a very simple authorization model. Each data record will be owned by one user, and only that user is entitled to read or modify that record.
 
 ## Configuration
 
