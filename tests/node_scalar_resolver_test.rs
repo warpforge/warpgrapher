@@ -42,13 +42,13 @@ async fn scalar_lists_test<RequestCtx: RequestContext>(mut client: Client<Reques
              int_list
              float_list
             ",
-            Some("1234"),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
                 "bool_list": [true, false],
                 "int_list": [0, 1, 2, 3],
                 "float_list": [0.0, 1.1, 2.2, 3.3]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -114,13 +114,13 @@ async fn scalar_lists_no_array_test<RequestCtx: RequestContext>(mut client: Clie
              int_list
              float_list
             ",
-            Some("1234"),
             &json!({
                 "string_list": ["string0"],
                 "bool_list": [false],
                 "int_list": [0],
                 "float_list": [0.0],
             }),
+            None,
         )
         .await
         .unwrap();
@@ -169,10 +169,10 @@ async fn scalar_no_lists_test<RequestCtx: RequestContext>(mut client: Client<Req
         .create_node(
             "TestType",
             "string_list",
-            Some("1234"),
             &json!({
                 "string_list": ["string0", "string1", "string2", "string3"],
             }),
+            None
         )
         .await
         .is_err());
@@ -181,10 +181,10 @@ async fn scalar_no_lists_test<RequestCtx: RequestContext>(mut client: Client<Req
         .create_node(
             "TestType",
             "bool_list",
-            Some("1234"),
             &json!({
                 "bool_list": [true, false, true, false],
             }),
+            None
         )
         .await
         .is_err());
@@ -193,10 +193,10 @@ async fn scalar_no_lists_test<RequestCtx: RequestContext>(mut client: Client<Req
         .create_node(
             "TestType",
             "int_list",
-            Some("1234"),
             &json!({
                 "int_list": [0, 1, 2, 3],
             }),
+            None
         )
         .await
         .is_err());
@@ -205,10 +205,10 @@ async fn scalar_no_lists_test<RequestCtx: RequestContext>(mut client: Client<Req
         .create_node(
             "TestType",
             "float_list",
-            Some("1234"),
             &json!({
                 "float_list": [0.0, 1.1, 2.2, 3.3],
             }),
+            None
         )
         .await
         .is_err());
@@ -245,13 +245,13 @@ async fn scalar_no_lists_no_array_test<RequestCtx: RequestContext>(mut client: C
              int_list
              float_list
             ",
-            Some("1234"),
             &json!({
                 "string_list": "string0",
                 "bool_list": false,
                 "int_list": 0,
                 "float_list": 0.0,
             }),
+            None,
         )
         .await
         .unwrap();

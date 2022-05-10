@@ -79,14 +79,17 @@ The top level GraphQL query object includes three (3) queries. This should make 
 ```
 type Query {
   Organization(
-    partitionKey: String
-    input: OrganizationQueryInput
+    input: OrganizationQueryInput,
+    options: OrganizationOptions
   ): [Organization!]
+
   OrganizationMembers(
-    partitionKey: String
-    input: OrganizationMembersQueryInput
+    input: OrganizationMembersQueryInput,
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
-  User(partitionKey: String, input: UserQueryInput): [User!]
+
+  User(input: UserQueryInput, options: UserOptions): [User!]
+
   _version: String
 }
 ```
@@ -137,6 +140,31 @@ union OrganizationMembersNodesUnion = User
 
 Note that the `User` type is the same type that is used to return users in queries for nodes.
 
+The `options` argument, described above as an argument for the `OrganizationMembers` query as a whole, is of type `OrganizationMembersOptions`. The `OrganizationMembersOptions` type has a single property, called `sort`, which is a list of zero or more `OrganizationMembersSort` objects. Each `OrganizationMembersSort` object has two enumeration properties, `direction` and `orderBy`.
+
+```
+type OrganizationMembersOptions {
+  sort: [OrganizationMembersSort!]
+}
+
+type UserSort {
+  direction: DirectionEnum
+  orderBy: OrganizationMembersOrderByEnum!
+}
+
+enum DirectionEnum {
+  ascending
+  descending
+}
+
+enum OrganizationMembersOrderByEnum {
+  id
+  dst:email
+}
+```
+
+The `OrganizationMembersOrderByEnum` has variant values for each of the properties (but not relationships) on the OrganizationMembers relationship, though in this case that's only the `id` property. Additionally, the enum has variants for each of the properties on the destination object, allowing the results to be sorted either by properties on the relationship itself, or those on the destination object. By including one or more values in the `sort` array provided to `UserOptions`, it is possible to sort results coming back from Warpgrapher. The `direction` property determines whether the results are returned in ascending or descending sort order. The `orderBy` field determines on which property the results are sorted.  For example, above, an `orderBy` field with a value of `dst:email` would sort the organization member's relationship results in alphabetical order of member email addresses.  If the `sort` array contains more than one value, then resorts groups of results with the same first sort key are further sorted by the second key, and so on.  For example, a `sort` array might have entries for `joinDate` and then `name` to sort first by the date someone joined, and alphabetically for all people who joined on the same date.
+
 ### Querying for a Node
 
 The root GraphQL `Query` object has queries for each of the node types in the configuration.  To see how relationships affect node queries, have a look at the `Organization` query, beginning with the `OrganizationQueryInput` definition in the snippet below. In addition to the `id` and `name` attributes for searching based on the scalar properties of the type, the schema also includes a `members` attribute, of type `OrganizationMembersQueryInput`.  This is the same input object described above that's used in the root level query for the `OrganizationMembers` relationship. This recursive schema structure is really quite powerful, as it allows the client to query for nodes based on a combination of the node's property values, the values of properties in the relationships that it has, and the values of properties in the destination nodes at the other end of those relationships, to any level of depth.  For example, it would be easy to construct a query that retrieves all of the organizations that contain a particular user as a member. For examples of relationship-based queries, see the chapter on [API usage](../api/intro.html).
@@ -167,28 +195,28 @@ The GraphQL schema's top level mutation object contains nine (9) mutations. This
 type Mutation {
   OrganizationCreate(
     input: OrganizationCreateMutationInput!
-    partitionKey: String
+    options: OrganizationOptions
   ): Organization
-  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationDelete(input: OrganizationDeleteInput!, options: OrganizationOptions): Int
   OrganizationMembersCreate(
     input: OrganizationMembersCreateInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationMembersDelete(
     input: OrganizationMembersDeleteInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): Int
   OrganizationMembersUpdate(
-    partitionKey: String
     input: OrganizationMembersUpdateInput!
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationUpdate(
-    partitionKey: String
     input: OrganizationUpdateInput!
+    options: OrganizationOptions
   ): [Organization!]
-  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
-  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
-  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+  UserCreate(input: UserCreateMutationInput!, options: UserOptions): User
+  UserDelete(input: UserDeleteInput!, options: UserOptions): Int
+  UserUpdate(input: UserUpdateInput!, options: UserOptions): [User!]
 }
 ```
 
@@ -391,28 +419,28 @@ input OrganizationMembersSrcQueryInput {
 type Mutation {
   OrganizationCreate(
     input: OrganizationCreateMutationInput!
-    partitionKey: String
+    options: OrganizationOptions
   ): Organization
-  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationDelete(input: OrganizationDeleteInput!, options: OrganizationOptions): Int
   OrganizationMembersCreate(
     input: OrganizationMembersCreateInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationMembersDelete(
     input: OrganizationMembersDeleteInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): Int
   OrganizationMembersUpdate(
-    partitionKey: String
     input: OrganizationMembersUpdateInput!
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationUpdate(
-    partitionKey: String
     input: OrganizationUpdateInput!
+    options: OrganizationOptions
   ): [Organization!]
-  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
-  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
-  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+  UserCreate(input: UserCreateMutationInput!, options: UserOptions): User
+  UserDelete(input: UserDeleteInput!, options: UserOptions): Int
+  UserUpdate(input: UserUpdateInput!, options: UserOptions): [User!]
 }
 
 input OrganizationMembersChangeInput {
@@ -449,14 +477,14 @@ union OrganizationMembersNodesUnion = User
 
 type Query {
   Organization(
-    partitionKey: String
     input: OrganizationQueryInput
+    options: OrganizationOptions
   ): [Organization!]
   OrganizationMembers(
-    partitionKey: String
     input: OrganizationMembersQueryInput
+    options: OrganizationOptions
   ): [OrganizationMembersRel!]
-  User(partitionKey: String, input: UserQueryInput): [User!]
+  User(input: UserQueryInput, options: UserOptions): [User!]
   _version: String
 }
 

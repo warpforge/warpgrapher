@@ -18,8 +18,8 @@ async fn custom_endpoint_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
+            None,
         )
         .await
         .unwrap();
@@ -27,20 +27,15 @@ async fn custom_endpoint_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({"name": "SPARTANII", "description": "Cue MC music"}),
+            None,
         )
         .await
         .unwrap();
 
     // count projects via custom resolver
     let result = client
-        .graphql(
-            "query { ProjectCount }",
-            Some("1234"),
-            None,
-            Some("ProjectCount"),
-        )
+        .graphql("query { ProjectCount }", None, None, Some("ProjectCount"))
         .await
         .unwrap();
 
@@ -65,7 +60,7 @@ async fn custom_endpoint_returning_scalar_list() {
                 GlobalTopTags 
             }
          ",
-            Some("1234"),
+            None,
             None,
             Some("GlobalTopTags"),
         )
@@ -95,7 +90,7 @@ async fn custom_endpoint_returning_node() {
                 }
             }
         ",
-            Some("1234"),
+            None,
             None,
             Some("GlobalTopDev"),
         )
@@ -118,19 +113,14 @@ async fn custom_field_resolver_returning_scalar() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({"name": "ORION", "description": "Intro to supersoldiers"}),
+            None,
         )
         .await
         .unwrap();
 
     let result = client
-        .graphql(
-            "query { Project{id, points}}",
-            Some("1234"),
-            None,
-            Some("Project"),
-        )
+        .graphql("query { Project{id, points}}", None, None, Some("Project"))
         .await
         .unwrap();
     let points = result[0].get("points").unwrap();
@@ -153,11 +143,11 @@ async fn custom_field_returning_scalar_list() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
             }),
+            None,
         )
         .await
         .unwrap();
@@ -169,7 +159,7 @@ async fn custom_field_returning_scalar_list() {
             id 
             name 
             toptags",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -197,17 +187,17 @@ async fn custom_rel_returning_rel() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
             }),
+            None,
         )
         .await
         .unwrap();
 
     let _ = client
-        .create_node("User", "id name", Some("1234"), &json!({"name": "Joe"}))
+        .create_node("User", "id name", &json!({"name": "Joe"}), None)
         .await
         .unwrap();
 
@@ -225,7 +215,7 @@ async fn custom_rel_returning_rel() {
                 }
             }
             ",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -252,11 +242,11 @@ async fn custom_rel_returning_rel_list() {
         .create_node(
             "Project",
             "id name description",
-            Some("1234"),
             &json!({
                 "name": "ORION",
                 "description": "Intro to supersoldiers"
             }),
+            None,
         )
         .await
         .unwrap();
@@ -265,8 +255,8 @@ async fn custom_rel_returning_rel_list() {
         .create_node(
             "Feature",
             "id name",
-            Some("1234"),
             &json!({ "name" : "Add async support"}),
+            None,
         )
         .await
         .unwrap();
@@ -275,8 +265,8 @@ async fn custom_rel_returning_rel_list() {
         .create_node(
             "Bug",
             "id name",
-            Some("1234"),
             &json!({ "name" : "Fix memory leak" }),
+            None,
         )
         .await
         .unwrap();
@@ -298,7 +288,7 @@ async fn custom_rel_returning_rel_list() {
                 }
             }
             ",
-            Some("1234"),
+            None,
             None,
         )
         .await

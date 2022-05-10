@@ -8,7 +8,7 @@ pub mod no_database;
 
 use crate::engine::context::RequestContext;
 use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, Options, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -171,7 +171,7 @@ pub trait Transaction: Send + Sync {
         &mut self,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error>;
@@ -184,7 +184,7 @@ pub trait Transaction: Send + Sync {
         rel_var: &RelQueryVar,
         id_opt: Option<Value>,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
@@ -212,7 +212,7 @@ pub trait Transaction: Send + Sync {
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
 
@@ -240,7 +240,7 @@ pub trait Transaction: Send + Sync {
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
     async fn update_nodes<RequestCtx: RequestContext>(
@@ -248,7 +248,7 @@ pub trait Transaction: Send + Sync {
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         info: &Info,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error>;
@@ -259,7 +259,7 @@ pub trait Transaction: Send + Sync {
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error>;
 
@@ -267,14 +267,14 @@ pub trait Transaction: Send + Sync {
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<i32, Error>;
 
     async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<i32, Error>;
 
     async fn commit(&mut self) -> Result<(), Error>;

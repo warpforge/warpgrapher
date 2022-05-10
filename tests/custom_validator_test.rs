@@ -18,7 +18,7 @@ async fn custom_input_validator_create() {
     // Test validator on create
     // Validator pass
     let result = client
-        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
+        .create_node("User", "id name", &json!({"name": "ORION"}), None)
         .await
         .unwrap();
 
@@ -28,7 +28,7 @@ async fn custom_input_validator_create() {
 
     // Validator fail
     let result = client
-        .create_node("User", "id name", Some("1234"), &json!({"name": "KENOBI"}))
+        .create_node("User", "id name", &json!({"name": "KENOBI"}), None)
         .await
         .unwrap();
 
@@ -49,7 +49,7 @@ async fn custom_input_validator_update() {
     let mut client = cypher_test_client("./tests/fixtures/config.yml").await;
 
     let _ = client
-        .create_node("User", "id name", Some("1234"), &json!({"name": "ORION"}))
+        .create_node("User", "id name", &json!({"name": "ORION"}), None)
         .await
         .unwrap();
 
@@ -59,9 +59,9 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "ORION"}})),
             &json!({"name": "SKYWALKER"}),
+            None,
         )
         .await
         .unwrap();
@@ -75,9 +75,9 @@ async fn custom_input_validator_update() {
         .update_node(
             "User",
             "id name",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "SKYWALKER"}})),
             &json!({"name": "KENOBI"}),
+            None,
         )
         .await
         .unwrap();

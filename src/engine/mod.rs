@@ -424,7 +424,7 @@ where
         input: Option<serde_json::Value>,
         metadata: HashMap<String, String>,
     ) -> Result<serde_json::Value, Error> {
-        debug!("Engine::execute called");
+        debug!("Engine::execute called -- input: {:#?}", input);
 
         // create new request context
         let mut rctx = RequestCtx::new();

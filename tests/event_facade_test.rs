@@ -5,12 +5,13 @@ use serde_json::json;
 #[cfg(feature = "cypher")]
 use setup::{clear_db, cypher_test_client_with_events, init};
 #[cfg(feature = "cypher")]
-use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-//use warpgrapher::engine::objects::{Node, Rel};
-#[cfg(feature = "cypher")]
 use std::collections::HashMap;
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::database::QueryResult;
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::objects::Options;
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::value::Value;
 #[cfg(feature = "cypher")]
@@ -42,7 +43,7 @@ fn mock_handler(
             .create_node(
                 "Project",
                 json!({"name": "Project00", "description": "lasers"}),
-                None,
+                Options::default(),
             )
             .await?;
         assert_eq!(project.type_name(), "Project");
@@ -60,7 +61,7 @@ fn mock_handler(
             .create_node(
                 "Project",
                 json!({"name": "Project01", "description": "shields"}),
-                None,
+                Options::default(),
             )
             .await?;
         assert_eq!(project.type_name(), "Project");
@@ -81,7 +82,7 @@ fn mock_handler(
                     "MATCH": {"name": {"EQ": "Project00"}},
                     "SET": {"description": "sharks"}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
         let project = projects.first().unwrap();
@@ -96,7 +97,9 @@ fn mock_handler(
         );
 
         // read nodes
-        let projects = ef.read_nodes("Project", json!({}), None).await?;
+        let projects = ef
+            .read_nodes("Project", json!({}), Options::default())
+            .await?;
         assert_eq!(projects.len(), 2);
         let project = projects
             .iter()
@@ -136,13 +139,15 @@ fn mock_handler(
                         }
                     }
                 }),
-                None,
+                Options::default(),
             )
             .await?;
         assert_eq!(dr, 1);
 
         // read nodes
-        let projects = ef.read_nodes("Project", json!({}), None).await?;
+        let projects = ef
+            .read_nodes("Project", json!({}), Options::default())
+            .await?;
         assert_eq!(projects.len(), 1);
         let project = projects.first().unwrap();
         assert_eq!(project.type_name(), "Project");
@@ -188,7 +193,7 @@ fn mock_handler(
             .create_node(
                 "Project",
                 json!({"name": "TestProject", "description": "Alchemy."}),
-                None,
+                Options::default(),
             )
             .await?;
         assert_eq!(project.type_name(), "Project");
@@ -203,7 +208,7 @@ fn mock_handler(
 
         // create dst
         let user = ef
-            .create_node("User", json!({"name": "Alice"}), None)
+            .create_node("User", json!({"name": "Alice"}), Options::default())
             .await?;
         assert_eq!(user.type_name(), "User");
         assert_eq!(
@@ -220,7 +225,7 @@ fn mock_handler(
                     "MATCH": {"name": {"EQ": "TestProject"}},
                     "CREATE": {"since": "2022-04-18", "dst": {"User": {"EXISTING": {"name": "Alice"}}}}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 
@@ -233,7 +238,7 @@ fn mock_handler(
                     "src": {"name": {"EQ": "TestProject"}},
                     "dst": {"User": {"name": {"EQ": "Alice"}}}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 
@@ -261,7 +266,7 @@ fn mock_handler(
                     "MATCH": {"id": {"EQ": po_created.first().unwrap().id()?}},
                     "SET": {"since": "2022-04-19"}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 
@@ -273,7 +278,7 @@ fn mock_handler(
                     "src": {"name": {"EQ": "TestProject"}},
                     "dst": {"User": {"name": {"EQ": "Alice"}}}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 
@@ -305,7 +310,7 @@ fn mock_handler(
                 json!({
                     "MATCH": {"id": {"EQ": po_updated.first().unwrap().id()?}}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 
@@ -318,7 +323,7 @@ fn mock_handler(
                 json!({
                     "id": {"EQ": po_updated.first().unwrap().id()?}
                 }),
-                None,
+                Options::default(),
             )
             .await?;
 

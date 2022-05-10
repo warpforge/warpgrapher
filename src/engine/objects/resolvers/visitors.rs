@@ -5,7 +5,7 @@ use crate::engine::database::{
 use crate::engine::database::{DatabaseEndpoint, DatabasePool};
 use crate::engine::events::EventFacade;
 use crate::engine::objects::resolvers::SuffixGenerator;
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, Options, Rel};
 use crate::engine::schema::{Info, PropertyKind};
 use crate::engine::validators::Validators;
 use crate::engine::value::Value;
@@ -19,8 +19,8 @@ use std::convert::TryFrom;
 pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
     node_var: &'a NodeQueryVar,
     mut input: Value,
+    options: Options,
     info: &'a Info,
-    partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &'a GraphQLContext<RequestCtx>,
@@ -89,7 +89,7 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
             )?;
 
             let node = transaction
-                .create_node(node_var, props, partition_key_opt, info, sg)
+                .create_node(node_var, props, options.clone(), info, sg)
                 .await?;
 
             let node = if let Some(handlers) = context
@@ -144,8 +144,8 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                             NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                         ),
                                         val,
+                                        options.clone(),
                                         &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                        partition_key_opt,
                                         sg,
                                         transaction,
                                         context,
@@ -162,8 +162,8 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                     ),
                                     v,
+                                    options.clone(),
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                    partition_key_opt,
                                     sg,
                                     transaction,
                                     context,
@@ -198,8 +198,8 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
 pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     mut input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -237,11 +237,11 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
         let fragment = visit_node_query_input::<RequestCtx>(
             node_var,
             m.remove("MATCH"), // Remove used to take ownership
+            options.clone(),
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
         )
@@ -251,11 +251,11 @@ pub(crate) async fn visit_node_delete_input<RequestCtx: RequestContext>(
             fragment,
             node_var,
             m.remove("DELETE"),
+            options,
             &Info::new(
                 itd.property("DELETE")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -273,8 +273,8 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     node_var: &'a NodeQueryVar,
     input: Option<Value>,
+    options: Options,
     info: &'a Info,
-    partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &'a GraphQLContext<RequestCtx>,
@@ -288,7 +288,7 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
         let itd = info.type_def()?;
 
         let mut nodes = transaction
-            .read_nodes(node_var, query_fragment, partition_key_opt, info)
+            .read_nodes(node_var, query_fragment, options.clone(), info)
             .await?;
         if nodes.is_empty() {
             if let Some(handlers) = context
@@ -332,8 +332,8 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
                                     Some(fragment.clone()),
                                     &rel_var,
                                     val,
+                                    options.clone(),
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                    partition_key_opt,
                                     sg,
                                     transaction,
                                     context,
@@ -351,8 +351,8 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
                                 Some(fragment.clone()),
                                 &rel_var,
                                 v,
+                                options.clone(),
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
                                 sg,
                                 transaction,
                                 context,
@@ -365,9 +365,7 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
             }
         }
 
-        let result = transaction
-            .delete_nodes(fragment, node_var, partition_key_opt)
-            .await;
+        let result = transaction.delete_nodes(fragment, node_var, options).await;
 
         if let Some(handlers) = context
             .event_handlers()
@@ -394,8 +392,8 @@ fn visit_node_delete_mutation_input<'a, RequestCtx: RequestContext>(
 async fn visit_node_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -424,8 +422,8 @@ async fn visit_node_input<RequestCtx: RequestContext>(
                 let node = visit_node_create_mutation_input::<RequestCtx>(
                     node_var,
                     v,
+                    options,
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
-                    partition_key_opt,
                     sg,
                     transaction,
                     context,
@@ -440,8 +438,8 @@ async fn visit_node_input<RequestCtx: RequestContext>(
             "EXISTING" => Ok(visit_node_query_input::<RequestCtx>(
                 node_var,
                 Some(v),
+                options,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
                 sg,
                 transaction,
             )
@@ -458,8 +456,8 @@ async fn visit_node_input<RequestCtx: RequestContext>(
 pub(crate) fn visit_node_query_input<'a, RequestCtx: RequestContext>(
     node_var: &'a NodeQueryVar,
     input: Option<Value>,
+    options: Options,
     info: &'a Info,
-    partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
 ) -> BoxFuture<'a, Result<QueryFragment, Error>> {
@@ -497,8 +495,8 @@ pub(crate) fn visit_node_query_input<'a, RequestCtx: RequestContext>(
                                     dst_var.clone(),
                                 ),
                                 Some(v),
+                                options.clone(),
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
                                 sg,
                                 transaction,
                             )
@@ -519,8 +517,8 @@ pub(crate) fn visit_node_query_input<'a, RequestCtx: RequestContext>(
 pub(crate) async fn visit_node_update_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     mut input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -559,11 +557,11 @@ pub(crate) async fn visit_node_update_input<RequestCtx: RequestContext>(
         let query_fragment = visit_node_query_input::<RequestCtx>(
             node_var,
             m.remove("MATCH"), // Remove used to take ownership
+            options.clone(),
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
         )
@@ -578,11 +576,11 @@ pub(crate) async fn visit_node_update_input<RequestCtx: RequestContext>(
                     name: "input::SET".to_string(),
                 }
             })?,
+            options,
             &Info::new(
                 itd.property("SET")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -598,8 +596,8 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     node_var: &'a NodeQueryVar,
     input: Value,
+    options: Options,
     info: &'a Info,
-    partition_key_opt: Option<&'a Value>,
     sg: &'a mut SuffixGenerator,
     transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &'a GraphQLContext<RequestCtx>,
@@ -645,7 +643,7 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
             )?;
 
             let mut nodes = transaction
-                .update_nodes(query_fragment, node_var, props, partition_key_opt, info, sg)
+                .update_nodes(query_fragment, node_var, props, options.clone(), info, sg)
                 .await?;
             if let Some(handlers) = context
                 .event_handlers()
@@ -687,8 +685,8 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
                                         NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                     ),
                                     val,
+                                    options.clone(),
                                     &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                    partition_key_opt,
                                     sg,
                                     transaction,
                                     context,
@@ -705,8 +703,8 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
                                     NodeQueryVar::new(None, "dst".to_string(), sg.suffix()),
                                 ),
                                 v,
+                                options.clone(),
                                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                                partition_key_opt,
                                 sg,
                                 transaction,
                                 context,
@@ -730,8 +728,8 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -750,11 +748,11 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
                 src_fragment,
                 rel_var,
                 v,
+                options,
                 &Info::new(
                     itd.property("ADD")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -768,11 +766,11 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
                 Some(src_fragment),
                 rel_var,
                 v,
+                options,
                 &Info::new(
                     itd.property("DELETE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -786,11 +784,11 @@ async fn visit_rel_change_input<RequestCtx: RequestContext>(
                 Some(src_fragment),
                 rel_var,
                 v,
+                options,
                 &Info::new(
                     itd.property("UPDATE")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -812,8 +810,8 @@ pub(crate) async fn visit_rel_create_input<RequestCtx: RequestContext>(
     src_var: &NodeQueryVar,
     rel_name: &str,
     mut input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -848,18 +846,18 @@ pub(crate) async fn visit_rel_create_input<RequestCtx: RequestContext>(
         let src_fragment = visit_node_query_input::<RequestCtx>(
             src_var,
             m.remove("MATCH"), // Remove used to take ownership
+            options.clone(),
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
         )
         .await?;
 
         let nodes = transaction
-            .read_nodes::<RequestCtx>(src_var, src_fragment.clone(), partition_key_opt, info)
+            .read_nodes::<RequestCtx>(src_var, src_fragment.clone(), options.clone(), info)
             .await?;
 
         if nodes.is_empty() {
@@ -885,11 +883,11 @@ pub(crate) async fn visit_rel_create_input<RequestCtx: RequestContext>(
                     src_fragment,
                     &rel_var,
                     create_input,
+                    options,
                     &Info::new(
                         itd.property("CREATE")?.type_name().to_owned(),
                         info.type_defs(),
                     ),
-                    partition_key_opt,
                     sg,
                     transaction,
                     context,
@@ -910,11 +908,11 @@ pub(crate) async fn visit_rel_create_input<RequestCtx: RequestContext>(
                             src_fragment.clone(),
                             &rel_var,
                             create_input_value,
+                            options.clone(),
                             &Info::new(
                                 itd.property("CREATE")?.type_name().to_owned(),
                                 info.type_defs(),
                             ),
-                            partition_key_opt,
                             sg,
                             transaction,
                             context,
@@ -936,8 +934,8 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
     src_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -955,8 +953,8 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
         let dst_fragment = visit_rel_nodes_mutation_input_union::<RequestCtx>(
             rel_var.dst(),
             dst,
+            options.clone(),
             &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -972,7 +970,7 @@ async fn visit_rel_create_mutation_input<RequestCtx: RequestContext>(
                 rel_var,
                 m.remove("id"),
                 m,
-                partition_key_opt,
+                options,
                 sg,
             )
             .await?;
@@ -1006,8 +1004,8 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
     src_query_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     mut input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1044,11 +1042,11 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
             src_query_opt,
             rel_var,
             m.remove("MATCH"), // remove rather than get to take ownership
+            options.clone(),
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
         )
@@ -1057,7 +1055,7 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .read_rels(fragment, rel_var, partition_key_opt)
+            .read_rels(fragment, rel_var, options.clone())
             .await?;
         if rels.is_empty() {
             if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
@@ -1089,11 +1087,11 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
                 id_fragment.clone(),
                 rel_var.src(),
                 src,
+                options.clone(),
                 &Info::new(
                     itd.property("src")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -1107,11 +1105,11 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
                 id_fragment.clone(),
                 rel_var.dst(),
                 dst,
+                options.clone(),
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -1119,9 +1117,7 @@ pub(crate) async fn visit_rel_delete_input<RequestCtx: RequestContext>(
             .await?;
         }
 
-        let result = transaction
-            .delete_rels(id_fragment, rel_var, partition_key_opt)
-            .await;
+        let result = transaction.delete_rels(id_fragment, rel_var, options).await;
 
         if let Some(handlers) = context.event_handlers().after_rel_delete(&rel_label) {
             for f in handlers.iter() {
@@ -1152,8 +1148,8 @@ async fn visit_rel_dst_delete_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1177,8 +1173,8 @@ async fn visit_rel_dst_delete_mutation_input<RequestCtx: RequestContext>(
             query_fragment,
             node_var,
             Some(v),
+            options,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -1192,8 +1188,8 @@ async fn visit_rel_dst_delete_mutation_input<RequestCtx: RequestContext>(
 async fn visit_rel_dst_query_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
 ) -> Result<Option<QueryFragment>, Error> {
@@ -1212,8 +1208,8 @@ async fn visit_rel_dst_query_input<RequestCtx: RequestContext>(
                 visit_node_query_input::<RequestCtx>(
                     node_var,
                     Some(v),
+                    options,
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
-                    partition_key_opt,
                     sg,
                     transaction,
                 )
@@ -1230,8 +1226,8 @@ async fn visit_rel_dst_query_input<RequestCtx: RequestContext>(
 async fn visit_rel_dst_update_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1253,8 +1249,8 @@ async fn visit_rel_dst_update_mutation_input<RequestCtx: RequestContext>(
             query_fragment,
             &NodeQueryVar::new(Some(k), "dst".to_string(), sg.suffix()),
             v,
+            options,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -1268,8 +1264,8 @@ async fn visit_rel_dst_update_mutation_input<RequestCtx: RequestContext>(
 async fn visit_rel_nodes_mutation_input_union<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1294,8 +1290,8 @@ async fn visit_rel_nodes_mutation_input_union<RequestCtx: RequestContext>(
                 node_var.suffix().to_string(),
             ),
             v,
+            options,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -1310,8 +1306,8 @@ pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     input_opt: Option<Value>,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
 ) -> Result<QueryFragment, Error> {
@@ -1328,8 +1324,8 @@ pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
             visit_rel_src_query_input::<RequestCtx>(
                 rel_var.src(),
                 Some(src),
+                options.clone(),
                 &Info::new(src_prop.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
                 sg,
                 transaction,
             )
@@ -1343,8 +1339,8 @@ pub(crate) async fn visit_rel_query_input<RequestCtx: RequestContext>(
             visit_rel_dst_query_input::<RequestCtx>(
                 rel_var.dst(),
                 Some(dst),
+                options,
                 &Info::new(dst_prop.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
                 sg,
                 transaction,
             )
@@ -1368,8 +1364,8 @@ async fn visit_rel_src_delete_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1392,8 +1388,8 @@ async fn visit_rel_src_delete_mutation_input<RequestCtx: RequestContext>(
             query_fragment,
             node_var,
             Some(v),
+            options,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -1409,8 +1405,8 @@ async fn visit_rel_src_update_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     node_var: &NodeQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1433,8 +1429,8 @@ async fn visit_rel_src_update_mutation_input<RequestCtx: RequestContext>(
             query_fragment,
             node_var,
             v,
+            options,
             &Info::new(p.type_name().to_owned(), info.type_defs()),
-            partition_key_opt,
             sg,
             transaction,
             context,
@@ -1448,8 +1444,8 @@ async fn visit_rel_src_update_mutation_input<RequestCtx: RequestContext>(
 async fn visit_rel_src_query_input<RequestCtx: RequestContext>(
     node_var: &NodeQueryVar,
     input: Option<Value>,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
 ) -> Result<Option<QueryFragment>, Error> {
@@ -1467,8 +1463,8 @@ async fn visit_rel_src_query_input<RequestCtx: RequestContext>(
             let fragment = visit_node_query_input::<RequestCtx>(
                 node_var,
                 Some(v),
+                options,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),
-                partition_key_opt,
                 sg,
                 transaction,
             )
@@ -1488,8 +1484,8 @@ pub(crate) async fn visit_rel_update_input<RequestCtx: RequestContext>(
     src_fragment_opt: Option<QueryFragment>,
     rel_var: &RelQueryVar,
     mut input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1527,11 +1523,11 @@ pub(crate) async fn visit_rel_update_input<RequestCtx: RequestContext>(
             src_fragment_opt,
             rel_var,
             m.remove("MATCH"), // uses remove to take ownership
+            options.clone(),
             &Info::new(
                 itd.property("MATCH")?.type_name().to_owned(),
                 info.type_defs(),
             ),
-            partition_key_opt,
             sg,
             transaction,
         )
@@ -1545,11 +1541,11 @@ pub(crate) async fn visit_rel_update_input<RequestCtx: RequestContext>(
                 fragment,
                 rel_var,
                 update,
+                options,
                 &Info::new(
                     itd.property("SET")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -1570,8 +1566,8 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
     query_fragment: QueryFragment,
     rel_var: &RelQueryVar,
     input: Value,
+    options: Options,
     info: &Info,
-    partition_key_opt: Option<&Value>,
     sg: &mut SuffixGenerator,
     transaction: &mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     context: &GraphQLContext<RequestCtx>,
@@ -1589,7 +1585,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
         let rel_label =
             rel_var.src().label()?.to_string() + &*rel_var.label().to_title_case() + "Rel";
         let mut rels = transaction
-            .update_rels(query_fragment, rel_var, m, partition_key_opt, sg)
+            .update_rels(query_fragment, rel_var, m, options.clone(), sg)
             .await?;
         if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
             for f in handlers.iter() {
@@ -1620,11 +1616,11 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
                 id_fragment.clone(),
                 rel_var.src(),
                 src,
+                options.clone(),
                 &Info::new(
                     itd.property("src")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,
@@ -1637,11 +1633,11 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
             visit_rel_dst_update_mutation_input::<RequestCtx>(
                 id_fragment,
                 dst,
+                options,
                 &Info::new(
                     itd.property("dst")?.type_name().to_owned(),
                     info.type_defs(),
                 ),
-                partition_key_opt,
                 sg,
                 transaction,
                 context,

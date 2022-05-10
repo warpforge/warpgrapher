@@ -5,6 +5,7 @@ use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
+use warpgrapher::engine::objects::Options;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
@@ -57,6 +58,7 @@ fn resolve_project_top_contributor(
             "topdev",
             HashMap::new(),
             top_contributor,
+            Options::default(),
         )?;
 
         facade.resolve_rel(&top_contributor_rel).await

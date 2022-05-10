@@ -10,7 +10,7 @@ use crate::engine::objects::resolvers::visitors::{
     visit_node_create_mutation_input, visit_node_query_input, visit_node_update_input,
     visit_rel_query_input,
 };
-use crate::engine::objects::{Node, NodeRef, Rel};
+use crate::engine::objects::{Node, NodeRef, Options, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
@@ -59,7 +59,6 @@ where
     info: &'a Info,
     args: &'a Arguments<'a>,
     parent: Object<'a, RequestCtx>,
-    partition_key_opt: Option<&'a Value>,
     executor: &'a Executor<'a, 'a, GraphQLContext<RequestCtx>>,
 }
 
@@ -72,7 +71,6 @@ where
         info: &'a Info,
         args: &'a Arguments,
         parent: Object<'a, RequestCtx>,
-        partition_key_opt: Option<&'a Value>,
         executor: &'a Executor<GraphQLContext<RequestCtx>>,
     ) -> Self {
         ResolverFacade {
@@ -80,7 +78,6 @@ where
             info,
             args,
             parent,
-            partition_key_opt,
             executor,
         }
     }
@@ -193,7 +190,9 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional `Value` that modifies the behavior of the query, as follows:
+    ///   - `direction` - Determines the order in which search results are sorted, `ascending` or `descending`
+    ///   - `orderBy` - Identifies the field to be used for sorting the results to be returned
     ///
     /// # Examples
     ///
@@ -201,6 +200,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -211,7 +211,7 @@ where
     ///         transaction.begin().await?;
     ///
     ///         let result = ResolverFacade::read_nodes(&facade, "User", json!({"name": "alice"}),
-    ///             None, &mut transaction).await?;
+    ///             Options::default(), &mut transaction).await?;
     ///         let alice = result.first().unwrap();
     ///
     ///         transaction.commit().await?;
@@ -225,7 +225,7 @@ where
         rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut info = rf.info.clone();
@@ -239,14 +239,14 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?),
+            options.clone(),
             &Info::new(format!("{}QueryInput", type_name), info.type_defs()),
-            partition_key_opt,
             &mut sg,
             transaction,
         )
         .await?;
         let results = transaction
-            .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
+            .read_nodes(&node_var, query_fragment, options, &info)
             .await;
         results
     }
@@ -260,7 +260,7 @@ where
     /// * `src_node_label` - String reference represing name of node type (ex: "User").
     /// * `rel_label` - String reference representing the name of the relationship (ex: "teams").
     /// * `input` - `Value` describing the relationship query input.
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Arguments that influence query behavior, like a sort order
     ///
     /// # Examples
     ///
@@ -268,7 +268,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
-    /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::engine::objects::{Options, Rel};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -280,7 +280,7 @@ where
     ///             json!({
     ///                 "src": {"name": {"EQ": "alice"}}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -289,8 +289,8 @@ where
         &self,
         src_node_label: &str,
         rel_label: &str,
+        options: Options,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
         transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let input_value_opt = Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
@@ -319,15 +319,15 @@ where
             None,
             &rel_var,
             input_value_opt,
+            options.clone(),
             &info,
-            partition_key_opt,
             &mut sg,
             transaction,
         )
         .await?;
 
         let results = transaction
-            .read_rels(query_fragment, &rel_var, partition_key_opt)
+            .read_rels(query_fragment, &rel_var, options)
             .await?;
 
         Ok(results)
@@ -341,7 +341,7 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments that change query behavior, such as a sort order
     ///
     /// # Examples
     ///
@@ -350,6 +350,7 @@ where
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -357,7 +358,7 @@ where
     ///     Box::pin(async move {
     ///         let mut transaction = facade.executor().context().pool().transaction().await?;
     ///         transaction.begin().await?;
-    ///         let result = ResolverFacade::create_node(&facade, "User", json!({"name": "alice"}), None, &mut transaction).await;
+    ///         let result = ResolverFacade::create_node(&facade, "User", Options::default(), json!({"name": "alice"}), &mut transaction).await;
     ///         if result.is_ok() {
     ///             transaction.commit().await?;
     ///         } else {
@@ -372,8 +373,8 @@ where
     pub async fn create_node(
         rf: &'a ResolverFacade<'_, RequestCtx>,
         type_name: &str,
+        options: Options,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
         transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Node<RequestCtx>, Error> {
         let mut sg = SuffixGenerator::new();
@@ -385,8 +386,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(type_name.to_string(), rf.info.type_defs()),
-            partition_key_opt,
             &mut sg,
             transaction,
             rf.executor.context(),
@@ -403,7 +404,7 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments that affect query behavior, such as a sort order
     ///
     /// # Examples
     ///
@@ -411,6 +412,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -423,6 +425,7 @@ where
     ///         let result = ResolverFacade::update_node(
     ///             &facade,
     ///             "User",
+    ///             Options::default(),
     ///             json!({
     ///                 "MATCH": {
     ///                     "name": {
@@ -433,7 +436,6 @@ where
     ///                     "age": 20
     ///                 }
     ///             }),
-    ///             None,
     ///             &mut transaction
     ///         ).await?;
     ///
@@ -448,8 +450,8 @@ where
     pub async fn update_node(
         rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
+        options: Options,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
         transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
@@ -461,8 +463,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(format!("{}UpdateInput", type_name), rf.info.type_defs()),
-            partition_key_opt,
             &mut sg,
             transaction,
             rf.executor.context(),
@@ -479,7 +481,7 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments that affect query behavior, such as a sort order
     ///
     /// # Examples
     ///
@@ -487,6 +489,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::database::{DatabasePool, Transaction};
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -499,6 +502,7 @@ where
     ///         ResolverFacade::delete_node(
     ///             &facade,
     ///             "User",
+    ///             Options::default(),
     ///             json!({
     ///                 "MATCH": {
     ///                     "name": {
@@ -506,7 +510,6 @@ where
     ///                     }
     ///                 }
     ///             }),
-    ///             None,
     ///             &mut transaction
     ///         ).await?;
     ///
@@ -520,8 +523,8 @@ where
     pub async fn delete_node(
         rf: &ResolverFacade<'_, RequestCtx>,
         type_name: &str,
+        options: Options,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
         transaction: &'a mut <<<RequestCtx as RequestContext>::DBEndpointType as DatabaseEndpoint>::PoolType as DatabasePool>::TransactionType,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
@@ -533,8 +536,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(format!("{}DeleteInput", type_name), rf.info.type_defs()),
-            partition_key_opt,
             &mut sg,
             transaction,
             rf.executor.context(),
@@ -558,6 +561,7 @@ where
     ///
     /// ```rust,no_run
     /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -571,7 +575,7 @@ where
     ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
     ///         let rel = facade.
-    ///             create_rel(rel_id, rel_name, rel_props, node_id)?;
+    ///             create_rel(rel_id, rel_name, rel_props, node_id, Options::default())?;
     ///         facade.resolve_rel(&rel).await
     ///     })
     /// }
@@ -582,10 +586,9 @@ where
         rel_name: &str,
         mut props: HashMap<String, Value>,
         dst_id: Value,
+        _options: Options,
     ) -> Result<Rel<RequestCtx>, Error> {
         props.insert("id".to_string(), id);
-        self.partition_key_opt
-            .map(|pk| props.insert("partitionKey".to_string(), Value::String(pk.to_string())));
 
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
@@ -615,6 +618,7 @@ where
     ///
     /// ```rust,no_run
     /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -632,7 +636,8 @@ where
     ///         let mut rel_props = HashMap::new();
     ///         rel_props.insert("since".to_string(), Value::String("2020-01-01".to_string()));
     ///
-    ///         let rel = facade.create_rel_with_dst_node(rel_id, rel_name, rel_props, n)?;
+    ///         let rel = facade.create_rel_with_dst_node(rel_id, rel_name, rel_props, n,
+    ///             Options::default())?;
     ///         facade.resolve_rel(&rel).await
     ///     })
     /// }
@@ -643,10 +648,9 @@ where
         rel_name: &str,
         mut props: HashMap<String, Value>,
         dst: Node<RequestCtx>,
+        _options: Options,
     ) -> Result<Rel<RequestCtx>, Error> {
         props.insert("id".to_string(), id);
-        self.partition_key_opt
-            .map(|pk| props.insert("partitionKey".to_string(), Value::String(pk.to_string())));
 
         if let Object::Node(parent_node) = self.parent {
             Ok(Rel::new(
@@ -890,6 +894,7 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -905,7 +910,7 @@ where
     ///         // return rel
     ///         facade.resolve_rel(&facade.create_rel(
     ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///             "members", hm1, node_id)?).await
+    ///             "members", hm1, node_id, Options::default())?).await
     ///     })
     /// }
     /// ```
@@ -928,6 +933,7 @@ where
     /// ```rust, no_run
     /// # use serde_json::json;
     /// # use std::collections::HashMap;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
@@ -949,10 +955,10 @@ where
     ///         facade.resolve_rel_list(vec![
     ///             &facade.create_rel(
     ///                 Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 "members", hm1, node_id1)?,
+    ///                 "members", hm1, node_id1, Options::default())?,
     ///             &facade.create_rel(
     ///                 Value::String("713c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-    ///                 "members", hm2, node_id2)?
+    ///                 "members", hm2, node_id2, Options::default())?
     ///         ]).await
     ///     })
     /// }

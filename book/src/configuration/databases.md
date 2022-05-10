@@ -41,8 +41,6 @@ for a TLS connection, and `false`. Defaults to `true`. Should only be set to fal
 environments.
 - WG_GREMLIN_LONG_IDS is set to `true` if Warpgrapher should use long integers for vertex and edge
 identifiers. If `false`, Warpgrapher uses strings. Defaults to `false`. Consult your graph database's documentation to determine what values are valid for identifiers.
-- WG_GREMLIN_PARTITIONS is set to `true` if Warpgrapher should require a partition ID, and false if 
-Warpgrapher should ignore or omit partition IDs. Defaults to `false`.
 - WG_GREMLIN_SESSIONS is set to `true` if Warpgrapher mutations should be conducted within a single
 Gremlin session, which in some databases provides transactional semantics, and `false` if sessions 
 should not be used. Defaults to `false`.
@@ -140,13 +138,12 @@ export WG_GREMLIN_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_GREMLIN_PASS=*MY-COSMOS-KEY*
 export WG_GREMLIN_USE_TLS=true
 export WG_GREMLIN_VALIDATE_CERTS=true
-export WG_GREMLIN_PARTITIONS=true
 export WG_GREMLIN_VERSION=1
 ```
 
 Note that when setting up your Cosmos database, you must configure it to offer a Gremlin graph API.
 
-Note also that you must set your partition key to be named `partitionKey`, as this name for the partition key is hard-coded into Warpgrapher.  (This could be changed. If that would be helpful to you, [file an issue](https://github.com/warpforge/warpgrapher/issues) with a feature request to make the partition key name configurable.
+Note also that Warpgrapher does not automate the setting or use of a partition key. You must select the node property you wish to use as a partition key and appropriately include it in queries. When Warpgrapher loads relationships and nodes to resolve the full shape of a GraphQL query, it will query by ID, which will likely result in cross-partition queries. This should be fine for many use cases. Extending Warpgrapher to allow more control over and use of partition keys for nested relationship resolution is future work.
 
 Be advised that Gremlin traversals are not executed atomically within Cosmos DB. A traversal may 
 fail part way through if, for example, one reaches the read unit capacity limit.  See 

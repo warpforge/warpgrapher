@@ -1,6 +1,6 @@
 use crate::engine::context::RequestContext;
 use crate::engine::database::{DatabaseEndpoint, DatabasePool, Transaction};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, Options, Rel};
 use crate::engine::schema::Info;
 use crate::error::Error;
 use async_trait::async_trait;
@@ -11,23 +11,20 @@ use ultra_batch::{Cache, Fetcher};
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct NodeLoaderKey {
     id: String,
-    partition_key_opt: Option<String>,
+    options: Options,
 }
 
 impl NodeLoaderKey {
-    pub fn new(id: String, partition_key_opt: Option<String>) -> Self {
-        NodeLoaderKey {
-            id,
-            partition_key_opt,
-        }
+    pub fn new(id: String, options: Options) -> Self {
+        NodeLoaderKey { id, options }
     }
 
     pub fn id(&self) -> &str {
         &self.id
     }
 
-    pub fn partition_key_opt(&self) -> &Option<String> {
-        &self.partition_key_opt
+    pub fn options(&self) -> &Options {
+        &self.options
     }
 }
 
@@ -77,10 +74,7 @@ where
 
         results.into_iter().try_for_each(|n| {
             values.insert(
-                NodeLoaderKey::new(
-                    n.id()?.to_string(),
-                    n.fields().get("partitionKey").map(|pkv| pkv.to_string()),
-                ),
+                NodeLoaderKey::new(n.id()?.to_string(), Options::new(Vec::new())),
                 n,
             );
 
@@ -95,15 +89,15 @@ where
 pub struct RelLoaderKey {
     src_id: String,
     rel_name: String,
-    partition_key_opt: Option<String>,
+    options: Options,
 }
 
 impl RelLoaderKey {
-    pub fn new(src_id: String, rel_name: String, partition_key_opt: Option<String>) -> Self {
+    pub fn new(src_id: String, rel_name: String, options: Options) -> Self {
         RelLoaderKey {
             src_id,
             rel_name,
-            partition_key_opt,
+            options,
         }
     }
 
@@ -115,8 +109,8 @@ impl RelLoaderKey {
         &self.rel_name
     }
 
-    pub fn partition_key_opt(&self) -> &Option<String> {
-        &self.partition_key_opt
+    pub fn options(&self) -> &Options {
+        &self.options
     }
 }
 
@@ -161,11 +155,11 @@ where
         let results = transaction.load_rels::<RequestCtx>(keys).await?;
 
         let mut rel_map: HashMap<RelLoaderKey, Vec<Rel<RequestCtx>>> = HashMap::new();
-        let pk_map: HashMap<String, Option<String>> = keys
+        let options_map: HashMap<String, Options> = keys
             .iter()
             .map(|rlk| {
                 rel_map.insert(rlk.clone(), Vec::new());
-                (rlk.src_id().to_string(), rlk.partition_key_opt.clone())
+                (rlk.src_id().to_string(), rlk.options().clone())
             })
             .collect();
 
@@ -173,10 +167,10 @@ where
             let rlk = RelLoaderKey::new(
                 r.src_id()?.to_string(),
                 r.rel_name().to_string(),
-                pk_map
+                options_map
                     .get(&r.src_id()?.to_string())
-                    .unwrap_or(&None)
-                    .clone(),
+                    .cloned()
+                    .unwrap_or_default(),
             );
             let mut rel_list = rel_map.remove(&rlk).unwrap_or_default();
             rel_list.push(r);

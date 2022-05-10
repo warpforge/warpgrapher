@@ -13,7 +13,7 @@ use crate::engine::objects::resolvers::visitors::{
     visit_node_update_input, visit_rel_create_input, visit_rel_delete_input, visit_rel_query_input,
     visit_rel_update_input,
 };
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, Options, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::juniper::BoxFuture;
@@ -1177,20 +1177,22 @@ where
     /// # Arguments
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
-    /// * `input` - Optional `Value` describing which node to match. Same input structure passed to a READ crud operation (`<Type>QueryInput`).
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `input` - Optional `Value` describing which node to match. Same input structure
+    ///   passed to a READ crud operation (`<Type>QueryInput`).
+    /// * `options` - Optional structure with arguments that affect the behavior of the query
     ///
     /// # Examples
     ///
     /// ```rust, no_run
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let nodes_to_be_read = ef.read_nodes("User", value.clone(), None).await?;
+    ///         let nodes_to_be_read = ef.read_nodes("User", value.clone(), Options::default()).await?;
     ///         // modify value before passing it forward ...
     ///         Ok(value)
     ///     })
@@ -1200,7 +1202,7 @@ where
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut info = self.info.clone();
         info.name = "Query".to_string();
@@ -1215,8 +1217,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?),
+            options.clone(),
             &Info::new(format!("{}QueryInput", type_name), info.type_defs()),
-            partition_key_opt,
             &mut sg,
             self.transaction,
         )
@@ -1224,7 +1226,7 @@ where
 
         let results = self
             .transaction
-            .read_nodes(&node_var, query_fragment, partition_key_opt, &info)
+            .read_nodes(&node_var, query_fragment, options, &info)
             .await;
         results
     }
@@ -1237,19 +1239,20 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - `Value` describing the node to create.
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Options affecting how a query is performed, such as sort ordering
     ///
     /// # Examples
     ///
     /// ```rust, no_run
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
     /// fn before_user_read(value: Value, mut ef: EventFacade<()>) -> BoxFuture<Result<Value, Error>> {
     ///     Box::pin(async move {
-    ///         let new_node = ef.create_node("Team", value.clone(), None).await?;
+    ///         let new_node = ef.create_node("Team", value.clone(), Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1258,7 +1261,7 @@ where
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Node<RequestCtx>, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -1269,11 +1272,11 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(
                 format!("{}CreateMutationInput", type_name),
                 self.info.type_defs(),
             ),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),
@@ -1290,7 +1293,7 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - `Value` describing the node to update.
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments describing how a query is performed, such as a sort order
     ///
     /// # Examples
     ///
@@ -1298,6 +1301,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1309,7 +1313,7 @@ where
     ///                 "MATCH": {"name": {"EQ": "alice"}},
     ///                 "SET": {"name": "eve"}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1318,7 +1322,7 @@ where
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -1329,8 +1333,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(format!("{}UpdateInput", type_name), self.info.type_defs()),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),
@@ -1347,7 +1351,7 @@ where
     ///
     /// * `type_name` - String reference represing name of node type (ex: "User").
     /// * `input` - `Value` describing the node to update.
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments affecting a query, such as a sort order
     ///
     /// # Examples
     ///
@@ -1355,6 +1359,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1365,7 +1370,7 @@ where
     ///             json!({
     ///                 "MATCH": {"name": {"EQ": "alice"}}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1374,7 +1379,7 @@ where
         &mut self,
         type_name: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<i32, Error> {
         let mut sg = SuffixGenerator::new();
         let node_var =
@@ -1385,8 +1390,8 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(format!("{}DeleteInput", type_name), self.info.type_defs()),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),
@@ -1404,7 +1409,7 @@ where
     /// * `src_node_label` - String reference represing name of node type (ex: "User").
     /// * `rel_label` - String reference representing the name of the relationship (ex: "teams").
     /// * `input` - `Value` describing the relationship query input.
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments affecting a query, such as a sort order
     ///
     /// # Examples
     ///
@@ -1412,7 +1417,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
-    /// # use warpgrapher::engine::objects::Rel;
+    /// # use warpgrapher::engine::objects::{Options, Rel};
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1424,7 +1429,7 @@ where
     ///             json!({
     ///                 "src": {"name": {"EQ": "alice"}}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1434,7 +1439,7 @@ where
         src_node_label: &str,
         rel_label: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let input_value_opt = Some(input.try_into().map_err(|_e| Error::TypeConversionFailed {
             src: "TryInto<Value>".to_string(),
@@ -1462,8 +1467,8 @@ where
             None,
             &rel_var,
             input_value_opt,
+            options.clone(),
             &info,
-            partition_key_opt,
             &mut sg,
             self.transaction,
         )
@@ -1471,7 +1476,7 @@ where
 
         let results = self
             .transaction
-            .read_rels(query_fragment, &rel_var, partition_key_opt)
+            .read_rels(query_fragment, &rel_var, options)
             .await?;
 
         Ok(results)
@@ -1486,7 +1491,7 @@ where
     /// * `src_node_label` - String reference represing name of node type (ex: "User").
     /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
     /// * `input` - `Value` describing the relationship creation input
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments affecting a query, such a sort order
     ///
     /// # Examples
     ///
@@ -1494,6 +1499,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1515,7 +1521,7 @@ where
     ///                     }
     ///                 }
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1525,7 +1531,7 @@ where
         src_node_label: &str,
         rel_label: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
         let src_var = NodeQueryVar::new(
@@ -1541,6 +1547,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(
                 format!(
                     "{}{}CreateInput",
@@ -1552,7 +1559,6 @@ where
                 ),
                 self.info.type_defs(),
             ),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),
@@ -1571,7 +1577,7 @@ where
     /// * `src_node_label` - String reference represing name of node type (ex: "User").
     /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
     /// * `input` - `Value` describing the relationship update input
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments affecting a query, such as a sort order
     ///
     /// # Examples
     ///
@@ -1579,6 +1585,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1591,7 +1598,7 @@ where
     ///                 "MATCH": {"src": {"name": {"EQ": "alice"}}, "dst": {"name": {"EQ": "project_team_name"}}},
     ///                 "SET": {"sort_order": 2}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///         Ok(value)
     ///     })
     /// }
@@ -1601,7 +1608,7 @@ where
         src_node_label: &str,
         rel_label: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         let mut sg = SuffixGenerator::new();
         let rel_var = RelQueryVar::new(
@@ -1622,6 +1629,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(
                 format!(
                     "{}{}UpdateInput",
@@ -1633,7 +1641,6 @@ where
                 ),
                 self.info.type_defs(),
             ),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),
@@ -1652,7 +1659,7 @@ where
     /// * `src_node_label` - String reference represing name of src node type type (ex: "User").
     /// * `rel_label` - String reference representing the name of the relationship (ex: "teams")
     /// * `input` - `Value` describing the relationship delete input
-    /// * `partition_key_opt` - Optional `Value` describing the partition key if the underlying database supports it.
+    /// * `options` - Optional arguments affecting a query, such as a sort order
     ///
     /// # Examples
     ///
@@ -1660,6 +1667,7 @@ where
     /// # use serde_json::json;
     /// # use warpgrapher::Error;
     /// # use warpgrapher::engine::events::EventFacade;
+    /// # use warpgrapher::engine::objects::Options;
     /// # use warpgrapher::engine::value::Value;
     /// # use warpgrapher::juniper::BoxFuture;
     ///
@@ -1672,7 +1680,7 @@ where
     ///                 "MATCH": {"src": {"Card": {"name": {"EQ": "alice"}}},
     ///                     "dst": {"Team": {"name": {"EQ": "project_team_name"}}}}
     ///             }),
-    ///             None).await?;
+    ///             Options::default()).await?;
     ///
     ///         Ok(value)
     ///     })
@@ -1683,7 +1691,7 @@ where
         src_node_label: &str,
         rel_label: &str,
         input: impl TryInto<Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<i32, Error> {
         let mut sg = SuffixGenerator::new();
         let rel_var = RelQueryVar::new(
@@ -1704,6 +1712,7 @@ where
                 src: "".to_string(),
                 dst: "".to_string(),
             })?,
+            options,
             &Info::new(
                 format!(
                     "{}{}DeleteInput",
@@ -1715,7 +1724,6 @@ where
                 ),
                 self.info.type_defs(),
             ),
-            partition_key_opt,
             &mut sg,
             self.transaction,
             self.context(),

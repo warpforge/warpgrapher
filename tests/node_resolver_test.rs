@@ -19,8 +19,9 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name description status priority estimate active", Some("1234"),
+            "__typename id name description status priority estimate active",
             &json!({"name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+            None
         )
         .await
         .unwrap();
@@ -38,7 +39,7 @@ async fn create_single_node<RequestCtx: RequestContext>(mut client: Client<Reque
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -67,8 +68,9 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
     let p0 = client
         .create_node(
             "Project",
-            "__typename id name description status priority estimate active", Some("1234"),
+            "__typename id name description status priority estimate active",
             &json!({"id": "12345", "name": "MJOLNIR", "description": "Powered armor", "status": "GREEN", "priority": 1, "estimate": 3.3, "active": true}),
+            None
         )
         .await
         .unwrap();
@@ -87,8 +89,8 @@ async fn create_single_node_with_id<RequestCtx: RequestContext>(mut client: Clie
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234"),
             Some(&json!({"id": {"EQ": "12345"}})),
+            None,
         )
         .await
         .unwrap();
@@ -117,8 +119,8 @@ async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) 
         .create_node(
             "Project",
             "__typename id name",
-            Some("1234"),
             &json!({"name": "Project1"}),
+            None,
         )
         .await
         .unwrap();
@@ -130,8 +132,8 @@ async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) 
         .create_node(
             "Project",
             "__typename id name",
-            Some("1234"),
             &json!({"name": "Project2"}),
+            None,
         )
         .await
         .unwrap();
@@ -142,8 +144,8 @@ async fn read_query<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) 
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -164,8 +166,8 @@ async fn read_with_no_result<RequestCtx: RequestContext>(mut client: Client<Requ
         .read_node(
             "Project",
             "__typename id name description status priority estimate active",
-            Some("1234"),
             Some(&json!({"id": {"EQ": "1234"}})),
+            None,
         )
         .await
         .unwrap();
@@ -173,6 +175,151 @@ async fn read_with_no_result<RequestCtx: RequestContext>(mut client: Client<Requ
     assert!(projects.is_array());
     let projects_a = projects.as_array().unwrap();
     assert!(projects_a.is_empty());
+}
+
+/// Passes if reading nodes with specific ordering works
+#[wg_test]
+#[allow(dead_code)]
+async fn read_by_order<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let p0 = client
+        .create_node(
+            "Project",
+            "__typename id name priority",
+            &json!({"name": "Project Bravo", "priority": 2}),
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(p0.is_object());
+    assert_eq!(p0.get("__typename").unwrap(), "Project");
+    assert_eq!(p0.get("name").unwrap(), "Project Bravo");
+    assert_eq!(p0.get("priority").unwrap(), 2);
+
+    let p1 = client
+        .create_node(
+            "Project",
+            "__typename id name priority",
+            &json!({"name": "Project Alpha", "priority": 3}),
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(p1.is_object());
+    assert_eq!(p1.get("__typename").unwrap(), "Project");
+    assert_eq!(p1.get("name").unwrap(), "Project Alpha");
+    assert_eq!(p1.get("priority").unwrap(), 3);
+
+    let p2 = client
+        .create_node(
+            "Project",
+            "__typename id name priority",
+            &json!({"name": "Project Charlie", "priority": 1}),
+            None,
+        )
+        .await
+        .unwrap();
+    assert!(p2.is_object());
+    assert_eq!(p2.get("__typename").unwrap(), "Project");
+    assert_eq!(p2.get("name").unwrap(), "Project Charlie");
+    assert_eq!(p2.get("priority").unwrap(), 1);
+
+    let projects_name_asc = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            None,
+            Some(&json!({"sort": [{"direction": "ascending", "orderBy": "name"}]})),
+        )
+        .await
+        .unwrap();
+    let projects_name_asc_a = projects_name_asc.as_array().unwrap();
+    assert_eq!(projects_name_asc_a[0].get("name").unwrap(), "Project Alpha");
+    assert_eq!(projects_name_asc_a[0].get("priority").unwrap(), 3);
+    assert_eq!(projects_name_asc_a[1].get("name").unwrap(), "Project Bravo");
+    assert_eq!(projects_name_asc_a[1].get("priority").unwrap(), 2);
+    assert_eq!(
+        projects_name_asc_a[2].get("name").unwrap(),
+        "Project Charlie"
+    );
+    assert_eq!(projects_name_asc_a[2].get("priority").unwrap(), 1);
+
+    let projects_name_desc = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            None,
+            Some(&json!({"sort": [{"direction": "descending", "orderBy": "name"}]})),
+        )
+        .await
+        .unwrap();
+    let projects_name_desc_a = projects_name_desc.as_array().unwrap();
+    assert_eq!(
+        projects_name_desc_a[0].get("name").unwrap(),
+        "Project Charlie"
+    );
+    assert_eq!(projects_name_desc_a[0].get("priority").unwrap(), 1);
+    assert_eq!(
+        projects_name_desc_a[1].get("name").unwrap(),
+        "Project Bravo"
+    );
+    assert_eq!(projects_name_desc_a[1].get("priority").unwrap(), 2);
+    assert_eq!(
+        projects_name_desc_a[2].get("name").unwrap(),
+        "Project Alpha"
+    );
+    assert_eq!(projects_name_desc_a[2].get("priority").unwrap(), 3);
+
+    let projects_priority_asc = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            None,
+            Some(&json!({"sort": [{"direction": "ascending", "orderBy": "priority"}]})),
+        )
+        .await
+        .unwrap();
+    let projects_priority_asc_a = projects_priority_asc.as_array().unwrap();
+    assert_eq!(
+        projects_priority_asc_a[0].get("name").unwrap(),
+        "Project Charlie"
+    );
+    assert_eq!(projects_priority_asc_a[0].get("priority").unwrap(), 1);
+    assert_eq!(
+        projects_priority_asc_a[1].get("name").unwrap(),
+        "Project Bravo"
+    );
+    assert_eq!(projects_priority_asc_a[1].get("priority").unwrap(), 2);
+    assert_eq!(
+        projects_priority_asc_a[2].get("name").unwrap(),
+        "Project Alpha"
+    );
+    assert_eq!(projects_priority_asc_a[2].get("priority").unwrap(), 3);
+
+    let projects_priority_desc = client
+        .read_node(
+            "Project",
+            "__typename id name description status priority estimate active",
+            None,
+            Some(&json!({"sort": [{"direction": "descending", "orderBy": "priority"}]})),
+        )
+        .await
+        .unwrap();
+    let projects_priority_desc_a = projects_priority_desc.as_array().unwrap();
+    assert_eq!(
+        projects_priority_desc_a[0].get("name").unwrap(),
+        "Project Alpha"
+    );
+    assert_eq!(projects_priority_desc_a[0].get("priority").unwrap(), 3);
+    assert_eq!(
+        projects_priority_desc_a[1].get("name").unwrap(),
+        "Project Bravo"
+    );
+    assert_eq!(projects_priority_desc_a[1].get("priority").unwrap(), 2);
+    assert_eq!(
+        projects_priority_desc_a[2].get("name").unwrap(),
+        "Project Charlie"
+    );
+    assert_eq!(projects_priority_desc_a[2].get("priority").unwrap(), 1);
 }
 
 /// Passes if resolvers can handle a shape that reads a property that is not
@@ -184,8 +331,8 @@ async fn handle_missing_properties<RequestCtx: RequestContext>(mut client: Clien
         .create_node(
             "Project",
             "__typename id name description",
-            Some("1234"),
             &json!({"name": "MJOLNIR"}),
+            None,
         )
         .await
         .unwrap();
@@ -196,12 +343,7 @@ async fn handle_missing_properties<RequestCtx: RequestContext>(mut client: Clien
     assert!(p0.get("description").unwrap().is_null());
 
     let projects = client
-        .read_node(
-            "Project",
-            "__typename id name description",
-            Some("1234"),
-            None,
-        )
+        .read_node("Project", "__typename id name description", None, None)
         .await
         .unwrap();
 
@@ -222,8 +364,8 @@ async fn update_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -236,8 +378,8 @@ async fn update_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -257,9 +399,9 @@ async fn update_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -273,8 +415,8 @@ async fn update_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -299,8 +441,8 @@ async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -313,8 +455,8 @@ async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project2", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -324,7 +466,7 @@ async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node("Project", "__typename id name status", Some("1234"), None)
+        .read_node("Project", "__typename id name status", None, None)
         .await
         .unwrap();
 
@@ -336,9 +478,9 @@ async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             None,
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -350,7 +492,7 @@ async fn update_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(pu_a[1].get("__typename").unwrap(), "Project");
     assert_eq!(pu_a[1].get("status").unwrap(), "ACTIVE");
     let after_projects = client
-        .read_node("Project", "__typename id name status", Some("1234"), None)
+        .read_node("Project", "__typename id name status", None, None)
         .await
         .unwrap();
 
@@ -369,8 +511,8 @@ async fn delete_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -383,8 +525,8 @@ async fn delete_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -403,8 +545,8 @@ async fn delete_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
     let pd = client
         .delete_node(
             "Project",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
             None,
         )
         .await
@@ -415,8 +557,8 @@ async fn delete_mutation<RequestCtx: RequestContext>(mut client: Client<RequestC
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -434,8 +576,8 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project1", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -448,8 +590,8 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             &json!({"name": "Project2", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -459,7 +601,7 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(p1.get("status").unwrap(), "PENDING");
 
     let before_projects = client
-        .read_node("Project", "__typename id name status", Some("1234"), None)
+        .read_node("Project", "__typename id name status", None, None)
         .await
         .unwrap();
 
@@ -468,7 +610,7 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
     assert_eq!(before_projects_a.len(), 2);
 
     let pd = client
-        .delete_node("Project", Some("1234"), None, None)
+        .delete_node("Project", None, None, None)
         .await
         .unwrap();
 
@@ -478,8 +620,8 @@ async fn delete_mutation_null_query<RequestCtx: RequestContext>(mut client: Clie
         .read_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project1"}})),
+            None,
         )
         .await
         .unwrap();
@@ -519,8 +661,8 @@ async fn error_on_node_missing_id<RequestCtx: RequestContext>(mut client: Client
         .read_node(
             "Project",
             "__typename id name",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
+            None,
         )
         .await
         .unwrap();
@@ -531,9 +673,9 @@ async fn error_on_node_missing_id<RequestCtx: RequestContext>(mut client: Client
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();

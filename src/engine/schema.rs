@@ -71,6 +71,7 @@ pub(crate) enum PropertyKind {
     CustomResolver,
     DynamicScalar,
     DynamicRel { rel_name: String },
+    Enum,
     Input,
     NodeCreateMutation,
     NodeUpdateMutation,
@@ -88,6 +89,7 @@ pub(crate) enum PropertyKind {
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) enum TypeKind {
+    Enum,
     Input,
     Object,
     Rel,
@@ -505,6 +507,15 @@ fn generate_node_object(t: &Type) -> NodeType {
             ),
         );
 
+        arguments.insert(
+            "options".to_string(),
+            Argument::new(
+                "options".to_string(),
+                ArgumentKind::Optional,
+                fmt_rel_options_name(t, r),
+            ),
+        );
+
         let mut p = Property::new(
             r.name().to_string(),
             match r.resolver() {
@@ -804,6 +815,133 @@ fn generate_node_delete_mutation_input(t: &Type) -> NodeType {
     )
 }
 
+/// Takes a WG type and returns the name of the corresponding GqlNodeOptions
+fn fmt_node_options_name(t: &Type) -> String {
+    t.name().to_string() + "Options"
+}
+
+/// Takes a WG type and returns a NodeType representing a GqlNodeQueryInput
+///
+/// Format:
+/// input GqlNodeOptions {
+///     sort: [GqlSort]
+/// }
+///
+/// Ex:
+/// input ProjectOptions {
+///     sort: [ProjectSort]
+/// }
+fn generate_node_options(t: &Type) -> Result<NodeType, Error> {
+    let mut props = HashMap::new();
+
+    props.insert(
+        "sort".to_string(),
+        Property::new(
+            "sort".to_string(),
+            PropertyKind::Input,
+            fmt_node_sort_name(t),
+        )
+        .with_list(true)
+        .with_required(false),
+    );
+
+    Ok(NodeType::new(
+        fmt_node_options_name(t),
+        TypeKind::Input,
+        props,
+    ))
+}
+
+/// Takes a WG type and returns the name of the corersponding GqlNodeSort
+fn fmt_node_sort_name(t: &Type) -> String {
+    t.name().to_string() + "Sort"
+}
+
+/// Takes a WG type and returns a NodeType representing a GqlNodeSort
+///
+/// Format:
+/// input GqlNodeSort {
+///     direction: <Enum<'ascending', 'descending'>>
+///     orderBy: <Enum<[PropertyNames]>>
+/// }
+///
+/// Ex:
+/// input ProjectSort {
+///     direction: Enum<'ascending', 'descending'>
+///     orderBy: Enum<'name', 'priority'>
+/// }
+fn generate_node_sort(t: &Type) -> Result<NodeType, Error> {
+    let mut props = HashMap::new();
+    props.insert(
+        "direction".to_string(),
+        Property::new(
+            "direction".to_string(),
+            PropertyKind::Enum,
+            fmt_direction_enum_name(),
+        ),
+    );
+    props.insert(
+        "orderBy".to_string(),
+        Property::new(
+            "orderBy".to_string(),
+            PropertyKind::Enum,
+            fmt_node_order_by_name(t),
+        )
+        .with_required(true),
+    );
+
+    Ok(NodeType::new(fmt_node_sort_name(t), TypeKind::Input, props))
+}
+
+/// Takes a WG type and returns the name of the corresponding GqlNodeOrderBy
+fn fmt_node_order_by_name(t: &Type) -> String {
+    t.name().to_string() + "OrderByEnum"
+}
+
+/// Takes a WG type and returns a NodeType representing a GqlNodeOrderBy
+///
+/// Format:
+/// enum NodeOrderBy {
+///     propA
+///     propB
+///     propC
+/// }
+///
+/// Ex:
+/// enum ProjectOrderBy {
+///     name
+///     priority
+/// }
+fn generate_node_order_by(t: &Type) -> Result<NodeType, Error> {
+    // insert properties into hashmap
+    let mut hm = t
+        .props_as_slice()
+        .iter()
+        .filter(|p| p.resolver().is_none())
+        .map(|p| {
+            Ok((
+                p.name().to_string(),
+                Property::new(
+                    p.name().to_string(),
+                    PropertyKind::Scalar,
+                    p.type_name().to_string(),
+                )
+                .with_required(p.required())
+                .with_hidden(!p.uses().output())
+                .with_list(p.list())
+                .with_validator(p.validator().cloned()),
+            ))
+        })
+        .collect::<Result<HashMap<String, Property>, Error>>()?;
+
+    hm.insert(
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
+    );
+
+    Ok(NodeType::new(fmt_node_order_by_name(t), TypeKind::Enum, hm))
+}
+
 /// Takes a WG type and returns the name of the corresponding GqlNodeReadEndpoint
 fn fmt_node_read_endpoint_name(t: &Type) -> String {
     t.name().to_string()
@@ -826,12 +964,13 @@ fn generate_node_read_endpoint(t: &Type) -> Property {
             fmt_node_query_input_name(t),
         ),
     );
+
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_node_options_name(t),
         ),
     );
 
@@ -866,12 +1005,13 @@ fn generate_node_create_endpoint(t: &Type) -> Property {
             fmt_node_create_mutation_input_name(t),
         ),
     );
+
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_node_options_name(t),
         ),
     );
 
@@ -905,12 +1045,13 @@ fn generate_node_update_endpoint(t: &Type) -> Property {
             fmt_node_update_input_name(t),
         ),
     );
+
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_node_options_name(t),
         ),
     );
 
@@ -946,11 +1087,11 @@ fn generate_node_delete_endpoint(t: &Type) -> Property {
         ),
     );
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_node_options_name(t),
         ),
     );
 
@@ -973,8 +1114,6 @@ fn fmt_rel_object_name(t: &Type, r: &Relationship) -> String {
         + "Rel"
 }
 
-/// Takes a WG rel an returns the name of the rel. In reality, this just makes
-/// a copy of the name
 fn fmt_rel_name(r: &Relationship) -> String {
     r.name().to_string()
 }
@@ -1642,6 +1781,167 @@ fn generate_rel_dst_delete_mutation_input(t: &Type, r: &Relationship) -> NodeTyp
     )
 }
 
+/// Takes a WG type and returns the name of the corresponding GqlNodeQueryInput
+fn fmt_rel_options_name(t: &Type, r: &Relationship) -> String {
+    t.name().to_string()
+        + &*((&r.name().to_string().to_title_case())
+            .split_whitespace()
+            .collect::<String>())
+        + "Options"
+}
+
+/// Takes a WG type and returns a NodeType representing a GqlRelQueryOptions
+///
+/// Format:
+/// input GqlRelOptions {
+///     sort: [GqlRelSort]
+/// }
+///
+/// Ex:
+/// input ProjectCommitOptions {
+///     sort: [ProjectCommitSort]
+/// }
+fn generate_rel_options(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    let mut props = HashMap::new();
+    props.insert(
+        "sort".to_string(),
+        Property::new(
+            "sort".to_string(),
+            PropertyKind::Input,
+            fmt_rel_sort_name(t, r),
+        )
+        .with_list(true)
+        .with_required(false),
+    );
+
+    Ok(NodeType::new(
+        fmt_rel_options_name(t, r),
+        TypeKind::Input,
+        props,
+    ))
+}
+
+/// Takes a WG type and returns the name of the corresponding GqlNodeQueryInput
+fn fmt_rel_sort_name(t: &Type, r: &Relationship) -> String {
+    t.name().to_string()
+        + &*((&r.name().to_string().to_title_case())
+            .split_whitespace()
+            .collect::<String>())
+        + "Sort"
+}
+
+/// Takes a WG type and returns a NodeType representing a GqlRelQueryOptions
+///
+/// Format:
+/// input GqlRelSort {
+///     direction: <Enum<'ascending', 'descending'>>
+///     orderBy: <Enum<[PropertyNames]>>
+/// }
+///
+/// Ex:
+/// input ProjectCommitSort {
+///     direction: Enum<'ascending', 'descending'>
+///     orderBy: Enum<'repo', 'dst:hash'>
+/// }
+fn generate_rel_sort(t: &Type, r: &Relationship) -> Result<NodeType, Error> {
+    let mut props = HashMap::new();
+    props.insert(
+        "direction".to_string(),
+        Property::new(
+            "direction".to_string(),
+            PropertyKind::Enum,
+            fmt_direction_enum_name(),
+        ),
+    );
+    props.insert(
+        "orderBy".to_string(),
+        Property::new(
+            "orderBy".to_string(),
+            PropertyKind::Enum,
+            fmt_rel_order_by_name(t, r),
+        )
+        .with_required(true),
+    );
+
+    Ok(NodeType::new(
+        fmt_rel_sort_name(t, r),
+        TypeKind::Input,
+        props,
+    ))
+}
+
+/// Takes a WG type and returns the name of the corresponding GqlNodeOrderBy
+fn fmt_rel_order_by_name(t: &Type, r: &Relationship) -> String {
+    t.name().to_string()
+        + &*((&r.name().to_string().to_title_case())
+            .split_whitespace()
+            .collect::<String>())
+        + "OrderByEnum"
+}
+
+fn generate_rel_order_by(t: &Type, r: &Relationship, dsts: &[&Type]) -> Result<NodeType, Error> {
+    // insert properties into hashmap
+    let mut hm = r
+        .props_as_slice()
+        .iter()
+        .filter(|p| p.resolver().is_none())
+        .map(|p| {
+            Ok((
+                p.name().to_string(),
+                Property::new(
+                    p.name().to_string(),
+                    PropertyKind::Scalar,
+                    p.type_name().to_string(),
+                )
+                .with_required(p.required())
+                .with_hidden(!p.uses().output())
+                .with_list(p.list())
+                .with_validator(p.validator().cloned()),
+            ))
+        })
+        .collect::<Result<HashMap<String, Property>, Error>>()?;
+
+    hm.insert(
+        "id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
+    );
+
+    let mut dst_hm = dsts
+        .iter()
+        .flat_map(|dst| {
+            dst.props_as_slice()
+                .iter()
+                .filter(|p| p.resolver().is_none())
+                .map(|p| {
+                    Ok((
+                        "dst:".to_string() + p.name(),
+                        Property::new(
+                            "dst:".to_string() + p.name(),
+                            PropertyKind::Scalar,
+                            p.type_name().to_string(),
+                        )
+                        .with_required(p.required())
+                        .with_hidden(!p.uses().output())
+                        .with_list(p.list())
+                        .with_validator(p.validator().cloned()),
+                    ))
+                })
+        })
+        .collect::<Result<HashMap<String, Property>, Error>>()?;
+    dst_hm.insert(
+        "dst:id".to_string(),
+        Property::new("id".to_string(), PropertyKind::Scalar, "ID".to_string()).with_required(true),
+    );
+
+    hm.extend(dst_hm.into_iter());
+
+    Ok(NodeType::new(
+        fmt_rel_order_by_name(t, r),
+        TypeKind::Enum,
+        hm,
+    ))
+}
+
 /// Takes a WG type and rel and returns the name of the corresponding GqlRelReadEndpoint
 fn fmt_rel_read_endpoint_name(t: &Type, r: &Relationship) -> String {
     t.name().to_string()
@@ -1668,11 +1968,11 @@ fn generate_rel_read_endpoint(t: &Type, r: &Relationship) -> Property {
         ),
     );
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_rel_options_name(t, r),
         ),
     );
 
@@ -1714,11 +2014,11 @@ fn generate_rel_create_endpoint(t: &Type, r: &Relationship) -> Property {
         ),
     );
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_rel_options_name(t, r),
         ),
     );
 
@@ -1761,11 +2061,11 @@ fn generate_rel_update_endpoint(t: &Type, r: &Relationship) -> Property {
         ),
     );
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_rel_options_name(t, r),
         ),
     );
 
@@ -1808,11 +2108,11 @@ fn generate_rel_delete_endpoint(t: &Type, r: &Relationship) -> Property {
         ),
     );
     arguments.insert(
-        "partitionKey".to_string(),
+        "options".to_string(),
         Argument::new(
-            "partitionKey".to_string(),
+            "options".to_string(),
             ArgumentKind::Optional,
-            "String".to_string(),
+            fmt_rel_options_name(t, r),
         ),
     );
 
@@ -1836,15 +2136,6 @@ fn generate_custom_endpoint(e: &Endpoint) -> Property {
         } else {
             ArgumentKind::Optional
         };
-
-        arguments.insert(
-            "partitionKey".to_string(),
-            Argument::new(
-                "partitionKey".to_string(),
-                ArgumentKind::Optional,
-                "String".to_string(),
-            ),
-        );
 
         match input.type_def() {
             TypeDef::Scalar(s) => match s {
@@ -2010,6 +2301,21 @@ fn float_input(name: &str) -> Property {
     Property::new(name.to_string(), PropertyKind::Scalar, "Float".to_string())
 }
 
+fn fmt_direction_enum_name() -> String {
+    "DirectionEnum".to_string()
+}
+
+fn direction_enum() -> NodeType {
+    NodeType::new(
+        fmt_direction_enum_name(),
+        TypeKind::Enum,
+        hashmap! {
+            "ascending".to_string() => string_input("ascending"),
+            "descending".to_string() => string_input("descending"),
+        },
+    )
+}
+
 /// Takes a WG config and returns a map of graphql schema components for model
 /// types, custom endpoints, and associated endpoint types
 pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeType>, Error> {
@@ -2026,6 +2332,9 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
     // FloatQueryInput
     nthm.insert(fmt_float_query_input_name(), float_query_input());
 
+    // DirectionEnum
+    nthm.insert(fmt_direction_enum_name(), direction_enum());
+
     // generate graphql schema components for warpgrapher types
     for t in c.types() {
         // GqlNodeType
@@ -2035,6 +2344,15 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
         // GqlNodeQueryInput
         let node_query_input = generate_node_query_input(t)?;
         nthm.insert(node_query_input.type_name.to_string(), node_query_input);
+
+        let node_order_by = generate_node_order_by(t)?;
+        nthm.insert(node_order_by.type_name.to_string(), node_order_by);
+
+        let node_options = generate_node_options(t)?;
+        nthm.insert(node_options.type_name().to_string(), node_options);
+
+        let node_sort = generate_node_sort(t)?;
+        nthm.insert(node_sort.type_name().to_string(), node_sort);
 
         // GqlNodeCreateMutationInput
         let node_create_mutation_input = generate_node_create_mutation_input(t);
@@ -2105,6 +2423,22 @@ pub(crate) fn generate_schema(c: &Configuration) -> Result<HashMap<String, NodeT
             // GqlRelQueryInput
             let rel_query_input = generate_rel_query_input(t, r)?;
             nthm.insert(rel_query_input.type_name.to_string(), rel_query_input);
+
+            // GqlRelOptions
+            let rel_options = generate_rel_options(t, r)?;
+            nthm.insert(rel_options.type_name.to_string(), rel_options);
+
+            let rel_order_by = generate_rel_order_by(
+                t,
+                r,
+                &c.types()
+                    .filter(|dt| r.nodes().any(|n| n == dt.name()))
+                    .collect::<Vec<&Type>>(),
+            )?;
+            nthm.insert(rel_order_by.type_name.to_string(), rel_order_by);
+
+            let rel_sort = generate_rel_sort(t, r)?;
+            nthm.insert(rel_sort.type_name.to_string(), rel_sort);
 
             // GqlRelCreateMutationInput
             let rel_create_mutation_input = generate_rel_create_mutation_input(t, r);

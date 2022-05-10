@@ -2,7 +2,6 @@
 use gremlin_client::TlsOptions;
 #[cfg(feature = "gremlin")]
 use gremlin_client::{ConnectionOptions, GraphSON, GremlinClient};
-#[cfg(any(feature = "cypher"))]
 use log::trace;
 #[cfg(feature = "cypher")]
 use std::collections::HashMap;
@@ -32,6 +31,8 @@ use warpgrapher::engine::database::QueryResult;
 use warpgrapher::engine::database::{DatabasePool, Transaction};
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::events::EventHandlerBag;
+#[cfg(feature = "cypher")]
+use warpgrapher::engine::objects::Options;
 #[cfg(feature = "cypher")]
 use warpgrapher::engine::resolvers::ExecutionResult;
 #[cfg(feature = "cypher")]
@@ -210,6 +211,7 @@ fn clear_gremlin_db() {
         });
     }
     let options = options_builder.build();
+    trace!("Test connection with options: {:#?}", options);
     let client =
         GremlinClient::connect(options).expect("Expected successful gremlin client creation.");
     let _ = client.execute("g.V().drop()", &[]);
@@ -426,6 +428,7 @@ pub(crate) fn project_top_dev(
                             "topdev",
                             HashMap::new(),
                             dev_id,
+                            Options::default(),
                         )
                         .expect("Expected new rel"),
                 )
@@ -496,6 +499,7 @@ pub(crate) fn project_top_issues(
                         "topissues",
                         HashMap::new(),
                         bug_id,
+                        Options::default(),
                     )
                     .expect("Expected rel"),
                 &facade
@@ -504,6 +508,7 @@ pub(crate) fn project_top_issues(
                         "topissues",
                         HashMap::new(),
                         feature_id,
+                        Options::default(),
                     )
                     .expect("Expected rel"),
             ])

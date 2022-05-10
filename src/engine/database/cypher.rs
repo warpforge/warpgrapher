@@ -6,7 +6,7 @@ use crate::engine::database::{
     QueryFragment, QueryResult, RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
-use crate::engine::objects::{Node, NodeRef, Rel};
+use crate::engine::objects::{Direction, Node, NodeRef, Options, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::Error;
@@ -209,6 +209,38 @@ impl CypherTransaction {
     pub fn new(client: Connection<Manager>) -> CypherTransaction {
         CypherTransaction { client }
     }
+
+    fn add_sort_to_query(
+        query: String,
+        options: Options,
+        name: &str,
+        dst_name: Option<&str>,
+    ) -> String {
+        options
+            .sort()
+            .iter()
+            .enumerate()
+            .fold(query, |mut q, (i, sort)| {
+                if i == 0 {
+                    q += "ORDER BY"
+                } else {
+                    q += ","
+                }
+
+                if sort.dst_property() {
+                    q += &(" ".to_string() + dst_name.unwrap_or("") + "." + sort.property());
+                } else {
+                    q += &(" ".to_string() + name + "." + sort.property());
+                }
+
+                if sort.direction() == &Direction::Descending {
+                    q += " DESC";
+                }
+
+                q
+            })
+            + "\n"
+    }
 }
 
 #[async_trait]
@@ -251,13 +283,13 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-create-node",
-        skip(self, node_var, props, _partition_key_opt, _info, _sg)
+        skip(self, node_var, props, options, _info, _sg)
     )]
     async fn create_node<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         mut props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        options: Options,
         _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error> {
@@ -274,11 +306,12 @@ impl Transaction for CypherTransaction {
             );
         }
 
-        let query = "CREATE (n:".to_string()
+        let mut query = "CREATE (n:".to_string()
             + node_var.label()?
             + ")\n"
             + "SET n += $props\n"
             + "RETURN n\n";
+        query = CypherTransaction::add_sort_to_query(query, options, "n", None);
 
         let mut params: HashMap<&str, Value> = HashMap::new();
         params.insert("props", props.into());
@@ -304,15 +337,7 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-create-rels",
-        skip(
-            self,
-            src_fragment,
-            dst_fragment,
-            rel_var,
-            props,
-            partition_key_opt,
-            _sg
-        )
+        skip(self, src_fragment, dst_fragment, rel_var, props, options, _sg)
     )]
     async fn create_rels<RequestCtx: RequestContext>(
         &mut self,
@@ -321,13 +346,13 @@ impl Transaction for CypherTransaction {
         rel_var: &RelQueryVar,
         id_opt: Option<Value>,
         mut props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("CypherTransaction::create_rels called -- src_query: {:#?}, dst_query: {:#?}, rel_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}",
-        src_fragment, dst_fragment, rel_var, props, partition_key_opt);
+        trace!("CypherTransaction::create_rels called -- src_query: {:#?}, dst_query: {:#?}, rel_var: {:#?}, props: {:#?}, options: {:#?}",
+        src_fragment, dst_fragment, rel_var, props, options);
 
-        let query = src_fragment.match_fragment().to_string()
+        let mut query = src_fragment.match_fragment().to_string()
             + dst_fragment.match_fragment()
             + "MATCH ("
             + rel_var.src().name()
@@ -366,6 +391,8 @@ impl Transaction for CypherTransaction {
             + rel_var.dst.name()
             + " {.id} "
             + " as dst\n";
+
+        query = CypherTransaction::add_sort_to_query(query, options, "rel", Some("dst"));
 
         if let Some(id_val) = id_opt {
             props.insert("id".to_string(), id_val);
@@ -540,13 +567,13 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-read-nodes",
-        skip(self, query_fragment, node_var, _partition_key_opt, info)
+        skip(self, query_fragment, node_var, options, info)
     )]
     async fn read_nodes<RequestCtx: RequestContext>(
         &mut self,
         node_var: &NodeQueryVar,
         query_fragment: QueryFragment,
-        _partition_key_opt: Option<&Value>,
+        options: Options,
         info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         trace!(
@@ -563,12 +590,13 @@ impl Transaction for CypherTransaction {
             String::new()
         };
 
-        let query = query_fragment.match_fragment().to_string()
+        let mut query = query_fragment.match_fragment().to_string()
             + &*where_clause
             + "RETURN "
             + "DISTINCT "
             + node_var.name()
             + "\n";
+        query = CypherTransaction::add_sort_to_query(query, options, node_var.name(), None);
         let params = query_fragment.params();
 
         trace!(
@@ -756,16 +784,16 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-read-rels",
-        skip(self, query_fragment, rel_var, partition_key_opt)
+        skip(self, query_fragment, rel_var, options)
     )]
     async fn read_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        partition_key_opt: Option<&Value>,
+        options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("CypherTransaction::read_rels called -- query_fragment: {:#?}, rel_var: {:#?}, partition_key_opt: {:#?}",
-        query_fragment, rel_var, partition_key_opt);
+        trace!("CypherTransaction::read_rels called -- query_fragment: {:#?}, rel_var: {:#?}, options: {:#?}",
+        query_fragment, rel_var, options);
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
@@ -774,7 +802,7 @@ impl Transaction for CypherTransaction {
             String::new()
         };
 
-        let query = query_fragment.match_fragment().to_string()
+        let mut query = query_fragment.match_fragment().to_string()
             + &*where_clause
             + "\n"
             + "RETURN "
@@ -786,6 +814,12 @@ impl Transaction for CypherTransaction {
             + rel_var.dst.name()
             + " {.id} "
             + " as dst\n";
+        query = CypherTransaction::add_sort_to_query(
+            query,
+            options,
+            rel_var.name(),
+            Some(rel_var.dst.name()),
+        );
         let params = query_fragment.params();
 
         trace!(
@@ -812,14 +846,14 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-update-nodes",
-        skip(self, query_fragment, node_var, props, _partition_key_opt, info, _sg)
+        skip(self, query_fragment, node_var, props, options, info, _sg)
     )]
     async fn update_nodes<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
         props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        options: Options,
         info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
@@ -838,7 +872,7 @@ impl Transaction for CypherTransaction {
             String::new()
         };
 
-        let query = query_fragment.match_fragment().to_string()
+        let mut query = query_fragment.match_fragment().to_string()
             + &*where_clause
             + "SET "
             + node_var.name()
@@ -846,6 +880,7 @@ impl Transaction for CypherTransaction {
             + "RETURN "
             + node_var.name()
             + "\n";
+        query = CypherTransaction::add_sort_to_query(query, options, node_var.name(), None);
         let mut params = query_fragment.params();
         params.insert("props".to_string(), props.into());
 
@@ -873,18 +908,18 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-update-rels",
-        skip(self, query_fragment, rel_var, props, partition_key_opt, _sg)
+        skip(self, query_fragment, rel_var, props, options, _sg)
     )]
     async fn update_rels<RequestCtx: RequestContext>(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
         props: HashMap<String, Value>,
-        partition_key_opt: Option<&Value>,
+        options: Options,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
-        trace!("CypherTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, partition_key_opt: {:#?}",
-        query_fragment, rel_var, props, partition_key_opt);
+        trace!("CypherTransaction::update_rels called -- query_fragment: {:#?}, rel_var: {:#?}, props: {:#?}, options: {:#?}",
+        query_fragment, rel_var, props, options);
 
         let where_fragment = query_fragment.where_fragment().to_string();
         let where_clause = if !where_fragment.is_empty() {
@@ -893,7 +928,7 @@ impl Transaction for CypherTransaction {
             String::new()
         };
 
-        let query = query_fragment.match_fragment().to_string()
+        let mut query = query_fragment.match_fragment().to_string()
             + &*where_clause
             + "SET "
             + rel_var.name()
@@ -907,6 +942,12 @@ impl Transaction for CypherTransaction {
             + rel_var.dst.name()
             + " {.id} "
             + " as dst\n";
+        query = CypherTransaction::add_sort_to_query(
+            query,
+            options,
+            rel_var.name(),
+            Some(rel_var.dst.name()),
+        );
 
         let mut params = query_fragment.params();
         params.insert("props".to_string(), props.into());
@@ -936,13 +977,13 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-delete-nodes",
-        skip(self, query_fragment, node_var, _partition_key_opt)
+        skip(self, query_fragment, node_var, _options)
     )]
     async fn delete_nodes(
         &mut self,
         query_fragment: QueryFragment,
         node_var: &NodeQueryVar,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
     ) -> Result<i32, Error> {
         trace!(
             "CypherTransaction::delete_nodes called -- query_fragment: {:#?}, node_var: {:#?}",
@@ -992,13 +1033,13 @@ impl Transaction for CypherTransaction {
 
     #[tracing::instrument(
         name = "wg-cypher-delete-rels",
-        skip(self, query_fragment, rel_var, _partition_key_opt)
+        skip(self, query_fragment, rel_var, _options)
     )]
     async fn delete_rels(
         &mut self,
         query_fragment: QueryFragment,
         rel_var: &RelQueryVar,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
     ) -> Result<i32, Error> {
         trace!(
             "CypherTransaction::delete_rels called -- query_fragment: {:#?}, rel_var: {:#?}",
