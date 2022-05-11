@@ -1132,7 +1132,7 @@ impl<RequestCtx: RequestContext> TryFrom<(GValue, &Info)> for Node<RequestCtx> {
                         k.clone().try_into()?,
                         (
                             v,
-                            TryInto::<String>::try_into(k.clone())?.as_str(),
+                            TryInto::<String>::try_into(k)?.as_str(),
                             value.1.type_def_by_name(&label)?,
                             // .property(TryInto::<String>::try_into(k)?.as_str())?,
                         )
