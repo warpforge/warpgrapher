@@ -1134,7 +1134,6 @@ impl<RequestCtx: RequestContext> TryFrom<(GValue, &Info)> for Node<RequestCtx> {
                             v,
                             TryInto::<String>::try_into(k)?.as_str(),
                             value.1.type_def_by_name(&label)?,
-                            // .property(TryInto::<String>::try_into(k)?.as_str())?,
                         )
                             .try_into()?,
                     ))
@@ -1150,12 +1149,7 @@ impl<RequestCtx: RequestContext> TryFrom<(GValue, &Info)> for Node<RequestCtx> {
                 .map(|(k, v)| {
                     Ok((
                         k.clone(),
-                        (
-                            v,
-                            k.as_str(),
-                            value.1.type_def_by_name(&type_name)?, //.property(&k)?,
-                        )
-                            .try_into()?,
+                        (v, k.as_str(), value.1.type_def_by_name(&type_name)?).try_into()?,
                     ))
                 })
                 .collect::<Result<HashMap<String, Value>, Error>>()?;
