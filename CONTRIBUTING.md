@@ -157,23 +157,6 @@ https://rust-lang.github.io/api-guidelines/checklist.html
 
 Open an rc-X.Y.Z branch.
 
-Update version in `Cargo.toml.`
-
-```bash
-export OLD_VERSION=0.10.3
-export NEW_VERSION=0.10.4
-```
-
-```bash
-sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./src/lib.rs
-sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./book/book.toml
-sed -i "s/${OLD_VERSION}/${NEW_VERSION}/g" ./book/src/*/*.md
-find . -type f -name "*.md" | xargs -0 sed -i '' -e "s/${OLD_VERSION}/${NEW_VERSION}/g"
-```
-
-```bash
-cd ./book
-./build.sh
-```
+Update version in `Cargo.toml.` and `src/lib.rs`. 
 
 Commit and merge the rc-X.Y.Z branch. Add a release version tag using the GitHub UI.
