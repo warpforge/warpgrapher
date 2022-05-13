@@ -166,7 +166,7 @@ GraphQL configuration and invoke your custom resolvers when appropriate.</p>
 <p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB. Use <code>cypher</code> to support Cypher-based databases, such as AWS Neptune and Neo4J. This tutorial example uses Neo4J.</p>
 <p><code>Cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0.11.0&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The <code>src/main.rs</code> file begins with a definition of the data model for the example:</p>
 <pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
@@ -588,11 +588,11 @@ async fn main() -&gt; Result&lt;(), Error&gt; {
 <div style="break-before: page; page-break-before: always;"></div><h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
 <p>Warpgrapher is published as a Rust crate. There are crate features for each of the databases supported as a back-end. For Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB, use the <code>gremlin</code> feature.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>For Cypher-based databases, such as AWS Neptune and Neo4j, use the cypher feature.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The database features are not mutually exclusive, so building with both features enabled will not do any harm. However, only one database may be used for an instance of the Warpgrapher engine. Compiling with no database features selected will succeed, but the resulting engine will have sharply limited functionality, as it will have no ability to connect to a back-end storage mechanism.</p>
 <p>Continue for a tutorial on using Warpgrapher to build a web service.</p>
@@ -643,7 +643,7 @@ variables are omitted for each database where the defaults are correct.</p>
 <p>Add Warpgrapher to your project config with the gremlin feature enabled.</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Set up environment variables to contact your Gremlin-based DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=localhost
@@ -672,7 +672,7 @@ docker run -i --net=host --rm gremlin-console:latest
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neptune DB:</p>
 <pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
@@ -685,7 +685,7 @@ export WG_CYPHER_PASS=
 <p>Add Warpgrapher to your project config:</p>
 <p><code>cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;gremlin&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;gremlin&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Cosmos DB:</p>
 <pre><code class="language-bash">export WG_GREMLIN_HOST=*MY-COSMOS-DB*.gremlin.cosmos.azure.com
@@ -708,7 +708,7 @@ could leave partially applied results behind.</p>
 <h2 id="neo4j"><a class="header" href="#neo4j">Neo4J</a></h2>
 <p>Add Warpgrapher to your project config.</p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.10.4&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>Then set up environment variables to contact your Neo4J DB.</p>
 <pre><code class="language-bash">export WG_CYPHER_HOST=127.0.0.1
@@ -1469,7 +1469,6 @@ input OrganizationDeleteInput {
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="warpgrapher-crud-api"><a class="header" href="#warpgrapher-crud-api">Warpgrapher CRUD API</a></h1>
-<p>Version: <code>0.10.4</code></p>
 <p>One of the primary features of Warpgrapher is the auto-generation of CRUD operations for all Types. This includes basic and advanced queries that support nested operations and graph traversals. The schema itself was described in the preceeding sections. This chapter provides a set of usage examples for the various queries and mutations, for both nodes and relationships.</p>
 <p>For for more details on general GraphQL syntax, see: https://graphql.org/learn/.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="node-create"><a class="header" href="#node-create">Node Create</a></h1>
