@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Relationships - Warpgrapher Book (0.10.4)</title>
+        <title>Relationships - Warpgrapher Book</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.10.4)</h1>
+                    <h1 class="menu-title">Warpgrapher Book</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -204,14 +204,17 @@ model:
 <p>The top level GraphQL query object includes three (3) queries. This should make intuitive sense. The model has two nodes, <code>Organization</code> and <code>User</code>, and one relationship, the <code>OrganizationMembers</code> relationship from a source organization to a destination user that is a member of that organization. Warpgrapher's generated schema allows for querying either node type or the relationship between them. As will be discussed in detail below, the inputs to these query operations have a recursive structure, so that using the top level query for the relationship, it is possible to filter based on the properties of the source or destination nodes. Similarly, when querying for a node type, it is possible to add search parameters related to relationships, the destinations of those relationships, and so on.</p>
 <pre><code>type Query {
   Organization(
-    partitionKey: String
-    input: OrganizationQueryInput
+    input: OrganizationQueryInput,
+    options: OrganizationOptions
   ): [Organization!]
+
   OrganizationMembers(
-    partitionKey: String
-    input: OrganizationMembersQueryInput
+    input: OrganizationMembersQueryInput,
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
-  User(partitionKey: String, input: UserQueryInput): [User!]
+
+  User(input: UserQueryInput, options: UserOptions): [User!]
+
   _version: String
 }
 </code></pre>
@@ -246,6 +249,27 @@ input OrganizationMembersDstQueryInput {
 <pre><code>union OrganizationMembersNodesUnion = User
 </code></pre>
 <p>Note that the <code>User</code> type is the same type that is used to return users in queries for nodes.</p>
+<p>The <code>options</code> argument, described above as an argument for the <code>OrganizationMembers</code> query as a whole, is of type <code>OrganizationMembersOptions</code>. The <code>OrganizationMembersOptions</code> type has a single property, called <code>sort</code>, which is a list of zero or more <code>OrganizationMembersSort</code> objects. Each <code>OrganizationMembersSort</code> object has two enumeration properties, <code>direction</code> and <code>orderBy</code>.</p>
+<pre><code>type OrganizationMembersOptions {
+  sort: [OrganizationMembersSort!]
+}
+
+type UserSort {
+  direction: DirectionEnum
+  orderBy: OrganizationMembersOrderByEnum!
+}
+
+enum DirectionEnum {
+  ascending
+  descending
+}
+
+enum OrganizationMembersOrderByEnum {
+  id
+  dst:email
+}
+</code></pre>
+<p>The <code>OrganizationMembersOrderByEnum</code> has variant values for each of the properties (but not relationships) on the OrganizationMembers relationship, though in this case that's only the <code>id</code> property. Additionally, the enum has variants for each of the properties on the destination object, allowing the results to be sorted either by properties on the relationship itself, or those on the destination object. By including one or more values in the <code>sort</code> array provided to <code>UserOptions</code>, it is possible to sort results coming back from Warpgrapher. The <code>direction</code> property determines whether the results are returned in ascending or descending sort order. The <code>orderBy</code> field determines on which property the results are sorted.  For example, above, an <code>orderBy</code> field with a value of <code>dst:email</code> would sort the organization member's relationship results in alphabetical order of member email addresses.  If the <code>sort</code> array contains more than one value, then resorts groups of results with the same first sort key are further sorted by the second key, and so on.  For example, a <code>sort</code> array might have entries for <code>joinDate</code> and then <code>name</code> to sort first by the date someone joined, and alphabetically for all people who joined on the same date.</p>
 <h3 id="querying-for-a-node"><a class="header" href="#querying-for-a-node">Querying for a Node</a></h3>
 <p>The root GraphQL <code>Query</code> object has queries for each of the node types in the configuration.  To see how relationships affect node queries, have a look at the <code>Organization</code> query, beginning with the <code>OrganizationQueryInput</code> definition in the snippet below. In addition to the <code>id</code> and <code>name</code> attributes for searching based on the scalar properties of the type, the schema also includes a <code>members</code> attribute, of type <code>OrganizationMembersQueryInput</code>.  This is the same input object described above that's used in the root level query for the <code>OrganizationMembers</code> relationship. This recursive schema structure is really quite powerful, as it allows the client to query for nodes based on a combination of the node's property values, the values of properties in the relationships that it has, and the values of properties in the destination nodes at the other end of those relationships, to any level of depth.  For example, it would be easy to construct a query that retrieves all of the organizations that contain a particular user as a member. For examples of relationship-based queries, see the chapter on <a href="../api/intro.html">API usage</a>.</p>
 <pre><code>input OrganizationQueryInput {
@@ -266,28 +290,28 @@ input OrganizationMembersDstQueryInput {
 <pre><code>type Mutation {
   OrganizationCreate(
     input: OrganizationCreateMutationInput!
-    partitionKey: String
+    options: OrganizationOptions
   ): Organization
-  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationDelete(input: OrganizationDeleteInput!, options: OrganizationOptions): Int
   OrganizationMembersCreate(
     input: OrganizationMembersCreateInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationMembersDelete(
     input: OrganizationMembersDeleteInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): Int
   OrganizationMembersUpdate(
-    partitionKey: String
     input: OrganizationMembersUpdateInput!
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationUpdate(
-    partitionKey: String
     input: OrganizationUpdateInput!
+    options: OrganizationOptions
   ): [Organization!]
-  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
-  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
-  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+  UserCreate(input: UserCreateMutationInput!, options: UserOptions): User
+  UserDelete(input: UserDeleteInput!, options: UserOptions): Int
+  UserUpdate(input: UserUpdateInput!, options: UserOptions): [User!]
 }
 </code></pre>
 <h3 id="mutating-a-relationship"><a class="header" href="#mutating-a-relationship">Mutating a Relationship</a></h3>
@@ -433,28 +457,28 @@ input OrganizationMembersSrcQueryInput {
 type Mutation {
   OrganizationCreate(
     input: OrganizationCreateMutationInput!
-    partitionKey: String
+    options: OrganizationOptions
   ): Organization
-  OrganizationDelete(partitionKey: String, input: OrganizationDeleteInput!): Int
+  OrganizationDelete(input: OrganizationDeleteInput!, options: OrganizationOptions): Int
   OrganizationMembersCreate(
     input: OrganizationMembersCreateInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationMembersDelete(
     input: OrganizationMembersDeleteInput!
-    partitionKey: String
+    options: OrganizationMembersOptions
   ): Int
   OrganizationMembersUpdate(
-    partitionKey: String
     input: OrganizationMembersUpdateInput!
+    options: OrganizationMembersOptions
   ): [OrganizationMembersRel!]
   OrganizationUpdate(
-    partitionKey: String
     input: OrganizationUpdateInput!
+    options: OrganizationOptions
   ): [Organization!]
-  UserCreate(input: UserCreateMutationInput!, partitionKey: String): User
-  UserDelete(partitionKey: String, input: UserDeleteInput!): Int
-  UserUpdate(partitionKey: String, input: UserUpdateInput!): [User!]
+  UserCreate(input: UserCreateMutationInput!, options: UserOptions): User
+  UserDelete(input: UserDeleteInput!, options: UserOptions): Int
+  UserUpdate(input: UserUpdateInput!, options: UserOptions): [User!]
 }
 
 input OrganizationMembersChangeInput {
@@ -491,14 +515,14 @@ union OrganizationMembersNodesUnion = User
 
 type Query {
   Organization(
-    partitionKey: String
     input: OrganizationQueryInput
+    options: OrganizationOptions
   ): [Organization!]
   OrganizationMembers(
-    partitionKey: String
     input: OrganizationMembersQueryInput
+    options: OrganizationOptions
   ): [OrganizationMembersRel!]
-  User(partitionKey: String, input: UserQueryInput): [User!]
+  User(input: UserQueryInput, options: UserOptions): [User!]
   _version: String
 }
 

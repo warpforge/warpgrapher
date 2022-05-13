@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Databases - Warpgrapher Book (0.10.4)</title>
+        <title>Databases - Warpgrapher Book</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.10.4)</h1>
+                    <h1 class="menu-title">Warpgrapher Book</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -177,8 +177,6 @@ for a TLS connection, and <code>false</code>. Defaults to <code>true</code>. Sho
 environments.</li>
 <li>WG_GREMLIN_LONG_IDS is set to <code>true</code> if Warpgrapher should use long integers for vertex and edge
 identifiers. If <code>false</code>, Warpgrapher uses strings. Defaults to <code>false</code>. Consult your graph database's documentation to determine what values are valid for identifiers.</li>
-<li>WG_GREMLIN_PARTITIONS is set to <code>true</code> if Warpgrapher should require a partition ID, and false if 
-Warpgrapher should ignore or omit partition IDs. Defaults to <code>false</code>.</li>
 <li>WG_GREMLIN_SESSIONS is set to <code>true</code> if Warpgrapher mutations should be conducted within a single
 Gremlin session, which in some databases provides transactional semantics, and <code>false</code> if sessions 
 should not be used. Defaults to <code>false</code>.</li>
@@ -242,11 +240,10 @@ export WG_GREMLIN_USER=/dbs/*MY-COSMOS-DB*/colls/*MY-COSMOS-COLLECTION*
 export WG_GREMLIN_PASS=*MY-COSMOS-KEY*
 export WG_GREMLIN_USE_TLS=true
 export WG_GREMLIN_VALIDATE_CERTS=true
-export WG_GREMLIN_PARTITIONS=true
 export WG_GREMLIN_VERSION=1
 </code></pre>
 <p>Note that when setting up your Cosmos database, you must configure it to offer a Gremlin graph API.</p>
-<p>Note also that you must set your partition key to be named <code>partitionKey</code>, as this name for the partition key is hard-coded into Warpgrapher.  (This could be changed. If that would be helpful to you, <a href="https://github.com/warpforge/warpgrapher/issues">file an issue</a> with a feature request to make the partition key name configurable.</p>
+<p>Note also that Warpgrapher does not automate the setting or use of a partition key. You must select the node property you wish to use as a partition key and appropriately include it in queries. When Warpgrapher loads relationships and nodes to resolve the full shape of a GraphQL query, it will query by ID, which will likely result in cross-partition queries. This should be fine for many use cases. Extending Warpgrapher to allow more control over and use of partition keys for nested relationship resolution is future work.</p>
 <p>Be advised that Gremlin traversals are not executed atomically within Cosmos DB. A traversal may 
 fail part way through if, for example, one reaches the read unit capacity limit.  See 
 <a href="https://medium.com/@jayanta.mondal/cosmos-db-graph-gremlin-api-how-to-executing-multiple-writes-as-a-unit-via-a-single-gremlin-2ce82d8bf365">this article</a> 

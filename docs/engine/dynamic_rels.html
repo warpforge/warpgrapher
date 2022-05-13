@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Dynamic Relationships - Warpgrapher Book (0.10.4)</title>
+        <title>Dynamic Relationships - Warpgrapher Book</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.10.4)</h1>
+                    <h1 class="menu-title">Warpgrapher Book</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -146,7 +146,8 @@
 <p>Dynamic relationships are similiar to dynamic properties, but returning dynamically calculated relationships to other nodes as opposed to individual properties.</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <p>The configuration below includes a dynamic resolver called <code>resolve_project_top_contributor</code> for the <code>top_contributor</code> relationship. That resolver name will be used later to associate a Rust function to carry out the dynamic resolution.</p>
-<pre><code class="language-rust no_run noplayground">version: 1
+<pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
+version: 1
 model: 
  - name: User
    props:
@@ -159,11 +160,11 @@ model:
    rels:
      - name: top_contributor
        nodes: [User]
-       resolver: resolve_project_top_contributor
 </code></pre>
 <h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
 <p>The next step is to define the custom resolution function in Rust. In this example, the custom relationship resolver creates a hard-coded node and relationship. In a real system, the function might load records and do some calculation or analytic logic to determine who is the top contributor to a project, and then return that user.</p>
-<pre><code class="language-rust no_run noplayground">fn resolve_project_top_contributor(
+<pre><code class="language-rust no_run noplayground">
+fn resolve_project_top_contributor(
     facade: ResolverFacade&lt;AppRequestContext&gt;,
 ) -&gt; BoxFuture&lt;ExecutionResult&gt; {
     Box::pin(async move {
@@ -183,11 +184,12 @@ model:
             &quot;topdev&quot;,
             HashMap::new(),
             top_contributor,
-        )?;
 </code></pre>
 <h2 id="add-the-resolver-to-the-engine"><a class="header" href="#add-the-resolver-to-the-engine">Add the Resolver to the Engine</a></h2>
 <p>The resolver is added to a map associated with the name used in the configuration, above. The map is then passed to the Warpgrapher engine. This allows the engine to find the Rust function implementing the custom resolver when it is needed.</p>
-<pre><code class="language-rust no_run noplayground">        .await
+<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to parse cypher endpoint from environment&quot;)
+        .pool()
+        .await
         .expect(&quot;Failed to create cypher database pool&quot;);
 
     // define resolvers
@@ -197,12 +199,12 @@ model:
         Box::new(resolve_project_top_contributor),
     );
 
-    // create warpgrapher engine
-    let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
 </code></pre>
 <h2 id="example-api-call"><a class="header" href="#example-api-call">Example API Call</a></h2>
 <p>The following GraphQL query uses the dynamic resolver defined above.</p>
-<pre><code class="language-rust no_run noplayground">        .build()
+<pre><code class="language-rust no_run noplayground">    let engine: Engine&lt;AppRequestContext&gt; = Engine::new(config, db)
+        .with_resolvers(resolvers)
+        .build()
         .expect(&quot;Failed to build engine&quot;);
 
     // create new project
@@ -220,9 +222,8 @@ model:
                         }
                     }
                 }
-            }
-        }
 </code></pre>
+<p>Note that the Warpgrapher engine does not create a top level relationship query for properties that have custom resolvers. For example, there is no <code>ProjectTopContributor</code> root level relationship query. This is because the standard Warpgarpher resolver generated for a relationship query would not know how to handle the dynamic relationship.</p>
 <h2 id="full-example-source"><a class="header" href="#full-example-source">Full Example Source</a></h2>
 <p>See below for the full source code to the example above.</p>
 <pre><code class="language-rust no_run noplayground">use std::collections::HashMap;
@@ -232,6 +233,7 @@ use warpgrapher::engine::config::Configuration;
 use warpgrapher::engine::context::RequestContext;
 use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::DatabaseEndpoint;
+use warpgrapher::engine::objects::Options;
 use warpgrapher::engine::resolvers::{ExecutionResult, ResolverFacade, Resolvers};
 use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
@@ -284,6 +286,7 @@ fn resolve_project_top_contributor(
             &quot;topdev&quot;,
             HashMap::new(),
             top_contributor,
+            Options::default(),
         )?;
 
         facade.resolve_rel(&amp;top_contributor_rel).await
