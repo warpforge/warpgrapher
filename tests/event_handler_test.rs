@@ -326,8 +326,8 @@ async fn test_after_subgraph_create_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -422,8 +422,8 @@ async fn test_after_node_subgraph_update_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -436,9 +436,9 @@ async fn test_after_node_subgraph_update_handler() {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -845,13 +845,13 @@ async fn test_after_rel_subgraph_update_handler() {
         .create_node(
             "Project",
             "id name",
-            Some("1234"),
             &json!({"name": "Project Zero"}),
+            None,
         )
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -860,12 +860,12 @@ async fn test_after_rel_subgraph_update_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -882,9 +882,9 @@ async fn test_after_rel_subgraph_update_handler() {
             "Project",
             "issues",
             "id since",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2000"}})),
             &json!({"since": "2010"}),
+            None,
         )
         .await
         .unwrap();
