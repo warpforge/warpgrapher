@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Event Handlers - Warpgrapher Book (0.10.4)</title>
+        <title>Event Handlers - Warpgrapher Book</title>
 
 
         <!-- Custom HTML head -->
@@ -110,7 +110,7 @@
                         </button>
                     </div>
 
-                    <h1 class="menu-title">Warpgrapher Book (0.10.4)</h1>
+                    <h1 class="menu-title">Warpgrapher Book</h1>
 
                     <div class="right-buttons">
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
@@ -143,7 +143,7 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="event-handlers"><a class="header" href="#event-handlers">Event Handlers</a></h1>
-<p>The earlier sections of the book covered a great many options for customizing the behavior of Warpgrapher, including input validation, request context, custom endpoints, and dynamic properties and relationships. Warpgrapher offers an additional API, the event handling API, to modify Warpgrapher's behavior at almost every point in the lifecycle of a request. Event handlers may be added before <code>Engine</code> creation, before or after request handling, and before or after nodes ore relationsihps are created, read, updated, or deleted. This section will introduce the event handling API using an extended example of implementing a very simple authorization model. Each data record will be owned by one user, and only that user is entitled to read or modify that record.</p>
+<p>The earlier sections of the book covered a great many options for customizing the behavior of Warpgrapher, including input validation, request context, custom endpoints, and dynamic properties and relationships. Warpgrapher offers an additional API, the event handling API, to modify Warpgrapher's behavior at almost every point in the lifecycle of a request. Event handlers may be added before <code>Engine</code> creation, before or after request handling, and before or after nodes or relationships are created, read, updated, or deleted. This section will introduce the event handling API using an extended example of implementing a very simple authorization model. Each data record will be owned by one user, and only that user is entitled to read or modify that record.</p>
 <h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
 <p>Unlike some of the other customization points in the Warpgrapher engine, no special configuration is required for event handlers. They are created and added to the <code>Engine</code> using only Rust code. The data model used for this section's example is as follows.</p>
 <pre><code class="language-rust no_run noplayground">version: 1
@@ -258,7 +258,9 @@ fn enforce_write_access(
     Box::pin(async move {
         if let Value::Map(mut m) = v.clone() {
             if let Some(input_match) = m.remove(&quot;MATCH&quot;) {
-                let nodes = &amp;ef.read_nodes(&quot;Record&quot;, input_match, None).await?;
+                let nodes = &amp;ef
+                    .read_nodes(&quot;Record&quot;, input_match, Options::default())
+                    .await?;
 
                 // filter nodes that are authorized
                 let filtered_node_ids: Vec&lt;Value&gt; = nodes
@@ -297,13 +299,13 @@ fn enforce_write_access(
             // Return original input unmodified
             Ok(v)
         }
-    })
-}
 </code></pre>
 <p>Although not necessary for this use case, the event handler could have just east as easily modified the <code>SET</code> portion of the update query as the <code>MATCH</code>, in some way adjusting the values used to update an existing node.</p>
 <h2 id="add-handlers-to-the-engine"><a class="header" href="#add-handlers-to-the-engine">Add Handlers to the Engine</a></h2>
 <p>The event handlers are all added to an <code>EventHandlerBag</code> which is then passed to the Warpgrapher engine.  The registration function determines where in the life cycle the hook will be called, and in some cases, such as before and after node and relationship CRUD operation handlers, there are arguments to specify which nodes or relationships should be affected.</p>
-<pre><code class="language-rust no_run noplayground">    let mut ehb = EventHandlerBag::new();
+<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to create cypher database pool&quot;);
+
+    let mut ehb = EventHandlerBag::new();
     ehb.register_before_request(insert_user_profile);
     ehb.register_before_engine_build(add_owner_field);
     ehb.register_before_node_create(vec![&quot;Record&quot;.to_string()], insert_owner);
@@ -314,12 +316,12 @@ fn enforce_write_access(
     // create warpgrapher engine
     let engine: Engine&lt;Rctx&gt; = Engine::new(config, db)
         .with_event_handlers(ehb)
-        .build()
-        .expect(&quot;Failed to build engine&quot;);
 </code></pre>
 <h2 id="example-api-call"><a class="header" href="#example-api-call">Example API Call</a></h2>
 <p>The following GraphQL query triggers at least the first several event handlers in the call. Other queries and mutations would be needed to exercise all of them.</p>
-<pre><code class="language-rust no_run noplayground">    let query = &quot;
+<pre><code class="language-rust no_run noplayground">        .expect(&quot;Failed to build engine&quot;);
+
+    let query = &quot;
         mutation {
             RecordCreate(input: {
                 content: \&quot;Test Content\&quot;
@@ -330,8 +332,6 @@ fn enforce_write_access(
         }
     &quot;
     .to_string();
-    let metadata = HashMap::new();
-    let result = engine.execute(query, None, metadata).await.unwrap();
 </code></pre>
 <h2 id="full-example-source"><a class="header" href="#full-example-source">Full Example Source</a></h2>
 <p>See below for the full source code to the example above.</p>
@@ -345,7 +345,7 @@ use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::CrudOperation;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-use warpgrapher::engine::objects::Node;
+use warpgrapher::engine::objects::{Node, Options};
 use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
 use warpgrapher::{Engine, Error};
@@ -466,7 +466,9 @@ fn enforce_write_access(
     Box::pin(async move {
         if let Value::Map(mut m) = v.clone() {
             if let Some(input_match) = m.remove(&quot;MATCH&quot;) {
-                let nodes = &amp;ef.read_nodes(&quot;Record&quot;, input_match, None).await?;
+                let nodes = &amp;ef
+                    .read_nodes(&quot;Record&quot;, input_match, Options::default())
+                    .await?;
 
                 // filter nodes that are authorized
                 let filtered_node_ids: Vec&lt;Value&gt; = nodes
