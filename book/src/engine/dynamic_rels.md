@@ -34,6 +34,8 @@ The following GraphQL query uses the dynamic resolver defined above.
 {{#include ../../../examples/dynamic_rels/main.rs:88:107}}
 ```
 
+Note that the Warpgrapher engine does not create a top level relationship query for properties that have custom resolvers. For example, there is no `ProjectTopContributor` root level relationship query. This is because the standard Warpgarpher resolver generated for a relationship query would not know how to handle the dynamic relationship.
+
 ## Full Example Source
 
 See below for the full source code to the example above.

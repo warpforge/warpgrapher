@@ -313,6 +313,30 @@ async fn test_after_node_create_handler() {
 
 #[cfg(feature = "cypher")]
 #[tokio::test]
+async fn test_after_subgraph_create_handler() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_after_subgraph_create(vec!["Project".to_string()], anef);
+
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    let p0 = client
+        .create_node(
+            "Project",
+            "id name description status",
+            Some("1234"),
+            &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+        )
+        .await
+        .unwrap();
+
+    assert!(p0.is_null());
+}
+
+#[cfg(feature = "cypher")]
+#[tokio::test]
 async fn test_after_node_read_handler() {
     init();
     clear_db().await;
@@ -352,6 +376,45 @@ async fn test_after_node_update_handler() {
 
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_node_update(vec!["Project".to_string()], anef);
+
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    let p0 = client
+        .create_node(
+            "Project",
+            "id name description status",
+            Some("1234"),
+            &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+        )
+        .await
+        .unwrap();
+    assert!(p0.is_object());
+    assert_eq!(p0.get("name").unwrap(), "MJOLNIR");
+    assert_eq!(p0.get("description").unwrap(), "Advanced armor");
+    assert_eq!(p0.get("status").unwrap(), "PENDING");
+
+    let pu = client
+        .update_node(
+            "Project",
+            "__typename id name status",
+            Some("1234"),
+            Some(&json!({"name": {"EQ": "MJOLNIR"}})),
+            &json!({"status": "ACTIVE"}),
+        )
+        .await
+        .unwrap();
+
+    assert!(pu.is_null());
+}
+
+#[cfg(feature = "cypher")]
+#[tokio::test]
+async fn test_after_node_subgraph_update_handler() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_after_node_subgraph_update(vec!["Project".to_string()], anef);
 
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
@@ -748,6 +811,68 @@ async fn test_after_rel_update_handler() {
 
     let mut ehb = EventHandlerBag::new();
     ehb.register_after_rel_update(vec!["ProjectIssuesRel".to_string()], aref);
+
+    let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
+
+    client
+        .create_node(
+            "Project",
+            "id name",
+            Some("1234"),
+            &json!({"name": "Project Zero"}),
+        )
+        .await
+        .unwrap();
+    client
+        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .await
+        .unwrap();
+
+    let results = client
+        .create_rel(
+            "Project",
+            "issues",
+            "__typename id since src { id name } dst { ...on Bug { id name } }",
+            Some("1234"),
+            &json!({"name": {"EQ": "Project Zero"}}),
+            &json!([{
+                "since": "2000",
+                "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
+            }]),
+        )
+        .await
+        .unwrap();
+
+    assert!(results.is_array());
+    let r0 = &results[0];
+    assert!(r0.is_object());
+    assert_eq!(r0.get("since").unwrap(), "2000");
+    assert_eq!(r0.get("src").unwrap().get("name").unwrap(), "Project Zero");
+    assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
+
+    let ru = client
+        .update_rel(
+            "Project",
+            "issues",
+            "id since",
+            Some("1234"),
+            Some(&json!({"since": {"EQ": "2000"}})),
+            &json!({"since": "2010"}),
+        )
+        .await
+        .unwrap();
+
+    assert!(ru.is_null());
+}
+
+#[cfg(feature = "cypher")]
+#[tokio::test]
+async fn test_after_rel_subgraph_update_handler() {
+    init();
+    clear_db().await;
+
+    let mut ehb = EventHandlerBag::new();
+    ehb.register_after_rel_subgraph_update(vec!["ProjectIssuesRel".to_string()], aref);
 
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 

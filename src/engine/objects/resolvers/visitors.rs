@@ -182,6 +182,30 @@ pub(crate) fn visit_node_create_mutation_input<'a, RequestCtx: RequestContext>(
                 }
             }
 
+            let node = if let Some(handlers) = context
+                .event_handlers()
+                .after_subgraph_create(node_var.label()?)
+            {
+                let mut v = vec![node];
+                for f in handlers.iter() {
+                    v = f(
+                        v,
+                        EventFacade::new(
+                            CrudOperation::CreateNode(node_var.label()?.to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
+                }
+                v.pop().ok_or_else(|| Error::ResponseItemNotFound {
+                    name: "Node from after_subgraph_create handler".to_string(),
+                })?
+            } else {
+                node
+            };
+
             trace!("visit_node_create_muation_input -- returning {:#?}", node);
 
             Ok(node)
@@ -647,6 +671,7 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
             let mut nodes = transaction
                 .update_nodes(query_fragment, node_var, props, partition_key_opt, info, sg)
                 .await?;
+
             if let Some(handlers) = context
                 .event_handlers()
                 .after_node_update(node_var.label()?)
@@ -715,6 +740,24 @@ fn visit_node_update_mutation_input<'a, RequestCtx: RequestContext>(
                         }
                     }
                     _ => return Err(Error::TypeNotExpected { details: None }),
+                }
+            }
+
+            if let Some(handlers) = context
+                .event_handlers()
+                .after_node_subgraph_update(node_var.label()?)
+            {
+                for f in handlers.iter() {
+                    nodes = f(
+                        nodes,
+                        EventFacade::new(
+                            CrudOperation::UpdateNode(node_var.label()?.to_string()),
+                            context,
+                            transaction,
+                            info,
+                        ),
+                    )
+                    .await?;
                 }
             }
 
@@ -1591,6 +1634,7 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
         let mut rels = transaction
             .update_rels(query_fragment, rel_var, m, partition_key_opt, sg)
             .await?;
+
         if let Some(handlers) = context.event_handlers().after_rel_update(&rel_label) {
             for f in handlers.iter() {
                 rels = f(
@@ -1649,6 +1693,26 @@ async fn visit_rel_update_mutation_input<RequestCtx: RequestContext>(
             .await?;
         }
 
+        if let Some(handlers) = context
+            .event_handlers()
+            .after_rel_subgraph_update(&rel_label)
+        {
+            for f in handlers.iter() {
+                rels = f(
+                    rels,
+                    EventFacade::new(
+                        CrudOperation::UpdateRel(
+                            rel_var.src().label()?.to_string(),
+                            rel_var.label().to_string(),
+                        ),
+                        context,
+                        transaction,
+                        info,
+                    ),
+                )
+                .await?;
+            }
+        }
         Ok(rels)
     } else {
         Err(Error::TypeNotExpected { details: None })
