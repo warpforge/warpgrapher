@@ -54,7 +54,6 @@ export WG_GREMLIN_PORT=8182
 export WG_GREMLIN_USE_TLS=false
 export WG_GREMLIN_VALIDATE_CERTS=false
 export WG_GREMLIN_LONG_IDS=true
-export WG_GREMLIN_PARTITION=false
 export WG_GREMLIN_SESSIONS=false
 ```
 

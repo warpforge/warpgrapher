@@ -117,8 +117,8 @@ async fn test_before_request_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await;
 
@@ -143,8 +143,8 @@ async fn test_after_request_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await;
 
@@ -169,8 +169,8 @@ async fn test_before_node_create_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -193,8 +193,8 @@ async fn test_before_node_read_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -204,7 +204,7 @@ async fn test_before_node_read_handler() {
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
     let projects = client
-        .read_node("Project", "id status", Some("1234"), None)
+        .read_node("Project", "id status", None, None)
         .await
         .unwrap();
 
@@ -226,8 +226,8 @@ async fn test_before_node_update_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -240,9 +240,9 @@ async fn test_before_node_update_handler() {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -265,8 +265,8 @@ async fn test_before_node_delete_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -277,8 +277,8 @@ async fn test_before_node_delete_handler() {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
+            None,
             None,
         )
         .await
@@ -302,8 +302,8 @@ async fn test_after_node_create_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -350,8 +350,8 @@ async fn test_after_node_read_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -361,7 +361,7 @@ async fn test_after_node_read_handler() {
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
     let projects = client
-        .read_node("Project", "id status", Some("1234"), None)
+        .read_node("Project", "id status", None, None)
         .await
         .unwrap();
 
@@ -383,8 +383,8 @@ async fn test_after_node_update_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -397,9 +397,9 @@ async fn test_after_node_update_handler() {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -461,8 +461,8 @@ async fn test_after_node_delete_handler() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -473,8 +473,8 @@ async fn test_after_node_delete_handler() {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
+            None,
             None,
         )
         .await
@@ -495,16 +495,11 @@ async fn test_before_rel_create_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -513,12 +508,12 @@ async fn test_before_rel_create_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -538,16 +533,11 @@ async fn test_before_rel_read_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -556,12 +546,12 @@ async fn test_before_rel_read_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -574,7 +564,7 @@ async fn test_before_rel_read_handler() {
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel("Project", "issues", "id since", Some("1234"), None)
+        .read_rel("Project", "issues", "id since", None, None)
         .await
         .unwrap();
 
@@ -593,16 +583,11 @@ async fn test_before_rel_update_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -611,12 +596,12 @@ async fn test_before_rel_update_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -633,9 +618,9 @@ async fn test_before_rel_update_handler() {
             "Project",
             "issues",
             "id since",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2000"}})),
             &json!({"since": "2010"}),
+            None,
         )
         .await
         .unwrap();
@@ -655,16 +640,11 @@ async fn test_before_rel_delete_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -673,12 +653,12 @@ async fn test_before_rel_delete_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -694,8 +674,8 @@ async fn test_before_rel_delete_handler() {
         .delete_rel(
             "Project",
             "issues",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2010"}})),
+            None,
             None,
             None,
         )
@@ -717,16 +697,11 @@ async fn test_after_rel_create_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -735,12 +710,12 @@ async fn test_after_rel_create_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -760,16 +735,11 @@ async fn test_after_rel_read_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -778,12 +748,12 @@ async fn test_after_rel_read_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
+            None,
         )
         .await
         .unwrap();
@@ -796,7 +766,7 @@ async fn test_after_rel_read_handler() {
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel("Project", "issues", "id since", Some("1234"), None)
+        .read_rel("Project", "issues", "id since", None, None)
         .await
         .unwrap();
 
@@ -815,16 +785,11 @@ async fn test_after_rel_update_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -833,12 +798,12 @@ async fn test_after_rel_update_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}
             }]),
+            None,
         )
         .await
         .unwrap();
@@ -855,9 +820,9 @@ async fn test_after_rel_update_handler() {
             "Project",
             "issues",
             "id since",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2000"}})),
             &json!({"since": "2010"}),
+            None,
         )
         .await
         .unwrap();
@@ -939,16 +904,11 @@ async fn test_after_rel_delete_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -957,12 +917,12 @@ async fn test_after_rel_delete_handler() {
             "Project",
             "issues",
             "__typename id since src { id name } dst { ...on Bug { id name } }",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{
                 "since": "2000",
                 "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}}}}}]
             ),
+            None,
         )
         .await
         .unwrap();
@@ -978,8 +938,8 @@ async fn test_after_rel_delete_handler() {
         .delete_rel(
             "Project",
             "issues",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2010"}})),
+            None,
             None,
             None,
         )

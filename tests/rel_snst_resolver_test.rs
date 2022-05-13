@@ -13,8 +13,8 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({"name": "Project Zero"}),
+            None,
         )
         .await
         .unwrap();
@@ -24,9 +24,9 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({"since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            None,
         )
         .await
         .unwrap();
@@ -44,7 +44,7 @@ async fn create_snst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -69,8 +69,8 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({"name": "Project Zero"}),
+            None,
         )
         .await
         .unwrap();
@@ -79,9 +79,10 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
         .create_rel(
             "Project",
             "owner",
-            "__typename since dst{...on User{__typename name}}", Some("1234"),
+            "__typename since dst{...on User{__typename name}}",
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({"id": "6d5dca5e-3082-4152-8d25-a16beace1e90", "since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            None
         )
         .await
         .unwrap();
@@ -99,7 +100,7 @@ async fn create_snst_new_rel_with_id<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename id since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -127,9 +128,9 @@ async fn snst_without_src_no_new_dst<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({"since": "yesterday", "dst": {"User": {"NEW": {"name": "User Zero"}}}}),
+            None,
         )
         .await
         .unwrap();
@@ -141,8 +142,8 @@ async fn snst_without_src_no_new_dst<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "User",
             "id name",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "User Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -158,8 +159,8 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({"name": "Project Zero"}),
+            None,
         )
         .await
         .unwrap();
@@ -168,8 +169,8 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_node(
             "User",
             "__typename name",
-            Some("1234"),
             &json!({"name": "User Zero"}),
+            None,
         )
         .await
         .unwrap();
@@ -179,12 +180,12 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!({
                 "since": "yesterday",
                 "dst": {"User": {"EXISTING": {"name": {"EQ": "User Zero"}}}}
             }),
+            None,
         )
         .await
         .unwrap();
@@ -202,7 +203,7 @@ async fn create_snst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -225,7 +226,6 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -233,6 +233,7 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -242,8 +243,8 @@ async fn read_snst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "yesterday"}})),
+            None,
         )
         .await
         .unwrap();
@@ -271,7 +272,6 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -279,6 +279,7 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -288,8 +289,8 @@ async fn read_snst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
+            None,
         )
         .await
         .unwrap();
@@ -317,7 +318,6 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -325,6 +325,7 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -334,8 +335,8 @@ async fn read_snst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
+            None,
         )
         .await
         .unwrap();
@@ -363,7 +364,6 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -371,6 +371,7 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                   "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -380,9 +381,9 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "yesterday"}})),
             &json!({"since": "today"}),
+            None,
         )
         .await
         .unwrap();
@@ -407,7 +408,7 @@ async fn update_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -433,7 +434,6 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -441,6 +441,7 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -450,9 +451,9 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "owner",
             "__typename since dst{...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             &json!({"since": "today"}),
+            None,
         )
         .await
         .unwrap();
@@ -477,7 +478,7 @@ async fn update_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -503,7 +504,6 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -511,6 +511,7 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                   }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -520,9 +521,9 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "owner",
             "__typename since dst {...on User{__typename name}}",
-            Some("1234"),
             Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
             &json!({"since": "today"}),
+            None,
         )
         .await
         .unwrap();
@@ -547,7 +548,7 @@ async fn update_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -573,7 +574,6 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -581,6 +581,7 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                       "dst": {"User": {"NEW": {"name": "User Zero"}}}
                     }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -589,8 +590,8 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "owner",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "yesterday"}})),
+            None,
             None,
             None,
         )
@@ -601,7 +602,7 @@ async fn delete_snst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -625,7 +626,6 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -633,6 +633,7 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -641,8 +642,8 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "owner",
-            Some("1234"),
             Some(&json!({"dst": {"User": {"name": {"EQ": "User Zero"}}}})),
+            None,
             None,
             None,
         )
@@ -653,7 +654,7 @@ async fn delete_snst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -677,7 +678,6 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "owner": {
@@ -685,6 +685,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     "dst": {"User": {"NEW": {"name": "User Zero"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -693,7 +694,6 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project One",
                 "owner": {
@@ -701,6 +701,7 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     "dst": {"User": {"NEW": {"name": "User One"}}}
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -709,8 +710,8 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "owner",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
+            None,
             None,
             None,
         )
@@ -721,8 +722,8 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -731,8 +732,8 @@ async fn delete_snst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "owner{__typename since dst{...on User{__typename name}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
+            None,
         )
         .await
         .unwrap();

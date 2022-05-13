@@ -8,7 +8,7 @@ use crate::engine::context::RequestContext;
 use crate::engine::resolvers::Object;
 use crate::engine::value::Value;
 use crate::error::Error;
-use juniper::meta::MetaType;
+use juniper::meta::{EnumValue, MetaType};
 use juniper::{
     Arguments, BoxFuture, DefaultScalarValue, ExecutionResult, Executor, FromInputValue,
     InputValue, Registry, Selection, ID,
@@ -22,6 +22,147 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 
 pub(crate) mod resolvers;
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum Direction {
+    Ascending,
+    Descending,
+}
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Sort {
+    direction: Direction,
+    dst_property: bool,
+    property: String,
+}
+
+impl Sort {
+    pub fn new(direction_opt: Option<String>, order_by: String) -> Sort {
+        let property_string = order_by.to_string();
+        let property_path = property_string.split(':').collect::<Vec<&str>>();
+
+        Sort {
+            direction: if Some("descending".to_string()) == direction_opt {
+                Direction::Descending
+            } else {
+                Direction::Ascending
+            },
+            dst_property: property_path.len() > 1,
+            property: if let Some(s) = property_path.last() {
+                s.to_string()
+            } else {
+                order_by
+            },
+        }
+    }
+
+    pub fn direction(&self) -> &Direction {
+        &self.direction
+    }
+
+    pub fn dst_property(&self) -> bool {
+        self.dst_property
+    }
+
+    pub fn property(&self) -> &str {
+        &self.property
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+pub struct Options {
+    sort: Vec<Sort>,
+}
+
+impl Options {
+    pub fn new(sort: Vec<Sort>) -> Options {
+        Options { sort }
+    }
+
+    pub fn sort(&self) -> &[Sort] {
+        &self.sort
+    }
+}
+
+#[derive(Clone, Debug)]
+struct Enumeration<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    _rctx: PhantomData<RequestCtx>,
+}
+
+impl<RequestCtx> Enumeration<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    fn new() -> Enumeration<RequestCtx> {
+        Enumeration { _rctx: PhantomData }
+    }
+}
+
+impl<RequestCtx> FromInputValue for Enumeration<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    fn from_input_value(_v: &InputValue) -> Option<Self> {
+        /*
+        serde_json::to_value(v)
+            .ok()
+            .and_then(|val| val.try_into().ok())
+            .map(Enumeration::new)
+            */
+        Some(Enumeration::new())
+    }
+}
+
+impl<RequestCtx> GraphQLType for Enumeration<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    fn name(info: &Self::TypeInfo) -> Option<&str> {
+        Some(info.name())
+    }
+
+    fn meta<'r>(info: &Self::TypeInfo, registry: &mut Registry<'r>) -> MetaType<'r>
+    where
+        DefaultScalarValue: 'r,
+    {
+        trace!("Enumeration::meta called for {}", info.name());
+
+        let nt = info.type_def_by_name(info.name()).unwrap_or_else(|e| {
+            // this path is only reached if there is a bug in the code
+            error!(
+                "Input::meta expected type '{}' that was not found in GraphQL schema",
+                info.name().to_string()
+            );
+            panic!("{}", e)
+        });
+
+        let mut props = nt.props().collect::<Vec<&Property>>();
+        props.sort_by_key(|p| p.name());
+
+        let variants: Vec<EnumValue> = props.iter().map(|p| EnumValue::new(p.name())).collect();
+
+        registry
+            .build_enum_type::<Enumeration<RequestCtx>>(info, &variants)
+            .into_meta()
+    }
+}
+
+impl<RequestCtx> GraphQLValue for Enumeration<RequestCtx>
+where
+    RequestCtx: RequestContext,
+{
+    type Context = GraphQLContext<RequestCtx>;
+    type TypeInfo = Info;
+
+    fn type_name<'i>(&self, info: &'i Self::TypeInfo) -> Option<&'i str> {
+        Some(info.name())
+    }
+}
+
+impl<RequestCtx> GraphQLValueAsync for Enumeration<RequestCtx> where RequestCtx: RequestContext {}
 
 #[derive(Clone, Debug)]
 struct Input<RequestCtx>
@@ -85,44 +226,57 @@ where
         let args = props
             .iter()
             .filter(|p| !p.hidden())
-            .map(|p| match (p.type_name(), p.required(), p.list()) {
-                ("Boolean", false, false) => registry.arg::<Option<bool>>(p.name(), &()),
-                ("Boolean", false, true) => registry.arg::<Option<Vec<bool>>>(p.name(), &()),
-                ("Boolean", true, false) => registry.arg::<bool>(p.name(), &()),
-                ("Boolean", true, true) => registry.arg::<Vec<bool>>(p.name(), &()),
-                ("Float", false, false) => registry.arg::<Option<f64>>(p.name(), &()),
-                ("Float", false, true) => registry.arg::<Option<Vec<f64>>>(p.name(), &()),
-                ("Float", true, false) => registry.arg::<f64>(p.name(), &()),
-                ("Float", true, true) => registry.arg::<Vec<f64>>(p.name(), &()),
-                ("ID", false, false) => registry.arg::<Option<ID>>(p.name(), &()),
-                ("ID", false, true) => registry.arg::<Option<Vec<ID>>>(p.name(), &()),
-                ("ID", true, false) => registry.arg::<ID>(p.name(), &()),
-                ("ID", true, true) => registry.arg::<Vec<ID>>(p.name(), &()),
-                ("Int", false, false) => registry.arg::<Option<i32>>(p.name(), &()),
-                ("Int", false, true) => registry.arg::<Option<Vec<i32>>>(p.name(), &()),
-                ("Int", true, false) => registry.arg::<i32>(p.name(), &()),
-                ("Int", true, true) => registry.arg::<Vec<i32>>(p.name(), &()),
-                ("String", false, false) => registry.arg::<Option<String>>(p.name(), &()),
-                ("String", false, true) => registry.arg::<Option<Vec<String>>>(p.name(), &()),
-                ("String", true, false) => registry.arg::<String>(p.name(), &()),
-                ("String", true, true) => registry.arg::<Vec<String>>(p.name(), &()),
-                (_, false, false) => registry.arg::<Option<Input<RequestCtx>>>(
-                    p.name(),
-                    &Info::new(p.type_name().to_string(), info.type_defs()),
-                ),
-                (_, false, true) => registry.arg::<Option<Vec<Input<RequestCtx>>>>(
-                    p.name(),
-                    &Info::new(p.type_name().to_string(), info.type_defs()),
-                ),
-                (_, true, false) => registry.arg::<Input<RequestCtx>>(
-                    p.name(),
-                    &Info::new(p.type_name().to_string(), info.type_defs()),
-                ),
-                (_, true, true) => registry.arg::<Vec<Input<RequestCtx>>>(
-                    p.name(),
-                    &Info::new(p.type_name().to_string(), info.type_defs()),
-                ),
-            })
+            .map(
+                |p| match (p.kind(), p.type_name(), p.required(), p.list()) {
+                    (_, "Boolean", false, false) => registry.arg::<Option<bool>>(p.name(), &()),
+                    (_, "Boolean", false, true) => registry.arg::<Option<Vec<bool>>>(p.name(), &()),
+                    (_, "Boolean", true, false) => registry.arg::<bool>(p.name(), &()),
+                    (_, "Boolean", true, true) => registry.arg::<Vec<bool>>(p.name(), &()),
+                    (_, "Float", false, false) => registry.arg::<Option<f64>>(p.name(), &()),
+                    (_, "Float", false, true) => registry.arg::<Option<Vec<f64>>>(p.name(), &()),
+                    (_, "Float", true, false) => registry.arg::<f64>(p.name(), &()),
+                    (_, "Float", true, true) => registry.arg::<Vec<f64>>(p.name(), &()),
+                    (_, "ID", false, false) => registry.arg::<Option<ID>>(p.name(), &()),
+                    (_, "ID", false, true) => registry.arg::<Option<Vec<ID>>>(p.name(), &()),
+                    (_, "ID", true, false) => registry.arg::<ID>(p.name(), &()),
+                    (_, "ID", true, true) => registry.arg::<Vec<ID>>(p.name(), &()),
+                    (_, "Int", false, false) => registry.arg::<Option<i32>>(p.name(), &()),
+                    (_, "Int", false, true) => registry.arg::<Option<Vec<i32>>>(p.name(), &()),
+                    (_, "Int", true, false) => registry.arg::<i32>(p.name(), &()),
+                    (_, "Int", true, true) => registry.arg::<Vec<i32>>(p.name(), &()),
+                    (_, "String", false, false) => registry.arg::<Option<String>>(p.name(), &()),
+                    (_, "String", false, true) => {
+                        registry.arg::<Option<Vec<String>>>(p.name(), &())
+                    }
+                    (_, "String", true, false) => registry.arg::<String>(p.name(), &()),
+                    (_, "String", true, true) => registry.arg::<Vec<String>>(p.name(), &()),
+                    (PropertyKind::Enum, _, true, _) => registry.arg::<Enumeration<RequestCtx>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                    (PropertyKind::Enum, _, false, _) => registry
+                        .arg::<Option<Enumeration<RequestCtx>>>(
+                            p.name(),
+                            &Info::new(p.type_name().to_string(), info.type_defs()),
+                        ),
+                    (_, _, false, false) => registry.arg::<Option<Input<RequestCtx>>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                    (_, _, false, true) => registry.arg::<Option<Vec<Input<RequestCtx>>>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                    (_, _, true, false) => registry.arg::<Input<RequestCtx>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                    (_, _, true, true) => registry.arg::<Vec<Input<RequestCtx>>>(
+                        p.name(),
+                        &Info::new(p.type_name().to_string(), info.type_defs()),
+                    ),
+                },
+            )
             .collect::<Vec<_>>();
 
         registry
@@ -376,14 +530,23 @@ where
                         (name, "Int", ArgumentKind::Required) => {
                             f.argument(registry.arg::<i32>(name, &()))
                         }
-                        ("partitionKey", "String", ArgumentKind::Optional) => {
-                            f.argument(registry.arg::<Option<String>>("partitionKey", &()))
-                        }
                         (name, "String", ArgumentKind::Optional) => {
                             f.argument(registry.arg::<Option<String>>(name, &()))
                         }
                         (name, "String", ArgumentKind::Required) => {
                             f.argument(registry.arg::<String>(name, &()))
+                        }
+                        ("options", type_name, ArgumentKind::Optional) => {
+                            f.argument(registry.arg::<Option<Input<RequestCtx>>>(
+                                "options",
+                                &Info::new(type_name.to_string(), info.type_defs()),
+                            ))
+                        }
+                        ("options", type_name, ArgumentKind::Required) => {
+                            f.argument(registry.arg::<Input<RequestCtx>>(
+                                "options",
+                                &Info::new(type_name.to_string(), info.type_defs()),
+                            ))
                         }
                         ("input", type_name, ArgumentKind::Optional) => {
                             f.argument(registry.arg::<Option<Input<RequestCtx>>>(
@@ -493,30 +656,45 @@ where
                 name: info.name().to_string(),
             })?;
             trace!(
-                "Node::resolve_field called -- sn: {}, field_name: {}",
+                "Node::resolve_field_async called -- sn: {}, field_name: {}",
                 sn,
                 field_name,
             );
 
             let p = info.type_def()?.property(field_name)?;
-            let input_opt: Option<Input<RequestCtx>> = args.get("input");
+            let input_opt: Option<Value> = args.get("input").map(|i: Input<RequestCtx>| i.value);
 
-            // The partition key is only in the arguments for the outermost query or mutation.
-            // For lower-level field resolution, the partition key is read from the field of the parent.
-            // An alternate design would've been to carry the partitionKey in context, but this way
-            // recursive resolve calls from custom resolvers that execute cross-partition queries will
-            // work correctly, as each node carries its own partition, for any recursion to fill out the
-            // other rels and nodes loaded by the shape.
-            let arg_partition_key = args.get("partitionKey");
-            let partition_key_opt: Option<&Value> = if let Some(Value::Null) = arg_partition_key {
-                None
+            let options = if let Some(Value::Map(m)) =
+                args.get("options").map(|i: Input<RequestCtx>| i.value)
+            {
+                Options::new(if let Some(Value::Array(a)) = m.get("sort") {
+                    a.iter()
+                        .map(|sort| {
+                            if let Value::Map(sort_map) = sort {
+                                Ok(Sort::new(
+                                    sort_map.get("direction").map(|d| d.to_string()),
+                                    sort_map.get("orderBy").map(|ob| ob.to_string()).ok_or(
+                                        Error::InputItemNotFound {
+                                            name: "orderBy".to_string(),
+                                        },
+                                    )?,
+                                ))
+                            } else {
+                                Err(Error::TypeNotExpected {
+                                    details: Some("Expected sort to be a Value::Map".to_string()),
+                                })
+                            }
+                        })
+                        .collect::<Result<Vec<Sort>, Error>>()?
+                } else {
+                    Vec::new()
+                })
             } else {
-                arg_partition_key
-                    .as_ref()
-                    .or_else(|| self.fields.get("partitionKey"))
+                Options::default()
             };
+            trace!("Node::resolve_field_async -- options: {:#?}", options);
 
-            let mut resolver = Resolver::new(partition_key_opt);
+            let mut resolver = Resolver::new();
 
             let result = match p.kind() {
                 PropertyKind::CustomResolver => {
@@ -554,6 +732,10 @@ where
                         )
                         .await
                 }
+                PropertyKind::Enum => Err((Error::TypeNotExpected {
+                    details: Some("PropertyKind::Enum not expected.".to_string()),
+                })
+                .into()),
                 PropertyKind::Input => Err((Error::TypeNotExpected {
                     details: Some("PropertyKind::Input not expected".to_string()),
                 })
@@ -563,7 +745,7 @@ where
                         name: "input".to_string(),
                     })?;
                     resolver
-                        .resolve_node_create_mutation(field_name, info, input, executor)
+                        .resolve_node_create_mutation(field_name, info, input, options, executor)
                         .await
                 }
                 PropertyKind::NodeDeleteMutation { label } => {
@@ -571,7 +753,9 @@ where
                         name: "input".to_string(),
                     })?;
                     resolver
-                        .resolve_node_delete_mutation(field_name, label, info, input, executor)
+                        .resolve_node_delete_mutation(
+                            field_name, label, info, input, options, executor,
+                        )
                         .await
                 }
                 PropertyKind::NodeUpdateMutation => {
@@ -579,12 +763,12 @@ where
                         name: "input".to_string(),
                     })?;
                     resolver
-                        .resolve_node_update_mutation(field_name, info, input, executor)
+                        .resolve_node_update_mutation(field_name, info, input, options, executor)
                         .await
                 }
                 PropertyKind::Object => {
                     resolver
-                        .resolve_node_read_query(field_name, info, input_opt, executor)
+                        .resolve_node_read_query(field_name, info, input_opt, options, executor)
                         .await
                 }
                 PropertyKind::Rel { rel_name } => {
@@ -593,7 +777,9 @@ where
                         // relationship reference
 
                         resolver
-                            .resolve_rel_read_query(field_name, rel_name, info, input_opt, executor)
+                            .resolve_rel_read_query(
+                                field_name, rel_name, info, input_opt, options, executor,
+                            )
                             .await
                     } else {
                         // If it's not a root query, then it's a relationship reference. Merge the
@@ -601,8 +787,7 @@ where
                         // additional searching / filtering criteria to a query input in the shape,
                         // because we allow filtering on relationships at every nested relationship
                         // in the shape.
-                        let mut hm = if let Some(Value::Map(input_map)) = input_opt.map(|i| i.value)
-                        {
+                        let mut hm = if let Some(Value::Map(input_map)) = input_opt {
                             input_map
                         } else {
                             HashMap::new()
@@ -633,7 +818,8 @@ where
                                 field_name,
                                 rel_name,
                                 info,
-                                Some(Input::new(Value::Map(hm))),
+                                Some(Value::Map(hm)),
+                                options,
                                 executor,
                             )
                             .await
@@ -648,7 +834,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_create_mutation(
-                            field_name, src_label, rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, options, executor,
                         )
                         .await
                 }
@@ -661,7 +847,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_delete_mutation(
-                            field_name, src_label, rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, options, executor,
                         )
                         .await
                 }
@@ -674,7 +860,7 @@ where
                     })?;
                     resolver
                         .resolve_rel_update_mutation(
-                            field_name, src_label, rel_name, info, input, executor,
+                            field_name, src_label, rel_name, info, input, options, executor,
                         )
                         .await
                 }
@@ -744,6 +930,7 @@ pub enum NodeRef<RequestCtx: RequestContext> {
 ///
 /// ```rust, no_run
 /// # use std::collections::HashMap;
+/// # use warpgrapher::engine::objects::Options;
 /// # use warpgrapher::engine::resolvers::{ResolverFacade, ExecutionResult};
 /// # use warpgrapher::engine::value::Value;
 /// # use warpgrapher::juniper::BoxFuture;
@@ -759,7 +946,7 @@ pub enum NodeRef<RequestCtx: RequestContext> {
 ///         // return rel
 ///         facade.resolve_rel(&facade.create_rel(
 ///             Value::String("655c4e13-5075-45ea-97de-b43f800e5854".to_string()),
-///             "members", hm1, node_id)?).await
+///             "members", hm1, node_id, Options::default())?).await
 ///     })
 /// }
 /// ```
@@ -940,19 +1127,42 @@ where
     ) -> BoxFuture<'a, ExecutionResult> {
         Box::pin(async move {
             trace!(
-                "Rel::resolve_field_with_transaction called -- field_name: {}",
+                "Rel::resolve_field_async called -- field_name: {}",
                 field_name
             );
             let p = info.type_def()?.property(field_name)?;
-            let arg_partition_key = args.get("partitionKey");
-            let partition_key_opt: Option<&Value> = if let Some(Value::Null) = arg_partition_key {
-                None
+
+            let options = if let Some(Value::Map(m)) =
+                args.get("options").map(|i: Input<RequestCtx>| i.value)
+            {
+                Options::new(if let Some(Value::Array(a)) = m.get("sort") {
+                    a.iter()
+                        .map(|sort| {
+                            if let Value::Map(sort_map) = sort {
+                                Ok(Sort::new(
+                                    sort_map.get("direction").map(|d| d.to_string()),
+                                    sort_map.get("orderBy").map(|ob| ob.to_string()).ok_or(
+                                        Error::InputItemNotFound {
+                                            name: "orderBy".to_string(),
+                                        },
+                                    )?,
+                                ))
+                            } else {
+                                Err(Error::TypeNotExpected {
+                                    details: Some("Expected sort to be a Value::Map".to_string()),
+                                })
+                            }
+                        })
+                        .collect::<Result<Vec<Sort>, Error>>()?
+                } else {
+                    Vec::new()
+                })
             } else {
-                arg_partition_key
-                    .as_ref()
-                    .or_else(|| self.fields.get("partitionKey"))
+                Options::default()
             };
-            let mut resolver = Resolver::new(partition_key_opt);
+            trace!("Node::resolve_field_async -- options: {:#?}", options);
+
+            let mut resolver = Resolver::new();
 
             match (p.kind(), &field_name) {
                 (PropertyKind::DynamicScalar, _) => {
@@ -973,9 +1183,14 @@ where
                         comparison.insert("EQ".to_string(), id.clone());
                         let mut hm = HashMap::new();
                         hm.insert("id".to_string(), Value::Map(comparison));
-                        let input = Input::new(Value::Map(hm));
                         resolver
-                            .resolve_node_read_query(field_name, info, Some(input), executor)
+                            .resolve_node_read_query(
+                                field_name,
+                                info,
+                                Some(Value::Map(hm)),
+                                options,
+                                executor,
+                            )
                             .await
                     }
                     NodeRef::Node(n) => {
@@ -999,9 +1214,14 @@ where
                         comparison.insert("EQ".to_string(), id.clone());
                         let mut hm = HashMap::new();
                         hm.insert("id".to_string(), Value::Map(comparison));
-                        let input = Input::new(Value::Map(hm));
                         resolver
-                            .resolve_node_read_query(field_name, info, Some(input), executor)
+                            .resolve_node_read_query(
+                                field_name,
+                                info,
+                                Some(Value::Map(hm)),
+                                options,
+                                executor,
+                            )
                             .await
                     }
                     NodeRef::Node(n) => {

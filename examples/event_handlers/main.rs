@@ -8,7 +8,7 @@ use warpgrapher::engine::database::cypher::CypherEndpoint;
 use warpgrapher::engine::database::CrudOperation;
 use warpgrapher::engine::database::DatabaseEndpoint;
 use warpgrapher::engine::events::{EventFacade, EventHandlerBag};
-use warpgrapher::engine::objects::Node;
+use warpgrapher::engine::objects::{Node, Options};
 use warpgrapher::engine::value::Value;
 use warpgrapher::juniper::BoxFuture;
 use warpgrapher::{Engine, Error};
@@ -129,7 +129,9 @@ fn enforce_write_access(
     Box::pin(async move {
         if let Value::Map(mut m) = v.clone() {
             if let Some(input_match) = m.remove("MATCH") {
-                let nodes = &ef.read_nodes("Record", input_match, None).await?;
+                let nodes = &ef
+                    .read_nodes("Record", input_match, Options::default())
+                    .await?;
 
                 // filter nodes that are authorized
                 let filtered_node_ids: Vec<Value> = nodes

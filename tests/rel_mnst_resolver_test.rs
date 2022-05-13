@@ -13,8 +13,8 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({"name": "Project Zero"}),
+            None,
         )
         .await
         .unwrap();
@@ -24,10 +24,10 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{"repo": "Repo Zero", "dst": {"Commit": {"NEW": {"hash": "00000"}}}},
                     {"repo": "Repo One", "dst": {"Commit": {"NEW": {"hash": "11111"}}}}]),
+            None,
         )
         .await
         .unwrap();
@@ -58,7 +58,7 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -94,22 +94,12 @@ async fn create_mnst_new_rel<RequestCtx: RequestContext>(mut client: Client<Requ
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
-        .create_node(
-            "Project",
-            "name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
 
     let c0 = client
-        .create_node(
-            "Commit",
-            "__typename hash",
-            Some("1234"),
-            &json!({"hash": "00000"}),
-        )
+        .create_node("Commit", "__typename hash", &json!({"hash": "00000"}), None)
         .await
         .unwrap();
 
@@ -118,12 +108,7 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
     assert_eq!(c0.get("hash").unwrap(), "00000");
 
     let c1 = client
-        .create_node(
-            "Commit",
-            "__typename hash",
-            Some("1234"),
-            &json!({"hash": "11111"}),
-        )
+        .create_node("Commit", "__typename hash", &json!({"hash": "11111"}), None)
         .await
         .unwrap();
 
@@ -135,10 +120,11 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .create_rel(
             "Project",
             "activity",
-            "__typename repo dst{...on Commit{__typename hash}}",Some("1234"),
+            "__typename repo dst{...on Commit{__typename hash}}",
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{"repo": "Repo Zero", "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "00000"}}}}},
-                    {"repo": "Repo One", "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "11111"}}}}}])
+                    {"repo": "Repo One", "dst": {"Commit": {"EXISTING": {"hash": {"EQ": "11111"}}}}}]),
+            None
         )
         .await
         .unwrap();
@@ -166,7 +152,7 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -202,22 +188,12 @@ async fn create_mnst_rel_existing_node<RequestCtx: RequestContext>(mut client: C
 #[allow(clippy::cognitive_complexity, dead_code)]
 async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
-        .create_node(
-            "Project",
-            "name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
 
     let c0 = client
-        .create_node(
-            "Commit",
-            "__typename hash",
-            Some("1234"),
-            &json!({"hash": "1"}),
-        )
+        .create_node("Commit", "__typename hash", &json!({"hash": "1"}), None)
         .await
         .unwrap();
 
@@ -226,12 +202,7 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
     assert_eq!(c0.get("hash").unwrap(), "1");
 
     let c1 = client
-        .create_node(
-            "Commit",
-            "__typename hash",
-            Some("1234"),
-            &json!({"hash": "2"}),
-        )
+        .create_node("Commit", "__typename hash", &json!({"hash": "2"}), None)
         .await
         .unwrap();
 
@@ -244,9 +215,9 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
             "Project",
             "activity",
             "__typename id repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             &json!({"name": {"EQ": "Project Zero"}}),
             &json!([{"repo": "Repo Zero", "dst": {"Commit": {"EXISTING": {"hash": {"GT": "0"}}}}}]),
+            None,
         )
         .await
         .unwrap();
@@ -279,7 +250,7 @@ async fn create_mnst_unique_ids<RequestCtx: RequestContext>(mut client: Client<R
         .read_node(
             "Project",
             "activity{__typename id repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -320,7 +291,6 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -334,6 +304,7 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -343,8 +314,8 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             Some(&json!({"repo": {"EQ": "Repo Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -367,14 +338,14 @@ async fn read_mnst_rel_by_rel_props<RequestCtx: RequestContext>(mut client: Clie
         .all(|a| a.get("dst").unwrap().get("hash").unwrap() == "00000"));
 }
 
+/// Passes if reading rels with specific ordering works
 #[wg_test]
-#[allow(clippy::cognitive_complexity, dead_code)]
-async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+#[allow(dead_code)]
+async fn read_in_order<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
     let _p0 = client
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -388,6 +359,124 @@ async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
                     }
                 ]
             }),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let r0 = client
+        .read_rel(
+            "Project",
+            "activity",
+            "__typename repo dst { ...on Commit{ __typename hash } }",
+            None,
+            Some(&json!({"sort": [{"direction": "ascending", "orderBy": "repo"}]})),
+        )
+        .await
+        .unwrap();
+
+    let a0 = r0.as_array().unwrap();
+    assert_eq!(a0.len(), 2);
+    assert_eq!(a0[0].get("repo").unwrap(), "Repo One");
+    assert_eq!(a0[1].get("repo").unwrap(), "Repo Zero");
+
+    let r1 = client
+        .read_rel(
+            "Project",
+            "activity",
+            "__typename repo dst { ...on Commit{ __typename hash } }",
+            None,
+            Some(&json!({"sort": [{"direction": "descending", "orderBy": "repo"}]})),
+        )
+        .await
+        .unwrap();
+
+    let a1 = r1.as_array().unwrap();
+    assert_eq!(a1.len(), 2);
+    assert_eq!(a1[0].get("repo").unwrap(), "Repo Zero");
+    assert_eq!(a1[1].get("repo").unwrap(), "Repo One");
+}
+
+/// Passes if reading rels with specific ordering by destination property works
+#[wg_test]
+#[allow(dead_code)]
+async fn read_in_dst_order<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let _p0 = client
+        .create_node(
+            "Project",
+            "__typename name",
+            &json!({
+                "name": "Project Zero",
+                "activity": [
+                    {
+                        "repo": "Repo Zero",
+                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                    },
+                    {
+                        "repo": "Repo One",
+                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                    }
+                ]
+            }),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let r0 = client
+        .read_rel(
+            "Project",
+            "activity",
+            "__typename repo dst { ...on Commit{ __typename hash } }",
+            None,
+            Some(&json!({"sort": [{"direction": "ascending", "orderBy": "dst:hash"}]})),
+        )
+        .await
+        .unwrap();
+
+    let a0 = r0.as_array().unwrap();
+    assert_eq!(a0.len(), 2);
+    assert!(a0[0].get("repo").unwrap() == "Repo Zero");
+    assert!(a0[1].get("repo").unwrap() == "Repo One");
+
+    let r1 = client
+        .read_rel(
+            "Project",
+            "activity",
+            "__typename repo dst { ...on Commit{ __typename hash } }",
+            None,
+            Some(&json!({"sort": [{"direction": "descending", "orderBy": "dst:hash"}]})),
+        )
+        .await
+        .unwrap();
+
+    let a1 = r1.as_array().unwrap();
+    assert_eq!(a1.len(), 2);
+    assert!(a1[0].get("repo").unwrap() == "Repo One");
+    assert!(a1[1].get("repo").unwrap() == "Repo Zero");
+}
+
+#[wg_test]
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Client<RequestCtx>) {
+    let _p0 = client
+        .create_node(
+            "Project",
+            "__typename name",
+            &json!({
+                "name": "Project Zero",
+                "activity": [
+                    {
+                        "repo": "Repo Zero",
+                        "dst": {"Commit": {"NEW": {"hash": "00000"}}}
+                    },
+                    {
+                        "repo": "Repo One",
+                        "dst": {"Commit": {"NEW": {"hash": "11111"}}}
+                    }
+                ]
+            }),
+            None,
         )
         .await
         .unwrap();
@@ -397,8 +486,8 @@ async fn read_mnst_rel_by_src_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "activity",
             "__typename repo dst{...on Commit{ __typename hash}}",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
+            None,
         )
         .await
         .unwrap();
@@ -434,7 +523,6 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -448,6 +536,7 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -457,8 +546,8 @@ async fn read_mnst_rel_by_dst_props<RequestCtx: RequestContext>(mut client: Clie
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": {"EQ": "00000"}}}})),
+            None,
         )
         .await
         .unwrap();
@@ -488,7 +577,6 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -502,6 +590,7 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -511,9 +600,9 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             Some(&json!({"repo": {"EQ": "Repo Zero"}})),
             &json!({"repo": "Repo Two"}),
+            None,
         )
         .await
         .unwrap();
@@ -542,8 +631,8 @@ async fn update_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -585,7 +674,6 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -599,6 +687,7 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -608,9 +697,9 @@ async fn update_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
             &json!({"repo": "Repo Two"}),
+            None,
         )
         .await
         .unwrap();
@@ -649,7 +738,6 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -663,6 +751,7 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -672,9 +761,9 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
             "Project",
             "activity",
             "__typename repo dst{...on Commit{__typename hash}}",
-            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": {"EQ": "00000"}}}})),
             &json!({"repo": "Repo Two"}),
+            None,
         )
         .await
         .unwrap();
@@ -703,8 +792,8 @@ async fn update_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -746,7 +835,6 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -760,6 +848,7 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -768,8 +857,8 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "activity",
-            Some("1234"),
             Some(&json!({"repo": {"EQ": "Repo One"}})),
+            None,
             None,
             None,
         )
@@ -780,7 +869,7 @@ async fn delete_mnst_rel_by_rel_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -820,7 +909,6 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename id name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -834,6 +922,7 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -842,8 +931,8 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "activity",
-            Some("1234"),
             Some(&json!({"dst": {"Commit": {"hash": {"EQ": "11111"}}}})),
+            None,
             None,
             None,
         )
@@ -854,7 +943,7 @@ async fn delete_mnst_rel_by_dst_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
+            None,
             None,
         )
         .await
@@ -894,7 +983,6 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project Zero",
                 "activity": [
@@ -908,6 +996,7 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -916,7 +1005,6 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .create_node(
             "Project",
             "__typename name",
-            Some("1234"),
             &json!({
                 "name": "Project One",
                 "activity": [
@@ -930,6 +1018,7 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
                     }
                 ]
             }),
+            None,
         )
         .await
         .unwrap();
@@ -938,8 +1027,8 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .delete_rel(
             "Project",
             "activity",
-            Some("1234"),
             Some(&json!({"src": {"Project": {"name": {"EQ": "Project Zero"}}}})),
+            None,
             None,
             None,
         )
@@ -950,8 +1039,8 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project Zero"}})),
+            None,
         )
         .await
         .unwrap();
@@ -960,8 +1049,8 @@ async fn delete_mnst_rel_by_src_prop<RequestCtx: RequestContext>(mut client: Cli
         .read_node(
             "Project",
             "activity{__typename repo dst{...on Commit{__typename hash}}}",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "Project One"}})),
+            None,
         )
         .await
         .unwrap();

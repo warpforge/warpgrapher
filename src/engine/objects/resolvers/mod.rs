@@ -1,4 +1,3 @@
-use super::Input;
 use crate::engine::context::{GraphQLContext, RequestContext};
 use crate::engine::database::DatabasePool;
 use crate::engine::database::{
@@ -6,6 +5,7 @@ use crate::engine::database::{
 };
 use crate::engine::events::EventFacade;
 use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
+use crate::engine::objects::Options;
 use crate::engine::resolvers::Object;
 use crate::engine::resolvers::ResolverFacade;
 use crate::engine::resolvers::{Arguments, ExecutionResult, Executor};
@@ -25,17 +25,12 @@ use visitors::{
 
 pub(crate) mod visitors;
 
-pub(super) struct Resolver<'r> {
-    partition_key_opt: Option<&'r Value>,
-}
+pub(super) struct Resolver {}
 
-impl<'r> Resolver<'r> {
-    pub(super) fn new(partition_key_opt: Option<&'r Value>) -> Resolver<'r> {
-        trace!(
-            "Resolver::new called -- partition_key_opt: {:#?}",
-            partition_key_opt
-        );
-        Resolver { partition_key_opt }
+impl Resolver {
+    pub(super) fn new() -> Resolver {
+        trace!("Resolver::new called");
+        Resolver {}
     }
 
     #[tracing::instrument(
@@ -66,7 +61,6 @@ impl<'r> Resolver<'r> {
             info,
             args,
             parent,
-            self.partition_key_opt,
             executor,
         ))
         .await
@@ -103,7 +97,6 @@ impl<'r> Resolver<'r> {
             info,
             args,
             parent,
-            self.partition_key_opt,
             executor,
         ))
         .await
@@ -140,7 +133,6 @@ impl<'r> Resolver<'r> {
             info,
             args,
             parent,
-            self.partition_key_opt,
             executor,
         ))
         .await
@@ -155,14 +147,16 @@ impl<'r> Resolver<'r> {
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-            "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}",
+            "Resolver::resolve_node_create_mutation called -- info.name: {}, field_name: {}, input: {:#?}, options: {:#?}",
             info.name(),
             field_name,
-            input
+            input,
+            options
         );
 
         let mut sg = SuffixGenerator::new();
@@ -178,9 +172,9 @@ impl<'r> Resolver<'r> {
         );
         let results = visit_node_create_mutation_input::<RequestCtx>(
             &node_var,
-            input.value,
+            input,
+            options,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),
@@ -217,7 +211,8 @@ impl<'r> Resolver<'r> {
         field_name: &str,
         label: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult
     where
@@ -242,9 +237,9 @@ impl<'r> Resolver<'r> {
         let node_var = NodeQueryVar::new(Some(label.to_string()), "node".to_string(), sg.suffix());
         let results = visit_node_delete_input::<RequestCtx>(
             &node_var,
-            input.value,
+            input,
+            options,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),
@@ -275,7 +270,8 @@ impl<'r> Resolver<'r> {
         &mut self,
         field_name: &str,
         info: &Info,
-        input_opt: Option<Input<RequestCtx>>,
+        input_opt: Option<Value>,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
@@ -304,7 +300,7 @@ impl<'r> Resolver<'r> {
             .event_handlers()
             .before_node_read(node_var.label()?)
         {
-            let mut input_opt_value = input_opt.map(|i| i.value);
+            let mut input_opt_value = input_opt;
             for f in handlers.iter() {
                 input_opt_value = f(
                     input_opt_value,
@@ -319,31 +315,31 @@ impl<'r> Resolver<'r> {
             }
             input_opt_value
         } else {
-            input_opt.map(|i| i.value)
+            input_opt
         };
 
         let mut id_for_loader_opt = None;
-        if let Some(Value::Map(im)) = &input_value_opt {
-            if im.keys().len() == 1 {
-                if let Some(Value::Map(comparison)) = im.get("id") {
-                    // Okay, this is painful, but we're testing whether after
-                    // the possible additions of search criteria in the shape
-                    // and the possible changes made to the input query by
-                    // the before_node_read handler, we still have a query that
-                    // has nothing in it but the node id search criterion.
-                    // If so, this is a a basic node read (the most common case
-                    // in a shape) and we should use the loader to avoid the
-                    // N+1 problem.
-                    //
-                    // Unlike the rel loader, we don't handle the "IN" condition of multiple ids
-                    // because errors aren't returned for each id being loaded, only one error if
-                    // any of the operations fails. That means we can't return all found ids if
-                    // even one id isn't found.
-                    if let Some(id_val) = comparison.get("EQ") {
-                        id_for_loader_opt = Some(NodeLoaderKey::new(
-                            id_val.to_string(),
-                            self.partition_key_opt.map(|pk| pk.to_string()),
-                        ));
+        if options.sort().is_empty() {
+            if let Some(Value::Map(im)) = &input_value_opt {
+                if im.keys().len() == 1 {
+                    if let Some(Value::Map(comparison)) = im.get("id") {
+                        // Okay, this is painful, but we're testing whether after
+                        // the possible additions of search criteria in the shape
+                        // and the possible changes made to the input query by
+                        // the before_node_read handler, we still have a query that
+                        // has nothing in it but the node id search criterion.
+                        // If so, this is a a basic node read (the most common case
+                        // in a shape) and we should use the loader to avoid the
+                        // N+1 problem.
+                        //
+                        // Unlike the rel loader, we don't handle the "IN" condition of multiple ids
+                        // because errors aren't returned for each id being loaded, only one error if
+                        // any of the operations fails. That means we can't return all found ids if
+                        // even one id isn't found.
+                        if let Some(id_val) = comparison.get("EQ") {
+                            id_for_loader_opt =
+                                Some(NodeLoaderKey::new(id_val.to_string(), options.clone()));
+                        }
                     }
                 }
             }
@@ -374,15 +370,15 @@ impl<'r> Resolver<'r> {
             let query_fragment = visit_node_query_input::<RequestCtx>(
                 &node_var,
                 input_value_opt,
+                options.clone(),
                 &Info::new(itd.type_name().to_owned(), info.type_defs()),
-                self.partition_key_opt,
                 &mut sg,
                 &mut transaction,
             )
             .await?;
 
             match transaction
-                .read_nodes(&node_var, query_fragment, self.partition_key_opt, info)
+                .read_nodes(&node_var, query_fragment, options, info)
                 .await
             {
                 Err(e) => {
@@ -453,7 +449,8 @@ impl<'r> Resolver<'r> {
         &mut self,
         field_name: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
@@ -474,9 +471,9 @@ impl<'r> Resolver<'r> {
                 "node".to_string(),
                 sg.suffix(),
             ),
-            input.value,
+            input,
+            options,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),
@@ -504,13 +501,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[tracing::instrument(level = "info", name = "create_rel", skip(self, info, input, executor))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resolve_rel_create_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
@@ -534,9 +533,9 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_create_input::<RequestCtx>(
             &src_var,
             rel_name,
-            input.value,
+            input,
+            options,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),
@@ -559,13 +558,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[tracing::instrument(level = "info", name = "delete_rel", skip(self, info, input, executor))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resolve_rel_delete_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
@@ -593,9 +594,9 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_delete_input::<RequestCtx>(
             None,
             &rel_var,
-            input.value,
+            input,
+            options,
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),
@@ -622,16 +623,17 @@ impl<'r> Resolver<'r> {
         field_name: &str,
         rel_name: &str,
         info: &Info,
-        input_opt: Option<Input<RequestCtx>>,
+        input_opt: Option<Value>,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
-        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, partition_key_opt: {:#?}, input_opt: {:#?}",
+        "Resolver::resolve_rel_read_query called -- info.name: {:#?}, field_name: {}, rel_name: {}, input_opt: {:#?}, options: {:#?}",
         info.name(),
         field_name,
         rel_name,
-        self.partition_key_opt,
-        input_opt
+        input_opt,
+        options
         );
 
         let mut sg = SuffixGenerator::new();
@@ -661,7 +663,7 @@ impl<'r> Resolver<'r> {
             executor.context().event_handlers().before_rel_read(
                 &(src_prop.type_name().to_string() + &*rel_var.label().to_title_case() + "Rel"),
             ) {
-            let mut input_value_opt = input_opt.map(|i| i.value);
+            let mut input_value_opt = input_opt;
             for f in handlers.iter() {
                 input_value_opt = f(
                     input_value_opt,
@@ -676,46 +678,49 @@ impl<'r> Resolver<'r> {
             }
             input_value_opt
         } else {
-            input_opt.map(|i| i.value)
+            input_opt
         };
 
         let mut ids_for_loader_opt = None;
-        if let Some(Value::Map(im)) = &input_value_opt {
-            if im.keys().len() == 1 {
-                if let Some(Value::Map(src_m)) = im.get("src") {
-                    if src_m.keys().len() == 1 {
-                        if let Some(Value::Map(src_node_m)) =
-                            src_m.get(info.type_def()?.type_name())
-                        {
-                            if src_node_m.keys().len() == 1 {
-                                if let Some(Value::Map(comparison)) = src_node_m.get("id") {
-                                    // Okay, this is painful, but we're testing whether after
-                                    // the possible additions of search criteria in the shape
-                                    // and the possible changes made to the input dquery by
-                                    // the before_rel_read handler, we still have a query that
-                                    // has nothing in it but the src node id search criterion.
-                                    // If so, this is a a basic rel read (the most common case
-                                    // in a shape) and we should use the loader to avoid the
-                                    // N+1 problem.
-                                    if let Some(id_val) = comparison.get("EQ") {
-                                        ids_for_loader_opt = Some(vec![RelLoaderKey::new(
-                                            id_val.to_string(),
-                                            rel_name.to_string(),
-                                            self.partition_key_opt.map(|pk| pk.to_string()),
-                                        )]);
-                                    } else if let Some(Value::Array(ids)) = comparison.get("IN") {
-                                        ids_for_loader_opt = Some(
-                                            ids.iter()
-                                                .map(|id| {
-                                                    Ok(RelLoaderKey::new(
-                                                        id.to_string(),
-                                                        rel_name.to_string(),
-                                                        self.partition_key_opt
-                                                            .map(|pk| pk.to_string()),
-                                                    ))
-                                                })
-                                                .collect::<Result<Vec<RelLoaderKey>, Error>>()?,
-                                        );
+        if options.sort().is_empty() {
+            if let Some(Value::Map(im)) = &input_value_opt {
+                if im.keys().len() == 1 {
+                    if let Some(Value::Map(src_m)) = im.get("src") {
+                        if src_m.keys().len() == 1 {
+                            if let Some(Value::Map(src_node_m)) =
+                                src_m.get(info.type_def()?.type_name())
+                            {
+                                if src_node_m.keys().len() == 1 {
+                                    if let Some(Value::Map(comparison)) = src_node_m.get("id") {
+                                        // Okay, this is painful, but we're testing whether after
+                                        // the possible additions of search criteria in the shape
+                                        // and the possible changes made to the input dquery by
+                                        // the before_rel_read handler, we still have a query that
+                                        // has nothing in it but the src node id search criterion.
+                                        // If so, this is a a basic rel read (the most common case
+                                        // in a shape) and we should use the loader to avoid the
+                                        // N+1 problem.
+                                        if let Some(id_val) = comparison.get("EQ") {
+                                            ids_for_loader_opt = Some(vec![RelLoaderKey::new(
+                                                id_val.to_string(),
+                                                rel_name.to_string(),
+                                                options.clone(),
+                                            )]);
+                                        } else if let Some(Value::Array(ids)) = comparison.get("IN")
+                                        {
+                                            ids_for_loader_opt = Some(
+                                                ids.iter()
+                                                    .map(|id| {
+                                                        Ok(RelLoaderKey::new(
+                                                            id.to_string(),
+                                                            rel_name.to_string(),
+                                                            options.clone(),
+                                                        ))
+                                                    })
+                                                    .collect::<Result<Vec<RelLoaderKey>, Error>>(
+                                                    )?,
+                                            );
+                                        }
                                     }
                                 }
                             }
@@ -740,15 +745,15 @@ impl<'r> Resolver<'r> {
                 None,
                 &rel_var,
                 input_value_opt,
+                options.clone(),
                 &Info::new(itd.type_name().to_owned(), info.type_defs()),
-                self.partition_key_opt,
                 &mut sg,
                 &mut transaction,
             )
             .await?;
 
             transaction
-                .read_rels(query_fragment, &rel_var, self.partition_key_opt)
+                .read_rels(query_fragment, &rel_var, options)
                 .await?
         };
 
@@ -817,13 +822,15 @@ impl<'r> Resolver<'r> {
     }
 
     #[tracing::instrument(level = "info", name = "update_rel", skip(self, info, input, executor))]
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn resolve_rel_update_mutation<RequestCtx: RequestContext>(
         &mut self,
         field_name: &str,
         src_label: &str,
         rel_name: &str,
         info: &Info,
-        input: Input<RequestCtx>,
+        input: Value,
+        options: Options,
         executor: &Executor<'_, '_, GraphQLContext<RequestCtx>>,
     ) -> ExecutionResult {
         trace!(
@@ -850,9 +857,9 @@ impl<'r> Resolver<'r> {
         let results = visit_rel_update_input::<RequestCtx>(
             None,
             &rel_var,
-            input.value,
+            input,
+            options.clone(),
             &Info::new(itd.type_name().to_owned(), info.type_defs()),
-            self.partition_key_opt,
             &mut sg,
             &mut transaction,
             executor.context(),

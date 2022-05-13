@@ -145,10 +145,6 @@ pub enum Error {
         message: bolt_proto::message::Message,
     },
 
-    /// Returned if a partition key is [`None`] for a database back-end that requires one, such as
-    /// Cosmos DB
-    PartitionKeyNotFound,
-
     /// Returned if a [`Client`] receives a valid JSON response that does not contain the
     /// expected 'data' or 'errors' objects.
     ///
@@ -371,9 +367,6 @@ impl Display for Error {
                     message
                 )
             }
-            Error::PartitionKeyNotFound => {
-                write!(f, "Partition keys are required when using Cosmos DB.")
-            }
             Error::PayloadNotFound { response } => {
                 write!(
                     f,
@@ -500,7 +493,6 @@ impl std::error::Error for Error {
             Error::CypherPoolFailed { source } => Some(source),
             #[cfg(feature = "cypher")]
             Error::CypherQueryFailed { message: _ } => None,
-            Error::PartitionKeyNotFound => None,
             Error::PayloadNotFound { response: _ } => None,
             Error::RelDuplicated {
                 rel_name: _,

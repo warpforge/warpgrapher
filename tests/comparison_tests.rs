@@ -7,23 +7,23 @@ use warpgrapher_macros::wg_test;
 
 async fn create_test_fixtures<RequestCtx: RequestContext>(client: &mut Client<RequestCtx>) {
     client
-        .create_node("Project", "id", None, &json!({"name": "STARDUST"}))
+        .create_node("Project", "id", &json!({"name": "STARDUST"}), None)
         .await
         .unwrap();
     client
-        .create_node("Project", "id", None, &json!({"name": "STARSCREAM"}))
+        .create_node("Project", "id", &json!({"name": "STARSCREAM"}), None)
         .await
         .unwrap();
     client
-        .create_node("Project", "id", None, &json!({"name": "BLACKWING"}))
+        .create_node("Project", "id", &json!({"name": "BLACKWING"}), None)
         .await
         .unwrap();
     client
         .create_node(
             "Feature",
             "id",
-            None,
             &json!({"name": "Kyber Prism", "points": 10}),
+            None,
         )
         .await
         .unwrap();
@@ -31,8 +31,8 @@ async fn create_test_fixtures<RequestCtx: RequestContext>(client: &mut Client<Re
         .create_node(
             "Feature",
             "id",
-            None,
             &json!({"name": "Kyber Refractor", "points": 15}),
+            None,
         )
         .await
         .unwrap();
@@ -40,8 +40,8 @@ async fn create_test_fixtures<RequestCtx: RequestContext>(client: &mut Client<Re
         .create_node(
             "Feature",
             "id",
-            None,
             &json!({"name": "CINDER Orbital Platforms", "points": 7}),
+            None,
         )
         .await
         .unwrap();
@@ -49,8 +49,8 @@ async fn create_test_fixtures<RequestCtx: RequestContext>(client: &mut Client<Re
         .create_node(
             "Feature",
             "id",
-            None,
             &json!({"name": "CINDER Particle Weapons", "points": 20}),
+            None,
         )
         .await
         .unwrap();
@@ -66,8 +66,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "EQ": "STARDUST" }})),
+            None,
         )
         .await
         .unwrap();
@@ -80,8 +80,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "NOTEQ": "STARDUST" }})),
+            None,
         )
         .await
         .unwrap();
@@ -99,8 +99,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "CONTAINS" : "STAR" }})),
+            None,
         )
         .await
         .unwrap();
@@ -118,8 +118,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "CONTAINS": "BLACK" }})),
+            None,
         )
         .await
         .unwrap();
@@ -134,8 +134,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "NOTCONTAINS" : "STARDUST" }})),
+            None,
         )
         .await
         .unwrap();
@@ -153,8 +153,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "NOTCONTAINS": "STAR" }})),
+            None,
         )
         .await
         .unwrap();
@@ -169,8 +169,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "IN": ["STARDUST", "STARSCREAM", "BLACKWING"] }})),
+            None,
         )
         .await
         .unwrap();
@@ -191,8 +191,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Project",
             "__typename id name",
-            None,
             Some(&json!({"name": { "NOTIN": ["STARDUST"] }})),
+            None,
         )
         .await
         .unwrap();
@@ -210,8 +210,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Feature",
             "__typename id name",
-            None,
             Some(&json!({"points": { "GT": 10 }})),
+            None,
         )
         .await
         .unwrap();
@@ -229,8 +229,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Feature",
             "__typename id name",
-            None,
             Some(&json!({"points": { "GTE": 10 }})),
+            None,
         )
         .await
         .unwrap();
@@ -251,8 +251,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Feature",
             "__typename id name",
-            None,
             Some(&json!({"points": { "LT": 10 }})),
+            None,
         )
         .await
         .unwrap();
@@ -267,8 +267,8 @@ async fn test_read_node_comparison<RequestCtx: RequestContext>(mut client: Clien
         .read_node(
             "Feature",
             "__typename id name",
-            None,
             Some(&json!({"points": { "LTE": 10 }})),
+            None,
         )
         .await
         .unwrap();
@@ -299,7 +299,6 @@ async fn test_create_node_comparison<RequestCtx: RequestContext>(mut client: Cli
                     } 
                 } 
             }",
-            None,
             &json!({
                 "name": "CINDER",
                 "issues": {
@@ -314,6 +313,7 @@ async fn test_create_node_comparison<RequestCtx: RequestContext>(mut client: Cli
                     }
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -346,7 +346,6 @@ async fn test_update_node_comparison<RequestCtx: RequestContext>(mut client: Cli
                     } 
                 } 
             }",
-            None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
             })),
@@ -365,6 +364,7 @@ async fn test_update_node_comparison<RequestCtx: RequestContext>(mut client: Cli
                     }
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -389,7 +389,7 @@ async fn test_delete_node_comparison<RequestCtx: RequestContext>(mut client: Cli
 
     // delete nodes
     let results = client
-        .delete_node("Feature", None, Some(&json!({"points": {"GT": 10 }})), None)
+        .delete_node("Feature", Some(&json!({"points": {"GT": 10}})), None, None)
         .await
         .unwrap();
     assert_eq!(results, 2);
@@ -411,7 +411,6 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
                     } 
                 } 
             }",
-            None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
             })),
@@ -431,6 +430,7 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
                     }
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -442,13 +442,13 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
             "__typename 
             id 
             name",
-            None,
             Some(&json!({
                 "issues":
                     {
                         "since": { "IN": ["5 BBY", "10 BBY", "15 BBY"]}
                     }
             })),
+            None,
         )
         .await
         .unwrap();
@@ -467,10 +467,10 @@ async fn test_read_rel_comparison<RequestCtx: RequestContext>(mut client: Client
                     name
                 }
             }",
-            None,
             Some(&json!({
                 "since": { "EQ": "5 BBY" }
             })),
+            None,
         )
         .await
         .unwrap();
@@ -500,7 +500,6 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     } 
                 } 
             }",
-            None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
             })),
@@ -520,6 +519,7 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     }
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -535,13 +535,13 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     name
                 }
             }",
-            None,
             Some(&json!({
                 "since": { "EQ": "5 BBY" }
             })),
             &json!({
                 "since": "0 BBY"
             }),
+            None,
         )
         .await
         .unwrap();
@@ -558,7 +558,6 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     name
                 }
             }",
-            None,
             Some(&json!({
                 "dst": {
                     "Feature": {
@@ -566,6 +565,7 @@ async fn test_update_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     }
                 }
             })),
+            None,
         )
         .await
         .unwrap();
@@ -598,7 +598,6 @@ async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     } 
                 } 
             }",
-            None,
             Some(&json!({
                 "name": { "EQ": "STARDUST" }
             })),
@@ -618,6 +617,7 @@ async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
                     }
                 }
             }),
+            None,
         )
         .await
         .unwrap();
@@ -627,10 +627,10 @@ async fn test_delete_rel_comparison<RequestCtx: RequestContext>(mut client: Clie
         .delete_rel(
             "Project",
             "issues",
-            None,
             Some(&json!({
                 "since": { "CONTAINS": "BBY" }
             })),
+            None,
             None,
             None,
         )

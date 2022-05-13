@@ -16,8 +16,8 @@ async fn client_node_crud() {
         .create_node(
             "Project",
             "id name description status",
-            Some("1234"),
             &json!({"name": "MJOLNIR", "description": "Advanced armor", "status": "PENDING"}),
+            None,
         )
         .await
         .unwrap();
@@ -28,7 +28,7 @@ async fn client_node_crud() {
     assert_eq!(p0.get("status").unwrap(), "PENDING");
 
     let projects = client
-        .read_node("Project", "id status", Some("1234"), None)
+        .read_node("Project", "id name status", None, None)
         .await
         .unwrap();
 
@@ -41,9 +41,9 @@ async fn client_node_crud() {
         .update_node(
             "Project",
             "__typename id name status",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
             &json!({"status": "ACTIVE"}),
+            None,
         )
         .await
         .unwrap();
@@ -56,7 +56,7 @@ async fn client_node_crud() {
     assert_eq!(pu_a[0].get("status").unwrap(), "ACTIVE");
 
     let u_projects = client
-        .read_node("Project", "id status", Some("1234"), None)
+        .read_node("Project", "id status", None, None)
         .await
         .unwrap();
 
@@ -68,8 +68,8 @@ async fn client_node_crud() {
     let pd = client
         .delete_node(
             "Project",
-            Some("1234"),
             Some(&json!({"name": {"EQ": "MJOLNIR"}})),
+            None,
             None,
         )
         .await
@@ -78,7 +78,7 @@ async fn client_node_crud() {
     assert_eq!(pd, 1);
 
     let d_projects = client
-        .read_node("Project", "id status", Some("1234"), None)
+        .read_node("Project", "id status", None, None)
         .await
         .unwrap();
 
@@ -95,16 +95,11 @@ async fn client_rel_crud() {
     let mut client = cypher_test_client("./tests/fixtures/minimal.yml").await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            Some("1234"),
-            &json!({"name": "Project Zero"}),
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
-        .create_node("Bug", "id name", Some("1234"), &json!({"name": "Bug Zero"}))
+        .create_node("Bug", "id name", &json!({"name": "Bug Zero"}), None)
         .await
         .unwrap();
 
@@ -124,7 +119,6 @@ async fn client_rel_crud() {
                 name 
             } 
         }",
-            Some("1234"),
             &json!({
                 "name": {"EQ": "Project Zero"}
             }),
@@ -134,6 +128,7 @@ async fn client_rel_crud() {
                     "dst": {"Bug": {"EXISTING": {"name": {"EQ": "Bug Zero"}} }}
                 }
             ]),
+            None,
         )
         .await
         .unwrap();
@@ -146,7 +141,7 @@ async fn client_rel_crud() {
     assert_eq!(r0.get("dst").unwrap().get("name").unwrap(), "Bug Zero");
 
     let rels = client
-        .read_rel("Project", "issues", "id since", Some("1234"), None)
+        .read_rel("Project", "issues", "id since", None, None)
         .await
         .unwrap();
 
@@ -160,9 +155,9 @@ async fn client_rel_crud() {
             "Project",
             "issues",
             "id since",
-            Some("1234"),
             Some(&json!({"since": { "EQ": "2000"}})),
             &json!({"since": "2010"}),
+            None,
         )
         .await
         .unwrap();
@@ -173,7 +168,7 @@ async fn client_rel_crud() {
     assert_eq!(ru_a[0].get("since").unwrap(), "2010");
 
     let u_rels = client
-        .read_rel("Project", "issues", "id since", Some("1234"), None)
+        .read_rel("Project", "issues", "id since", None, None)
         .await
         .unwrap();
 
@@ -186,8 +181,8 @@ async fn client_rel_crud() {
         .delete_rel(
             "Project",
             "issues",
-            Some("1234"),
             Some(&json!({"since": {"EQ": "2010"}})),
+            None,
             None,
             None,
         )
@@ -197,7 +192,7 @@ async fn client_rel_crud() {
     assert_eq!(rd, 1);
 
     let d_rels = client
-        .read_rel("Project", "issues", "id", Some("1234"), None)
+        .read_rel("Project", "issues", "id", None, None)
         .await
         .unwrap();
 

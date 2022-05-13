@@ -7,7 +7,7 @@ use crate::engine::database::{
     RelQueryVar, SuffixGenerator, Transaction,
 };
 use crate::engine::loader::{NodeLoaderKey, RelLoaderKey};
-use crate::engine::objects::{Node, Rel};
+use crate::engine::objects::{Node, Options, Rel};
 use crate::engine::schema::Info;
 use crate::engine::value::Value;
 use crate::error::Error;
@@ -61,7 +61,7 @@ impl Transaction for NoTransaction {
         &mut self,
         _node_var: &NodeQueryVar,
         _props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
         _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Node<RequestCtx>, Error> {
@@ -75,7 +75,7 @@ impl Transaction for NoTransaction {
         _rel_var: &RelQueryVar,
         _id_opt: Option<Value>,
         _props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
@@ -111,7 +111,7 @@ impl Transaction for NoTransaction {
         &mut self,
         _node_var: &NodeQueryVar,
         _query_fragment: QueryFragment,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
         _info: &Info,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
@@ -147,7 +147,7 @@ impl Transaction for NoTransaction {
         &mut self,
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -157,7 +157,7 @@ impl Transaction for NoTransaction {
         _query_fragment: QueryFragment,
         _node_var: &NodeQueryVar,
         _props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
         _info: &Info,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Node<RequestCtx>>, Error> {
@@ -169,7 +169,7 @@ impl Transaction for NoTransaction {
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
         _props: HashMap<String, Value>,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
         _sg: &mut SuffixGenerator,
     ) -> Result<Vec<Rel<RequestCtx>>, Error> {
         Err(Error::DatabaseNotFound)
@@ -179,7 +179,7 @@ impl Transaction for NoTransaction {
         &mut self,
         _query_fragment: QueryFragment,
         _node_var: &NodeQueryVar,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
     ) -> Result<i32, Error> {
         Err(Error::DatabaseNotFound)
     }
@@ -188,7 +188,7 @@ impl Transaction for NoTransaction {
         &mut self,
         _query_fragment: QueryFragment,
         _rel_var: &RelQueryVar,
-        _partition_key_opt: Option<&Value>,
+        _options: Options,
     ) -> Result<i32, Error> {
         Err(Error::DatabaseNotFound)
     }

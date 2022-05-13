@@ -115,11 +115,12 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Arguments
     ///
     /// * query - text of the query statement, parameterized to avoid query injection attacks
-    /// * partition_key - used to scope a query to a Cosmos DB partition. In future, when Neo4J is
-    /// supported, it is anticipated that the partition_key will be used to select among Neo4J
-    /// fabric shards.
     /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
     /// to the graph query
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     /// * result_field - an optional name of a field under 'data' that holds the GraphQL response.
     /// If present, the object with name `result_field` under `data` will be returned. If `None`,
     /// the `data` object will be returned.
@@ -142,6 +143,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Examples
     ///
     /// ```rust,no_run
+    /// # use serde_json::json;
     /// # use warpgrapher::Client;
     ///
     /// # #[tokio::main]
@@ -149,22 +151,21 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
     /// let query = "query { Project { id name } }";
-    /// let results = client.graphql("query { Project { id name } }", Some("1234"), None,
-    ///     Some("Project")).await;
+    /// let results = client.graphql("query { Project { id name } }", None, None, Some("Project")).await;
     /// # }
     /// ```
     pub async fn graphql(
         &mut self,
         query: &str,
-        partition_key: Option<&str>,
         input: Option<&Value>,
+        options: Option<&Value>,
         result_field_opt: Option<&str>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::graphql called -- query: {} | partition_key: {:#?} | input: {:#?} | result_field: {:#?}",
+            "Client::graphql called -- query: {} | input: {:#?} | options: {:#?} | result_field: {:#?}",
             query,
-            partition_key,
             input,
+            options,
             result_field_opt,
         );
 
@@ -172,8 +173,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         let req_body = json!({
             "query": query.to_string(),
             "variables": {
-                "partitionKey": partition_key,
-                "input": input
+                "input": input,
+                "options": options
             }
         });
 
@@ -193,7 +194,14 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
                 engine
                     .execute(
                         query.to_string(),
-                        input.map(|v| serde_json::json!({"input": v.clone()})),
+                        match (input, options) {
+                            (Some(i), Some(o)) => {
+                                Some(serde_json::json!({"input": i.clone(), "options": o.clone()}))
+                            }
+                            (Some(i), None) => Some(serde_json::json!({"input": i.clone()})),
+                            (None, Some(o)) => Some(serde_json::json!({"options": o.clone()})),
+                            (None, None) => None,
+                        },
                         metadata.clone().unwrap_or_default(),
                     )
                     .await?
@@ -224,11 +232,12 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * type_name - the name of the [`Type`] for which to create a node
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
     /// to the graph query
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Type`]: ../engine/config/struct.Type.html
     ///
@@ -257,28 +266,28 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # async fn main() {
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
-    /// let projects = client.create_node("Project", "id name description", Some("1234"),
-    ///     &json!({"name": "TodoApp", "description": "Action list tracking application"})).await;
+    /// let projects = client.create_node("Project", "id name description",
+    ///     &json!({"name": "TodoApp", "description": "Action list tracking application"}), None).await;
     /// # }
     /// ```
     pub async fn create_node(
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         input: &Value,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::create_node called -- type_name: {} | shape: {} | partition_key: {:#?} | input: {:#?}",
+            "Client::create_node called -- type_name: {} | shape: {} | input: {:#?} | options: {:#?}",
             type_name,
             shape,
-            partition_key,
-            input
+            input,
+            options
         );
 
         let query = Client::<()>::fmt_create_node_query(type_name, shape);
         let result_field = type_name.to_string() + "Create";
-        self.graphql(&query, partition_key, Some(input), Some(&result_field))
+        self.graphql(&query, Some(input), options, Some(&result_field))
             .await
     }
 
@@ -290,9 +299,10 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * rel_name - the name of the [`Relationship`] to create
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query to select the node(s) on which to create the relationship
     /// * create_input - a [`serde_json::Value`], specifically a Value::Object, containing the
@@ -329,10 +339,10 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// let proj_issues = client.create_rel("Project",
     ///     "issues",
     ///     "id props { since } src { id name } dst { id name }",
-    ///     Some("1234"),
     ///     &json!({"name": "ProjectName"}),
     ///     &json!({"props": {"since": "2000"},
-    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}})
+    ///            "dst": {"Feature": {"NEW": {"name": "NewFeature"}}}}),
+    ///            None
     /// ).await;
     /// # }
     /// ```
@@ -341,18 +351,18 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         match_input: &Value,
         create_input: &Value,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::create_rel called -- type_name: {} | rel_name: {} | shape: {} | partition_key: {:#?} | match_input: {:#?} | create_input: {:#?}",
+            "Client::create_rel called -- type_name: {} | rel_name: {} | shape: {} | match_input: {:#?} | create_input: {:#?} | options: {:#?}",
             type_name,
             rel_name,
             shape,
-            partition_key,
             match_input,
-            create_input
+            create_input,
+            options
         );
 
         let query = Client::<()>::fmt_create_rel_query(type_name, rel_name, shape);
@@ -363,7 +373,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
                 .collect::<String>())
             + "Create";
 
-        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
+        self.graphql(&query, Some(&input), options, Some(&result_field))
             .await
     }
 
@@ -372,15 +382,16 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # Arguments
     ///
     /// * type_name - the name of the [`Type`] of the node to delete
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query to select the node(s) on which to create the relationship
     /// * delete_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query to use in deleting the relationship. By default, all
     /// relationships incoming to and outgoing from the node are deleted. The delete input argument
     /// allows for extending the delete operation through relationships to destination nodes.
+    ///  * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Type`]: ../engine/config/struct.Type.html
     ///
@@ -409,23 +420,23 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # async fn main() {
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
-    /// let projects = client.delete_node("Project", Some("1234"),
-    ///     Some(&json!({"name": "MJOLNIR"})), None).await;
+    /// let projects = client.delete_node("Project",
+    ///     Some(&json!({"name": "MJOLNIR"})), None, None).await;
     /// # }
     /// ```
     pub async fn delete_node(
         &mut self,
         type_name: &str,
-        partition_key: Option<&str>,
         match_input: Option<&Value>,
         delete_input: Option<&Value>,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::delete_node called -- type_name: {} | partition_key: {:#?} | match_input: {:#?} | delete_input: {:#?}",
+            "Client::delete_node called -- type_name: {} | match_input: {:#?} | delete_input: {:#?} | options: {:#?}",
             type_name,
-            partition_key,
             match_input,
-            delete_input
+            delete_input,
+            options
         );
 
         let query = Client::<()>::fmt_delete_node_query(type_name);
@@ -435,7 +446,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
             json!({ "MATCH": match_input })
         };
         let result_field = type_name.to_string() + "Delete";
-        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
+        self.graphql(&query, Some(&input), options, Some(&result_field))
             .await
     }
 
@@ -445,9 +456,6 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// * type_name - the name of the [`Type`] for which to delete a relationship
     /// * rel_name - the name of the [`Relationship`] to delete
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query to select the relationship(s) to delete
     /// * src_input - a [`serde_json::Value`], specifically a Value::Object, containing the
@@ -458,6 +466,10 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// arguments to the graph query to use in deleting the destination node. By default, nodes are
     /// not deleted along with a relationship, but this parameter can be used to delete the
     /// destination node of the relationship as well.
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Relationship`]: ../engine/config/struct.Relationship.html
     /// [`Type`]: ../engine/config/struct.Type.html
@@ -488,10 +500,10 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.delete_rel("Project", "issues",
-    ///    Some("1234"),
     ///    Some(&json!({"props": {"since": "2000"}})),
     ///    None,
-    ///    Some(&json!({"Bug": {}}))
+    ///    Some(&json!({"Bug": {}})),
+    ///    None
     /// ).await;
     /// # }
     /// ```
@@ -499,19 +511,19 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         &mut self,
         type_name: &str,
         rel_name: &str,
-        partition_key: Option<&str>,
         match_input: Option<&Value>,
         src_input: Option<&Value>,
         dst_input: Option<&Value>,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::delete_rel called -- type_name: {} | rel_name: {} | partition_key: {:#?} | match_input: {:#?} | src_input: {:#?} | dst_input: {:#?}",
+            "Client::delete_rel called -- type_name: {} | rel_name: {} | match_input: {:#?} | src_input: {:#?} | dst_input: {:#?} | options: {:#?}",
             type_name,
             rel_name,
-            partition_key,
             match_input,
             src_input,
-            dst_input
+            dst_input,
+            options
         );
 
         let query = Client::<()>::fmt_delete_rel_query(type_name, rel_name);
@@ -537,7 +549,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
                 .split_whitespace()
                 .collect::<String>())
             + "Delete";
-        self.graphql(&query, partition_key, input, Some(&result_field))
+        self.graphql(&query, input, options, Some(&result_field))
             .await
     }
 
@@ -548,11 +560,12 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * type_name - the name of the [`Type`] to be retrieved
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
     /// to the graph query
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Type`]: ../engine/config/struct.Type.html
     ///
@@ -580,28 +593,26 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # async fn main() {
     /// let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
-    /// let projects = client.read_node("Project", "id name description", Some("1234"),
-    ///     None).await;
+    /// let projects = client.read_node("Project", "id name description", None, None).await;
     /// # }
     /// ```
     pub async fn read_node(
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         input: Option<&Value>,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::read_node called -- type_name: {} | shape: {} | partition_key: {:#?} | input: {:#?} ",
+            "Client::read_node called -- type_name: {} | shape: {} | input: {:#?} | options: {:#?}",
             type_name,
             shape,
-            partition_key,
             input,
+            options
         );
 
         let query = Client::<()>::fmt_read_node_query(type_name, shape);
-        self.graphql(&query, partition_key, input, Some(type_name))
-            .await
+        self.graphql(&query, input, options, Some(type_name)).await
     }
 
     /// Queries for one or more relationships
@@ -612,11 +623,12 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * rel_name - the name of the [`Relationship`] to find
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * input - a [`serde_json::Value`], specifically a Value::Object, containing the arguments
     /// to the graph query to select the relationship(s) to return
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Relationship`]: ../engine/config/struct.Relationship.html
     /// [`Type`]: ../engine/config/struct.Type.html
@@ -647,7 +659,9 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// let mut client = Client::<()>::new_with_http("http:://localhost:5000/graphql", None).unwrap();
     ///
     /// let proj_issues = client.read_rel("Project", "issues", "id props { since }",
-    ///     Some("1234"), Some(&json!({"props": {"since": "2000"}}))).await;
+    ///     Some(&json!({"props": {"since": "2000"}})),
+    ///     None
+    /// ).await;
     /// # }
     /// ```
     pub async fn read_rel(
@@ -655,16 +669,16 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         input: Option<&Value>,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::read_rel called -- type_name: {} | rel_name: {} | shape: {} | partition_key: {:#?} | input: {:#?} ",
+            "Client::read_rel called -- type_name: {} | rel_name: {} | shape: {} | input: {:#?} | options: {:#?}",
             type_name,
             rel_name,
             shape,
-            partition_key,
             input,
+            options
         );
 
         let query = Client::<()>::fmt_read_rel_query(type_name, rel_name, shape);
@@ -672,7 +686,7 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
             + &*((&rel_name.to_string().to_title_case())
                 .split_whitespace()
                 .collect::<String>());
-        self.graphql(&query, partition_key, input, Some(&result_field))
+        self.graphql(&query, input, options, Some(&result_field))
             .await
     }
 
@@ -683,13 +697,14 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * type_name - the name of the [`Type`] to be updated
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query used to select the set of nodes to update
     /// * update_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arugments to the graph query used to change the properties of the nodes being updated
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Type`]: ../engine/config/struct.Type.html
     ///
@@ -718,31 +733,32 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// # async fn main() {
     ///     let mut client = Client::<()>::new_with_http("http://localhost:5000/graphql", None).unwrap();
     ///
-    ///     let projects = client.update_node("Project", "id name status", Some("1234"),
-    ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"})).await;
+    ///     let projects = client.update_node("Project", "id name status",
+    ///         Some(&json!({"name": "TodoApp"})), &json!({"status": "ACTIVE"}),
+    ///         None).await;
     /// # }
     /// ```
     pub async fn update_node(
         &mut self,
         type_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         match_input: Option<&Value>,
         update_input: &Value,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::update_node called -- type_name: {} | shape: {} | | partition_key: {:#?} | match_input: {:#?} | update_input: {:#?}",
+            "Client::update_node called -- type_name: {} | shape: {} | | match_input: {:#?} | update_input: {:#?} | options: {:#?}",
             type_name,
             shape,
-            partition_key,
             match_input,
-            update_input
+            update_input,
+            options
         );
 
         let query = Client::<()>::fmt_update_node_query(type_name, shape);
         let input = json!({"MATCH": match_input, "SET": update_input});
         let result_field = type_name.to_string() + "Update";
-        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
+        self.graphql(&query, Some(&input), options, Some(&result_field))
             .await
     }
 
@@ -754,13 +770,14 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     /// * rel_name - the name of the [`Relationship`] to find and update
     /// * shape - the GraphQL query shape, meaning the selection of objects and properties to be
     /// returned in the query result
-    /// * partition_key - the partition_key is used to scope a query to a Cosmos DB partition. In
-    /// future, when Neo4J is supported, it is anticipated that the partition_key will be used to
-    /// select among Neo4J fabric shards.
     /// * match_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query used to select the set of relationships to update
     /// * update_input - a [`serde_json::Value`], specifically a Value::Object, containing the
     /// arguments to the graph query used to change the properties of the items being updated
+    /// * options - used to pass additional options to the query,
+    ///   - direction - a string literal of `ascending` or `descending` indicating the order in which
+    ///     to sort results, if the `orderBy` option is also provided.
+    ///   - orderBy - the name of a scalar field by which to sort the data to be returned
     ///
     /// [`Relationship`]: ../engine/config/struct.Relationship.html
     /// [`Type`]: ../engine/config/struct.Type.html
@@ -792,9 +809,9 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
     ///
     /// let proj_issues = client.update_rel("Project", "issues",
     ///     "id props {since} src {id name} dst {id name}",
-    ///     Some("1234"),
     ///     Some(&json!({"props": {"since": "2000"}})),
-    ///     &json!({"props": {"since": "2010"}})
+    ///     &json!({"props": {"since": "2010"}}),
+    ///     None
     /// ).await;
     /// # }
     /// ```
@@ -803,18 +820,18 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
         type_name: &str,
         rel_name: &str,
         shape: &str,
-        partition_key: Option<&str>,
         match_input: Option<&Value>,
         update_input: &Value,
+        options: Option<&Value>,
     ) -> Result<Value, Error> {
         trace!(
-            "Client::update_rel called -- type_name: {} | rel_name: {} | shape: {} | | partition_key: {:#?} | match_input: {:#?} | update_input: {:#?}",
+            "Client::update_rel called -- type_name: {} | rel_name: {} | shape: {} | | match_input: {:#?} | update_input: {:#?} | options: {:#?}",
             type_name,
             rel_name,
             shape,
-            partition_key,
             match_input,
-            update_input
+            update_input,
+            options
         );
 
         let query = Client::<()>::fmt_update_rel_query(type_name, rel_name, shape);
@@ -824,14 +841,14 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
                 .split_whitespace()
                 .collect::<String>())
             + "Update";
-        self.graphql(&query, partition_key, Some(&input), Some(&result_field))
+        self.graphql(&query, Some(&input), options, Some(&result_field))
             .await
     }
 
     fn fmt_create_node_query(type_name: &str, shape: &str) -> String {
         format!(
-            "mutation Create($partitionKey: String, $input: {type_name}CreateMutationInput!) {{ 
-                {type_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "mutation Create($input: {type_name}CreateMutationInput!, $options: {type_name}Options) {{ 
+                {type_name}Create(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -840,8 +857,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_create_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "mutation Create($partitionKey: String, $input: {type_name}{rel_name}CreateInput!) {{
-                {type_name}{rel_name}Create(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "mutation Create($input: {type_name}{rel_name}CreateInput!, $options: {type_name}{rel_name}Options) {{
+                {type_name}{rel_name}Create(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = (&rel_name.to_string().to_title_case())
@@ -853,8 +870,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_delete_node_query(type_name: &str) -> String {
         format!(
-            "mutation Delete($partitionKey: String, $input: {type_name}DeleteInput!) {{ 
-                {type_name}Delete(partitionKey: $partitionKey, input: $input)
+            "mutation Delete($input: {type_name}DeleteInput!, $options: {type_name}Options) {{ 
+                {type_name}Delete(input: $input, options: $options)
             }}",
             type_name = type_name
         )
@@ -862,8 +879,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_delete_rel_query(type_name: &str, rel_name: &str) -> String {
         format!(
-            "mutation Delete($partitionKey: String, $input: {type_name}{rel_name}DeleteInput!) {{
-                {type_name}{rel_name}Delete(partitionKey: $partitionKey, input: $input)
+            "mutation Delete($input: {type_name}{rel_name}DeleteInput!, $options: {type_name}{rel_name}Options) {{
+                {type_name}{rel_name}Delete(input: $input, options: $options)
             }}",
             type_name = type_name,
             rel_name = (&rel_name.to_string().to_title_case())
@@ -874,8 +891,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_read_node_query(type_name: &str, shape: &str) -> String {
         format!(
-            "query Read($partitionKey: String, $input: {type_name}QueryInput) {{ 
-                {type_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "query Read($input: {type_name}QueryInput, $options: {type_name}Options) {{ 
+                {type_name}(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -884,8 +901,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_read_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "query Read($partitionKey: String, $input: {type_name}{rel_name}QueryInput) {{
-                {type_name}{rel_name}(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "query Read($input: {type_name}{rel_name}QueryInput, $options: {type_name}{rel_name}Options) {{
+                {type_name}{rel_name}(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = (&rel_name.to_string().to_title_case())
@@ -897,8 +914,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_update_node_query(type_name: &str, shape: &str) -> String {
         format!(
-            "mutation Update($partitionKey: String, $input: {type_name}UpdateInput!) {{
-                {type_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "mutation Update($input: {type_name}UpdateInput!, $options: {type_name}Options) {{
+                {type_name}Update(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             shape = shape
@@ -907,8 +924,8 @@ impl<RequestCtx: RequestContext> Client<RequestCtx> {
 
     fn fmt_update_rel_query(type_name: &str, rel_name: &str, shape: &str) -> String {
         format!(
-            "mutation Update($partitionKey: String, $input: {type_name}{rel_name}UpdateInput!) {{
-                {type_name}{rel_name}Update(partitionKey: $partitionKey, input: $input) {{ {shape} }}
+            "mutation Update($input: {type_name}{rel_name}UpdateInput!, $options: {type_name}{rel_name}Options) {{
+                {type_name}{rel_name}Update(input: $input, options: $options) {{ {shape} }}
             }}",
             type_name = type_name,
             rel_name = (&rel_name.to_string().to_title_case())
@@ -953,8 +970,8 @@ mod tests {
     #[test]
     fn fmt_read_node_query() {
         let actual = Client::<()>::fmt_read_node_query("Project", "id");
-        let expected = r#"query Read($partitionKey: String, $input: ProjectQueryInput) { 
-                Project(partitionKey: $partitionKey, input: $input) { id }
+        let expected = r#"query Read($input: ProjectQueryInput, $options: ProjectOptions) { 
+                Project(input: $input, options: $options) { id }
             }"#;
         assert_eq!(actual, expected);
     }
@@ -963,8 +980,8 @@ mod tests {
     #[test]
     fn fmt_create_node_query() {
         let actual = Client::<()>::fmt_create_node_query("Project", "id");
-        let expected = r#"mutation Create($partitionKey: String, $input: ProjectCreateMutationInput!) { 
-                ProjectCreate(partitionKey: $partitionKey, input: $input) { id }
+        let expected = r#"mutation Create($input: ProjectCreateMutationInput!, $options: ProjectOptions) { 
+                ProjectCreate(input: $input, options: $options) { id }
             }"#;
         assert_eq!(actual, expected);
     }
