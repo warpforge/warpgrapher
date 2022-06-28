@@ -527,6 +527,48 @@ async fn read_mnst_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .any(|a| a.get("dst").unwrap().get("hash").unwrap() == "11111"));
 }
 
+/// Passes if warpgrapher can query for a relationship by the properties of a relationship dst object two hops away
+#[wg_test]
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnst_by_two_hop_dst_props<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
+    let p0 = client
+        .create_node(
+            "Portfolio",
+            "__typename id",
+            &json!({"projects": [{"dst": {"Project": {"NEW": {"name": "Project Zero", "activity": [ 
+                    { "repo": "Repo Zero", "dst": { "Commit": { "NEW": { "hash": "00000" } } } }, 
+                    { "repo": "Repo One",  "dst": { "Commit": {"NEW": { "hash": "11111" }}}}
+                ] }}}}]}),
+            None,
+        )
+        .await
+        .unwrap();
+
+    assert!(p0.is_object());
+    assert_eq!(p0.get("__typename").unwrap(), "Portfolio");
+
+    let portfolios = client
+        .read_node(
+            "Portfolio",
+            "__typename id",
+            Some(&json!({"projects": {"dst": {"Project": {"activity": {"dst": {"Commit": {"hash": {"EQ": "11111"}}}}}}}})),
+            None
+        )
+        .await
+        .unwrap();
+
+    assert!(portfolios.is_array());
+    let portfolios_a = portfolios.as_array().unwrap();
+    assert_eq!(portfolios_a.len(), 1);
+
+    let p1 = &portfolios_a[0];
+    assert!(p1.is_object());
+    assert_eq!(p1.get("__typename").unwrap(), "Portfolio");
+    assert_eq!(p1.get("id").unwrap(), p0.get("id").unwrap());
+}
+
 /// Passes if the create mutation succeeds and the rel query returns an empty list. Added because
 /// of a bug that caused all rels with the same edge label to be returned, even if the source node
 /// type was different, under Gremlin.

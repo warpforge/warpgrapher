@@ -842,12 +842,7 @@ async fn test_after_rel_subgraph_update_handler() {
     let mut client = cypher_test_client_with_events("./tests/fixtures/minimal.yml", ehb).await;
 
     client
-        .create_node(
-            "Project",
-            "id name",
-            &json!({"name": "Project Zero"}),
-            None,
-        )
+        .create_node("Project", "id name", &json!({"name": "Project Zero"}), None)
         .await
         .unwrap();
     client
