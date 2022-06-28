@@ -1249,7 +1249,11 @@ async fn visit_rel_dst_query_input<RequestCtx: RequestContext>(
 
             Ok(Some(
                 visit_node_query_input::<RequestCtx>(
-                    node_var,
+                    &NodeQueryVar::new(
+                        Some(k.to_string()),
+                        node_var.base().to_string(),
+                        node_var.suffix().to_string(),
+                    ),
                     Some(v),
                     options,
                     &Info::new(p.type_name().to_owned(), info.type_defs()),
@@ -1504,7 +1508,11 @@ async fn visit_rel_src_query_input<RequestCtx: RequestContext>(
             let p = info.type_def()?.property(&k)?;
 
             let fragment = visit_node_query_input::<RequestCtx>(
-                node_var,
+                &NodeQueryVar::new(
+                    Some(k.to_string()),
+                    node_var.base().to_string(),
+                    node_var.suffix().to_string(),
+                ),
                 Some(v),
                 options,
                 &Info::new(p.type_name().to_owned(), info.type_defs()),

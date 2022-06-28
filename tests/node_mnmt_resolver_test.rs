@@ -414,6 +414,61 @@ async fn read_mnmt_by_dst_props<RequestCtx: RequestContext>(mut client: Client<R
         .any(|i| i.get("dst").unwrap().get("__typename").unwrap() == "Feature"));
 }
 
+/// Passes if warpgrapher can query for a relationship by the properties of a destination node two hops away
+#[wg_test]
+#[allow(clippy::cognitive_complexity, dead_code)]
+async fn read_mnmt_by_two_hop_dst_props<RequestCtx: RequestContext>(
+    mut client: Client<RequestCtx>,
+) {
+    let p0 = client
+        .create_node(
+            "Portfolio",
+            "__typename id",
+            &json!({"projects": [{"dst": {"Project": { "NEW": {"name": "Project Zero", "issues": [ 
+                    { "since": "today", "dst": { "Bug": { "NEW": { "name": "Bug Zero" } } } }, 
+                    { "since": "yesterday",  "dst": { "Feature": {"NEW": { "name": "Feature Zero" }}}} 
+                ] }}}}]}),
+            None)
+        .await
+        .unwrap();
+
+    assert!(p0.is_object());
+    assert_eq!(p0.get("__typename").unwrap(), "Portfolio");
+
+    let p1 = client
+        .create_node(
+            "Portfolio",
+            "__typename id",
+            &json!({"projects": [{"dst": {"Project": { "NEW": {"name": "Project One", "issues": [ 
+                    { "since": "today", "dst": { "Bug": { "NEW": { "name": "Bug One" } } } }, 
+                    { "since": "yesterday",  "dst": { "Feature": {"NEW": { "name": "Feature One" }}}} 
+                ] }}}}]}),
+            None)
+        .await
+        .unwrap();
+
+    assert!(p1.is_object());
+    assert_eq!(p1.get("__typename").unwrap(), "Portfolio");
+    let portfolios = client
+        .read_node(
+            "Portfolio", 
+            "__typename id", 
+            Some(&json!({"projects": {"dst": {"Project": {"issues": {"dst": {"Bug": {"name": {"EQ": "Bug Zero"}}}}}}}})),
+            None
+        )
+        .await
+        .unwrap();
+
+    assert!(portfolios.is_array());
+    let portfolios_a = portfolios.as_array().unwrap();
+    assert_eq!(portfolios_a.len(), 1);
+
+    let p2 = &portfolios_a[0];
+    assert!(p2.is_object());
+    assert_eq!(p2.get("__typename").unwrap(), "Portfolio");
+    assert_eq!(p2.get("id").unwrap(), p0.get("id").unwrap());
+}
+
 /// Passes if warpgrapher can update a node to add a relationship to a new node
 #[wg_test]
 #[allow(clippy::cognitive_complexity, dead_code)]
