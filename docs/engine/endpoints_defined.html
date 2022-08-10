@@ -177,8 +177,7 @@ endpoints:
 </code></pre>
 <h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
 <p>To implement the custom endpoint, a resolver function is defined, as follows. In this example, the function just puts together a static response and resolves it. A real system would like do some comparison of nodes and relationships to determine the top issue, and dynamically return that record.</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// endpoint returning a list of `Issue` nodes
 fn resolve_top_issue(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxFuture&lt;ExecutionResult&gt; {
@@ -198,8 +197,7 @@ fn resolve_top_issue(facade: ResolverFacade&lt;AppRequestContext&gt;) -&gt; BoxF
 </span></code></pre></pre>
 <h2 id="add-resolvers-to-the-warpgrapher-engine"><a class="header" href="#add-resolvers-to-the-warpgrapher-engine">Add Resolvers to the Warpgrapher Engine</a></h2>
 <p>To add the custom endpoint resolver to the engine, it must be associated with the name the endpoint was given in the configuration above. The example code below creates a <code>HashMap</code> to map from the custom endpoint name and the implementing function. That map is then passed to the <code>Engine</code> when it is created.</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>    // define resolvers
     let mut resolvers = Resolvers::&lt;AppRequestContext&gt;::new();

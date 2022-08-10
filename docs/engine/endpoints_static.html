@@ -146,8 +146,7 @@
 <p>Warpgrapher includes built-in static endpoints that provide useful information or functionality. Built-in static endpoints names are preceded by <code>_</code>.</p>
 <h2 id="version"><a class="header" href="#version">Version</a></h2>
 <p>If the <code>Engine</code> is built with an explicit version:</p>
-<pre><pre class="playground"><code class="language-rust">
-<span class="boring">#![allow(unused)]
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>let mut server: Engine&lt;()&gt; = Engine::new(config, db)
     .with_version(&quot;0.1.0&quot;.to_string())
