@@ -157,6 +157,6 @@ https://rust-lang.github.io/api-guidelines/checklist.html
 
 Open an rc-X.Y.Z branch.
 
-Update version in `Cargo.toml.` and `src/lib.rs`. 
+Update version in `Cargo.toml`, `src/lib.rs`, and `book/src/warpgrapher/quickstart.md`. 
 
 Commit and merge the rc-X.Y.Z branch. Add a release version tag using the GitHub UI.

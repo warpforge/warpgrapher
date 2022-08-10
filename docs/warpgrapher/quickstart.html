@@ -149,7 +149,7 @@
 <p>First, set up the <code>Cargo.toml</code> file to import Warpgrapher as a dependency. There are crate features for each of the databases supported as a back-end.  Use the <code>gremlin</code> feature to support Gremlin-based databases such as Apache Tinkerpop and Azure CosmosDB. Use <code>cypher</code> to support Cypher-based databases, such as AWS Neptune and Neo4J. This tutorial example uses Neo4J.</p>
 <p><code>Cargo.toml</code></p>
 <pre><code class="language-toml">[dependencies]
-warpgrapher = { version = &quot;0.11.0&quot;, features = [&quot;cypher&quot;] }
+warpgrapher = { version = &quot;0.11.2&quot;, features = [&quot;cypher&quot;] }
 </code></pre>
 <p>The <code>src/main.rs</code> file begins with a definition of the data model for the example:</p>
 <pre><code class="language-rust no_run noplayground">static CONFIG: &amp;str = &quot;
